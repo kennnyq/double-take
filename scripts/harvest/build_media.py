@@ -27,6 +27,8 @@ from concurrent.futures import ThreadPoolExecutor
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 TELLS_DIR = os.path.join(HERE, "tells")
+# Alternative pipelines' tells (dev-build comparison), one folder per variant.
+VARIANTS_DIR = os.path.join(HERE, "..", "annotate", "variants")
 VERSION = "v1"
 
 
@@ -88,22 +90,40 @@ def normalize(src: str, dst_dir: str) -> None:
          os.path.join(dst_dir, "poster.jpg")], check=True)
 
 
-def copy_tells(cid: str, out: str) -> str | None:
-    """Copy scripts/harvest/tells/<cid>.json to a content-addressed name (same as
+def copy_tells(cid: str, out: str, src_dir: str = TELLS_DIR) -> str | None:
+    """Copy <src_dir>/<cid>.json to a content-addressed name (same as
     scripts/annotate: sha256 of the file bytes). Media is cached for a day under a
     URL that only changes daily, so new tells need a new name, not an overwrite."""
-    src = os.path.join(TELLS_DIR, f"{cid}.json")
+    src = os.path.join(src_dir, f"{cid}.json")
     if not os.path.exists(src):
         return None
     with open(src, "rb") as f:
         data = f.read()
-    if not json.loads(data).get("tells"):
+    # Like scripts/annotate: a file with only unplaced claims still ships (the "Also noted" card).
+    parsed = json.loads(data)
+    if not parsed.get("tells") and not parsed.get("unplaced"):
         return None
     key = f"media/{cid}/{VERSION}/tells.{hashlib.sha256(data).hexdigest()[:12]}.json"
     os.makedirs(os.path.dirname(os.path.join(out, key)), exist_ok=True)
     with open(os.path.join(out, key), "wb") as f:
         f.write(data)
     return key
+
+
+def attach_tells(clip: dict, out: str) -> None:
+    """Point a feed clip at its current tells and alternative tells from the repo."""
+    cid = clip["id"]
+    clip["tells"] = copy_tells(cid, out)
+    alt = {}
+    if os.path.isdir(VARIANTS_DIR):
+        for variant in sorted(os.listdir(VARIANTS_DIR)):
+            key = copy_tells(cid, out, os.path.join(VARIANTS_DIR, variant))
+            if key:
+                alt[variant] = key
+    if alt:
+        clip["tellsAlt"] = alt
+    else:
+        clip.pop("tellsAlt", None)
 
 
 def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
@@ -185,6 +205,9 @@ def main() -> None:
         if c["sha256"] not in seen:
             seen.add(c["sha256"])
             feed.append(c)
+    # Refresh tells for every clip, kept ones included, so --merge also picks up tells changes.
+    for c in feed:
+        attach_tells(c, args.out)
     os.makedirs(os.path.join(args.out, "feeds"), exist_ok=True)
     with open(feed_path, "w") as f:
         json.dump({"version": 1, "clips": feed}, f, ensure_ascii=False, indent=2)
