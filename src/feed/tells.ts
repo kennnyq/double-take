@@ -7,22 +7,11 @@
  * transform the video does.
  */
 
-export interface Box {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
+import { readTellsFile, type Box, type Tell } from '../annotations/format.ts';
+import { TELL_SLACK, activeTells } from '../annotations/walkthrough.ts';
 
-export interface Tell {
-  id: string;
-  category: string;
-  label: string;
-  detail?: string;
-  t0: number;
-  t1: number;
-  box: Box;
-}
+export type { Box, Tell };
+export { TELL_SLACK, activeTells };
 
 export type Fit = 'contain' | 'cover';
 
@@ -51,17 +40,6 @@ export function boxOnStage(box: Box, frame: Box, stageW: number, stageH: number)
 }
 
 /**
- * Tells to show at playback time `t`. A little slack either side, because
- * `timeUpdate` only arrives every 250 ms.
- */
-export function activeTells(tells: Tell[], t: number, slack = TELL_SLACK): Tell[] {
-  return tells.filter((x) => t >= x.t0 - slack && t <= x.t1 + slack);
-}
-
-/** Seconds of slack around each tell's window (see `activeTells`). */
-export const TELL_SLACK = 0.3;
-
-/**
  * Where "reveal" seeks to: a beat before the first tell, but inside its window,
  * so a paused clip already shows the box.
  */
@@ -69,18 +47,22 @@ export function revealTime(tells: Tell[]): number {
   return Math.max(0, Math.min(...tells.map((t) => t.t0)) - TELL_SLACK / 2);
 }
 
-/** Keep only well-formed tells; the file comes from the network. */
+/** Keep only well-formed tells (v1 or v2 files); the file comes from the network. */
 export function parseTells(data: unknown): Tell[] {
-  const list = (data as { tells?: unknown })?.tells;
-  if (!Array.isArray(list)) return [];
-  return list.filter((t): t is Tell => {
-    const b = t?.box;
-    return (
-      typeof t?.label === 'string' &&
-      Number.isFinite(t.t0) &&
-      Number.isFinite(t.t1) &&
-      t.t1 > t.t0 &&
-      [b?.x, b?.y, b?.w, b?.h].every((n) => Number.isFinite(n) && n >= 0 && n <= 1)
-    );
-  });
+  return readTellsFile(data).tells;
+}
+
+/**
+ * Where the walkthrough card goes: at the bottom unless the highlighted box
+ * would sit under it, then at the top (below `topInset`, the top bar).
+ */
+export function cardPlacement(box: Box | null, stageH: number, cardH: number, topInset: number): 'top' | 'bottom' {
+  if (!box) return 'bottom';
+  const bottomCardTop = stageH - cardH - 16;
+  if (box.y + box.h <= bottomCardTop) return 'bottom';
+  const topCardBottom = topInset + cardH;
+  // Prefer whichever position covers less of the box.
+  const coverBottom = Math.max(0, box.y + box.h - bottomCardTop);
+  const coverTop = Math.max(0, topCardBottom - box.y);
+  return coverTop < coverBottom ? 'top' : 'bottom';
 }

@@ -1,0 +1,311 @@
+{
+ "_provenance": "Real replies from hosted NVIDIA models (integrate.api.nvidia.com), recorded by the NVIDIA proof of concept on 2026-11-06. Kept verbatim as regression fixtures for the validator. Frames: 360x640 at 4 fps. Not ground truth.",
+ "vlm": [
+  {
+   "tweetId": "2106432142217765020",
+   "mode": "blind",
+   "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+   "result": {
+    "verdict": "likely_ai",
+    "events": [
+     {
+      "category": "object_appearing_disappearing",
+      "description": "A man appears in the doorway behind the woman, then disappears and reappears, suggesting an edit or AI generation artifact.",
+      "start_s": 1.5,
+      "end_s": 3.0,
+      "bbox_2d": [
+       375,
+       180,
+       450,
+       300
+      ],
+      "confirmed": true
+     },
+     {
+      "category": "morphing_anatomy",
+      "description": "The woman's body shape and proportions appear to shift slightly between frames, particularly around the torso and arms, indicating morphing typical of AI video generation.",
+      "start_s": 0.0,
+      "end_s": 15.8,
+      "bbox_2d": [
+       300,
+       100,
+       650,
+       650
+      ],
+      "confirmed": true
+     },
+     {
+      "category": "impossible_physics",
+      "description": "The woman turns around and walks through a door that appears to be closed or locked, defying normal physical constraints.",
+      "start_s": 3.5,
+      "end_s": 5.5,
+      "bbox_2d": [
+       350,
+       300,
+       550,
+       500
+      ],
+      "confirmed": true
+     },
+     {
+      "category": "garbled_text",
+      "description": "The text overlay contains grammatical errors and awkward phrasing ('I used the men's bathroom as a trans woman', 'Excuse me, are you in the right bathroom?'), which is common in AI-generated captions.",
+      "start_s": 0.0,
+      "end_s": 15.8,
+      "bbox_2d": [
+       350,
+       150,
+       650,
+       350
+      ],
+      "confirmed": true
+     }
+    ]
+   }
+  },
+  {
+   "tweetId": "2106432142217765020",
+   "mode": "guided",
+   "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+   "result": {
+    "verdict": "uncertain",
+    "events": [
+     {
+      "category": "continuity",
+      "description": "dresser disappears",
+      "start_s": 7,
+      "end_s": 7,
+      "bbox_2d": [
+       0,
+       0,
+       1000,
+       1000
+      ],
+      "confirmed": false
+     },
+     {
+      "category": "background_shift",
+      "description": "wallpaper and wall tiles change",
+      "start_s": 7,
+      "end_s": 7,
+      "bbox_2d": [
+       0,
+       0,
+       1000,
+       1000
+      ],
+      "confirmed": false
+     },
+     {
+      "category": "continuity",
+      "description": "fire alarm disappears",
+      "start_s": 7,
+      "end_s": 7,
+      "bbox_2d": [
+       0,
+       0,
+       1000,
+       1000
+      ],
+      "confirmed": false
+     },
+     {
+      "category": "continuity",
+      "description": "dresser disappears",
+      "start_s": 7,
+      "end_s": 7,
+      "bbox_2d": [
+       0,
+       0,
+       1000,
+       1000
+      ],
+      "confirmed": false
+     },
+     {
+      "category": "background_shift",
+      "description": "wallpaper and wall tiles change",
+      "start_s": 7,
+      "end_s": 7,
+      "bbox_2d": [
+       0,
+       0,
+       1000,
+       1000
+      ],
+      "confirmed": false
+     },
+     {
+      "category": "continuity",
+      "description": "fire alarm disappears",
+      "start_s": 7,
+      "end_s": 7,
+      "bbox_2d": [
+       0,
+       0,
+       1000,
+       1000
+      ],
+      "confirmed": false
+     }
+    ]
+   }
+  },
+  {
+   "tweetId": "2104165634187674050",
+   "mode": "blind",
+   "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+   "result": {
+    "verdict": "uncertain",
+    "events": [
+     {
+      "category": "object appearing/disappearing",
+      "description": "The book on the table appears to be present at the start but disappears and reappears in different positions and orientations throughout the clip, suggesting morphing or editing artifacts.",
+      "start_s": 0.0,
+      "end_s": 11.6667,
+      "bbox_2d": [
+       200,
+       480,
+       450,
+       650
+      ],
+      "confirmed": true
+     },
+     {
+      "category": "morphing",
+      "description": "The woman's face and hair appear to morph and change shape unnaturally, particularly around the eyes and mouth, which is typical of AI video generation artifacts.",
+      "start_s": 0.0,
+      "end_s": 11.6667,
+      "bbox_2d": [
+       300,
+       100,
+       550,
+       450
+      ],
+      "confirmed": true
+     },
+     {
+      "category": "anatomy errors",
+      "description": "The woman's hand movements and arm positions seem physically impossible or inconsistent with normal human anatomy, such as when she holds the book against her chest.",
+      "start_s": 0.0,
+      "end_s": 11.6667,
+      "bbox_2d": [
+       350,
+       450,
+       600,
+       700
+      ],
+      "confirmed": true
+     },
+     {
+      "category": "impossible physics",
+      "description": "The book appears to levitate or move on its own without visible cause, and the woman's head movements are exaggerated and unnatural.",
+      "start_s": 0.0,
+      "end_s": 11.6667,
+      "bbox_2d": [
+       200,
+       480,
+       450,
+       650
+      ],
+      "confirmed": true
+     },
+     {
+      "category": "garbled text",
+      "description": "The text 'POLIZEI' on the uniform and the timestamp 't= 00:00:00.000' appear garbled or distorted in some frames, which is common in AI-generated content.",
+      "start_s": 0.0,
+      "end_s": 11.6667,
+      "bbox_2d": [
+       450,
+       350,
+       600,
+       450
+      ],
+      "confirmed": true
+     }
+    ]
+   }
+  },
+  {
+   "tweetId": "2104165634187674050",
+   "mode": "guided",
+   "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+   "result": {
+    "verdict": "uncertain",
+    "events": [
+     {
+      "category": "anatomy",
+      "description": "fingernail disappears and reappears",
+      "start_s": 7.0,
+      "end_s": 7.5,
+      "bbox_2d": [
+       200,
+       450,
+       250,
+       500
+      ],
+      "confirmed": false
+     }
+    ]
+   }
+  },
+  {
+   "tweetId": "2108375005817930137",
+   "mode": "blind",
+   "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+   "result": {
+    "verdict": "likely_ai",
+    "events": [
+     {
+      "category": "garbled_text",
+      "description": "Text overlays change and become garbled between frames, with phrases like 'Be rotund w me twin' and 'Let's hit da buffet' appearing and disappearing or shifting positions.",
+      "start_s": 0.0,
+      "end_s": 9.375,
+      "bbox_2d": [
+       0,
+       0,
+       1000,
+       900
+      ],
+      "confirmed": true
+     }
+    ]
+   }
+  },
+  {
+   "tweetId": "2108375005817930137",
+   "mode": "guided",
+   "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+   "result": {
+    "verdict": "uncertain",
+    "events": [
+     {
+      "category": "physics",
+      "description": "one paw passes through another on the glass surface",
+      "start_s": 0.0,
+      "end_s": 9.375,
+      "bbox_2d": [
+       215,
+       375,
+       305,
+       485
+      ],
+      "confirmed": false
+     }
+    ]
+   }
+  }
+ ],
+ "grounding": [
+  {
+   "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+   "prompt": "grounding",
+   "result": "[{\"object\": \"dresser\", \"bbox_2d_frame_A\": [0, 450, 150, 600], \"visible_in_B\": false}, {\"object\": \"wall tiles\", \"bbox_2d_frame_A\": [0, 150, 250, 500], \"visible_in_B\": false}, {\"object\": \"fire alarm\", \"bbox_2d_frame_A\": [550, 50, 600, 100], \"visible_in_B\": false}]"
+  },
+  {
+   "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+   "prompt": "grounding",
+   "result": "[{\"object\": \"dresser\", \"bbox_2d_frame_A\": [0, 500, 208, 725], \"visible_in_B\": false}, {\"object\": \"wall tiles\", \"bbox_2d_frame_A\": [0, 437, 1000, 737], \"visible_in_B\": true}, {\"object\": \"fire alarm\", \"bbox_2d_frame_A\": [447, 112, 525, 162], \"visible_in_B\": true}]"
+  }
+ ]
+}

@@ -142,10 +142,17 @@ test('tells are served and well-formed', async () => {
   for (const c of withTells) {
     const res = await fetch(c.tells!);
     assert.equal(res.status, 200);
-    const { tells } = (await res.json()) as { tells: { t0: number; t1: number; box: Record<string, number> }[] };
-    assert.ok(tells.length > 0);
-    for (const t of tells) {
+    const file = (await res.json()) as {
+      version: number;
+      tells: { t0: number; t1: number; box?: Record<string, number> }[];
+      unplaced?: { quote: string; from: string }[];
+    };
+    // v2 files may hold only claims that couldn't be placed on the video.
+    assert.ok(file.tells.length + (file.unplaced?.length ?? 0) > 0, `${c.id}: empty tells file`);
+    for (const t of file.tells) {
       assert.ok(t.t0 >= 0 && t.t1 > t.t0 && t.t1 <= c.duration + 0.5, `${c.id}: bad time range`);
+      // Box-less steps are allowed (a timed claim with no place on screen).
+      if (!t.box) continue;
       const { x, y, w, h } = t.box;
       assert.ok(x >= 0 && y >= 0 && w > 0 && h > 0 && x + w <= 1.0001 && y + h <= 1.0001, `${c.id}: box outside frame`);
     }

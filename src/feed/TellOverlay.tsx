@@ -83,7 +83,8 @@ function Boxes(p: Props & { player: VideoPlayer; tells: Tell[] }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {activeTells(p.tells, t).map((tell) => {
-        const r = boxOnStage(tell.box, frame, p.stageW, p.stageH);
+        // Box-less steps (v2) have nothing to outline.
+        const r = tell.box && boxOnStage(tell.box, frame, p.stageW, p.stageH);
         if (!r) return null;
         // Above the box when that clears the top bar, otherwise inside its bottom
         // edge; anchored to whichever side of the box keeps it on screen.
