@@ -17,6 +17,15 @@ A short-video feed app built with Expo (React Native) for iOS and iPadOS, with w
 
 Edits hot-reload on the device.
 
+### Over Tailscale
+
+When the phone is not on the same Wi-Fi, run `npm run start:tailnet` instead. It
+advertises this machine's tailnet name (for example
+`http://kenny-desktop.<tailnet>.ts.net:8081`) in the QR code, so any device signed in
+to the same tailnet can load the app. Extra arguments go to `expo start`
+(`npm run start:tailnet -- --port 8090`). Inside WSL with NAT networking, the script
+also asks Windows' Tailscale to forward the port into WSL while Metro runs.
+
 ```sh
 npm test            # unit tests (node --test)
 npm run typecheck
