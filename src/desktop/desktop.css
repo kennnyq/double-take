@@ -575,42 +575,6 @@
   cursor: default;
 }
 
-.desk .messages-pill {
-  position: fixed;
-  right: 24px;
-  bottom: 22px;
-  z-index: 6;
-  width: 250px;
-  height: 58px;
-  padding: 0 14px 0 22px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  border-radius: 999px;
-  background: var(--bg-elev);
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
-  font-weight: 700;
-  font-size: 16px;
-}
-
-.desk .messages-pill:hover {
-  background: var(--bg-elev-2);
-}
-
-.desk .pill-avatars {
-  margin-left: auto;
-  display: flex;
-}
-
-.desk .pill-avatars i {
-  width: 24px;
-  height: 24px;
-  margin-left: -8px;
-  border-radius: 50%;
-  border: 2px solid var(--bg-elev);
-  background: linear-gradient(135deg, hsl(var(--hue) 70% 55%), hsl(calc(var(--hue) + 50) 70% 40%));
-}
-
 /* Narrow desktop: the info moves into the card, like Reels does. */
 @media (max-width: 1180px) {
   .desk .d-info {
@@ -627,14 +591,6 @@
   }
   .desk .d-info-overlay .d-caption {
     -webkit-line-clamp: 2;
-  }
-  .desk .messages-pill {
-    width: 58px;
-    padding: 0;
-    justify-content: center;
-  }
-  .desk .messages-pill span {
-    display: none;
   }
 }
 

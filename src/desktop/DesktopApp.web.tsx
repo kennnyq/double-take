@@ -36,7 +36,7 @@ const NAV: { id: DesktopTab; label: string; icon: LucideIcon; dot?: boolean }[] 
 ];
 
 /**
- * Desktop browsers: a left icon rail, the Reels-style feed and a Messages pill.
+ * Desktop browsers: a left icon rail, and the Reels-style feed.
  * Shares the social store, toasts, profile and clip data with the app; only the
  * layout and the feed's input handling (wheel, keyboard, buttons) are desktop's own.
  */
@@ -133,16 +133,6 @@ export function DesktopApp({ startAt }: { startAt?: number }) {
           )}
           {tab !== 'reels' && tab !== 'profile' && <Placeholder icon={current.icon} title={current.label} />}
         </main>
-
-        <button className="messages-pill" onClick={() => setTab('messages')} aria-label="Messages">
-          <Send size={20} />
-          <span>Messages</span>
-          <span className="pill-avatars" aria-hidden>
-            <i style={{ ['--hue' as string]: 200 }} />
-            <i style={{ ['--hue' as string]: 320 }} />
-            <i style={{ ['--hue' as string]: 40 }} />
-          </span>
-        </button>
       </div>
 
       {sheet && (
