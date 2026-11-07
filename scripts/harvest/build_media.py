@@ -1,14 +1,17 @@
 """Download candidate videos, archive the originals and build servable media plus a feed.
 
 Usage:
-    python3 -I scripts/harvest/build_media.py CANDIDATES.jsonl [--out build] [--max-duration 90]
+    python3 -I scripts/harvest/build_media.py CANDIDATES.jsonl [--out build] [--max-duration 90] [--merge]
+
+--merge keeps the existing feed and only downloads candidates it doesn't have yet,
+so adding clips never drops one whose source link has since died.
 
 CANDIDATES.jsonl rows need at least `url`; `label`, `evidence`, `views`, `likes`,
 `uploader` and `source` are carried into the feed when present.
 
 Output mirrors the R2 bucket layout:
     archive/{sha256}/original.<ext>, info.json, candidate.json   private, never served
-    media/{clipId}/v1/720.mp4, poster.jpg, tells.json           immutable, served
+    media/{clipId}/v1/720.mp4, poster.jpg, tells.<hash>.json    immutable, served
     feeds/demo.json                                             the feed
 """
 import argparse
@@ -85,6 +88,24 @@ def normalize(src: str, dst_dir: str) -> None:
          os.path.join(dst_dir, "poster.jpg")], check=True)
 
 
+def copy_tells(cid: str, out: str) -> str | None:
+    """Copy scripts/harvest/tells/<cid>.json to a content-addressed name (same as
+    scripts/annotate: sha256 of the file bytes). Media is cached for a day under a
+    URL that only changes daily, so new tells need a new name, not an overwrite."""
+    src = os.path.join(TELLS_DIR, f"{cid}.json")
+    if not os.path.exists(src):
+        return None
+    with open(src, "rb") as f:
+        data = f.read()
+    if not json.loads(data).get("tells"):
+        return None
+    key = f"media/{cid}/{VERSION}/tells.{hashlib.sha256(data).hexdigest()[:12]}.json"
+    os.makedirs(os.path.dirname(os.path.join(out, key)), exist_ok=True)
+    with open(os.path.join(out, key), "wb") as f:
+        f.write(data)
+    return key
+
+
 def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
     url = cand["url"]
     cid = clip_id(url)
@@ -110,18 +131,15 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
         normalize(src, media_dir)
 
     served = probe(os.path.join(media_dir, "720.mp4"))
-    tells_src = os.path.join(TELLS_DIR, f"{cid}.json")
-    has_tells = os.path.exists(tells_src)
-    if has_tells:
-        shutil.copy(tells_src, os.path.join(media_dir, "tells.json"))
+    tells_key = copy_tells(cid, out)
     base = f"media/{cid}/{VERSION}"
     print(f"ok   {cid}: {served['width']}x{served['height']} {served['duration']}s"
-          f"{' +tells' if has_tells else ''}", file=sys.stderr)
+          f"{' +tells' if tells_key else ''}", file=sys.stderr)
     return {
         "id": cid,
         "video": f"{base}/720.mp4",
         "poster": f"{base}/poster.jpg",
-        "tells": f"{base}/tells.json" if has_tells else None,
+        "tells": tells_key,
         **served,
         "sha256": digest,
         "label": cand.get("label"),
@@ -143,14 +161,23 @@ def main() -> None:
     ap.add_argument("--out", default="build")
     ap.add_argument("--max-duration", type=float, default=90)
     ap.add_argument("--jobs", type=int, default=3)
+    ap.add_argument("--merge", action="store_true", help="keep the existing feed; only add new clips")
     args = ap.parse_args()
 
     with open(args.candidates) as f:
         cands = [json.loads(line) for line in f if line.strip()]
     # One clip per id: the same post can appear twice in a candidate list.
     uniq = list({clip_id(c["url"]): c for c in cands}.values())
+    feed_path = os.path.join(args.out, "feeds", "demo.json")
+    existing = []
+    if args.merge and os.path.exists(feed_path):
+        with open(feed_path) as f:
+            existing = json.load(f)["clips"]
+        have = {c["id"] for c in existing}
+        uniq = [c for c in uniq if clip_id(c["url"]) not in have]
+        print(f"merge: {len(existing)} clips kept, {len(uniq)} new to build", file=sys.stderr)
     with ThreadPoolExecutor(args.jobs) as ex:
-        clips = [c for c in ex.map(lambda c: build_one(c, args.out, args.max_duration), uniq) if c]
+        clips = existing + [c for c in ex.map(lambda c: build_one(c, args.out, args.max_duration), uniq) if c]
 
     # Collapse re-uploads of byte-identical files.
     seen, feed = set(), []
@@ -159,7 +186,7 @@ def main() -> None:
             seen.add(c["sha256"])
             feed.append(c)
     os.makedirs(os.path.join(args.out, "feeds"), exist_ok=True)
-    with open(os.path.join(args.out, "feeds", "demo.json"), "w") as f:
+    with open(feed_path, "w") as f:
         json.dump({"version": 1, "clips": feed}, f, ensure_ascii=False, indent=2)
     print(f"feed: {len(feed)} clips → {os.path.join(args.out, 'feeds', 'demo.json')}", file=sys.stderr)
 
