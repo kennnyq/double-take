@@ -12,6 +12,7 @@ import {
   BadgeCheck,
   Bookmark,
   ChevronDown,
+  CircleCheck,
   ChevronUp,
   Heart,
   MessageCircle,
@@ -20,20 +21,24 @@ import {
   Play,
   Repeat2,
   Send,
+  Sparkles,
   Volume2,
   VolumeX,
 } from 'lucide-react';
 import { REPLAY_RATE } from '@/annotations/walkthrough';
-import { avatarHue, formatCount, makeClips, type Clip } from '@/data/clips';
+import { avatarHue, formatCount, makeClips, type Clip, type Verdict } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { gestureAction, isDoubleTap, type Tap } from '@/devtools/gesture';
 import { useDevSettings } from '@/devtools/store';
+import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf, VERDICT_TEXT } from '@/feed/feedMode';
 import { TellOverlay, type TellOverlayHandle } from '@/feed/TellOverlay';
+import { FeedEmpty, VerdictBadge } from '@/feed/VerdictBadge';
 import { receiveHandoff } from '@/landing/handoff';
 import { fitFor, type Fit } from '@/feed/tells';
 import { useSocialActions } from '@/social/actions';
 import { baseReposts } from '@/social/clipRefs';
 import { useAppNav } from '@/social/nav';
+import { useAppSettings } from '@/settings/store';
 import { useSocial } from '@/social/store';
 import { useToast } from '@/ui/Toast';
 import { HtmlVideoPlayer } from './HtmlVideoPlayer';
@@ -77,14 +82,24 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   const feedRef = useRef<HTMLDivElement>(null);
   const [feedH, setFeedH] = useState(0);
 
-  // The feed is endless once loaded: the list below always reaches AHEAD past the active clip.
-  const { active, goTo, next, prev } = useFeedScroller(feedRef, base ? Number.MAX_SAFE_INTEGER : 0, visible && scrollEnabled);
+  // The feed mode (Settings) may keep only AI or only real clips; that feed ends
+  // (placeholders have no verdict). Otherwise the feed is endless once loaded:
+  // the list below always reaches AHEAD past the active clip.
+  const { feedMode } = useAppSettings();
+  const filter = modeFilter(feedMode);
+  const filtered = useMemo(() => (base && filter ? clipsForMode(base, feedMode) : null), [base, filter, feedMode]);
+  const { active, goTo, next, prev } = useFeedScroller(
+    feedRef,
+    filtered ? filtered.length : base ? Number.MAX_SAFE_INTEGER : 0,
+    visible && scrollEnabled,
+  );
 
   const total = base ? Math.max(base.length, active + AHEAD, minCount) : 0;
-  const clips = useMemo(
+  const endless = useMemo(
     () => (base ? [...base, ...makeClips(base.length, Math.max(0, total - base.length))] : []),
     [base, total],
   );
+  const clips = filtered ?? endless;
 
   useEffect(() => {
     let live = true;
@@ -232,8 +247,20 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     return () => window.removeEventListener('keydown', onKey);
   }, [visible, scrollEnabled, togglePause, toggleMute]);
 
+  // ---- feed mode switch ------------------------------------------------------
+  // Stay on the same clip, or the nearest one after it.
+  const shownBefore = useRef(clips);
+  useEffect(() => {
+    const before = shownBefore.current;
+    shownBefore.current = clips;
+    if (isAppend(before, clips)) return;
+    setPausedAt(null);
+    goTo(keepPosition(before, clips, activeRef.current), true);
+  }, [clips, goTo]);
+
   // ---- jump to a clip (profile tile) ---------------------------------------
   // Grow the list if needed, then land once the feed is showing and long enough.
+  // A filtered feed lands on that clip, or the next one it shows.
   const pendingJump = useRef<number | null>(null);
   useImperativeHandle(
     ref,
@@ -247,10 +274,10 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   );
   useEffect(() => {
     const i = pendingJump.current;
-    if (i === null || !visible || i >= clips.length) return;
+    if (i === null || !visible || !base || (!filtered && i >= clips.length)) return;
     pendingJump.current = null;
-    goTo(i, true);
-  }, [visible, clips.length, minCount, goTo]);
+    goTo(filtered ? shownIndexOf(filtered, i) : i, true);
+  }, [visible, base, filtered, clips.length, minCount, goTo]);
 
   // ---- interactions -------------------------------------------------------
   const social = useSocial();
@@ -304,6 +331,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             sent={sent.has(clip.id)}
             followed={followed.has(clip.author)}
             myComments={social.comments[clip.id]?.length ?? 0}
+            label={autoLabel(clip, feedMode)}
             inspecting={i === active && inspecting}
             fit={fitOf(i)}
             card={card}
@@ -339,13 +367,23 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             </div>
           </div>
         ))}
+        {filter && filtered?.length === 0 && (
+          <div className="feed-empty">
+            <FeedEmpty verdict={filter} />
+          </div>
+        )}
       </div>
 
       <div className="d-nav">
         <button className="round-btn" onClick={prev} disabled={active === 0} aria-label="Previous video">
           <ChevronUp size={26} />
         </button>
-        <button className="round-btn" onClick={next} aria-label="Next video">
+        <button
+          className="round-btn"
+          onClick={next}
+          disabled={!!filtered && active >= filtered.length - 1}
+          aria-label="Next video"
+        >
           <ChevronDown size={26} />
         </button>
       </div>
@@ -383,6 +421,8 @@ interface SlideProps {
   sent: boolean;
   followed: boolean;
   myComments: number;
+  /** The verdict shown without a reveal (Auto label mode), or null. */
+  label: Verdict | null;
   inspecting: boolean;
   fit: Fit;
   card: { w: number; h: number };
@@ -465,6 +505,12 @@ const Slide = memo(function Slide(p: SlideProps) {
 
   const info = (
     <div className="d-info-inner">
+      {p.label && (
+        <span className={`d-verdict ${p.label}`} aria-label={p.label === 'ai' ? 'Verdict: AI-generated' : 'Verdict: not AI'}>
+          {p.label === 'ai' ? <Sparkles size={13} fill="currentColor" /> : <CircleCheck size={13} />}
+          {VERDICT_TEXT[p.label]}
+        </span>
+      )}
       <div className="d-author">
         <span className="avatar" style={{ width: 32, height: 32, ['--hue' as string]: avatarHue(clip.author) }}>
           {clip.author[0]?.toUpperCase()}
@@ -548,6 +594,12 @@ const Slide = memo(function Slide(p: SlideProps) {
                 onSlowmo={h.setSlowmo}
                 onInspect={h.setInspecting}
               />
+            )}
+            {/* The reveal shows the verdict along with the reasoning, in every feed mode. */}
+            {p.inspecting && clip.verdict && (
+              <div className="reveal-verdict">
+                <VerdictBadge verdict={clip.verdict} />
+              </div>
             )}
             {isActive && !p.inspecting && (
               <button className="mute-btn" onClick={h.toggleMute} aria-label={p.muted ? 'Unmute' : 'Mute'}>
