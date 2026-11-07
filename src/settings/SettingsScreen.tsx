@@ -95,8 +95,8 @@ export function SettingsScreen() {
                       i > 0 && styles.rowDivider,
                       (pressed || hovered) && styles.rowPressed,
                     ]}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: on }}
+                    role="radio"
+                    aria-checked={on}
                     accessibilityLabel={`${o.title}. ${o.description}`}
                   >
                     <View style={[styles.icon, on && styles.iconOn]}>
