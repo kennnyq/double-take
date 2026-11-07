@@ -41,6 +41,17 @@ test('toClip copes with missing source metadata', () => {
   assert.equal(c.caption, '');
   assert.equal(c.likes, 0);
   assert.equal(c.tellsUrl, undefined);
+  assert.equal(c.tellsVariants, undefined);
+});
+
+test('toClip lists tells variants, main first, skipping junk', () => {
+  const alt = { claude: 'https://api.test/m/media/x/v1/tells.b.json?exp=1&sig=d', main: 'https://evil', empty: '' };
+  const c = toClip({ ...CLIP, tellsAlt: alt as Record<string, string> }, 0);
+  assert.deepEqual(c.tellsVariants, [
+    { name: 'main', url: CLIP.tells },
+    { name: 'claude', url: alt.claude },
+  ]);
+  assert.deepEqual(toClip(CLIP, 0).tellsVariants, [{ name: 'main', url: CLIP.tells }]);
 });
 
 test('toHandle', () => {

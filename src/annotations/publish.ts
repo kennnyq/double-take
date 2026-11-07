@@ -15,6 +15,13 @@ export interface MergeResult {
 
 const isChecked = (t: Tell) => t.review === 'spot_checked' || t.review === 'verified';
 
+/**
+ * Drafts this close in time to a checked tell count as the same moment: a
+ * draft trimmed to its camera shot can end up just past a checked window
+ * that describes the same artifact (fight clip: checked 1.6–2.4 s, draft 2.5–2.6 s).
+ */
+export const SAME_MOMENT_GAP = 0.5;
+
 export function mergeTells(existing: Tell[], drafts: Tell[]): MergeResult {
   const checked = existing.filter(isChecked);
   const dropped: MergeResult['dropped'] = [];
@@ -22,7 +29,10 @@ export function mergeTells(existing: Tell[], drafts: Tell[]): MergeResult {
   for (const d of drafts) {
     // A box-less draft adds nothing over a checked tell at the same moment.
     const clash = checked.find(
-      (c) => c.t0 <= d.t1 && d.t0 <= c.t1 && (!d.box || c.category === d.category || (!!c.box && iou(c.box, d.box) > 0.3)),
+      (c) =>
+        c.t0 - SAME_MOMENT_GAP <= d.t1 &&
+        d.t0 <= c.t1 + SAME_MOMENT_GAP &&
+        (!d.box || c.category === d.category || (!!c.box && iou(c.box, d.box) > 0.3)),
     );
     if (clash) {
       dropped.push({ tell: d, reason: `overlaps checked tell "${clash.label}"` });

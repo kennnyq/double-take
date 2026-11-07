@@ -1,0 +1,68 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "hand-stays-stuck-on-cat-s-paw",
+      "category": "anatomy",
+      "label": "Hand stays stuck on cat's paw",
+      "t0": 10.88,
+      "t1": 12.88,
+      "focusT": 11.88,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Watch the handler's hand on the cat's front paw after the cat lies down: it keeps gripping the same paw for seconds, even while his other hand holds the clippers away.",
+      "box": {
+        "x": 0.29,
+        "y": 0.51,
+        "w": 0.14,
+        "h": 0.16
+      },
+      "evidence": {
+        "quote": "the handler's hand failing to release the cat's leg",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2038718973584212312"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:50:42.719Z",
+    "clip": {
+      "id": "x-2038616001302986768",
+      "url": "https://x.com/i/status/2038616001302986768",
+      "sha256": "91c616b604c9feeddf62ff04d3556f42af2327310361b84abaac3457c5e5b7a9"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2038718973584212312",
+      "url": "https://x.com/i/birdwatch/n/2038718973584212312",
+      "text": "This video shows AI-generated footage of a cat reacting to nail clippers, not a real animal. Note the handler's hand failing to release the cat's leg—a telltale AI artifact.    https://www.facebook.com/61561347433810/videos/princess-the-drama-queen-cat-vs-nail-clipperscatfunnyvideosfunny/811018592019670/    https://www.youtube.com/shorts/FXo1pGCcSo8",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.63,
+        1.88,
+        3.13,
+        4.38,
+        5.63,
+        6.88,
+        8.13,
+        9.38,
+        10.63,
+        11.88,
+        13.13,
+        14.38
+      ]
+    }
+  }
+}

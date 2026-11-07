@@ -1,0 +1,150 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "tornado-funnel-looks-artificial",
+      "category": "other",
+      "label": "Tornado funnel looks artificial",
+      "t0": 1.14,
+      "t1": 3.14,
+      "focusT": 2.14,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "The funnel is unusually smooth and clean-edged, and its shape and position shift between moments. Compare the funnel across the clip.",
+      "box": {
+        "x": 0.18,
+        "y": 0.1274,
+        "w": 0.33,
+        "h": 0.3167
+      },
+      "evidence": {
+        "quote": "the tornado looks artificial",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+      }
+    },
+    {
+      "id": "crying-face-distorts",
+      "category": "anatomy",
+      "label": "Crying face distorts",
+      "t0": 4.56,
+      "t1": 6.56,
+      "focusT": 5.56,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "As she presses against the edge of the frame, her mouth and lips look smeared and stretched. Watch her face as she cries out.",
+      "box": {
+        "x": 0.895,
+        "y": 0.3122,
+        "w": 0.105,
+        "h": 0.1935
+      },
+      "evidence": {
+        "quote": "The woman’s face distorts unnaturally",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+      }
+    },
+    {
+      "id": "hand-stays-on-handle-door-never-opens",
+      "category": "anatomy",
+      "label": "Hand stays on handle, door never opens",
+      "t0": 4.71,
+      "t1": 6.56,
+      "focusT": 5.56,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "She sobs with her hand down by the door handle, yet she never opens the door to let the cat in. Watch the knob beside her hand.",
+      "box": {
+        "x": 0.79,
+        "y": 0.4749,
+        "w": 0.115,
+        "h": 0.1539
+      },
+      "evidence": {
+        "quote": "the woman is sobbing desperately while keeping her hand on the handle without opening the door",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+      }
+    },
+    {
+      "id": "cat-yanked-backward-across-the-porch",
+      "category": "physics",
+      "label": "Cat yanked backward across the porch",
+      "t0": 6.27,
+      "t1": 8.43,
+      "focusT": 7.27,
+      "compareT": 8.13,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "The cat is pawing at the window, then a split second later it is flung far back across the deck. Watch how it slides away with no visible force pulling it.",
+      "box": {
+        "x": 0.21,
+        "y": 0.5233,
+        "w": 0.33,
+        "h": 0.2375
+      },
+      "evidence": {
+        "quote": "the cat is pulled backward with impossible physics",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:50:28.108Z",
+    "clip": {
+      "id": "x-1997760641730556166",
+      "url": "https://x.com/i/status/1997760641730556166",
+      "sha256": "3f641ee65e6f10a1967360dfce07f1bf50773f98b4450e50c0495fa646216bfd"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "1998032346625311071",
+      "url": "https://x.com/i/birdwatch/n/1998032346625311071",
+      "text": "This video is AI-generated.    The woman’s face distorts unnaturally, the cat is pulled backward with impossible physics, the tornado looks artificial, and the woman is sobbing desperately while keeping her hand on the handle without opening the door.    https://caniphish.com/blog/how-to-spot-ai-videos",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.43,
+        1.28,
+        2.14,
+        2.99,
+        3.85,
+        4.71,
+        5.56,
+        6.42,
+        7.27,
+        8.13,
+        8.98,
+        9.84
+      ],
+      "crop": {
+        "x": 0,
+        "y": 0.021875,
+        "w": 1,
+        "h": 0.8796875
+      }
+    }
+  }
+}

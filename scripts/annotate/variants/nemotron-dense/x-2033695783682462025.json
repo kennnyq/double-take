@@ -1,0 +1,52 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "the blurring of the Sora logo in the upper right",
+      "from": "community_note",
+      "reason": "not_checked",
+      "url": "https://x.com/i/birdwatch/n/2034015574486093878"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:49:08.414Z",
+    "clip": {
+      "id": "x-2033695783682462025",
+      "url": "https://x.com/i/status/2033695783682462025",
+      "sha256": "e0bafbf9a18a70b39de4348119c1dd9e3de3b5479531b6739fa8efafba9baf1d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2034015574486093878",
+      "url": "https://x.com/i/birdwatch/n/2034015574486093878",
+      "text": "This is an AI generated video, evident by the 10 second length, unrealistic physics, and the blurring of the Sora logo in the upper right.   https://www.bbb.org/all/spot-a-scam/how-to-identify-ai  https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.42,
+        1.26,
+        2.1,
+        2.95,
+        3.79,
+        4.63,
+        5.47,
+        6.31,
+        7.15,
+        8,
+        8.84,
+        9.68
+      ]
+    }
+  }
+}

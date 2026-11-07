@@ -1,0 +1,73 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "woman-s-arm-morphs-into-leg-and-foot",
+      "category": "anatomy",
+      "label": "Woman's arm morphs into leg and foot",
+      "t0": 1,
+      "t1": 2.5,
+      "focusT": 2,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "At 2.0s the woman throws a punch with her arm; by 2.5s that same limb has become a leg with a foot striking the man's face.",
+      "box": {
+        "x": 0.15,
+        "y": 0.19,
+        "w": 0.37,
+        "h": 0.23
+      },
+      "evidence": {
+        "quote": "the woman's arm morphs into a leg and foot",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2023374107396526168"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 2.5
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:48:28.868Z",
+    "clip": {
+      "id": "x-2023151052800000040",
+      "url": "https://x.com/i/status/2023151052800000040",
+      "sha256": "ffbedc8495091a7379b0d811c03de806648d6b3ec4858c43abb805e085450e18"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2023374107396526168",
+      "url": "https://x.com/i/birdwatch/n/2023374107396526168",
+      "text": "This video is AI generated and is not a real clip from the anime series Spy x Family. This is evident by the fact that the woman's arm morphs into a leg and foot around 2 seconds in.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video  https://en.wikipedia.org/wiki/Text-to-video_model  https://en.wikipedia.org/wiki/List_of_Spy_%C3%97_Family_episodes",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 11,
+      "times": [
+        0.5,
+        0.75,
+        1,
+        1.25,
+        1.5,
+        1.75,
+        2,
+        2.25,
+        2.5,
+        2.75,
+        3
+      ]
+    }
+  }
+}

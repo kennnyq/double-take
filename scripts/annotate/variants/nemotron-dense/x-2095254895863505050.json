@@ -1,0 +1,82 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "ai-artifacts-in-mouth-and-eyes",
+      "category": "anatomy",
+      "label": "AI artifacts in mouth and eyes",
+      "t0": 0.36,
+      "t1": 2.36,
+      "focusT": 1.36,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The cartoon characters have exaggerated eyes and mouths that look AI-generated, such as the Blue Jays player in frame 0.",
+      "box": {
+        "x": 0.36,
+        "y": 0.28,
+        "w": 0.26,
+        "h": 0.17
+      },
+      "evidence": {
+        "quote": "AI artifacts in both the mouth and eyes on the characters",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2095562982675693697"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 3.67
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "garbled text in the background",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2095562982675693697"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:49:33.127Z",
+    "clip": {
+      "id": "x-2095254895863505050",
+      "url": "https://x.com/i/status/2095254895863505050",
+      "sha256": "348c41fd4567c7554d6a855711ff240da8ec8fcace55bd75b70a88075e575d78"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2095562982675693697",
+      "url": "https://x.com/i/birdwatch/n/2095562982675693697",
+      "text": "Despite claims to the contrary, this video is entirely AI generated. At basically any timestamp in this video, you can pause and see AI artifacts in both the mouth and eyes on the characters, or garbled text in the background. See below video for a breakdown with examples.  https://x.com/jacksfilms/status/2095521389339951524?s=46",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        1.36,
+        4.09,
+        6.81,
+        9.54,
+        12.26,
+        14.99,
+        17.71,
+        20.44,
+        23.17,
+        25.89,
+        28.62,
+        31.34
+      ]
+    }
+  }
+}

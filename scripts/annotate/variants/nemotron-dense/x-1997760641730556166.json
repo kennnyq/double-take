@@ -1,0 +1,135 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "tornado-looks-artificial",
+      "category": "text",
+      "label": "Tornado looks artificial",
+      "t0": 0,
+      "t1": 1.43,
+      "focusT": 0.43,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The tornado appears as a smooth, uniform funnel with unnatural clarity and shape, lacking the chaotic debris and texture of a real storm.",
+      "box": {
+        "x": 0.15,
+        "y": 0.1098,
+        "w": 0.35,
+        "h": 0.4398
+      },
+      "evidence": {
+        "quote": "the tornado looks artificial",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+      }
+    },
+    {
+      "id": "woman-sobbing-desperately-while-keeping-",
+      "category": "anatomy",
+      "label": "Woman sobbing desperately while keeping hand on handle",
+      "t0": 0,
+      "t1": 1.43,
+      "focusT": 0.43,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The woman is visibly crying with her hand on the window handle throughout the clip and never opens the door.",
+      "box": {
+        "x": 0.7,
+        "y": 0.2858,
+        "w": 0.3,
+        "h": 0.6158
+      },
+      "evidence": {
+        "quote": "the woman is sobbing desperately while keeping her hand on the handle without opening the door",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+      }
+    },
+    {
+      "id": "cat-pulled-backward-with-impossible-phys",
+      "category": "physics",
+      "label": "Cat pulled backward with impossible physics",
+      "t0": 5.42,
+      "t1": 7.57,
+      "focusT": 6.42,
+      "compareT": 7.27,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The cat is seen moving backward away from the window and onto the deck in a way that appears physically impossible given the window frame position.",
+      "box": {
+        "x": 0.1,
+        "y": 0.708,
+        "w": 0.18,
+        "h": 0.1407
+      },
+      "evidence": {
+        "quote": "the cat is pulled backward with impossible physics",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "The woman’s face distorts unnaturally",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1998032346625311071"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:49:13.705Z",
+    "clip": {
+      "id": "x-1997760641730556166",
+      "url": "https://x.com/i/status/1997760641730556166",
+      "sha256": "3f641ee65e6f10a1967360dfce07f1bf50773f98b4450e50c0495fa646216bfd"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1998032346625311071",
+      "url": "https://x.com/i/birdwatch/n/1998032346625311071",
+      "text": "This video is AI-generated.    The woman’s face distorts unnaturally, the cat is pulled backward with impossible physics, the tornado looks artificial, and the woman is sobbing desperately while keeping her hand on the handle without opening the door.    https://caniphish.com/blog/how-to-spot-ai-videos",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.43,
+        1.28,
+        2.14,
+        2.99,
+        3.85,
+        4.71,
+        5.56,
+        6.42,
+        7.27,
+        8.13,
+        8.98,
+        9.84
+      ],
+      "crop": {
+        "x": 0,
+        "y": 0.021875,
+        "w": 1,
+        "h": 0.8796875
+      }
+    }
+  }
+}

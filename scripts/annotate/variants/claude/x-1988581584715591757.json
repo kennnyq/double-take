@@ -1,0 +1,94 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "goat-climbs-sheer-wall-unnaturally",
+      "category": "physics",
+      "label": "Goat climbs sheer wall unnaturally",
+      "t0": 1.27,
+      "t1": 3.12,
+      "focusT": 2.12,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Watch the goat rear up on its hind legs and scramble straight up a near-vertical rock face; the note says real mountain goats don't climb like this.",
+      "box": {
+        "x": 0.275,
+        "y": 0.465,
+        "w": 0.32,
+        "h": 0.29
+      },
+      "evidence": {
+        "quote": "The way the goat climbs is not how mountain goats actually climb",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1991083723362639991"
+      }
+    },
+    {
+      "id": "hoof-sounds-don-t-fade-with-distance",
+      "category": "audio",
+      "label": "Hoof sounds don't fade with distance",
+      "t0": 4.66,
+      "t1": 8.9,
+      "focusT": 4.66,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Listen while the goat climbs away up the cliff: per the note, its hoof sounds stay just as loud instead of getting quieter.",
+      "evidence": {
+        "quote": "The hoof sounds do not get quieter as the goat gets further away",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1991083723362639991"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "and then suddenly vanish",
+      "from": "community_note",
+      "reason": "not_checked",
+      "url": "https://x.com/i/birdwatch/n/1991083723362639991"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:50:09.829Z",
+    "clip": {
+      "id": "x-1988581584715591757",
+      "url": "https://x.com/i/status/1988581584715591757",
+      "sha256": "2c68d9564441275ebaaa6fef877bb44bd5fe0687f56131a7709d780d3655d92f"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "1991083723362639991",
+      "url": "https://x.com/i/birdwatch/n/1991083723362639991",
+      "text": "This video is AI-generated. The way the goat climbs is not how mountain goats actually climb. The sound effects don't make sense at all. The hoof sounds do not get quieter as the goat gets further away and then suddenly vanish. The 10s length is also a sign of a sora video.  https://en.wikipedia.org/wiki/Mountain_goat",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.42,
+        1.27,
+        2.12,
+        2.97,
+        3.81,
+        4.66,
+        5.51,
+        6.36,
+        7.2,
+        8.05,
+        8.9,
+        9.75
+      ]
+    }
+  }
+}

@@ -70,6 +70,8 @@ export interface Tell {
   pixelCheck?: 'changed' | 'unchanged';
   /** Model that drafted the box/timing, e.g. `nvidia/nemotron-3.5-super-vl-120b-a12b`. */
   model?: string;
+  /** The camera shot the box belongs to (between scene cuts); [t0, t1] lies inside it. */
+  shot?: { t0: number; t1: number };
 }
 
 /**
@@ -182,6 +184,8 @@ export function readTell(t: unknown, i = 0): Tell | null {
   if (typeof r.seenInFrames === 'boolean') out.seenInFrames = r.seenInFrames;
   if (r.pixelCheck === 'changed' || r.pixelCheck === 'unchanged') out.pixelCheck = r.pixelCheck;
   if (typeof r.model === 'string') out.model = r.model;
+  const shot = r.shot as { t0?: unknown; t1?: unknown } | undefined;
+  if (shot && typeof shot.t0 === 'number' && typeof shot.t1 === 'number' && shot.t0 <= t0 && shot.t1 >= t1) out.shot = { t0: shot.t0, t1: shot.t1 };
   return out;
 }
 

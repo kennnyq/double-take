@@ -1,0 +1,151 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "red-dresser-vanishes-beside-the-sink",
+      "category": "continuity",
+      "label": "Red dresser vanishes beside the sink",
+      "t0": 5,
+      "t1": 7,
+      "focusT": 6,
+      "compareT": 6.25,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Watch the red cabinet under the shell lamp on the left. Between 6.00s and 6.25s it disappears and plain green tiles take its place.",
+      "box": {
+        "x": 0,
+        "y": 0.59,
+        "w": 0.195,
+        "h": 0.115
+      },
+      "evidence": {
+        "quote": "the Dresser disappears",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "wallpaper-pattern-switches-to-palm-leave",
+      "category": "background_shift",
+      "label": "Wallpaper pattern switches to palm leaves",
+      "t0": 5,
+      "t1": 7,
+      "focusT": 6,
+      "compareT": 6.25,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Look at the wallpaper on the left wall. The dark swirled pattern turns into a lighter teal palm-leaf print in a single step.",
+      "box": {
+        "x": 0,
+        "y": 0.115,
+        "w": 0.29,
+        "h": 0.335
+      },
+      "evidence": {
+        "quote": "the wallpaper becomes different",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "ceiling-fire-alarm-disappears",
+      "category": "continuity",
+      "label": "Ceiling fire alarm disappears",
+      "t0": 5,
+      "t1": 7,
+      "focusT": 6,
+      "compareT": 6.25,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Watch the dark box on the ceiling in the top-left corner. It is there at 6.00s and gone at 6.25s.",
+      "box": {
+        "x": 0.035,
+        "y": 0.0275,
+        "w": 0.105,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "what appears to be the fire alarm disappears completely",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "wall-tiles-change-colour-and-layout",
+      "category": "background_shift",
+      "label": "Wall tiles change colour and layout",
+      "t0": 5,
+      "t1": 7,
+      "focusT": 6,
+      "compareT": 6.5,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Compare the green tiles on the lower left wall. They shift colour and extend down where the dresser used to be.",
+      "box": {
+        "x": 0,
+        "y": 0.445,
+        "w": 0.16,
+        "h": 0.155
+      },
+      "evidence": {
+        "quote": "(as do the wall tiles)",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:50:33.330Z",
+    "clip": {
+      "id": "x-2106432142217765020",
+      "url": "https://x.com/i/status/2106432142217765020",
+      "sha256": "2f624cc2b6fbbe2459620bc70a72ce09dec934fc060c194541976a309cd25510"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2106588887942316333",
+      "url": "https://x.com/i/birdwatch/n/2106588887942316333",
+      "text": "This video is A.i. generated.  At 0:07: the Dresser disappears, the wallpaper becomes different (as do the wall tiles), and what appears to be the fire alarm disappears completely.  https://gijn.org/resource/guide-detecting-ai-generated-content/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 11,
+      "times": [
+        5.5,
+        5.75,
+        6,
+        6.25,
+        6.5,
+        6.75,
+        7,
+        7.25,
+        7.5,
+        7.75,
+        8
+      ]
+    }
+  }
+}

@@ -1,0 +1,130 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "license-plates-unreadable",
+      "category": "text",
+      "label": "License plates unreadable",
+      "t0": 0,
+      "t1": 1.99,
+      "focusT": 0.99,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "License plates on the truck and nearby cars are blurred and illegible throughout.",
+      "box": {
+        "x": 0.425,
+        "y": 0.605,
+        "w": 0.06,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "garbled licenses",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+      }
+    },
+    {
+      "id": "truck-tilts-and-drops-tires",
+      "category": "text",
+      "label": "Truck tilts and drops tires",
+      "t0": 3.93,
+      "t1": 7.2,
+      "focusT": 4.93,
+      "compareT": 6.9,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The truck leans sharply to the left while two tires fall onto the road behind it.",
+      "box": {
+        "x": 0.3,
+        "y": 0.26,
+        "w": 0.37,
+        "h": 0.47
+      },
+      "evidence": {
+        "quote": "vehicle anomalies",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "container-text-changes",
+      "category": "text",
+      "label": "Container text changes",
+      "t0": 7.87,
+      "t1": 9.87,
+      "focusT": 8.87,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The red container's rear text switches from CAT to ONE as the camera passes it.",
+      "box": {
+        "x": 0.58,
+        "y": 0.24,
+        "w": 0.28,
+        "h": 0.38
+      },
+      "evidence": {
+        "quote": "text/logo morphing",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "lighting/shadow inconsistencies",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:49:45.072Z",
+    "clip": {
+      "id": "x-2080524541978136834",
+      "url": "https://x.com/i/status/2080524541978136834",
+      "sha256": "3145c5cf7368423a023f2e7c1ca356f19c9333330114e036d9877dd188a2ca11"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2080762761903296582",
+      "url": "https://x.com/i/birdwatch/n/2080762761903296582",
+      "text": "This car video is not real but AI-generated (Seedance2 model).  It features telltale signs of AI generation (vehicle anomalies, text/logo morphing, garbled licenses, lighting/shadow inconsistencies, etc.) and is identified as AI by AI detection platforms.    https://share.gemini.google/GhaBIdr37bFj    https://hivedetect.ai/zKTFOy    https://isthisai.com/scan/298a146b-09ec-484c-9664-9e73c917d6a6",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.99,
+        2.96,
+        4.93,
+        6.9,
+        8.87,
+        10.84,
+        12.82,
+        14.79,
+        16.76,
+        18.73,
+        20.7,
+        22.68
+      ]
+    }
+  }
+}

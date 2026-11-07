@@ -6,9 +6,10 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readTellsFile } from '../../src/annotations/format.ts';
 import { seekTimeFor, activeTells } from '../../src/annotations/walkthrough.ts';
+import { AwaitingReply, agentClient, griddedFrame } from './agent.ts';
 import { pickTimes } from './media.ts';
 import type { ChatRequest, NimClient } from './nim.ts';
-import { annotateClip, publishClip, type Paths } from './pipeline.ts';
+import { annotateClip, publishClip, publishVariant, workDir, type Paths } from './pipeline.ts';
 
 const CLIP = 'x-123';
 const NOTE = 'This video is AI-generated. At 0:02 the red car turns into a bus on the right side of the road.';
@@ -34,7 +35,7 @@ function fixture(): Paths {
     join(root, 'notes.jsonl'),
     JSON.stringify({ tweetId: '123', noteId: '999', url: 'https://x.com/i/birdwatch/n/999', status: 'CURRENTLY_RATED_HELPFUL', snapshot: '2026-11-05', text: NOTE }) + '\n',
   );
-  return { build: join(root, 'build'), notes: join(root, 'notes.jsonl'), curated: join(root, 'tells') };
+  return { build: join(root, 'build'), notes: join(root, 'notes.jsonl'), curated: join(root, 'tells'), variants: join(root, 'variants') };
 }
 
 function fakeClient(replies: unknown[]): NimClient & { requests: ChatRequest[] } {
@@ -65,6 +66,48 @@ test('pickTimes brackets claimed moments and keeps them under the cap', () => {
   assert.ok(t.length <= 10);
   assert.deepEqual(t, [...t].sort((a, b) => a - b));
   assert.ok(pickTimes(1, [5]).every((x) => x <= 0.95));
+  // Dense: quarter-second runs around the claim.
+  const d = pickTimes(10, [7], { spread: 0, max: 24, dense: true });
+  for (const want of [6.25, 6.5, 6.75, 7, 7.25]) assert.ok(d.includes(want), `${want} in ${d}`);
+});
+
+test('agent engine: stops at each missing reply, then validates and publishes as a variant', async () => {
+  const paths = fixture();
+  const clip = JSON.parse(readFileSync(join(paths.build, 'feeds/demo.json'), 'utf8')).clips[0];
+  const dir = workDir(paths, CLIP, 'claude');
+  const M = 'anthropic/claude-opus-5-5';
+  const opts = { variant: 'claude', dense: true, textModel: M, visionModel: M, now: () => new Date('2026-11-07T08:00:00Z'), imageUrl: (f: string, fr: { w: number; h: number }) => `file://${griddedFrame(f, fr.w, fr.h)}` };
+  const run = () => annotateClip(agentClient(dir, 'anthropic/claude-opus-5-5'), paths, clip, opts);
+
+  await assert.rejects(run(), (e) => e instanceof AwaitingReply && e.step === 'claims');
+  assert.match(readFileSync(join(dir, 'claims.request.md'), 'utf8'), /red car turns into a bus/);
+  writeFileSync(join(dir, 'claims.reply.json'), JSON.stringify(CLAIMS_REPLY));
+
+  await assert.rejects(run(), (e) => e instanceof AwaitingReply && e.step === 'draft');
+  const req = readFileSync(join(dir, 'draft.request.md'), 'utf8');
+  const imgs = [...req.matchAll(/!\[frame\]\((.+?)\)/g)].map((m) => m[1]);
+  assert.ok(imgs.length >= 8, `dense frames: ${imgs.length}`);
+  assert.ok(imgs.every((f) => f.includes('/frames/grid/') && existsSync(f)), 'gridded frames on disk');
+  assert.doesNotMatch(req, /base64/);
+  writeFileSync(
+    join(dir, 'draft.reply.json'),
+    JSON.stringify({ tells: [{ claim_id: 'c1', category: 'object_morph', label: 'Car becomes a bus', explanation: 'Watch the red car.', frame: 3, after_frame: null, t0: 2, t1: 2.5, bbox_2d: [500, 0, 1000, 1000], visible: 'yes', confidence: 'medium' }] }),
+  );
+
+  const done = await run();
+  assert.equal(done.status, 'drafted');
+  assert.equal(done.provenance.pipeline, 'annotate@1:claude');
+  assert.deepEqual(done.provenance.servedBy, { 'anthropic/claude-opus-5-5': 'anthropic/claude-opus-5-5' });
+  assert.equal(done.draft!.tells[0].model, 'anthropic/claude-opus-5-5');
+
+  const pub = publishVariant(paths, CLIP, 'claude');
+  const feed = JSON.parse(readFileSync(join(paths.build, 'feeds/demo.json'), 'utf8'));
+  assert.equal(feed.clips[0].tells, null, 'main tells untouched');
+  assert.equal(feed.clips[0].tellsAlt.claude, pub.file);
+  assert.ok(existsSync(join(paths.variants, 'claude', `${CLIP}.json`)));
+  assert.equal(readTellsFile(JSON.parse(readFileSync(join(paths.build, pub.file!), 'utf8'))).tells[0].review, 'unreviewed');
+  assert.throws(() => workDir(paths, CLIP, 'main'), /bad variant/);
+  assert.throws(() => workDir(paths, CLIP, '../x'), /bad variant/);
 });
 
 test('end to end offline: letterboxed clip → claims → frames → boxes on the full frame → published feed', async () => {

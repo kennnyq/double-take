@@ -85,7 +85,14 @@ test('signFeed signs every media field and keeps the rest', async () => {
   const feed = {
     version: 1,
     clips: [
-      { id: 'a', video: 'media/a/v1/720.mp4', poster: 'media/a/v1/poster.jpg', tells: 'media/a/v1/tells.json', label: 'confirmed' },
+      {
+        id: 'a',
+        video: 'media/a/v1/720.mp4',
+        poster: 'media/a/v1/poster.jpg',
+        tells: 'media/a/v1/tells.json',
+        tellsAlt: { claude: 'media/a/v1/tells.abc.json', bad: 'feeds/demo.json' },
+        label: 'confirmed',
+      },
       { id: 'b', video: 'media/b/v1/720.mp4', poster: 'media/b/v1/poster.jpg', tells: null },
     ],
   };
@@ -95,4 +102,8 @@ test('signFeed signs every media field and keeps the rest', async () => {
   assert.match(out.clips[0].video, /^https:\/\/api\.test\/m\/media\/a\/v1\/720\.mp4\?exp=\d+&sig=[\w-]+$/);
   assert.match(out.clips[0].tells!, /tells\.json\?exp=/);
   assert.equal(out.clips[1].tells, null);
+  // Alternatives are signed too; a key the Worker would never serve is dropped, not signed.
+  assert.match(out.clips[0].tellsAlt!.claude, /^https:\/\/api\.test\/m\/media\/a\/v1\/tells\.abc\.json\?exp=/);
+  assert.deepEqual(Object.keys(out.clips[0].tellsAlt!), ['claude']);
+  assert.equal(out.clips[1].tellsAlt, undefined);
 });

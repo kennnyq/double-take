@@ -11,6 +11,8 @@ export interface RemoteClip {
   video: string;
   poster: string;
   tells: string | null;
+  /** Alternative tells files by pipeline name (signed URLs). */
+  tellsAlt?: Record<string, string>;
   width: number;
   height: number;
   duration: number;
@@ -72,6 +74,16 @@ function isRemoteClip(c: unknown): c is RemoteClip {
   );
 }
 
+function tellsVariants(r: RemoteClip): Clip['tellsVariants'] {
+  const out = r.tells ? [{ name: 'main', url: r.tells }] : [];
+  if (r.tellsAlt && typeof r.tellsAlt === 'object') {
+    for (const [name, url] of Object.entries(r.tellsAlt)) {
+      if (typeof url === 'string' && url && name !== 'main') out.push({ name, url });
+    }
+  }
+  return out.length ? out : undefined;
+}
+
 /** Turn an uploader name into a feed handle: "Gabriele Corno" → "gabriele_corno". */
 export function toHandle(author: string | null | undefined, fallback: string): string {
   const h = (author ?? '')
@@ -117,6 +129,7 @@ export function toClip(r: RemoteClip, index: number): Clip {
     shares: Math.round(likes * 0.03),
     aspect: r.width / r.height,
     tellsUrl: r.tells ?? undefined,
+    tellsVariants: tellsVariants(r),
     sourceUrl: r.source?.url,
   };
 }

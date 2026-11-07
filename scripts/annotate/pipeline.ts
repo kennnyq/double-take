@@ -5,11 +5,17 @@
  *   1. sources   note (with id, status, snapshot) and any captured comments
  *   2. claims    Nemotron text model lists the tells those texts claim (quotes checked)
  *   3. frames    letterbox-aware frame sampling, bracketing every claimed time
- *   4. draft     Nemotron VL boxes each claim on a frame (validated, repaired or rejected)
+ *   4. draft     Nemotron VL boxes each claim on a frame (validated, repaired or rejected),
+ *                then pixel check (before/after) and scene cuts (each tell stays in its shot)
  *   5. review    report.md + review.jpg with boxes drawn on full frames
  *   6. publish   merge with hand-checked tells, content-addressed file, feed pointer
  *
  * Everything model-made is published as `review: "unreviewed"`.
+ *
+ * Variants: `--variant <name>` keeps a run's work in build/annotate/<id>/<name>/
+ * and publishes it as an alternative tells file (feed `tellsAlt.<name>`), so
+ * several pipelines (another model, denser frames, an agent; see agent.ts)
+ * can be compared in a dev build without touching the main tells.
  */
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -17,11 +23,12 @@ import { dirname, join } from 'node:path';
 import { CLAIMS_SCHEMA, CLAIMS_SYSTEM, claimsPrompt, validateClaims, type ClaimsResult, type SourceText } from '../../src/annotations/claims.ts';
 import { DRAFT_SCHEMA, DRAFT_SYSTEM, MAX_COMPARE_GAP, draftPrompt, validateDraft, type DraftResult } from '../../src/annotations/draft.ts';
 import { frameToCrop } from '../../src/annotations/geometry.ts';
+import { CUT_SCORE, fitToShot } from '../../src/annotations/timing.ts';
 import { applyChangeCheck, findChange, wantsChangeCheck } from '../../src/annotations/pixelCheck.ts';
-import { readTellsFile, type Provenance, type ReviewDecision, type Tell } from '../../src/annotations/format.ts';
+import { readTellsFile, type Provenance, type ReviewDecision, type Tell, type TellsFile } from '../../src/annotations/format.ts';
 import { completionText } from '../../src/annotations/modelJson.ts';
 import { applyReview, buildTellsFile, mergeTells, tellsFileName } from '../../src/annotations/publish.ts';
-import { detectCrop, extractFrames, grayFrames, pickTimes, probe, reviewSheet } from './media.ts';
+import { detectCrop, extractFrames, grayFrames, pickTimes, probe, reviewSheet, sceneScores } from './media.ts';
 import type { Content, NimClient } from './nim.ts';
 
 export const PIPELINE = 'annotate@1';
@@ -32,6 +39,7 @@ export interface Paths {
   build: string; // build/ (feed + media + annotate work dirs)
   notes: string; // scripts/annotate/notes.jsonl
   curated: string; // scripts/harvest/tells/
+  variants: string; // scripts/annotate/variants/ (alternative pipelines' published files)
 }
 
 export interface FeedClip {
@@ -39,6 +47,7 @@ export interface FeedClip {
   video: string;
   poster: string;
   tells: string | null;
+  tellsAlt?: Record<string, string>;
   width: number;
   height: number;
   duration: number;
@@ -67,6 +76,12 @@ export interface RunOptions {
   textModel?: string;
   visionModel?: string;
   allowModelOnly?: boolean;
+  /** Work subdirectory and alternative-tells name; omitted for the main pipeline. */
+  variant?: string;
+  /** Quarter-second frame runs around claimed moments (more frames, more context). */
+  dense?: boolean;
+  /** How frame images are referenced in requests (default: inline JPEG data URLs). */
+  imageUrl?: (file: string, frame: { w: number; h: number }) => string;
   now?: () => Date;
   log?: (msg: string) => void;
 }
@@ -81,6 +96,14 @@ export interface ClipRun {
 }
 
 // ---------------------------------------------------------------------------
+
+const VARIANT_RE = /^[a-z][a-z0-9-]{0,31}$/;
+
+/** Where a run keeps its work: build/annotate/<id>/ for the main pipeline, a subdirectory for variants. */
+export function workDir(paths: Paths, clipId: string, variant?: string): string {
+  if (variant !== undefined && (!VARIANT_RE.test(variant) || variant === 'main')) throw new Error(`bad variant name "${variant}" (a-z, 0-9, -; not "main")`);
+  return join(paths.build, 'annotate', clipId, ...(variant ? [variant] : []));
+}
 
 export function readFeed(paths: Paths): { version: number; clips: FeedClip[] } {
   return JSON.parse(readFileSync(join(paths.build, 'feeds', 'demo.json'), 'utf8'));
@@ -132,18 +155,18 @@ export async function annotateClip(client: NimClient, paths: Paths, clip: FeedCl
   const log = opts.log ?? (() => {});
   const textModel = opts.textModel ?? DEFAULT_TEXT_MODEL;
   const visionModel = opts.visionModel ?? DEFAULT_VISION_MODEL;
-  const dir = join(paths.build, 'annotate', clip.id);
+  const dir = workDir(paths, clip.id, opts.variant);
   mkdirSync(dir, { recursive: true });
 
   // 1. sources -----------------------------------------------------------------
   const notes = findNotes(paths, clip);
-  const comments = readComments(dir);
+  const comments = readComments(workDir(paths, clip.id));
   const sources = buildSources(clip, notes, comments?.rows ?? []);
   save(dir, 'sources.json', sources);
   const video = join(paths.build, clip.video);
   const p = await probe(video);
   const provenance: Provenance = {
-    pipeline: PIPELINE,
+    pipeline: opts.variant ? `${PIPELINE}:${opts.variant}` : PIPELINE,
     generatedAt: (opts.now?.() ?? new Date()).toISOString(),
     clip: { id: clip.id, url: clip.source?.url, sha256: clip.sha256 },
     models: [textModel, visionModel],
@@ -191,7 +214,8 @@ export async function annotateClip(client: NimClient, paths: Paths, clip: FeedCl
   // the whole clip, the VLM boxed everything on the first frame (live run, 2026-11-07).
   const claimTimes = claims.claims.flatMap((c) => (c.t0 !== null ? [c.t0] : []));
   const allTimed = claimTimes.length === claims.claims.length;
-  const times = pickTimes(p.duration, claimTimes, { spread: allTimed ? 0 : 8 });
+  const dense = !!opts.dense;
+  const times = pickTimes(p.duration, claimTimes, { spread: allTimed ? 0 : dense ? 12 : 8, max: dense ? 24 : 14, dense });
   const frames = await extractFrames(video, p, times, join(dir, 'frames'), { crop });
   provenance.frames = { count: frames.length, times, ...(crop ? { crop } : {}) };
   save(dir, 'frames.json', { probe: p, crop: crop ?? null, frames });
@@ -201,7 +225,7 @@ export async function annotateClip(client: NimClient, paths: Paths, clip: FeedCl
   const content: Content = [
     ...frames.flatMap((f) => [
       { type: 'text' as const, text: `Frame ${f.index} at ${f.t.toFixed(2)}s` },
-      { type: 'image_url' as const, image_url: { url: dataUrl(join(dir, 'frames', f.file)) } },
+      { type: 'image_url' as const, image_url: { url: (opts.imageUrl ?? dataUrl)(join(dir, 'frames', f.file), f) } },
     ]),
     { type: 'text' as const, text: draftPrompt(claims.claims, p.duration) },
   ];
@@ -248,6 +272,13 @@ export async function annotateClip(client: NimClient, paths: Paths, clip: FeedCl
     if (note) draft.issues.push(`${t.id}: ${note}`);
     return tell;
   });
+  // 4c. keep each tell inside its camera shot (a box means nothing across a cut).
+  const cuts = (await sceneScores(video)).filter(([, s]) => s >= CUT_SCORE).map(([t]) => t);
+  draft.tells = draft.tells.map((t) => {
+    const { tell, note } = fitToShot(t, cuts, p.duration);
+    if (note) draft.issues.push(`${t.id}: ${note}`);
+    return tell;
+  });
   save(dir, 'draft.json', draft);
 
   // 5. review ------------------------------------------------------------------
@@ -289,8 +320,8 @@ export interface PublishResult {
 }
 
 /** Record a review decision for a clip's current draft (build/annotate/<id>/review.json). */
-export function recordReview(paths: Paths, clipId: string, d: Omit<ReviewDecision, 'at'>, now = new Date()): ReviewDecision[] {
-  const dir = join(paths.build, 'annotate', clipId);
+export function recordReview(paths: Paths, clipId: string, d: Omit<ReviewDecision, 'at'>, now = new Date(), variant?: string): ReviewDecision[] {
+  const dir = workDir(paths, clipId, variant);
   const draft = JSON.parse(readFileSync(join(dir, 'draft.json'), 'utf8')) as DraftResult;
   const tell = draft.tells.find((t) => t.id === d.tell);
   if (!tell) throw new Error(`${clipId} has no drafted tell "${d.tell}"; ids: ${draft.tells.map((t) => t.id).join(', ')}`);
@@ -334,27 +365,59 @@ export function publishClip(paths: Paths, clipId: string): PublishResult {
   };
 }
 
+/**
+ * Publish a variant run as an alternative tells file: its own record in
+ * scripts/annotate/variants/<variant>/<id>.json (never merged with the main or
+ * hand-checked tells, so the comparison shows what that pipeline produced),
+ * a content-addressed copy under build/media, and feed `tellsAlt.<variant>`.
+ */
+export function publishVariant(paths: Paths, clipId: string, variant: string): PublishResult {
+  const dir = workDir(paths, clipId, variant);
+  const draft = JSON.parse(readFileSync(join(dir, 'draft.json'), 'utf8')) as DraftResult;
+  const run = JSON.parse(readFileSync(join(dir, 'run.json'), 'utf8')) as { provenance: Provenance };
+  const reviewed = applyReview(draft.tells, readReview(dir));
+  const provenance: Provenance = reviewed.applied.length ? { ...run.provenance, review: reviewed.applied } : run.provenance;
+  const file = buildTellsFile(reviewed.tells, provenance, draft.unplaced ?? []);
+  const record = join(paths.variants, variant, `${clipId}.json`);
+  mkdirSync(dirname(record), { recursive: true });
+  writeFileSync(record, `${JSON.stringify(file, null, 2)}\n`);
+  const key = writeTellsFile(paths, clipId, record, (clip, k) => {
+    const alt = { ...(clip.tellsAlt ?? {}) };
+    if (k) alt[variant] = k;
+    else delete alt[variant];
+    if (Object.keys(alt).length) clip.tellsAlt = alt;
+    else delete clip.tellsAlt;
+  });
+  return { clipId, file: key, tells: reviewed.tells, dropped: [], reviewProblems: reviewed.problems };
+}
+
 /** Copy a clip's tells file into build/media under a content hash and update the feed. Returns the media key. */
 export function syncToBuild(paths: Paths, clipId: string, tellsFile: string): string | null {
+  return writeTellsFile(paths, clipId, tellsFile, (clip, key) => {
+    clip.tells = key;
+  });
+}
+
+/** Content-address a tells file into build/media and let `point` record the key (null when empty) on the feed clip. */
+function writeTellsFile(paths: Paths, clipId: string, tellsFile: string, point: (clip: FeedClip, key: string | null) => void): string | null {
   const feedPath = join(paths.build, 'feeds', 'demo.json');
   const feed = readFeed(paths);
   const clip = feed.clips.find((c) => c.id === clipId);
   if (!clip) throw new Error(`${clipId} is not in the demo feed`);
   const bytes = readFileSync(tellsFile);
-  const data = readTellsFile(JSON.parse(bytes.toString('utf8')));
-  if (!data.tells.length && !data.unplaced?.length) {
-    clip.tells = null;
-  } else {
+  const data: TellsFile = readTellsFile(JSON.parse(bytes.toString('utf8')));
+  let key: string | null = null;
+  if (data.tells.length || data.unplaced?.length) {
     // Same naming as scripts/harvest/build_media.py: sha256 of the file bytes.
     const hash = createHash('sha256').update(bytes).digest('hex');
-    const key = `${dirname(clip.video)}/${tellsFileName(hash)}`;
+    key = `${dirname(clip.video)}/${tellsFileName(hash)}`;
     const out = join(paths.build, key);
     mkdirSync(dirname(out), { recursive: true });
     if (!existsSync(out)) writeFileSync(out, bytes);
-    clip.tells = key;
   }
+  point(clip, key);
   writeFileSync(feedPath, `${JSON.stringify(feed, null, 2)}\n`);
-  return clip.tells;
+  return key;
 }
 
 // ---------------------------------------------------------------------------

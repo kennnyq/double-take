@@ -48,11 +48,13 @@ export async function detectCrop(file: string, p: Probe): Promise<Box | undefine
  * bracket around each time a note names (artifacts are often a few frames
  * long, e.g. the dresser vanishes between 6.0 and 6.5 s).
  */
-export function pickTimes(duration: number, claimTimes: number[], { spread = 8, max = 14 } = {}): number[] {
+export function pickTimes(duration: number, claimTimes: number[], { spread = 8, max = 14, dense = false } = {}): number[] {
   const end = Math.max(0, duration - 0.05);
   const clamp = (t: number) => Math.round(Math.min(end, Math.max(0, t)) * 100) / 100;
   // Notes round times ("at 0:07" for a change at 6.2 s), so bracket generously.
-  const near = claimTimes.flatMap((t) => [-1.5, -1, -0.5, 0, 0.5, 1].map((d) => clamp(t + d)));
+  // Dense: a quarter-second "slow-motion" run, so a model sees motion between neighbouring frames.
+  const offsets = dense ? [-1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1] : [-1.5, -1, -0.5, 0, 0.5, 1];
+  const near = claimTimes.flatMap((t) => offsets.map((d) => clamp(t + d)));
   const even = Array.from({ length: spread }, (_, i) => clamp(((i + 0.5) * duration) / spread));
   const out: number[] = [];
   // Claim brackets first, so the cap never drops them.
@@ -61,6 +63,22 @@ export function pickTimes(duration: number, claimTimes: number[], { spread = 8, 
     if (out.every((o) => Math.abs(o - t) >= 0.2)) out.push(t);
   }
   return out.sort((a, b) => a - b);
+}
+
+/** Scene-change scores (ffmpeg `scene`) at or above `min`, as [time, score] pairs. */
+export async function sceneScores(file: string, min = 0.3): Promise<[number, number][]> {
+  const { stdout } = await run('ffmpeg', ['-hide_banner', '-i', file, '-vf', `select='gt(scene,${min})',metadata=print:file=-`, '-an', '-f', 'null', '-'], {
+    maxBuffer: 1 << 22,
+  });
+  const out: [number, number][] = [];
+  let t: number | null = null;
+  for (const line of String(stdout).split('\n')) {
+    const pts = /pts_time:([\d.]+)/.exec(line);
+    if (pts) t = Number(pts[1]);
+    const sc = /scene_score=([\d.]+)/.exec(line);
+    if (sc && t !== null) out.push([t, Number(sc[1])]);
+  }
+  return out;
 }
 
 /** Extract frames (cropped to `crop`, long side `longSide` px) as JPEGs. */

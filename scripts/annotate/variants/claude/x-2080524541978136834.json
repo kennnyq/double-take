@@ -1,0 +1,140 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "truck-licence-plate-is-blank-and-garbled",
+      "category": "text",
+      "label": "Truck licence plate is blank and garbled",
+      "t0": 0,
+      "t1": 1.99,
+      "focusT": 0.99,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Look at the plate on the back of the overloaded truck. It is a blue smear with no readable characters, even though the rest of the truck is sharp.",
+      "box": {
+        "x": 0.439,
+        "y": 0.6075,
+        "w": 0.06,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "garbled licenses",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+      }
+    },
+    {
+      "id": "loose-tyres-appear-behind-the-truck",
+      "category": "object_morph",
+      "label": "Loose tyres appear behind the truck",
+      "t0": 1.96,
+      "t1": 5.23,
+      "focusT": 2.96,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Two tyres suddenly lie on the road behind the tipping truck while its wheels still look attached. It is hard to tell from these frames whether this is a real defect.",
+      "box": {
+        "x": 0.492,
+        "y": 0.766,
+        "w": 0.117,
+        "h": 0.096
+      },
+      "evidence": {
+        "quote": "vehicle anomalies",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+      },
+      "compareT": 4.93,
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "cat-logo-vanishes-from-container-door",
+      "category": "text",
+      "label": "CAT logo vanishes from container door",
+      "t0": 10.84,
+      "t1": 13.12,
+      "focusT": 10.84,
+      "compareT": 12.82,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Watch the left door of the red shipping container. The white CAT logo is there at 10.8s and gone by 12.8s, and later the door reads ONE instead.",
+      "box": {
+        "x": 0.635,
+        "y": 0.32,
+        "w": 0.06,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "text/logo morphing",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "lighting-or-shadow-mismatch",
+      "category": "lighting",
+      "label": "Lighting or shadow mismatch",
+      "t0": 15.76,
+      "t1": 17.76,
+      "focusT": 16.76,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "The note claims the lighting and shadows are inconsistent, but no clear mismatch shows up in the sampled frames.",
+      "evidence": {
+        "quote": "lighting/shadow inconsistencies",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:51:28.502Z",
+    "clip": {
+      "id": "x-2080524541978136834",
+      "url": "https://x.com/i/status/2080524541978136834",
+      "sha256": "3145c5cf7368423a023f2e7c1ca356f19c9333330114e036d9877dd188a2ca11"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2080762761903296582",
+      "url": "https://x.com/i/birdwatch/n/2080762761903296582",
+      "text": "This car video is not real but AI-generated (Seedance2 model).  It features telltale signs of AI generation (vehicle anomalies, text/logo morphing, garbled licenses, lighting/shadow inconsistencies, etc.) and is identified as AI by AI detection platforms.    https://share.gemini.google/GhaBIdr37bFj    https://hivedetect.ai/zKTFOy    https://isthisai.com/scan/298a146b-09ec-484c-9664-9e73c917d6a6",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.99,
+        2.96,
+        4.93,
+        6.9,
+        8.87,
+        10.84,
+        12.82,
+        14.79,
+        16.76,
+        18.73,
+        20.7,
+        22.68
+      ]
+    }
+  }
+}

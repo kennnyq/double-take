@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "arm-turns-into-a-leg-and-foot",
+      "category": "anatomy",
+      "label": "Arm turns into a leg and foot",
+      "t0": 2.5,
+      "t1": 2.6,
+      "focusT": 2.5,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "In the close-up of the kick, follow the bruised limb coming out of her shoulder: it stretches across the frame and ends in a bare foot instead of a gloved hand.",
+      "box": {
+        "x": 0,
+        "y": 0.12,
+        "w": 0.915,
+        "h": 0.46
+      },
+      "evidence": {
+        "quote": "the woman's arm morphs into a leg and foot around 2 seconds in",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2023374107396526168"
+      },
+      "shot": {
+        "t0": 2.5,
+        "t1": 2.6
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:50:41.854Z",
+    "clip": {
+      "id": "x-2023151052800000040",
+      "url": "https://x.com/i/status/2023151052800000040",
+      "sha256": "ffbedc8495091a7379b0d811c03de806648d6b3ec4858c43abb805e085450e18"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2023374107396526168",
+      "url": "https://x.com/i/birdwatch/n/2023374107396526168",
+      "text": "This video is AI generated and is not a real clip from the anime series Spy x Family. This is evident by the fact that the woman's arm morphs into a leg and foot around 2 seconds in.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video  https://en.wikipedia.org/wiki/Text-to-video_model  https://en.wikipedia.org/wiki/List_of_Spy_%C3%97_Family_episodes",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 11,
+      "times": [
+        0.5,
+        0.75,
+        1,
+        1.25,
+        1.5,
+        1.75,
+        2,
+        2.25,
+        2.5,
+        2.75,
+        3
+      ]
+    }
+  }
+}

@@ -102,6 +102,8 @@ export interface FeedClip {
   video: string;
   poster: string;
   tells: string | null;
+  /** Alternative tells files by pipeline name (e.g. `claude`), for side-by-side comparison in dev builds. */
+  tellsAlt?: Record<string, string>;
   [k: string]: unknown;
 }
 
@@ -114,12 +116,22 @@ export async function signFeed<T extends { clips: FeedClip[] }>(
 ): Promise<T> {
   const url = async (key: string) => origin + (await signedPath(key, secret, nowSeconds));
   const clips = await Promise.all(
-    feed.clips.map(async (c) => ({
-      ...c,
-      video: await url(c.video),
-      poster: await url(c.poster),
-      tells: c.tells ? await url(c.tells) : null,
-    })),
+    feed.clips.map(async (c) => {
+      const out: FeedClip = {
+        ...c,
+        video: await url(c.video),
+        poster: await url(c.poster),
+        tells: c.tells ? await url(c.tells) : null,
+      };
+      if (c.tellsAlt) {
+        const alt: Record<string, string> = {};
+        for (const [name, key] of Object.entries(c.tellsAlt)) {
+          if (typeof key === 'string' && isServableKey(key)) alt[name] = await url(key);
+        }
+        out.tellsAlt = alt;
+      }
+      return out;
+    }),
   );
   return { ...feed, clips };
 }

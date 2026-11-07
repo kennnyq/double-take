@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOX_HALF_SPAN, MIN_WINDOW, mentionsTime, normalizeWindow, parseTime } from './timing.ts';
+import { BOX_HALF_SPAN, MIN_WINDOW, fitToShot, mentionsTime, normalizeWindow, parseTime, shotAround } from './timing.ts';
 
 test('parseTime reads the ways notes and models write times', () => {
   const cases: [unknown, number | null][] = [
@@ -98,4 +98,23 @@ test('a before/after moment is kept inside the window', () => {
   assert.ok(w.t0 <= 5.5 && w.t1 >= 7.5 + 0.3 - 1e-9);
   const before = normalizeWindow({ t0: null, t1: null, frameT: 3, compareT: 1, hasBox: true, duration: 4 })!;
   assert.ok(before.t0 <= 0.7 + 1e-9);
+});
+
+test('tells stay inside their shot (cuts from the Spy x Family fight clip)', () => {
+  const cuts = [2.5, 2.6, 2.93, 3.43, 3.6, 5.27, 7.3, 10.03];
+  assert.deepEqual(shotAround(cuts, 2.55, 10.19), { t0: 2.5, t1: 2.6 });
+  assert.deepEqual(shotAround(cuts, 1, 10.19), { t0: 0, t1: 2.5 });
+  assert.deepEqual(shotAround(cuts, 10.1, 10.19), { t0: 10.03, t1: 10.19 });
+
+  const { tell, note } = fitToShot({ t0: 1.5, t1: 4, focusT: 2.55, compareT: 3.2 }, cuts, 10.19);
+  assert.deepEqual(tell, { t0: 2.5, t1: 2.6, focusT: 2.55, shot: { t0: 2.5, t1: 2.6 } });
+  assert.match(note!, /another shot/);
+  assert.match(note!, /trimmed/);
+
+  // Before/after inside one shot survives; a clip with no cuts is untouched.
+  const same = fitToShot<{ t0: number; t1: number; focusT?: number; compareT?: number; shot?: { t0: number; t1: number } }>({ t0: 5.5, t1: 7, focusT: 6, compareT: 6.5 }, cuts, 10.19);
+  assert.equal(same.tell.compareT, 6.5);
+  assert.deepEqual(same.tell.shot, { t0: 5.27, t1: 7.3 });
+  const none = { t0: 5.5, t1: 7, focusT: 6, compareT: 6.5 };
+  assert.equal(fitToShot(none, [], 10).tell, none);
 });

@@ -1,0 +1,151 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "dresser-vanishes-behind-her",
+      "category": "continuity",
+      "label": "Dresser vanishes behind her",
+      "t0": 4.5,
+      "t1": 6.55,
+      "focusT": 5.5,
+      "compareT": 6.25,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The wooden dresser is visible on the left edge in the early frames, then is no longer visible once the woman steps forward.",
+      "box": {
+        "x": 0,
+        "y": 0.56,
+        "w": 0.2,
+        "h": 0.2
+      },
+      "evidence": {
+        "quote": "the Dresser disappears",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "wallpaper-changes-behind-her",
+      "category": "text",
+      "label": "Wallpaper changes behind her",
+      "t0": 4.5,
+      "t1": 6.5,
+      "focusT": 5.5,
+      "compareT": 6,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The dark patterned wallpaper behind the woman is visible in the early frames, then is replaced by a plain dark wall as she moves forward.",
+      "box": {
+        "x": 0,
+        "y": 0.1,
+        "w": 1,
+        "h": 0.5
+      },
+      "evidence": {
+        "quote": "the wallpaper becomes different",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "wall-tiles-change",
+      "category": "text",
+      "label": "Wall tiles change",
+      "t0": 4.5,
+      "t1": 7.05,
+      "focusT": 5.5,
+      "compareT": 6.75,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "Green wall tiles are visible on the left side in the early frames, then disappear as the woman steps forward.",
+      "box": {
+        "x": 0,
+        "y": 0.45,
+        "w": 0.15,
+        "h": 0.3
+      },
+      "evidence": {
+        "quote": "the wall tiles",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "fire-alarm-disappears",
+      "category": "continuity",
+      "label": "Fire alarm disappears",
+      "t0": 4.5,
+      "t1": 6.5,
+      "focusT": 5.5,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "A white circular fire alarm is visible on the ceiling in the early frames, then is no longer visible once the woman steps forward.",
+      "box": {
+        "x": 0.45,
+        "y": 0.12,
+        "w": 0.07,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "the fire alarm disappears completely",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2106588887942316333"
+      },
+      "pixelCheck": "unchanged"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:49:56.489Z",
+    "clip": {
+      "id": "x-2106432142217765020",
+      "url": "https://x.com/i/status/2106432142217765020",
+      "sha256": "2f624cc2b6fbbe2459620bc70a72ce09dec934fc060c194541976a309cd25510"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2106588887942316333",
+      "url": "https://x.com/i/birdwatch/n/2106588887942316333",
+      "text": "This video is A.i. generated.  At 0:07: the Dresser disappears, the wallpaper becomes different (as do the wall tiles), and what appears to be the fire alarm disappears completely.  https://gijn.org/resource/guide-detecting-ai-generated-content/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 11,
+      "times": [
+        5.5,
+        5.75,
+        6,
+        6.25,
+        6.5,
+        6.75,
+        7,
+        7.25,
+        7.5,
+        7.75,
+        8
+      ]
+    }
+  }
+}

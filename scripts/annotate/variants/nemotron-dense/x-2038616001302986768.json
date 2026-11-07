@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "handler-s-hand-stays-on-cat-s-leg",
+      "category": "anatomy",
+      "label": "Handler's hand stays on cat's leg",
+      "t0": 0,
+      "t1": 1.63,
+      "focusT": 0.63,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The handler's hand remains on the cat's leg throughout the clip, never letting go.",
+      "box": {
+        "x": 0.38,
+        "y": 0.48,
+        "w": 0.2,
+        "h": 0.14
+      },
+      "evidence": {
+        "quote": "the handler's hand failing to release the cat's leg",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2038718973584212312"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:48:35.469Z",
+    "clip": {
+      "id": "x-2038616001302986768",
+      "url": "https://x.com/i/status/2038616001302986768",
+      "sha256": "91c616b604c9feeddf62ff04d3556f42af2327310361b84abaac3457c5e5b7a9"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2038718973584212312",
+      "url": "https://x.com/i/birdwatch/n/2038718973584212312",
+      "text": "This video shows AI-generated footage of a cat reacting to nail clippers, not a real animal. Note the handler's hand failing to release the cat's leg—a telltale AI artifact.    https://www.facebook.com/61561347433810/videos/princess-the-drama-queen-cat-vs-nail-clipperscatfunnyvideosfunny/811018592019670/    https://www.youtube.com/shorts/FXo1pGCcSo8",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.63,
+        1.88,
+        3.13,
+        4.38,
+        5.63,
+        6.88,
+        8.13,
+        9.38,
+        10.63,
+        11.88,
+        13.13,
+        14.38
+      ]
+    }
+  }
+}

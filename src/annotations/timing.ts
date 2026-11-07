@@ -137,3 +137,42 @@ export function normalizeWindow(w: WindowInput): WindowResult | null {
   focus = Math.min(b, Math.max(a, focus));
   return { t0: r2(a), t1: r2(b), focusT: r2(focus), notes };
 }
+
+/** ffmpeg scene scores at or above this count as a cut (fast action alone peaks around 0.4–0.6). */
+export const CUT_SCORE = 0.5;
+
+/** The shot holding time `t`: between the last cut at or before it and the next cut after it. */
+export function shotAround(cuts: number[], t: number, duration: number): { t0: number; t1: number } {
+  const before = cuts.filter((c) => c <= t + 1e-6);
+  const after = cuts.filter((c) => c > t + 1e-6);
+  return { t0: before.length ? Math.max(...before) : 0, t1: after.length ? Math.min(...after) : duration };
+}
+
+/**
+ * Keep a tell inside the shot it was drawn in. A box belongs to one shot:
+ * across a camera cut the same spot shows something else, and a before/after
+ * pair that straddles a cut compares two different pictures. Returns the
+ * tell unchanged when the clip has no cuts.
+ */
+export function fitToShot<T extends { t0: number; t1: number; focusT?: number; compareT?: number; shot?: { t0: number; t1: number } }>(
+  tell: T,
+  cuts: number[],
+  duration: number,
+): { tell: T; note: string | null } {
+  if (!cuts.length) return { tell, note: null };
+  const focus = tell.focusT ?? tell.t0;
+  const shot = shotAround(cuts, focus, duration);
+  const r = (n: number) => Math.round(n * 100) / 100;
+  let t0 = Math.max(tell.t0, shot.t0);
+  let t1 = Math.min(tell.t1, shot.t1);
+  if (t1 - t0 < 0.05) [t0, t1] = [Math.max(shot.t0, focus - 0.05), Math.min(shot.t1, focus + 0.05)];
+  const out: T = { ...tell, t0: r(t0), t1: r(t1), shot: { t0: r(shot.t0), t1: r(shot.t1) } };
+  const notes: string[] = [];
+  if (out.compareT !== undefined && (out.compareT < shot.t0 || out.compareT > shot.t1)) {
+    delete out.compareT;
+    notes.push(`after-frame ${tell.compareT}s is in another shot; dropped`);
+  }
+  if (out.focusT !== undefined) out.focusT = Math.min(out.t1, Math.max(out.t0, out.focusT));
+  if (out.t0 !== tell.t0 || out.t1 !== tell.t1) notes.push(`window ${tell.t0}–${tell.t1}s trimmed to its shot (${out.t0}–${out.t1}s)`);
+  return { tell: out, note: notes.length ? notes.join('; ') : null };
+}

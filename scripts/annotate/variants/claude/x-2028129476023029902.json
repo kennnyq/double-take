@@ -1,0 +1,69 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "highway-sign-text-is-gibberish",
+      "category": "text",
+      "label": "Highway sign text is gibberish",
+      "t0": 0.34,
+      "t1": 2.01,
+      "focusT": 1.01,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Read the green overhead sign the car hits: its lines say things like \"E JE P ETHI\" and \"ITER KKITIV\", which are not real words or place names.",
+      "box": {
+        "x": 0.67,
+        "y": 0.09,
+        "w": 0.33,
+        "h": 0.3
+      },
+      "evidence": {
+        "quote": "The highway sign shows garbled, nonsensical text",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2028186187127533632"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:50:57.825Z",
+    "clip": {
+      "id": "x-2028129476023029902",
+      "url": "https://x.com/i/status/2028129476023029902",
+      "sha256": "16054143c1dfa90b8fc0546144577cf64d8052001b46cf463206276fa75c1cd4"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2028186187127533632",
+      "url": "https://x.com/i/birdwatch/n/2028186187127533632",
+      "text": "The video is AI-generated, not a real crash. The highway sign shows garbled, nonsensical text—a common AI artifact. Fact-checks and analyses confirm it's fabricated.    https://www.ptinews.com/fact-detail/ai-generated-video-of-mahindra-thar-crashing-into-overhead-signboard-falsely-shared-as-real-details-inside/3393909  https://timesofindia.indiatimes.com/auto/cars/mahindra-thar-crashing-into-highway-signboard-real-or-fake-heres-the-truth/articleshow/128591816.cms  https://www.reddit.com/r/isthisAI/comments/1rgqjaj/saw_this_on_instagram_and_genuinely_cant_tell_if",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.34,
+        1.01,
+        1.68,
+        2.35,
+        3.02,
+        3.69,
+        4.36,
+        5.04,
+        5.71,
+        6.38,
+        7.05,
+        7.72
+      ]
+    }
+  }
+}

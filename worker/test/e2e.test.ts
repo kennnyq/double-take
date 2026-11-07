@@ -24,6 +24,7 @@ interface Clip {
   video: string;
   poster: string;
   tells: string | null;
+  tellsAlt?: Record<string, string>;
   width: number;
   height: number;
   duration: number;
@@ -139,9 +140,14 @@ test('tells are served and well-formed', async () => {
   const { clips } = await feed();
   const withTells = clips.filter((c) => c.tells);
   assert.ok(withTells.length >= 3, `expected 3+ clips with tells, got ${withTells.length}`);
-  for (const c of withTells) {
-    const res = await fetch(c.tells!);
-    assert.equal(res.status, 200);
+  // Main tells plus any alternative pipelines' files (compared in dev builds).
+  const files = clips.flatMap((c) => [
+    ...(c.tells ? [{ c, name: 'main', url: c.tells }] : []),
+    ...Object.entries(c.tellsAlt ?? {}).map(([name, url]) => ({ c, name, url })),
+  ]);
+  for (const { c, name, url } of files) {
+    const res = await fetch(url);
+    assert.equal(res.status, 200, `${c.id} [${name}]`);
     const file = (await res.json()) as {
       version: number;
       tells: { t0: number; t1: number; box?: Record<string, number> }[];

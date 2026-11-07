@@ -1,0 +1,129 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "dragged-kitten-s-limbs-blend-into-cat",
+      "category": "anatomy",
+      "label": "Dragged kitten's limbs blend into cat",
+      "t0": 1.52,
+      "t1": 3.52,
+      "focusT": 2.52,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "As the orange cat carries the kitten, the kitten's body goes see-through and its legs melt into the cat's front leg. Watch the kitten hanging under the cat's mouth.",
+      "box": {
+        "x": 0.065,
+        "y": 0.3,
+        "w": 0.455,
+        "h": 0.256
+      },
+      "evidence": {
+        "quote": "dragging shows impossible limb physics & no realistic resistance",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2007510184164503789"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 59.97
+      }
+    },
+    {
+      "id": "orange-cat-s-face-shape-morphs",
+      "category": "anatomy",
+      "label": "Orange cat's face shape morphs",
+      "t0": 11.59,
+      "t1": 13.59,
+      "focusT": 12.59,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "The orange cat's face and stripes look smeared while it hisses. The sampled frames are seconds apart, so the morph itself is hard to confirm.",
+      "box": {
+        "x": 0.28,
+        "y": 0.115,
+        "w": 0.35,
+        "h": 0.215
+      },
+      "evidence": {
+        "quote": "orange cat's stripes & face shape morph unnaturally",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2007510184164503789"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 59.97
+      }
+    },
+    {
+      "id": "bobcat-s-spots-and-ear-tufts-shift",
+      "category": "anatomy",
+      "label": "Bobcat's spots and ear tufts shift",
+      "t0": 17.62,
+      "t1": 18.62,
+      "focusT": 17.62,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Compare the bobcat's ear tufts and spot pattern between shots; they look different each time. The sampled frames are far apart, so this is hard to confirm.",
+      "box": {
+        "x": 0.185,
+        "y": 0.025,
+        "w": 0.39,
+        "h": 0.275
+      },
+      "evidence": {
+        "quote": "bobcat cub's spots/ear tufts shift",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2007510184164503789"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 59.97
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:51:06.872Z",
+    "clip": {
+      "id": "x-2007412078227697722",
+      "url": "https://x.com/i/status/2007412078227697722",
+      "sha256": "28219c6af82e10f8fcf92064a6e9d50a21ac7ccc430c10b292c4b8362c7ad857"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2007510184164503789",
+      "url": "https://x.com/i/birdwatch/n/2007510184164503789",
+      "text": "This video is AI-generated.Frame-by-frame orange cat's stripes & face shape morph unnaturally; bobcat cub's spots/ear tufts shift;dragging shows impossible limb physics & no realistic resistance.Common in viral \"cute animal\" AI videos.  See analyses of similar fake clips:    https://petapixel.com/2025/11/12/is-this-reddit-video-of-two-cats-ai-generated/    https://a-z-animals.com/articles/are-those-viral-animal-videos-real-tell-tale-signs-of-ai/  ",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        2.52,
+        7.55,
+        12.59,
+        17.62,
+        22.66,
+        27.69,
+        32.73,
+        37.76,
+        42.8,
+        47.83,
+        52.87,
+        57.9
+      ]
+    }
+  }
+}

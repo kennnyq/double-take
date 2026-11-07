@@ -1,0 +1,73 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "lifted-paw-overlaps-paw-pressed-on-glass",
+      "category": "anatomy",
+      "label": "Lifted paw overlaps paw pressed on glass",
+      "t0": 2.94,
+      "t1": 4.94,
+      "focusT": 3.94,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Watch the two paws on the cat's left side. As one paw comes down, its toes are drawn over the pad that is pressed flat against the glass, as if passing through it.",
+      "box": {
+        "x": 0.225,
+        "y": 0.49,
+        "w": 0.185,
+        "h": 0.16
+      },
+      "evidence": {
+        "quote": "unnatural paw movements (one passing through another on the glass surface)",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2108421161994297356"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 8.43
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:52:07.647Z",
+    "clip": {
+      "id": "x-2108375005817930137",
+      "url": "https://x.com/i/status/2108375005817930137",
+      "sha256": "8acc23a51a329ee355787340da93de66d7d6e8300ef184f75625e4072aecc0a6"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2108421161994297356",
+      "url": "https://x.com/i/birdwatch/n/2108421161994297356",
+      "text": "This video exhibits unnatural paw movements (one passing through another on the glass surface) inconsistent with real physics, a common artifact in AI-generated videos.    https://aimensa.com/spot-ai-generated-videos-physics-anatomy-errors  https://www.wired.com/story/ai-slop-is-ruining-the-internets-cute-animal-economy/  https://invideo.io/faq/why-do-ai-generated-videos-have-glitches-like-floating/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.36,
+        1.07,
+        1.79,
+        2.51,
+        3.22,
+        3.94,
+        4.65,
+        5.37,
+        6.09,
+        6.8,
+        7.52,
+        8.23
+      ]
+    }
+  }
+}

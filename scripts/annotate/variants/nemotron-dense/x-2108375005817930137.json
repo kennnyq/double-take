@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "paw-passes-through-another-paw",
+      "category": "anatomy",
+      "label": "Paw passes through another paw",
+      "t0": 5.09,
+      "t1": 7.09,
+      "focusT": 6.09,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the final frames, the cat's left front paw moves downward and overlaps/passes through the right front paw in a way that looks physically impossible.",
+      "box": {
+        "x": 0.24,
+        "y": 0.57,
+        "w": 0.18,
+        "h": 0.15
+      },
+      "evidence": {
+        "quote": "unnatural paw movements (one passing through another on the glass surface)",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2108421161994297356"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 8.43
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:50:05.597Z",
+    "clip": {
+      "id": "x-2108375005817930137",
+      "url": "https://x.com/i/status/2108375005817930137",
+      "sha256": "8acc23a51a329ee355787340da93de66d7d6e8300ef184f75625e4072aecc0a6"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2108421161994297356",
+      "url": "https://x.com/i/birdwatch/n/2108421161994297356",
+      "text": "This video exhibits unnatural paw movements (one passing through another on the glass surface) inconsistent with real physics, a common artifact in AI-generated videos.    https://aimensa.com/spot-ai-generated-videos-physics-anatomy-errors  https://www.wired.com/story/ai-slop-is-ruining-the-internets-cute-animal-economy/  https://invideo.io/faq/why-do-ai-generated-videos-have-glitches-like-floating/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.36,
+        1.07,
+        1.79,
+        2.51,
+        3.22,
+        3.94,
+        4.65,
+        5.37,
+        6.09,
+        6.8,
+        7.52,
+        8.23
+      ]
+    }
+  }
+}

@@ -1,0 +1,63 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "inconsistencies in light reflection on the eyes",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854"
+    },
+    {
+      "quote": "on the shape of the teeth",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854"
+    },
+    {
+      "quote": "the voice is one of the standard AI voices used by AI models",
+      "from": "community_note",
+      "reason": "not_checked",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:50:51.579Z",
+    "clip": {
+      "id": "x-2040539056350601499",
+      "url": "https://x.com/i/status/2040539056350601499",
+      "sha256": "e249b8953ca8083e73bb8b5ec263b0b4ea6fd3c1c35f6f60a995f222d78c8fab"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2040618398606839854",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854",
+      "text": "Video is AI generated, can be confirmed by the inconsistencies in light reflection on the eyes and on the shape of the teeth. Furthermore the voice is one of the standard AI voices used by AI models.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.43,
+        1.28,
+        2.13,
+        2.99,
+        3.84,
+        4.69,
+        5.55,
+        6.4,
+        7.25,
+        8.11,
+        8.96,
+        9.81
+      ]
+    }
+  }
+}

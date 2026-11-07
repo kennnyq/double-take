@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "The way the goat climbs is not how mountain goats actually climb",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1991083723362639991"
+    },
+    {
+      "quote": "The hoof sounds do not get quieter as the goat gets further away and then suddenly vanish",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1991083723362639991"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:nemotron-dense",
+    "generatedAt": "2026-11-07T19:48:52.672Z",
+    "clip": {
+      "id": "x-1988581584715591757",
+      "url": "https://x.com/i/status/1988581584715591757",
+      "sha256": "2c68d9564441275ebaaa6fef877bb44bd5fe0687f56131a7709d780d3655d92f"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1991083723362639991",
+      "url": "https://x.com/i/birdwatch/n/1991083723362639991",
+      "text": "This video is AI-generated. The way the goat climbs is not how mountain goats actually climb. The sound effects don't make sense at all. The hoof sounds do not get quieter as the goat gets further away and then suddenly vanish. The 10s length is also a sign of a sora video.  https://en.wikipedia.org/wiki/Mountain_goat",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.42,
+        1.27,
+        2.12,
+        2.97,
+        3.81,
+        4.66,
+        5.51,
+        6.36,
+        7.2,
+        8.05,
+        8.9,
+        9.75
+      ]
+    }
+  }
+}

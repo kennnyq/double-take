@@ -1,0 +1,101 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "uneven-mouth-and-mismatched-eyes",
+      "category": "anatomy",
+      "label": "Uneven mouth and mismatched eyes",
+      "t0": 6.13,
+      "t1": 7.81,
+      "focusT": 6.81,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Watch the player's mouth: the teeth are uneven blobs and the lower jaw smears into a dark gap, while the two eyes are drawn differently.",
+      "box": {
+        "x": 0.41,
+        "y": 0.265,
+        "w": 0.13,
+        "h": 0.115
+      },
+      "evidence": {
+        "quote": "AI artifacts in both the mouth and eyes on the characters",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2095562982675693697"
+      },
+      "shot": {
+        "t0": 6.13,
+        "t1": 8.3
+      }
+    },
+    {
+      "id": "garbled-lettering-on-card-boxes",
+      "category": "text",
+      "label": "Garbled lettering on card boxes",
+      "t0": 27.62,
+      "t1": 28.93,
+      "focusT": 28.62,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "anthropic/claude-opus-5-5",
+      "detail": "Look at the boxes in the wheelbarrow: one reads \"OAVEBALL\" instead of \"BASEBALL\" and the box beside it has unreadable smeared letters.",
+      "box": {
+        "x": 0.69,
+        "y": 0.585,
+        "w": 0.175,
+        "h": 0.11
+      },
+      "evidence": {
+        "quote": "garbled text in the background",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2095562982675693697"
+      },
+      "shot": {
+        "t0": 24.3,
+        "t1": 28.93
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1:claude",
+    "generatedAt": "2026-11-07T19:51:52.419Z",
+    "clip": {
+      "id": "x-2095254895863505050",
+      "url": "https://x.com/i/status/2095254895863505050",
+      "sha256": "348c41fd4567c7554d6a855711ff240da8ec8fcace55bd75b70a88075e575d78"
+    },
+    "models": [
+      "anthropic/claude-opus-5-5",
+      "anthropic/claude-opus-5-5"
+    ],
+    "note": {
+      "id": "2095562982675693697",
+      "url": "https://x.com/i/birdwatch/n/2095562982675693697",
+      "text": "Despite claims to the contrary, this video is entirely AI generated. At basically any timestamp in this video, you can pause and see AI artifacts in both the mouth and eyes on the characters, or garbled text in the background. See below video for a breakdown with examples.  https://x.com/jacksfilms/status/2095521389339951524?s=46",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "anthropic/claude-opus-5-5": "anthropic/claude-opus-5-5"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        1.36,
+        4.09,
+        6.81,
+        9.54,
+        12.26,
+        14.99,
+        17.71,
+        20.44,
+        23.17,
+        25.89,
+        28.62,
+        31.34
+      ]
+    }
+  }
+}
