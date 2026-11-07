@@ -242,7 +242,7 @@ export function TellOverlay(p: Props) {
 
       <Pressable
         onPress={step === null ? () => open() : close}
-        style={({ pressed }) => [styles.pill, { top: p.top }, step !== null && styles.pillOn, pressed && styles.pressed]}
+        style={({ pressed }) => [styles.pill, styles.pillLeft, { top: p.top }, step !== null && styles.pillOn, pressed && styles.pressed]}
         hitSlop={8}
         accessibilityRole="button"
         accessibilityLabel={step === null ? 'Reveal AI tells' : 'Close the walkthrough'}
@@ -339,9 +339,9 @@ function Spotlight({ rect: r, stageW, stageH }: { rect: Box; stageW: number; sta
 const ACCENT = '#FFD60A';
 
 const styles = StyleSheet.create({
+  // Each pill sets only its own side: on web, `left: undefined` doesn't cancel a `left` set earlier.
   pill: {
     position: 'absolute',
-    left: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -353,7 +353,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.35)',
   },
   pillOn: { backgroundColor: ACCENT, borderColor: ACCENT },
-  devChip: { left: undefined, right: 12, borderStyle: 'dashed' },
+  pillLeft: { left: 12 },
+  devChip: { right: 12, borderStyle: 'dashed' },
   pressed: { opacity: 0.7 },
   pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   pillTextOn: { color: '#111' },
