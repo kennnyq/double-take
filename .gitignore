@@ -36,8 +36,15 @@ yarn-error.*
 # typescript
 *.tsbuildinfo
 
-example
-
 # generated native folders
 /ios
 /android
+
+# media pipeline output (downloaded clips, archive, staged assets)
+/build/
+
+# worker: local state and secrets
+worker/.wrangler/
+worker/node_modules/
+.dev.vars
+.prod.vars
