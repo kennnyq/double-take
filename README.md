@@ -68,8 +68,13 @@ npm run media       # regenerate placeholder clips into assets/media (needs ffmp
 
 Each clip can carry a tells file (`scripts/harvest/tells/<clipId>.json`): timed
 moments with a box on the frame, a short explanation, the claim it came from and
-how far anyone has checked it. "Reveal AI tells" walks through them one step at a
-time, pausing on each moment.
+how far anyone has checked it.
+
+"Reveal AI tells" walks through them one at a time:
+- Each step loops a short stretch around the tell in slow motion (0.35×, muted), because a paused frame hides morphing, vanishing and sliding.
+- The box appears only while the tell applies, and the card shows just the reason.
+- Tap to go on, tap the left edge to go back, hold to pause.
+- Unchecked drafts are tagged **AI draft**, or **AI draft · unsure** when our own checks doubt them.
 
 The pipeline in `scripts/annotate/` drafts these from a clip's Community Note
 (`scripts/annotate/notes.jsonl`) and any saved replies:
@@ -81,9 +86,9 @@ The pipeline in `scripts/annotate/` drafts these from a clip's Community Note
    labelled frames bracketing each claim's time. It boxes the claim on the frame
    where it shows and names a later frame for "after". Letterbox bars are cropped
    off first and mapped back.
-3. **Checks.** A deterministic pixel check measures whether the boxed region
-   really changes. A wrong "after" frame is moved. A spot that never changes is
-   flagged on the card ("This spot barely changes…").
+3. **Checks.** Two deterministic checks run on the result:
+   - A pixel check measures whether the boxed region really changes. A wrong "after" frame is moved, and a spot that never changes is marked unsure.
+   - Scene cuts (ffmpeg scene score ≥ 0.5) keep each tell inside its camera shot, because across a cut the same spot shows something else.
 4. **Review.** `build/annotate/<clipId>/review.jpg` draws every box on the full
    frame, the same way the app places it. Agents may only reject a tell. Marking
    one checked or verified needs `--by human`.
@@ -92,12 +97,55 @@ The pipeline in `scripts/annotate/` drafts these from a clip's Community Note
    `cd worker && npm run deploy`.
 
 ```bash
-NVIDIA_API_KEY_FILE=~/path/to/key node scripts/annotate/annotate.ts run <clipId> --publish
+node scripts/annotate/annotate.ts run <clipId> --publish
 node scripts/annotate/annotate.ts replay --all   # re-validate saved model replies, no API calls
 ```
 
+**NVIDIA key.** Put `NVIDIA_API_KEY=nvapi-…` in `.env.nvidia.local` at the repo root.
+- The file is gitignored, and Expo never loads it, so it can't reach the app bundle.
+- Worktrees find the main checkout's copy automatically. `npm run worktree:env` copies it, plus `.env.local` and the Worker's `.dev.vars`/`.prod.vars`, into a new worktree.
+- `npm run key:check` lists the models the key can call; it costs one free API call.
+- `NVIDIA_API_KEY` or `NVIDIA_API_KEY_FILE` in the environment still take precedence.
+
+### Testing changes
+
+```bash
+npm run check        # typecheck, lint, app + pipeline tests, Worker tests (offline)
+BASE_URL=https://double-take-api.<subdomain>.workers.dev npm run check:prod   # end-to-end tests against the deployed Worker (needs worker/.prod.vars)
+npx expo start       # then open in Expo Go: any clip with tells → "Reveal AI tells"
+```
+
+In the app, check that:
+- each step loops in slow motion with the box on the named spot;
+- tapping goes on, tapping the left edge goes back, holding pauses, and the last tap closes;
+- the dashed switcher (dev builds only) flips between `main`, `claude` and `nemotron-dense`.
+
+The bathroom clip (14th in the feed) has three steps in `main` and four in `claude`.
+
 Model output is treated as unverified evidence:
 
-- Drafts show **AI draft · not verified** and "Box placed by NVIDIA Nemotron. It may be off."
-- Claims that couldn't be placed on the video go on a closing **Also claimed** card rather than being dropped or invented.
+- Claims that couldn't be placed on the video go on a closing **Also noted** card rather than being dropped or invented.
 - Tells the model finds without a note or comment behind them are dropped unless you pass `--allow-model-only`.
+
+### Comparing pipelines
+
+A clip can carry alternative tells files next to the main one (feed
+`tellsAlt.<name>`, records in `scripts/annotate/variants/<name>/`). Dev builds
+show a dashed switcher next to "Reveal AI tells" to flip between them. Release
+builds always use the main file.
+
+| Variant | What it is |
+|---|---|
+| `main` | Nemotron, merged with hand-checked tells (checked ones always win) |
+| `nemotron-dense` | Nemotron given quarter-second frame runs around each claim (`--dense`) |
+| `claude` | The same two prompts answered by a Claude agent (`--engine agent --dense`); no API calls |
+
+```bash
+# Nemotron variant
+node scripts/annotate/annotate.ts run <clipId…> --variant nemotron-dense --dense --publish
+# Agent variant: each run stops at the next missing reply and prints the request to read
+# and the reply file to write (build/annotate/<id>/claude/{claims,draft}.reply.json).
+# The agent views gridded frames (0–1000 labels) and its replies go through the same validation.
+node scripts/annotate/annotate.ts run <clipId…> --engine agent --dense
+node scripts/annotate/annotate.ts publish <clipId…> --variant claude
+```
