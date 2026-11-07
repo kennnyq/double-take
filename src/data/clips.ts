@@ -26,6 +26,8 @@ export interface Clip {
   tellsVariants?: TellsVariant[];
   /** Where the clip was originally posted. */
   sourceUrl?: string;
+  /** Remote clips only: a small silent copy (URL) for the web landing's gallery. */
+  tile?: string;
 }
 
 export interface TellsVariant {

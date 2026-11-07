@@ -91,9 +91,10 @@ test('signFeed signs every media field and keeps the rest', async () => {
         poster: 'media/a/v1/poster.jpg',
         tells: 'media/a/v1/tells.json',
         tellsAlt: { claude: 'media/a/v1/tells.abc.json', bad: 'feeds/demo.json' },
+        tile: 'media/a/v1/tile.mp4',
         label: 'confirmed',
       },
-      { id: 'b', video: 'media/b/v1/720.mp4', poster: 'media/b/v1/poster.jpg', tells: null },
+      { id: 'b', video: 'media/b/v1/720.mp4', poster: 'media/b/v1/poster.jpg', tells: null, tile: 'feeds/demo.json' },
     ],
   };
   const out = await signFeed(feed, 'https://api.test', SECRET, NOW);
@@ -106,4 +107,7 @@ test('signFeed signs every media field and keeps the rest', async () => {
   assert.match(out.clips[0].tellsAlt!.claude, /^https:\/\/api\.test\/m\/media\/a\/v1\/tells\.abc\.json\?exp=/);
   assert.deepEqual(Object.keys(out.clips[0].tellsAlt!), ['claude']);
   assert.equal(out.clips[1].tellsAlt, undefined);
+  // The gallery tile is signed like the video; an unservable key is dropped.
+  assert.match(out.clips[0].tile as string, /^https:\/\/api\.test\/m\/media\/a\/v1\/tile\.mp4\?exp=/);
+  assert.equal('tile' in out.clips[1], false);
 });

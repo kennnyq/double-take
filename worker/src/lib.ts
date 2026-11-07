@@ -102,6 +102,8 @@ export interface FeedClip {
   video: string;
   poster: string;
   tells: string | null;
+  /** Small silent copy for the web landing's gallery. */
+  tile?: string;
   /** Alternative tells files by pipeline name (e.g. `claude`), for side-by-side comparison in dev builds. */
   tellsAlt?: Record<string, string>;
   [k: string]: unknown;
@@ -123,6 +125,8 @@ export async function signFeed<T extends { clips: FeedClip[] }>(
         poster: await url(c.poster),
         tells: c.tells ? await url(c.tells) : null,
       };
+      if (typeof c.tile === 'string' && isServableKey(c.tile)) out.tile = await url(c.tile);
+      else delete out.tile;
       if (c.tellsAlt) {
         const alt: Record<string, string> = {};
         for (const [name, key] of Object.entries(c.tellsAlt)) {

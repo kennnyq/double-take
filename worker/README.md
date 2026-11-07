@@ -9,6 +9,9 @@ Cloudflare Worker that serves the demo feed and media. Live at
 | `GET /feed?name=demo` | `Authorization: Bearer <DEMO_PASSCODE>` | feed JSON with signed, absolute media URLs |
 | `GET/HEAD /m/media/<clip>/v<n>/<file>?exp&sig` | signature | media bytes, with `Range` → `206` |
 
+Each clip has `720.mp4`, `poster.jpg`, a 12-second silent `tile.mp4` (long side 480) for the
+web landing's gallery, and its `tells.<hash>.json` files. The feed signs every one of them.
+
 Signed URLs expire at the end of the next UTC day, so a URL stays identical all day
 (the player cache keeps hitting) and works for 24–48 h. Only `media/` keys are servable;
 `archive/` is never uploaded and `feeds/` is only reachable through `/feed`.

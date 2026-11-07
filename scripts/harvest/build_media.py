@@ -12,6 +12,7 @@ CANDIDATES.jsonl rows need at least `url`; `label`, `evidence`, `views`, `likes`
 Output mirrors the R2 bucket layout:
     archive/{sha256}/original.<ext>, info.json, candidate.json   private, never served
     media/{clipId}/v1/720.mp4, poster.jpg, tells.<hash>.json    immutable, served
+    media/{clipId}/v1/tile.mp4                                  small silent copy for the web landing's gallery
     feeds/demo.json                                             the feed
 """
 import argparse
@@ -88,6 +89,24 @@ def normalize(src: str, dst_dir: str) -> None:
         ["ffmpeg", "-v", "error", "-y", "-ss", "0.5", "-i", os.path.join(dst_dir, "720.mp4"),
          "-frames:v", "1", "-vf", "scale='if(gt(iw,ih),640,360)':-2", "-q:v", "5",
          os.path.join(dst_dir, "poster.jpg")], check=True)
+
+
+def make_tile(media_dir: str) -> None:
+    """A small, silent copy for the web landing's gallery, where dozens play at
+    once: long side 480 (portrait 270x480), no audio, the first 12 seconds."""
+    scale = "scale='if(gt(iw,ih),480,-2)':'if(gt(iw,ih),-2,480)':flags=lanczos"
+    subprocess.run(
+        ["ffmpeg", "-v", "error", "-y", "-i", os.path.join(media_dir, "720.mp4"), "-t", "12", "-vf", scale,
+         "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "30", "-pix_fmt", "yuv420p",
+         "-movflags", "+faststart", os.path.join(media_dir, "tile.mp4")], check=True)
+
+
+def attach_tile(clip: dict, out: str) -> None:
+    """Point a feed clip at its tile, making the tile first if it is missing."""
+    media_dir = os.path.join(out, os.path.dirname(clip["video"]))
+    if not os.path.exists(os.path.join(media_dir, "tile.mp4")):
+        make_tile(media_dir)
+    clip["tile"] = f"{os.path.dirname(clip['video'])}/tile.mp4"
 
 
 def copy_tells(cid: str, out: str, src_dir: str = TELLS_DIR) -> str | None:
@@ -208,6 +227,9 @@ def main() -> None:
     # Refresh tells for every clip, kept ones included, so --merge also picks up tells changes.
     for c in feed:
         attach_tells(c, args.out)
+    # Tiles too, so --merge also makes them for clips built before tiles existed.
+    with ThreadPoolExecutor(args.jobs) as ex:
+        list(ex.map(lambda c: attach_tile(c, args.out), feed))
     os.makedirs(os.path.join(args.out, "feeds"), exist_ok=True)
     with open(feed_path, "w") as f:
         json.dump({"version": 1, "clips": feed}, f, ensure_ascii=False, indent=2)

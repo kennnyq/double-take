@@ -7,6 +7,7 @@ const CLIP: RemoteClip = {
   video: 'https://api.test/m/media/x/v1/720.mp4?exp=1&sig=a',
   poster: 'https://api.test/m/media/x/v1/poster.jpg?exp=1&sig=b',
   tells: 'https://api.test/m/media/x/v1/tells.json?exp=1&sig=c',
+  tile: 'https://api.test/m/media/x/v1/tile.mp4?exp=1&sig=d',
   width: 1280,
   height: 720,
   duration: 10.19,
@@ -29,6 +30,7 @@ test('toClip maps a remote clip onto the feed shape', () => {
   assert.ok(Math.abs(c.aspect! - 16 / 9) < 1e-9);
   assert.equal(c.tellsUrl, CLIP.tells);
   assert.equal(c.sourceUrl, 'https://x.com/i/status/1');
+  assert.equal(c.tile, CLIP.tile);
 });
 
 test('toClip never leaks the ground-truth label', () => {
@@ -42,6 +44,7 @@ test('toClip copes with missing source metadata', () => {
   assert.equal(c.likes, 0);
   assert.equal(c.tellsUrl, undefined);
   assert.equal(c.tellsVariants, undefined);
+  assert.equal(toClip({ ...CLIP, tile: undefined }, 0).tile, undefined);
 });
 
 test('toClip lists tells variants, main first, skipping junk', () => {

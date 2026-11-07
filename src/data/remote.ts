@@ -11,6 +11,8 @@ export interface RemoteClip {
   video: string;
   poster: string;
   tells: string | null;
+  /** Small silent copy for the web landing's gallery (signed URL). */
+  tile?: string;
   /** Alternative tells files by pipeline name (signed URLs). */
   tellsAlt?: Record<string, string>;
   width: number;
@@ -131,5 +133,6 @@ export function toClip(r: RemoteClip, index: number): Clip {
     tellsUrl: r.tells ?? undefined,
     tellsVariants: tellsVariants(r),
     sourceUrl: r.source?.url,
+    tile: typeof r.tile === 'string' && r.tile ? r.tile : undefined,
   };
 }
