@@ -245,6 +245,10 @@
   position: absolute;
   inset: 0;
   cursor: pointer;
+  /* Holding or double-clicking the video shouldn't select text or call up the callout. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
 }
 
 .desk .shade {

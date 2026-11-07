@@ -26,7 +26,9 @@ import {
 import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { avatarHue, formatCount, makeClips, type Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
-import { TellOverlay } from '@/feed/TellOverlay';
+import { gestureAction, isDoubleTap, type Tap } from '@/devtools/gesture';
+import { useDevSettings } from '@/devtools/store';
+import { TellOverlay, type TellOverlayHandle } from '@/feed/TellOverlay';
 import { receiveHandoff } from '@/landing/handoff';
 import { fitFor, type Fit } from '@/feed/tells';
 import { useSocialActions } from '@/social/actions';
@@ -401,8 +403,14 @@ const DOUBLE_TAP_MS = 300;
 const Slide = memo(function Slide(p: SlideProps) {
   const { clip, isActive, h } = p;
   const [bursts, setBursts] = useState<Burst[]>([]);
-  const gesture = useRef({ x: 0, y: 0, moved: false, lastTap: 0, lx: 0, ly: 0 });
+  const gesture = useRef({ x: 0, y: 0, moved: false, held: false, timer: 0, last: null as Tap | null });
+  const tells = useRef<TellOverlayHandle>(null);
+  const { revealGesture, holdMs } = useDevSettings();
+  const hasTells = !!clip.tellsUrl && isActive;
   const poster = mediaUri(clip.poster);
+
+  const cancelHold = () => window.clearTimeout(gesture.current.timer);
+  useEffect(() => cancelHold, []);
 
   const onPointerDown = (e: RPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -410,33 +418,48 @@ const Slide = memo(function Slide(p: SlideProps) {
     g.x = e.clientX;
     g.y = e.clientY;
     g.moved = false;
+    g.held = false;
+    cancelHold();
+    // Click and hold starts the double take when that's the gesture (desktop has no 2x hold).
+    if (isActive && gestureAction('hold', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
+      g.timer = window.setTimeout(() => {
+        g.held = true;
+        g.last = null;
+        tells.current?.open();
+      }, holdMs);
+    }
   };
   const onPointerMove = (e: RPointerEvent<HTMLDivElement>) => {
     const g = gesture.current;
-    if (Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10) g.moved = true;
+    if (!g.moved && Math.hypot(e.clientX - g.x, e.clientY - g.y) > 10) {
+      g.moved = true;
+      cancelHold();
+    }
   };
   const onPointerUp = (e: RPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
+    cancelHold();
     const g = gesture.current;
-    if (g.moved || !isActive) return;
-    const now = performance.now();
+    // The hold already did its thing; the release is not also a click.
+    if (g.held || g.moved || !isActive) return;
     const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    if (now - g.lastTap < DOUBLE_TAP_MS && Math.hypot(x - g.lx, y - g.ly) < 60) {
-      // Double click: like with a heart burst. Always resume (never toggle), so
-      // the first click's pause can't leave the clip paused.
+    const tap = { t: performance.now(), x: e.clientX - rect.left, y: e.clientY - rect.top };
+    if (isDoubleTap(g.last, tap, DOUBLE_TAP_MS)) {
+      g.last = null;
+      // Double click: like with a heart burst, or the double take. Always resume
+      // (never toggle), so the first click's pause can't leave the clip paused.
       h.play();
+      if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
+        tells.current?.open();
+        return;
+      }
       h.like(clip);
-      const b = { id: now, x, y, r: Math.round(Math.random() * 30 - 15) };
+      const b = { id: tap.t, x: tap.x, y: tap.y, r: Math.round(Math.random() * 30 - 15) };
       setBursts((bs) => [...bs, b]);
       window.setTimeout(() => setBursts((bs) => bs.filter((o) => o.id !== b.id)), 900);
-      g.lastTap = 0;
       return;
     }
-    g.lastTap = now;
-    g.lx = x;
-    g.ly = y;
+    g.last = tap;
     h.togglePause();
   };
 
@@ -483,7 +506,15 @@ const Slide = memo(function Slide(p: SlideProps) {
           )}
           <div className="overlay">
             {!p.inspecting && <div className="shade compact-only" />}
-            <div className="tap-layer" onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp}>
+            <div
+              className="tap-layer"
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={cancelHold}
+              onPointerLeave={cancelHold}
+              onContextMenu={(e) => hasTells && e.preventDefault()}
+            >
               {p.paused && !p.inspecting && (
                 <div className="paused-icon" aria-hidden>
                   <Play size={40} fill="currentColor" />
@@ -502,6 +533,8 @@ const Slide = memo(function Slide(p: SlideProps) {
             {!p.inspecting && <div className="d-info-overlay compact-only">{info}</div>}
             {isActive && clip.tellsUrl && p.card.h > 0 && (
               <TellOverlay
+                ref={tells}
+                desktop
                 variants={clip.tellsVariants ?? [{ name: 'main', url: clip.tellsUrl }]}
                 player={p.player?.asVideoPlayer() ?? null}
                 stageW={p.card.w}

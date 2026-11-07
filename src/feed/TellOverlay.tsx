@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { VideoPlayer } from 'expo-video';
 import { useEventListener } from 'expo';
@@ -7,10 +7,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { readTellsFile, type UnplacedClaim } from '@/annotations/format';
 import { boxShownAt, replayWindow, stepCopy, walkthroughSteps, type Replay } from '@/annotations/walkthrough';
 import type { TellsVariant } from '@/data/clips';
+import { revealHint } from '@/devtools/gesture';
+import { variantIndex } from '@/devtools/settings';
+import { DEV_TOOLS, openDevSettings, useDevSettings } from '@/devtools/store';
 import { boxOnStage, cardPlacement, videoRect, type Box, type Fit, type Tell } from './tells';
 
+/** Lets the clip's own gesture (hold or double tap, a dev setting) start the walkthrough. */
+export interface TellOverlayHandle {
+  open: () => void;
+}
+
 interface Props {
-  /** The clip's tells files (signed URLs), main first. Dev builds can switch between them. */
+  ref?: React.Ref<TellOverlayHandle>;
+  /** The clip's tells files (signed URLs), main first. The dev settings pick one for every clip. */
   variants: TellsVariant[];
   player: VideoPlayer | null;
   stageW: number;
@@ -18,8 +27,10 @@ interface Props {
   aspect: number;
   /** How the video is fitted right now (the walkthrough asks for `contain`). */
   fit: Fit;
-  /** Distance of the reveal button from the top of the stage. */
+  /** Distance of the hint and close chips from the top of the stage. */
   top: number;
+  /** Desktop words its hint for a mouse ("click and hold", "double-click"). */
+  desktop?: boolean;
   paused: boolean;
   onPause: () => void;
   onPlay: () => void;
@@ -60,24 +71,33 @@ function setTick(player: VideoPlayer, seconds: number) {
 const TICK_WALKTHROUGH = 0.1;
 const TICK_FEED = 0.25; // what Feed sets up
 
+/** Taps this soon after the walkthrough opens belong to the opening gesture. */
+const OPEN_SETTLE_MS = 350;
+
 /** Taps on the left edge go back a step, like stories. */
 const BACK_ZONE = 0.28;
 
 /**
- * "Reveal AI tells": a tap-through walkthrough of the clip's tells.
+ * The double take: a tap-through walkthrough of the clip's tells, started by
+ * holding or double-tapping the video (see `TellOverlayHandle`).
  *
  * Each step loops a short stretch around the tell in slow motion (a paused
  * frame hides motion artifacts), outlines the spot and gives the reason. Tap
  * to go on, tap the left edge to go back, hold to pause. Automatic drafts are
  * marked as such. Mounted only for the active clip, so every visit starts closed.
  */
-export function TellOverlay(p: Props) {
-  const [variant, setVariant] = useState(0);
+export function TellOverlay({ ref, ...p }: Props) {
+  const settings = useDevSettings();
+  // One pipeline ("model") for every clip, picked in the dev settings; main if this clip lacks it.
+  const variant = variantIndex(p.variants, settings.pipeline);
   const [step, setStep] = useState<number | null>(null); // null: closed, -1: nothing to show
   const [cache, setCache] = useState<Record<string, Loaded>>({});
   const [now, setNow] = useState(0);
   const replay = useRef<Replay | null>(null);
   const held = useRef(false);
+  // When the walkthrough opened: the tail of the gesture that opened it (the
+  // second tap's click on web) must not land on the tap zones and skip a step.
+  const settling = useRef(false);
   const { player, onInspect, onSlowmo } = p;
 
   // Leaving the clip unmounts us; make sure the clip goes back to normal.
@@ -90,7 +110,7 @@ export function TellOverlay(p: Props) {
     [onInspect, onSlowmo, player],
   );
 
-  const url = p.variants[Math.min(variant, p.variants.length - 1)]?.url;
+  const url = p.variants[variant]?.url;
   const data = (url && cache[url]) || null;
   const steps = data?.steps ?? [];
   const unplaced = data?.unplaced ?? [];
@@ -114,38 +134,45 @@ export function TellOverlay(p: Props) {
     Haptics.selectionAsync().catch(() => {});
   };
 
-  const open = async (which = variant) => {
-    const u = p.variants[which]?.url;
-    if (!u) return;
+  const open = async () => {
+    const u = url;
+    if (!u || step !== null) return;
     let d = cache[u];
     if (!d) {
       d = await loadTells(u);
       setCache((c) => ({ ...c, [u]: d }));
     }
     if (!d.steps.length && !d.unplaced.length) {
-      setStep(-1); // "No tells found"
+      setStep(-1); // "No tells found", for a moment
+      setTimeout(() => setStep((s) => (s === -1 ? null : s)), 1600);
       return;
     }
     onInspect(true);
+    settling.current = true;
+    setTimeout(() => (settling.current = false), OPEN_SETTLE_MS);
     goTo(0, d);
   };
 
-  const close = () => {
+  function close() {
     setStep(null);
     replay.current = null;
     if (player) setTick(player, TICK_FEED);
     onSlowmo(false);
     onInspect(false);
     p.onPlay();
-  };
+  }
+  const closeRef = useRef(close);
+  useEffect(() => {
+    closeRef.current = close;
+  });
 
   const next = () => {
-    if (!data || step === null) return;
+    if (!data || step === null || settling.current) return;
     if (step + 1 < count) goTo(step + 1, data);
     else close();
   };
   const back = () => {
-    if (data && step !== null && step > 0) goTo(step - 1, data);
+    if (data && step !== null && step > 0 && !settling.current) goTo(step - 1, data);
   };
 
   // Keep the replay inside its loop (the clip's own loop can also wrap it to 0).
@@ -169,12 +196,20 @@ export function TellOverlay(p: Props) {
     },
   };
 
-  const switchVariant = () => {
-    const v = (variant + 1) % p.variants.length;
-    setVariant(v);
-    Haptics.selectionAsync().catch(() => {});
-    if (step !== null) open(v);
-  };
+  // The clip's gesture calls the latest `open`, which knows the current step and pipeline.
+  const openRef = useRef(open);
+  useEffect(() => {
+    openRef.current = open;
+  });
+  useImperativeHandle(ref, () => ({ open: () => void openRef.current() }), []);
+
+  // A new pick in the dev settings ends a walkthrough of the old pipeline's tells.
+  const shownUrl = useRef(url);
+  useEffect(() => {
+    if (shownUrl.current === url) return;
+    shownUrl.current = url;
+    if (step !== null) closeRef.current();
+  }, [url, step]);
 
   const inStep = step !== null && step >= 0;
   const current = inStep && step < steps.length ? steps[step] : undefined;
@@ -240,30 +275,39 @@ export function TellOverlay(p: Props) {
         </>
       )}
 
-      <Pressable
-        onPress={step === null ? () => open() : close}
-        style={({ pressed }) => [styles.pill, styles.pillLeft, { top: p.top }, step !== null && styles.pillOn, pressed && styles.pressed]}
-        hitSlop={8}
-        accessibilityRole="button"
-        accessibilityLabel={step === null ? 'Reveal AI tells' : 'Close the walkthrough'}
-      >
-        <Ionicons name={step === null ? 'scan-outline' : 'close'} size={15} color={step === null ? '#fff' : '#111'} />
-        <Text style={[styles.pillText, step !== null && styles.pillTextOn]}>
-          {step === null ? 'Reveal AI tells' : step === -1 ? 'No tells found' : 'Close'}
-        </Text>
-      </Pressable>
-
-      {__DEV__ && p.variants.length > 1 && (
+      {step !== null ? (
         <Pressable
-          onPress={switchVariant}
+          onPress={close}
+          disabled={step === -1}
+          style={({ pressed }) => [styles.pill, styles.pillLeft, { top: p.top }, styles.pillOn, pressed && styles.pressed]}
+          hitSlop={8}
+          accessibilityRole="button"
+          accessibilityLabel={step === -1 ? 'No tells found' : 'Close the walkthrough'}
+        >
+          <Ionicons name={step === -1 ? 'eye-off-outline' : 'close'} size={15} color="#111" />
+          <Text style={[styles.pillText, styles.pillTextOn]}>{step === -1 ? 'No tells found' : 'Close'}</Text>
+        </Pressable>
+      ) : (
+        settings.gestureHint && (
+          <View style={[styles.pill, styles.pillLeft, styles.gestureHint, { top: p.top }]} pointerEvents="none">
+            <Ionicons name={settings.revealGesture === 'hold' ? 'finger-print-outline' : 'scan-outline'} size={14} color="#fff" />
+            <Text style={styles.pillText}>{revealHint(settings.revealGesture, !!p.desktop)}</Text>
+          </View>
+        )
+      )}
+
+      {DEV_TOOLS && settings.pipelineBadge && (
+        <Pressable
+          onPress={() => openDevSettings('model')}
           style={({ pressed }) => [styles.pill, styles.devChip, { top: p.top }, pressed && styles.pressed]}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel={`Tells from ${p.variants[variant].name}; switch pipeline`}
+          accessibilityLabel={`Tells from ${p.variants[variant]?.name}; open the model settings`}
         >
           <Ionicons name="git-compare-outline" size={14} color="#fff" />
           <Text style={styles.pillText}>
-            {p.variants[variant].name}
+            {p.variants[variant]?.name}
+            {p.variants[variant]?.name !== settings.pipeline ? ` (no ${settings.pipeline})` : ''}
             {data ? ` · ${data.steps.length}` : ''}
           </Text>
         </Pressable>
@@ -354,6 +398,7 @@ const styles = StyleSheet.create({
   },
   pillOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   pillLeft: { left: 12 },
+  gestureHint: { backgroundColor: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.22)', height: 28 },
   devChip: { right: 12, borderStyle: 'dashed' },
   pressed: { opacity: 0.7 },
   pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },

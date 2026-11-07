@@ -7,8 +7,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { formatCount, type Clip } from '@/data/clips';
 import { baseReposts } from '@/social/clipRefs';
 import { Avatar } from '@/ui/Avatar';
+import { gestureAction, isDoubleTap, type Tap } from '@/devtools/gesture';
+import { useDevSettings } from '@/devtools/store';
 import type { FeedHandlers } from './Feed';
-import { TellOverlay } from './TellOverlay';
+import { TellOverlay, type TellOverlayHandle } from './TellOverlay';
 import { fitFor } from './tells';
 
 interface Props {
@@ -38,8 +40,11 @@ const DOUBLE_TAP_MS = 280;
 export const ClipItem = memo(function ClipItem(p: Props) {
   const { clip, width, height, wide, h } = p;
   const [bursts, setBursts] = useState<{ id: number; x: number; y: number; tilt: string }[]>([]);
-  const lastTap = useRef({ t: 0, x: 0, y: 0 });
+  const lastTap = useRef<Tap | null>(null);
   const longPressed = useRef(false);
+  const tells = useRef<TellOverlayHandle>(null);
+  const { revealGesture, holdMs } = useDevSettings();
+  const hasTells = !!clip.tellsUrl && p.isActive;
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
   const [inspectOn, setInspectOn] = useState(false);
@@ -47,23 +52,41 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const onInspect = useCallback((on: boolean) => setInspectOn(on), []);
 
   // Tap toggles pause immediately (no waiting to rule out a double tap); a
-  // second tap within DOUBLE_TAP_MS likes and always leaves the clip playing,
-  // whether the first tap paused it or resumed it.
+  // second tap within DOUBLE_TAP_MS likes (or starts the double take, per the
+  // dev settings) and always leaves the clip playing, whether the first tap
+  // paused it or resumed it.
   const onPress = (e: GestureResponderEvent) => {
     if (!p.isActive) return;
     const { locationX: x, locationY: y } = e.nativeEvent;
-    const now = Date.now();
-    const prev = lastTap.current;
-    if (now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < 60) {
+    const tap = { t: Date.now(), x, y };
+    if (isDoubleTap(lastTap.current, tap, DOUBLE_TAP_MS)) {
+      lastTap.current = null;
       h.play();
+      if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: true }) === 'reveal') {
+        tells.current?.open();
+        return;
+      }
       h.like(clip);
       const tilt = `${Math.round(Math.random() * 30 - 15)}deg`;
-      setBursts((b) => [...b, { id: now, x, y, tilt }]);
-      lastTap.current = { t: 0, x: 0, y: 0 };
+      setBursts((b) => [...b, { id: tap.t, x, y, tilt }]);
       return;
     }
-    lastTap.current = { t: now, x, y };
+    lastTap.current = tap;
     h.togglePause();
+  };
+
+  // Holding plays at 2x until released, or starts the double take (which stays
+  // open after release: it's a tap-through walkthrough).
+  const onLongPress = () => {
+    if (!p.isActive) return;
+    lastTap.current = null;
+    const action = gestureAction('hold', revealGesture, { hasTells, canBoost: true });
+    if (action === 'reveal') {
+      tells.current?.open();
+    } else if (action === 'boost') {
+      longPressed.current = true;
+      h.setBoost(true);
+    }
   };
 
   // Stage geometry: full-bleed on iPhone, a centred 9:16 card on iPad that
@@ -99,12 +122,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={onPress}
-        onLongPress={() => {
-          if (!p.isActive) return;
-          longPressed.current = true;
-          h.setBoost(true);
-        }}
-        delayLongPress={350}
+        onLongPress={onLongPress}
+        delayLongPress={holdMs}
         onPressOut={() => {
           if (longPressed.current) {
             longPressed.current = false;
@@ -113,6 +132,11 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         }}
         accessibilityRole="button"
         accessibilityLabel={p.paused ? 'Play' : 'Pause'}
+        accessibilityActions={hasTells ? [{ name: 'activate' }, { name: 'magicTap', label: 'Double take' }] : undefined}
+        onAccessibilityAction={(e) => {
+          if (e.nativeEvent.actionName === 'magicTap') tells.current?.open();
+          else h.togglePause();
+        }}
       >
         {p.paused && !inspecting && (
           <View style={styles.pausedIcon} pointerEvents="none">
@@ -125,6 +149,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
       </Pressable>
       {clip.tellsUrl && p.isActive && (
         <TellOverlay
+          ref={tells}
           variants={clip.tellsVariants ?? [{ name: 'main', url: clip.tellsUrl }]}
           player={p.player}
           stageW={stageW}
