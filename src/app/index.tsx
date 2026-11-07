@@ -4,6 +4,7 @@ import { useIsFocused } from 'expo-router';
 import type { Clip } from '@/data/clips';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import { DesktopApp } from '@/desktop/DesktopApp';
+import { DevSettings } from '@/devtools/DevSettings';
 import { Feed, type FeedHandle } from '@/feed/Feed';
 import { WithLanding } from '@/landing/WithLanding';
 import { Profile } from '@/profile/Profile';
@@ -24,9 +25,13 @@ export default function Home() {
       <ToastProvider>
         {/* Web shows a landing page first; the apps open on the feed. */}
         <WithLanding>
-          {(startAt, showLanding) =>
-            desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} /> : <Screen startAt={startAt} />
-          }
+          {(startAt, showLanding) => (
+            <>
+              {desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} /> : <Screen startAt={startAt} />}
+              {/* Dev builds (and web with ?dev): a launcher for the tabbed dev settings. */}
+              <DevSettings desktop={desktop} />
+            </>
+          )}
         </WithLanding>
       </ToastProvider>
     </SocialProvider>
