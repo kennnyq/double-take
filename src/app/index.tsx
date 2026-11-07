@@ -1,8 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Animated, StyleSheet, View } from 'react-native';
+import { Animated, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useIsFocused } from 'expo-router';
 import type { Clip } from '@/data/clips';
 import { CommentsSheet } from '@/comments/CommentsSheet';
+import { DesktopApp } from '@/desktop/DesktopApp';
 import { Feed, type FeedHandle } from '@/feed/Feed';
 import { Profile } from '@/profile/Profile';
 import { ShareSheet } from '@/share/ShareSheet';
@@ -14,11 +15,12 @@ import { TABS, TabBar, type TabId } from '@/ui/TabBar';
 import { ToastProvider } from '@/ui/Toast';
 
 export default function Home() {
+  const { width, height } = useWindowDimensions();
+  // Desktop browsers get the Reels-style layout; it needs room for the side info and action columns.
+  const desktop = Platform.OS === 'web' && width >= 760 && height >= 480;
   return (
     <SocialProvider>
-      <ToastProvider>
-        <Screen />
-      </ToastProvider>
+      <ToastProvider>{desktop ? <DesktopApp /> : <Screen />}</ToastProvider>
     </SocialProvider>
   );
 }

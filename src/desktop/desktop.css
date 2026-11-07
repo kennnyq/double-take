@@ -1,0 +1,692 @@
+/* Desktop browsers only (imported by DesktopApp.web.tsx). Everything is scoped
+   under .desk so it never touches the React Native Web views of the app. */
+
+.desk {
+  --bg: #0b0c0f;
+  --bg-elev: #1b1d21;
+  --bg-elev-2: #26282d;
+  --text: #f5f5f5;
+  --text-dim: #a8a8a8;
+  --accent: #4f9cf9;
+  --like: #ff3040;
+  --repost: #3ccf91;
+  --rail-w: 72px;
+  --font: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color-scheme: dark;
+
+  position: fixed;
+  inset: 0;
+  display: flex;
+  overflow: hidden;
+  background: radial-gradient(120% 90% at 50% 40%, #12151b 0%, #090a0c 70%);
+  color: var(--text);
+  font-family: var(--font);
+  -webkit-font-smoothing: antialiased;
+  overscroll-behavior: none;
+}
+
+.desk *,
+.desk *::before,
+.desk *::after {
+  box-sizing: border-box;
+}
+
+.desk [hidden] {
+  display: none !important;
+}
+
+/* :where() keeps this reset weaker than any class, so React Native Web's
+   buttons (tells walkthrough, profile) keep their own styles. */
+:where(.desk) button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+
+.desk button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* ------------------------------------------------------------------ rail */
+
+.desk .rail {
+  flex: none;
+  width: var(--rail-w);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 0 18px;
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+  z-index: 5;
+}
+
+.desk .rail-logo {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+}
+
+.desk .rail-items {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+}
+
+.desk .rail-bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.desk .rail-item {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 12px;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+}
+
+.desk .rail-item:hover,
+.desk .rail-logo:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.desk .rail-item:active {
+  transform: scale(0.94);
+}
+
+.desk .rail-item::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 58px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: var(--bg-elev-2);
+  font-size: 13px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-4px);
+  transition:
+    opacity 0.12s,
+    transform 0.12s;
+}
+
+.desk .rail-item:hover::after {
+  opacity: 1;
+  transform: none;
+  transition-delay: 0.35s;
+}
+
+.desk .notif-dot {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--like);
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+.desk .desk-main {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
+
+.desk .tab-pane,
+.desk .desk-profile {
+  height: 100%;
+}
+
+/* The app's profile screen (React Native Web) fills the main column. */
+.desk .desk-profile {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ------------------------------------------------------------------ feed */
+
+.desk .feed-wrap {
+  position: relative;
+  height: 100%;
+  width: 100%;
+}
+
+.desk .feed {
+  position: relative;
+  z-index: 0;
+  height: 100%;
+  overflow-y: scroll;
+  overflow-x: hidden;
+  scroll-snap-type: y mandatory;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  outline: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.desk .feed::-webkit-scrollbar {
+  display: none;
+}
+
+.desk .slide {
+  position: relative;
+  height: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+}
+
+.desk .slide-grid {
+  display: grid;
+  /* minmax(0, …): side content must never push the card off-centre, or it
+     would drift away from the pooled <video> layered on top of it. */
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  align-items: center;
+  height: 100%;
+}
+
+.desk .stage {
+  position: relative;
+  overflow: hidden;
+  background: #111;
+  grid-column: 2;
+  height: calc(100% - 32px);
+  width: auto;
+  aspect-ratio: 9 / 16;
+  border-radius: 8px;
+}
+
+.desk .poster,
+.desk .stage video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* Landscape and square clips: shown whole over a blurred fill of themselves. */
+.desk .poster.blurred {
+  filter: blur(28px) brightness(0.7);
+  transform: scale(1.15);
+}
+
+.desk .poster.contained {
+  object-fit: contain;
+}
+
+.desk .stage video {
+  background: transparent;
+}
+
+.desk .pool-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 100%;
+  top: calc(var(--i) * 100%);
+  z-index: 1;
+  pointer-events: none;
+}
+
+.desk .pool-slot .stage {
+  background: transparent;
+}
+
+.desk .overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+}
+
+.desk .tap-layer {
+  position: absolute;
+  inset: 0;
+  cursor: pointer;
+}
+
+.desk .shade {
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 38%;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.55), rgba(0, 0, 0, 0.18) 55%, transparent);
+  pointer-events: none;
+}
+
+.desk .paused-icon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 76px;
+  height: 76px;
+  margin: -38px 0 0 -38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  pointer-events: none;
+  animation: desk-pop-in 0.18s ease-out;
+}
+
+.desk .paused-icon svg {
+  margin-left: 4px;
+}
+
+.desk .burst {
+  position: absolute;
+  color: var(--like);
+  filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.35));
+  pointer-events: none;
+  transform: translate(-50%, -60%) rotate(var(--r));
+  animation: desk-burst 0.85s cubic-bezier(0.2, 0.9, 0.3, 1.2) forwards;
+}
+
+@keyframes desk-burst {
+  0% {
+    transform: translate(-50%, -60%) rotate(var(--r)) scale(0.2);
+    opacity: 0;
+  }
+  15% {
+    transform: translate(-50%, -60%) rotate(var(--r)) scale(1.15);
+    opacity: 1;
+  }
+  30% {
+    transform: translate(-50%, -60%) rotate(var(--r)) scale(0.95);
+  }
+  70% {
+    transform: translate(-50%, -60%) rotate(var(--r)) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -140%) rotate(var(--r)) scale(1.1);
+    opacity: 0;
+  }
+}
+
+@keyframes desk-pop-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+}
+
+.desk .spinner {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.25);
+  border-top-color: #fff;
+  opacity: 0;
+  transition: opacity 0.2s;
+  animation: desk-spin 0.8s linear infinite;
+}
+
+.desk .spinner.on {
+  opacity: 1;
+}
+
+@keyframes desk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.desk .avatar {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, hsl(var(--hue) 70% 55%), hsl(calc(var(--hue) + 60) 70% 40%));
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.18);
+}
+
+.desk .sound-thumb {
+  width: 30px;
+  height: 30px;
+  margin-top: 4px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1.5px solid #fff;
+}
+
+/* --------------------------------------------------- author and actions */
+
+.desk .d-info {
+  grid-column: 1;
+  justify-self: end;
+  align-self: end;
+  width: min(360px, 100%);
+  padding: 0 28px 28px 24px;
+  position: relative;
+  z-index: 2;
+}
+
+.desk .d-info-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.desk .d-author {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+}
+
+.desk .d-author .name {
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk .d-author .verified {
+  flex: none;
+  margin-left: -5px;
+}
+
+.desk .d-author .dot {
+  color: var(--text-dim);
+  margin: 0 -4px;
+}
+
+.desk .follow {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.desk .follow:hover {
+  color: #8ec0ff;
+}
+
+.desk .follow.on {
+  color: var(--text-dim);
+}
+
+.desk .d-audio {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 42px;
+  margin-top: -8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.desk .d-audio span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desk .d-caption {
+  margin: 6px 0 0;
+  font-size: 15px;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.desk .d-actions {
+  grid-column: 3;
+  justify-self: start;
+  align-self: end;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 0 0 22px 24px;
+}
+
+.desk .action-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  font-weight: 500;
+  min-width: 44px;
+  transition: transform 0.1s;
+}
+
+.desk .action-btn svg {
+  transition:
+    transform 0.15s,
+    opacity 0.15s;
+}
+
+.desk .action-btn:hover svg {
+  opacity: 0.7;
+}
+
+.desk .action-btn:active svg {
+  transform: scale(0.88);
+}
+
+.desk .action-btn.liked svg {
+  color: var(--like);
+}
+
+.desk .action-btn.reposted svg {
+  color: var(--repost);
+}
+
+.desk .action-btn.liked svg,
+.desk .action-btn.reposted svg,
+.desk .action-btn.saved svg {
+  animation: desk-like-pop 0.35s cubic-bezier(0.2, 0.9, 0.3, 1.4);
+}
+
+@keyframes desk-like-pop {
+  40% {
+    transform: scale(1.25);
+  }
+}
+
+.desk .mute-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(38, 38, 38, 0.72);
+  backdrop-filter: blur(6px);
+}
+
+.desk .mute-btn:hover {
+  background: rgba(70, 70, 70, 0.8);
+}
+
+/* The in-card info is only for narrower desktop windows. */
+.desk .compact-only {
+  display: none;
+}
+
+.desk .d-nav {
+  position: absolute;
+  right: 24px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 4;
+}
+
+.desk .round-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--bg-elev);
+  transition:
+    background 0.15s,
+    transform 0.1s,
+    opacity 0.15s;
+}
+
+.desk .round-btn:hover {
+  background: var(--bg-elev-2);
+}
+
+.desk .round-btn:active {
+  transform: scale(0.94);
+}
+
+.desk .round-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.desk .messages-pill {
+  position: fixed;
+  right: 24px;
+  bottom: 22px;
+  z-index: 6;
+  width: 250px;
+  height: 58px;
+  padding: 0 14px 0 22px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 999px;
+  background: var(--bg-elev);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45);
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.desk .messages-pill:hover {
+  background: var(--bg-elev-2);
+}
+
+.desk .pill-avatars {
+  margin-left: auto;
+  display: flex;
+}
+
+.desk .pill-avatars i {
+  width: 24px;
+  height: 24px;
+  margin-left: -8px;
+  border-radius: 50%;
+  border: 2px solid var(--bg-elev);
+  background: linear-gradient(135deg, hsl(var(--hue) 70% 55%), hsl(calc(var(--hue) + 50) 70% 40%));
+}
+
+/* Narrow desktop: the info moves into the card, like Reels does. */
+@media (max-width: 1180px) {
+  .desk .d-info {
+    visibility: hidden;
+  }
+  .desk .compact-only {
+    display: block;
+  }
+  .desk .d-info-overlay {
+    position: absolute;
+    left: 16px;
+    right: 56px;
+    bottom: 18px;
+  }
+  .desk .d-info-overlay .d-caption {
+    -webkit-line-clamp: 2;
+  }
+  .desk .messages-pill {
+    width: 58px;
+    padding: 0;
+    justify-content: center;
+  }
+  .desk .messages-pill span {
+    display: none;
+  }
+}
+
+/* ---------------------------------------------------------- placeholders */
+
+.desk .placeholder {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 24px;
+  text-align: center;
+}
+
+.desk .placeholder-icon {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 2px solid rgba(255, 255, 255, 0.85);
+  margin-bottom: 10px;
+}
+
+.desk .placeholder h2 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.desk .placeholder p {
+  margin: 0;
+  color: var(--text-dim);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* The app's comments and share sheets, layered over the desktop for now. */
+.desk-sheets {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .desk .burst,
+  .desk .paused-icon,
+  .desk .action-btn svg {
+    animation: none !important;
+  }
+}
