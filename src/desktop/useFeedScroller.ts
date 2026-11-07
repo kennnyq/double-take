@@ -81,11 +81,14 @@ export function useFeedScroller(
         return;
       }
       el.style.scrollSnapType = 'none';
-      const start = performance.now();
+      // The clock starts on the first frame, not now: the new clip's render can
+      // hold up that frame, and starting earlier would skip most of the move.
+      let start: number | null = null;
       const state = { raf: 0 };
       anim.current = state;
       const step = (now: number) => {
         if (anim.current !== state) return;
+        start ??= now;
         const p = Math.min(1, (now - start) / DURATION_MS);
         el.scrollTop = from + (to - from) * ease(p);
         if (p < 1) state.raf = requestAnimationFrame(step);

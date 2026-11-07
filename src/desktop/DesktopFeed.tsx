@@ -282,7 +282,8 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   );
 
   const cardH = Math.max(0, feedH - CARD_MARGIN);
-  const card = { w: Math.round((cardH * 9) / 16), h: cardH };
+  // Stable between renders, so moving to another clip re-renders only the slides that change.
+  const card = useMemo(() => ({ w: Math.round((cardH * 9) / 16), h: cardH }), [cardH]);
   const fitOf = (i: number): Fit => (i === active && inspecting ? 'contain' : fitFor(clips[i]?.aspect));
 
   return (
