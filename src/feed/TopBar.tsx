@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -19,10 +19,24 @@ function IconButton({ name, onPress, label, size = 25 }: { name: IconName; onPre
 }
 
 /** Floating top bar over the feed: sound on the left, tools on the right. */
-export function TopBar({ muted, onToggleMute }: { muted: boolean; onToggleMute: () => void }) {
+export function TopBar({
+  muted,
+  onToggleMute,
+  opacity,
+  hidden,
+}: {
+  muted: boolean;
+  onToggleMute: () => void;
+  /** Fades out while a sheet is up (native-driven). */
+  opacity?: Animated.AnimatedInterpolation<number>;
+  hidden?: boolean;
+}) {
   const insets = useSafeAreaInsets();
   return (
-    <View style={[styles.bar, { paddingTop: insets.top + 2 }]} pointerEvents="box-none">
+    <Animated.View
+      style={[styles.bar, { paddingTop: insets.top + 2 }, opacity && { opacity }]}
+      pointerEvents={hidden ? 'none' : 'box-none'}
+    >
       <IconButton
         name={muted ? 'volume-mute-outline' : 'volume-high-outline'}
         onPress={onToggleMute}
@@ -33,7 +47,7 @@ export function TopBar({ muted, onToggleMute }: { muted: boolean; onToggleMute: 
         <IconButton name="search-outline" label="Search" />
         <IconButton name="ellipsis-vertical" label="More" size={22} />
       </View>
-    </View>
+    </Animated.View>
   );
 }
 

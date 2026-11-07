@@ -5,6 +5,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { formatCount, type Clip } from '@/data/clips';
+import { baseReposts } from '@/social/clipRefs';
 import { Avatar } from '@/ui/Avatar';
 import type { FeedHandlers } from './Feed';
 import { TellOverlay } from './TellOverlay';
@@ -21,8 +22,14 @@ interface Props {
   boost: boolean;
   liked: boolean;
   saved: boolean;
+  reposted: boolean;
+  sent: boolean;
   followed: boolean;
+  /** How many comments you've added (shown on top of the clip's count). */
+  myComments: number;
   progress: Animated.Value;
+  /** Overlay opacity: fades rail/meta out while the page is shrunk above a sheet. */
+  chrome: Animated.AnimatedInterpolation<number>;
   h: FeedHandlers;
 }
 
@@ -44,7 +51,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
     const prev = lastTap.current;
     if (now - prev.t < DOUBLE_TAP_MS && Math.hypot(x - prev.x, y - prev.y) < 60) {
       h.play();
-      h.like(clip.id);
+      h.like(clip);
       const tilt = `${Math.round(Math.random() * 30 - 15)}deg`;
       setBursts((b) => [...b, { id: now, x, y, tilt }]);
       lastTap.current = { t: 0, x: 0, y: 0 };
@@ -130,7 +137,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         </View>
       )}
 
-      <View style={[styles.meta, wide && styles.metaWide]} pointerEvents="box-none">
+      <Animated.View style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]} pointerEvents="box-none">
         <View style={styles.authorRow} pointerEvents="box-none">
           <Avatar name={clip.author} size={32} />
           <Text style={styles.handle} numberOfLines={1}>
@@ -156,7 +163,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
             {clip.audio}
           </Text>
         </View>
-      </View>
+      </Animated.View>
 
       {!wide && <Rail {...p} />}
 
@@ -197,27 +204,45 @@ export const ClipItem = memo(function ClipItem(p: Props) {
 function Rail(p: Props) {
   const { clip, h, wide } = p;
   return (
-    <View style={[styles.rail, wide && styles.railWide]}>
+    <Animated.View style={[styles.rail, wide && styles.railWide, { opacity: p.chrome }]}>
       <RailButton
         icon={p.liked ? 'heart' : 'heart-outline'}
         color={p.liked ? '#ff3040' : '#fff'}
         label={formatCount(clip.likes + (p.liked ? 1 : 0))}
         a11y={p.liked ? 'Unlike' : 'Like'}
-        onPress={() => h.toggleLike(clip.id)}
+        onPress={() => h.toggleLike(clip)}
         pop={p.liked}
       />
-      <RailButton icon="chatbox-ellipses-outline" label={formatCount(clip.comments)} a11y="Comments" onPress={() => {}} />
+      <RailButton
+        icon="chatbox-ellipses-outline"
+        label={formatCount(clip.comments + p.myComments)}
+        a11y="Comments"
+        onPress={() => h.openComments(clip)}
+      />
+      <RailButton
+        icon="repeat"
+        color={p.reposted ? REPOST_TINT : '#fff'}
+        label={formatCount(baseReposts(clip) + (p.reposted ? 1 : 0))}
+        a11y={p.reposted ? 'Undo repost' : 'Repost'}
+        onPress={() => h.toggleRepost(clip)}
+      />
+      <RailButton
+        icon="arrow-redo-outline"
+        label={formatCount(clip.shares + (p.sent ? 1 : 0))}
+        a11y="Share"
+        onPress={() => h.openShare(clip)}
+      />
       <RailButton
         icon={p.saved ? 'bookmark' : 'bookmark-outline'}
         label={p.saved ? 'Saved' : 'Save'}
-        onPress={() => h.toggleSave(clip.id)}
+        onPress={() => h.toggleSave(clip)}
       />
-      <RailButton icon="arrow-redo-outline" label="Share" onPress={() => {}} />
-      <RailButton icon="sparkles-outline" label="Remix" onPress={() => {}} />
       <Image source={clip.poster} style={styles.soundThumb} />
-    </View>
+    </Animated.View>
   );
 }
+
+const REPOST_TINT = '#3ddc84';
 
 function RailButton(props: {
   icon: React.ComponentProps<typeof Ionicons>['name'];

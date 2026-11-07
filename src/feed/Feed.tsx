@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   AppState,
@@ -7,18 +7,38 @@ import {
   Platform,
   StyleSheet,
   View,
+  useWindowDimensions,
   type LayoutChangeEvent,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, type VideoPlayer } from 'expo-video';
 import { useEventListener } from 'expo';
 import * as Haptics from 'expo-haptics';
 import { makeClips, type Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
+import { useSocialActions } from '@/social/actions';
+import { useAppNav } from '@/social/nav';
+import { useSocial } from '@/social/store';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
+import { shrinkGeometry } from './shrink';
 import { ClipItem } from './ClipItem';
 import { TopBar } from './TopBar';
+
+interface FeedProps {
+  focused: boolean;
+  /** A comments/share sheet is up (or animating): lock scrolling, round the shrunk page. */
+  sheetOpen: boolean;
+  /** 0..1 sheet position, driven on the native thread by the sheet. Shrinks the active page. */
+  sheetProgress: Animated.Value;
+  ref?: React.Ref<FeedHandle>;
+}
+
+export interface FeedHandle {
+  /** Land on an item index instantly (no animated scroll), loading more clips first if needed. */
+  jumpTo: (index: number) => void;
+}
 
 /**
  * Shorts-style vertical pager.
@@ -31,7 +51,7 @@ import { TopBar } from './TopBar';
  * recycled for the item entering the window, so the next clip is already
  * buffered when you swipe and memory stays flat no matter how far you scroll.
  */
-export function Feed({ focused }: { focused: boolean }) {
+export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
   // Empty until the first page arrives (remote clips, then placeholders).
   const [clips, setClips] = useState<Clip[]>([]);
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -40,9 +60,6 @@ export function Feed({ focused }: { focused: boolean }) {
   const [muted, setMuted] = useState(Platform.OS === 'web');
   const [paused, setPaused] = useState(false);
   const [boost, setBoost] = useState(false);
-  const [liked, setLiked] = useState<Set<string>>(() => new Set());
-  const [saved, setSaved] = useState<Set<string>>(() => new Set());
-  const [followed, setFollowed] = useState<Set<string>>(() => new Set());
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const listRef = useRef<FlatList<Clip>>(null);
   const activeRef = useRef(active);
@@ -198,15 +215,77 @@ export function Feed({ focused }: { focused: boolean }) {
   // Wait for the first page so placeholders never jump ahead of remote clips.
   const onEndReached = () => setClips((c) => (c.length ? [...c, ...makeClips(c.length, 12)] : c));
 
+  // ---- jump to a clip (profile tile) ---------------------------------------
+  // If the index isn't loaded yet, grow the list and land once the new
+  // content size arrives; otherwise land right away.
+  const clipCount = useRef(clips.length);
+  useEffect(() => {
+    clipCount.current = clips.length;
+  }, [clips.length]);
+  const pendingJump = useRef<number | null>(null);
+  const landOn = useCallback(
+    (i: number) => {
+      if (!size.h) return;
+      listRef.current?.scrollToOffset({ offset: i * size.h, animated: false });
+      if (i === activeRef.current) return;
+      activeRef.current = i;
+      setActive(i);
+      setPaused(false);
+      setBoost(false);
+    },
+    [size.h],
+  );
+  useImperativeHandle(
+    ref,
+    () => ({
+      jumpTo: (i: number) => {
+        if (i < clipCount.current) {
+          landOn(i);
+          return;
+        }
+        pendingJump.current = i;
+        setClips((c) => (c.length > i ? c : [...c, ...makeClips(c.length, i + 6 - c.length)]));
+      },
+    }),
+    [landOn],
+  );
+  const onContentSizeChange = (_w: number, contentH: number) => {
+    const i = pendingJump.current;
+    if (i === null || !size.h || contentH < (i + 1) * size.h) return;
+    pendingJump.current = null;
+    landOn(i);
+  };
+
+  // ---- sheet shrink ------------------------------------------------------
+  // While a comments/share sheet is up, the whole list is scaled down into the
+  // space above it. Both transforms and the overlay fade run on the native
+  // driver from the sheet's progress value, so they track drags frame by frame.
+  const { height: winH } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const shrink = shrinkGeometry(size.h, winH, insets.top);
+  const shrinkStyle = useMemo(
+    () => ({
+      transform: [
+        { translateY: sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [0, shrink.dy] }) },
+        { scale: sheetProgress.interpolate({ inputRange: [0, 1], outputRange: [1, shrink.scale] }) },
+      ],
+    }),
+    [sheetProgress, shrink.dy, shrink.scale],
+  );
+  const chrome = useMemo(
+    () => sheetProgress.interpolate({ inputRange: [0, 0.5], outputRange: [1, 0], extrapolate: 'clamp' }),
+    [sheetProgress],
+  );
+
   // ---- interactions --------------------------------------------------------
-  const toggleIn = (set: React.Dispatch<React.SetStateAction<Set<string>>>, id: string, force?: boolean) =>
-    set((s) => {
-      const n = new Set(s);
-      const on = force ?? !n.has(id);
-      if (on) n.add(id);
-      else n.delete(id);
-      return n;
-    });
+  const social = useSocial();
+  const actions = useSocialActions();
+  const nav = useAppNav();
+  const liked = useMemo(() => new Set(social.liked.map((e) => e.id)), [social.liked]);
+  const saved = useMemo(() => new Set(social.saved.map((e) => e.id)), [social.saved]);
+  const reposted = useMemo(() => new Set(social.reposted.map((e) => e.id)), [social.reposted]);
+  const sent = useMemo(() => new Set(social.sent.map((e) => e.id)), [social.sent]);
+  const followed = useMemo(() => new Set(social.followed), [social.followed]);
 
   const changePaused = useCallback(
     (next: boolean) => {
@@ -237,28 +316,19 @@ export function Feed({ focused }: { focused: boolean }) {
     () => ({
       togglePause: () => changePaused(!paused),
       play: () => changePaused(false),
-      like: (id: string) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        toggleIn(setLiked, id, true);
-      },
-      toggleLike: (id: string) => {
-        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        toggleIn(setLiked, id);
-      },
-      toggleSave: (id: string) => {
-        Haptics.selectionAsync();
-        toggleIn(setSaved, id);
-      },
-      toggleFollow: (author: string) => {
-        Haptics.selectionAsync();
-        toggleIn(setFollowed, author);
-      },
+      like: actions.like,
+      toggleLike: actions.toggleLike,
+      toggleSave: actions.toggleSave,
+      toggleRepost: actions.toggleRepost,
+      toggleFollow: actions.toggleFollow,
+      openComments: (clip) => nav.openSheet('comments', clip),
+      openShare: (clip) => nav.openSheet('share', clip),
       setBoost: (on: boolean) => {
         if (on) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setBoost(on);
       },
     }),
-    [changePaused, paused],
+    [actions, nav, changePaused, paused],
   );
 
   const renderItem = ({ item, index }: { item: Clip; index: number }) => {
@@ -276,8 +346,12 @@ export function Feed({ focused }: { focused: boolean }) {
         boost={index === active && boost}
         liked={liked.has(item.id)}
         saved={saved.has(item.id)}
+        reposted={reposted.has(item.id)}
+        sent={sent.has(item.id)}
         followed={followed.has(item.author)}
+        myComments={social.comments[item.id]?.length ?? 0}
         progress={progress}
+        chrome={chrome}
         h={handlers}
       />
     );
@@ -286,12 +360,13 @@ export function Feed({ focused }: { focused: boolean }) {
   return (
     <View style={styles.root} onLayout={onLayout}>
       {size.h > 0 && (
-        <FlatList
+        <Animated.FlatList
+          style={[sheetOpen && styles.shrunk, shrinkStyle]}
           ref={listRef}
           data={clips}
           keyExtractor={(c) => c.id}
           renderItem={renderItem}
-          extraData={[active, loaded, paused, boost, liked, saved, followed, wide, size]}
+          extraData={[active, loaded, paused, boost, social, wide, size]}
           getItemLayout={(_, i) => ({ length: size.h, offset: size.h * i, index: i })}
           pagingEnabled
           decelerationRate="fast"
@@ -307,23 +382,30 @@ export function Feed({ focused }: { focused: boolean }) {
           maxToRenderPerBatch={3}
           windowSize={5}
           removeClippedSubviews
+          scrollEnabled={!sheetOpen}
+          onContentSizeChange={onContentSizeChange}
         />
       )}
-      <TopBar muted={muted} onToggleMute={toggleMute} />
+      <TopBar muted={muted} onToggleMute={toggleMute} opacity={chrome} hidden={sheetOpen} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
+  // Corner radius is in unscaled points; at the shrunk scale it reads as ~12pt.
+  shrunk: { borderRadius: 36, overflow: 'hidden' },
 });
 
 export type FeedHandlers = {
   togglePause: () => void;
   play: () => void;
-  like: (id: string) => void;
-  toggleLike: (id: string) => void;
-  toggleSave: (id: string) => void;
+  like: (clip: Clip) => void;
+  toggleLike: (clip: Clip) => void;
+  toggleSave: (clip: Clip) => void;
+  toggleRepost: (clip: Clip) => void;
   toggleFollow: (author: string) => void;
+  openComments: (clip: Clip) => void;
+  openShare: (clip: Clip) => void;
   setBoost: (on: boolean) => void;
 };
