@@ -19,6 +19,7 @@ import { useEventListener } from 'expo';
 import * as Haptics from 'expo-haptics';
 import { makeClips, type Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
+import { receiveHandoff } from '@/landing/handoff';
 import { useSocialActions } from '@/social/actions';
 import { useAppNav } from '@/social/nav';
 import { useSocial } from '@/social/store';
@@ -33,6 +34,8 @@ interface FeedProps {
   sheetOpen: boolean;
   /** 0..1 sheet position, driven on the native thread by the sheet. Shrinks the active page. */
   sheetProgress: Animated.Value;
+  /** Open on this clip instead of the first (web: the landing's launch). Read once, at mount. */
+  startAt?: number;
   ref?: React.Ref<FeedHandle>;
 }
 
@@ -52,13 +55,15 @@ export interface FeedHandle {
  * recycled for the item entering the window, so the next clip is already
  * buffered when you swipe and memory stays flat no matter how far you scroll.
  */
-export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
+export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedProps) {
   // Empty until the first page arrives (remote clips, then placeholders).
   const [clips, setClips] = useState<Clip[]>([]);
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const [active, setActive] = useState(0);
+  const [active, setActive] = useState(startAt ?? 0);
   // Browsers require a user gesture before playing video with sound.
   const [muted, setMuted] = useState(Platform.OS === 'web');
+  // Web: the landing's launch hands over its sound once this feed has taken over.
+  useEffect(() => receiveHandoff((h) => setMuted(h.muted)), []);
   const [paused, setPaused] = useState(false);
   const [boost, setBoost] = useState(false);
   // The tells walkthrough loops a stretch in slow motion, muted.
@@ -364,7 +369,8 @@ export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
 
   return (
     <View style={styles.root} onLayout={onLayout}>
-      {size.h > 0 && (
+      {/* Mounted once the clips are in, so it can open on `startAt`. */}
+      {size.h > 0 && clips.length > 0 && (
         <Animated.FlatList
           style={[sheetOpen && styles.shrunk, shrinkStyle]}
           ref={listRef}
@@ -373,6 +379,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
           renderItem={renderItem}
           extraData={[active, loaded, paused, boost, social, wide, size]}
           getItemLayout={(_, i) => ({ length: size.h, offset: size.h * i, index: i })}
+          initialScrollIndex={startAt}
           pagingEnabled
           decelerationRate="fast"
           disableIntervalMomentum

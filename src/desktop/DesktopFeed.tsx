@@ -27,6 +27,7 @@ import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { avatarHue, formatCount, makeClips, type Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { TellOverlay } from '@/feed/TellOverlay';
+import { receiveHandoff } from '@/landing/handoff';
 import { fitFor, type Fit } from '@/feed/tells';
 import { useSocialActions } from '@/social/actions';
 import { baseReposts } from '@/social/clipRefs';
@@ -102,6 +103,9 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   // ---- playback state -----------------------------------------------------
   // Browsers only autoplay muted; the card's sound button unmutes inside a click.
   const [muted, setMuted] = useState(true);
+  // The landing's launch hands over its sound once this feed's video has taken
+  // over from the clip that grew into it.
+  useEffect(() => receiveHandoff((h) => setMuted(h.muted)), []);
   // Remembering which clip was paused means moving on always plays the next one.
   const [pausedAt, setPausedAt] = useState<number | null>(null);
   const paused = pausedAt === active;

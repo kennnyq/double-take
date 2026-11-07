@@ -5,6 +5,7 @@ import type { Clip } from '@/data/clips';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import { DesktopApp } from '@/desktop/DesktopApp';
 import { Feed, type FeedHandle } from '@/feed/Feed';
+import { WithLanding } from '@/landing/WithLanding';
 import { Profile } from '@/profile/Profile';
 import { ShareSheet } from '@/share/ShareSheet';
 import { clipIndex } from '@/social/clipRefs';
@@ -20,12 +21,15 @@ export default function Home() {
   const desktop = Platform.OS === 'web' && width >= 760 && height >= 480;
   return (
     <SocialProvider>
-      <ToastProvider>{desktop ? <DesktopApp /> : <Screen />}</ToastProvider>
+      <ToastProvider>
+        {/* Web shows a landing page first; the apps open on the feed. */}
+        <WithLanding>{(startAt) => (desktop ? <DesktopApp startAt={startAt} /> : <Screen startAt={startAt} />)}</WithLanding>
+      </ToastProvider>
     </SocialProvider>
   );
 }
 
-function Screen() {
+function Screen({ startAt }: { startAt?: number }) {
   const [tab, setTab] = useState<TabId>('takes');
   const [profileTab, setProfileTab] = useState<ProfileTab>('reposts');
   const feedRef = useRef<FeedHandle>(null);
@@ -71,6 +75,7 @@ function Screen() {
               focused={screenFocused && tab === 'takes'}
               sheetOpen={sheet !== null}
               sheetProgress={sheetProgress}
+              startAt={startAt}
               ref={feedRef}
             />
           </View>

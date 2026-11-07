@@ -3,6 +3,8 @@ import { fetchRemoteClips, toClip } from './remote';
 
 const MIN_CLIPS = 24;
 
+let initial: Promise<Clip[]> | null = null;
+
 /**
  * The feed's first page: clips from the media Worker, followed by bundled
  * placeholders. With no API configured, or if the request fails, the feed is
@@ -12,7 +14,13 @@ const MIN_CLIPS = 24;
  *   EXPO_PUBLIC_API_URL=https://double-take-api.<subdomain>.workers.dev
  *   EXPO_PUBLIC_DEMO_PASSCODE=...
  */
-export async function loadInitialClips(): Promise<Clip[]> {
+export function loadInitialClips(): Promise<Clip[]> {
+  // One request per session: the web landing and the feed share it.
+  initial ??= load();
+  return initial;
+}
+
+async function load(): Promise<Clip[]> {
   // Must be written out in full: Expo only inlines literal `process.env.EXPO_PUBLIC_*`.
   const url = process.env.EXPO_PUBLIC_API_URL;
   const passcode = process.env.EXPO_PUBLIC_DEMO_PASSCODE;

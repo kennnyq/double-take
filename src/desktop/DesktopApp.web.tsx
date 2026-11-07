@@ -20,6 +20,7 @@ import { ShareSheet } from '@/share/ShareSheet';
 import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
 import { DesktopFeed, type DesktopFeedHandle } from './DesktopFeed';
+import { Logo } from './Logo';
 import './desktop.css';
 
 type DesktopTab = 'home' | 'reels' | 'messages' | 'search' | 'activity' | 'create' | 'profile';
@@ -39,7 +40,7 @@ const NAV: { id: DesktopTab; label: string; icon: LucideIcon; dot?: boolean }[] 
  * Shares the social store, toasts, profile and clip data with the app; only the
  * layout and the feed's input handling (wheel, keyboard, buttons) are desktop's own.
  */
-export function DesktopApp() {
+export function DesktopApp({ startAt }: { startAt?: number }) {
   const [tab, setTab] = useState<DesktopTab>('reels');
   const [profileTab, setProfileTab] = useState<ProfileTab>('reposts');
   const feedRef = useRef<DesktopFeedHandle>(null);
@@ -51,6 +52,11 @@ export function DesktopApp() {
 
   const closeSheet = useCallback(() => setSheetOpen(false), []);
   const onSheetClosed = useCallback(() => setSheet(null), []);
+
+  // Opened by the landing's launch: start on the clip that grew into the feed.
+  useEffect(() => {
+    if (startAt !== undefined) feedRef.current?.jumpTo(startAt);
+  }, [startAt]);
 
   // Escape closes an open sheet, as a desktop dialog should.
   useEffect(() => {
@@ -151,16 +157,6 @@ export function DesktopApp() {
 }
 
 /** Original "Double Take" mark: two offset rounded frames. */
-function Logo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 32 32" fill="none" aria-label="Double Take">
-      <rect x="3" y="7" width="17" height="22" rx="5" stroke="currentColor" strokeWidth="2.4" opacity="0.55" />
-      <rect x="11" y="3" width="17" height="22" rx="5" stroke="currentColor" strokeWidth="2.4" />
-      <path d="M17.5 10.5v7l5.5-3.5-5.5-3.5Z" fill="currentColor" />
-    </svg>
-  );
-}
-
 function Placeholder({ icon: Icon, title }: { icon: LucideIcon; title: string }) {
   return (
     <div className="placeholder">
