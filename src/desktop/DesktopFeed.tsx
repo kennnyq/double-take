@@ -51,7 +51,7 @@ export interface DesktopFeedHandle {
 }
 
 interface Props {
-  /** The Reels tab is showing: play the active clip and listen for wheel and keys. */
+  /** The Home tab is showing: play the active clip and listen for wheel and keys. */
   visible: boolean;
   /** False while something else (a sheet) owns the wheel and keyboard. */
   scrollEnabled: boolean;

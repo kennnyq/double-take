@@ -3,7 +3,6 @@ import { Animated } from 'react-native';
 import {
   Bell,
   CircleUserRound,
-  Clapperboard,
   House,
   LayoutGrid,
   Menu,
@@ -23,11 +22,10 @@ import { DesktopFeed, type DesktopFeedHandle } from './DesktopFeed';
 import { Logo } from './Logo';
 import './desktop.css';
 
-type DesktopTab = 'home' | 'reels' | 'messages' | 'search' | 'activity' | 'create' | 'profile';
+type DesktopTab = 'home' | 'messages' | 'search' | 'activity' | 'create' | 'profile';
 
 const NAV: { id: DesktopTab; label: string; icon: LucideIcon; dot?: boolean }[] = [
   { id: 'home', label: 'Home', icon: House },
-  { id: 'reels', label: 'Reels', icon: Clapperboard },
   { id: 'messages', label: 'Messages', icon: Send },
   { id: 'search', label: 'Search', icon: Search },
   { id: 'activity', label: 'Notifications', icon: Bell, dot: true },
@@ -36,12 +34,12 @@ const NAV: { id: DesktopTab; label: string; icon: LucideIcon; dot?: boolean }[] 
 ];
 
 /**
- * Desktop browsers: a left icon rail, and the Reels-style feed.
+ * Desktop browsers: a left icon rail and the Reels-style feed as Home.
  * Shares the social store, toasts, profile and clip data with the app; only the
  * layout and the feed's input handling (wheel, keyboard, buttons) are desktop's own.
  */
 export function DesktopApp({ startAt }: { startAt?: number }) {
-  const [tab, setTab] = useState<DesktopTab>('reels');
+  const [tab, setTab] = useState<DesktopTab>('home');
   const [profileTab, setProfileTab] = useState<ProfileTab>('reposts');
   const feedRef = useRef<DesktopFeedHandle>(null);
   // Comments and share open as the app's sheets for now; `sheet` stays set until the slide-out ends.
@@ -75,7 +73,7 @@ export function DesktopApp({ startAt }: { startAt?: number }) {
         setTab('profile');
       },
       openClip: (clipId) => {
-        setTab('reels');
+        setTab('home');
         feedRef.current?.jumpTo(clipIndex(clipId));
       },
       openSheet: (kind, clip) => {
@@ -93,7 +91,7 @@ export function DesktopApp({ startAt }: { startAt?: number }) {
     <AppNavContext.Provider value={nav}>
       <div className="desk">
         <nav className="rail" aria-label="Main">
-          <button className="rail-logo" onClick={() => setTab('reels')} aria-label="Double Take">
+          <button className="rail-logo" onClick={() => setTab('home')} aria-label="Double Take">
             <Logo />
           </button>
           <div className="rail-items">
@@ -123,15 +121,15 @@ export function DesktopApp({ startAt }: { startAt?: number }) {
 
         <main className="desk-main">
           {/* The feed stays mounted so its position survives tab switches; it pauses when hidden. */}
-          <div className="tab-pane" hidden={tab !== 'reels'}>
-            <DesktopFeed ref={feedRef} visible={tab === 'reels'} scrollEnabled={sheet === null} />
+          <div className="tab-pane" hidden={tab !== 'home'}>
+            <DesktopFeed ref={feedRef} visible={tab === 'home'} scrollEnabled={sheet === null} />
           </div>
           {tab === 'profile' && (
             <div className="desk-profile">
               <Profile tab={profileTab} onTab={setProfileTab} />
             </div>
           )}
-          {tab !== 'reels' && tab !== 'profile' && <Placeholder icon={current.icon} title={current.label} />}
+          {tab !== 'home' && tab !== 'profile' && <Placeholder icon={current.icon} title={current.label} />}
         </main>
       </div>
 
