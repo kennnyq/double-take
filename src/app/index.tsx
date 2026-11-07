@@ -8,6 +8,7 @@ import { DevSettings } from '@/devtools/DevSettings';
 import { Feed, type FeedHandle } from '@/feed/Feed';
 import { WithLanding } from '@/landing/WithLanding';
 import { Profile } from '@/profile/Profile';
+import { SettingsScreen } from '@/settings/SettingsScreen';
 import { ShareSheet } from '@/share/ShareSheet';
 import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
@@ -95,6 +96,7 @@ function Screen({ startAt }: { startAt?: number }) {
         {/* Sheets sit above the tab bar; keyed by clip so composer/search state starts fresh. */}
         {sheet?.kind === 'comments' && <CommentsSheet key={sheet.clip.id} clip={sheet.clip} {...sheetProps} />}
         {sheet?.kind === 'share' && <ShareSheet key={sheet.clip.id} clip={sheet.clip} {...sheetProps} />}
+        <SettingsScreen />
       </View>
     </AppNavContext.Provider>
   );

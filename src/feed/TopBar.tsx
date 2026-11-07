@@ -1,6 +1,7 @@
 import { Animated, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { openSettings } from '@/settings/store';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -18,7 +19,7 @@ function IconButton({ name, onPress, label }: { name: IconName; onPress: () => v
   );
 }
 
-/** Floating top bar over the feed: just the sound toggle, top left. */
+/** Floating top bar over the feed: the sound toggle top left, Settings top right. */
 export function TopBar({
   muted,
   onToggleMute,
@@ -42,6 +43,7 @@ export function TopBar({
         onPress={onToggleMute}
         label={muted ? 'Unmute' : 'Mute'}
       />
+      <IconButton name="settings-outline" onPress={openSettings} label="Settings" />
     </Animated.View>
   );
 }
@@ -53,6 +55,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: 'row',
+    justifyContent: 'space-between',
     paddingHorizontal: 6,
   },
   btn: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
