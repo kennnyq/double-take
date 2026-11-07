@@ -32,7 +32,7 @@ npm run media       # regenerate placeholder clips into assets/media (needs ffmp
 | `src/feed/Feed.tsx` | Paged feed, three-player video pool, playback state, progress |
 | `src/feed/ClipItem.tsx` | One clip: video, tap/double-tap/long-press, overlay, action rail, iPhone and iPad layouts |
 | `src/feed/pool.ts` | Pure logic (pool window, page index, layout choice), tested in `pool.test.ts` |
-| `src/feed/TellOverlay.tsx` | "Reveal AI tells" overlay |
+| `src/feed/TellOverlay.tsx` | "Reveal AI tells" walkthrough: step cards, spotlighted boxes, before/after, "also claimed" |
 | `src/annotations/` | Tells format, validation, geometry, timing and walkthrough logic shared by the app and the pipeline (pure, tested) |
 | `scripts/annotate/` | Pipeline that drafts tells with NVIDIA Nemotron and publishes them to the feed |
 | `src/data/` | Placeholder clips, the remote feed client, stand-in comments and friends |

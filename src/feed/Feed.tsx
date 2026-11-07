@@ -316,6 +316,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
     () => ({
       togglePause: () => changePaused(!paused),
       play: () => changePaused(false),
+      pause: () => changePaused(true),
       like: actions.like,
       toggleLike: actions.toggleLike,
       toggleSave: actions.toggleSave,
@@ -400,6 +401,7 @@ const styles = StyleSheet.create({
 export type FeedHandlers = {
   togglePause: () => void;
   play: () => void;
+  pause: () => void;
   like: (clip: Clip) => void;
   toggleLike: (clip: Clip) => void;
   toggleSave: (clip: Clip) => void;

@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Image, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
 import { VideoView, type VideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -40,6 +40,11 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const [bursts, setBursts] = useState<{ id: number; x: number; y: number; tilt: string }[]>([]);
   const lastTap = useRef({ t: 0, x: 0, y: 0 });
   const longPressed = useRef(false);
+  // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
+  // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
+  const [inspectOn, setInspectOn] = useState(false);
+  const inspecting = inspectOn && p.isActive;
+  const onInspect = useCallback((on: boolean) => setInspectOn(on), []);
 
   // Tap toggles pause immediately (no waiting to rule out a double tap); a
   // second tap within DOUBLE_TAP_MS likes and always leaves the clip playing,
@@ -67,8 +72,9 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const cardTop = wide ? Math.max(14, insets.top + 8) : 0;
   const stageH = wide ? height - cardTop - 14 : height;
   const stageW = wide ? Math.round((stageH * 9) / 16) : width;
-  // Landscape and square clips are shown whole over a blurred fill.
-  const fit = fitFor(clip.aspect);
+  // Landscape and square clips are shown whole over a blurred fill. So is any
+  // clip during the walkthrough, so no highlighted region is cropped off screen.
+  const fit = inspecting ? 'contain' : fitFor(clip.aspect);
 
   const stage = (
     <View style={[styles.stage, { width: stageW, height: stageH }, wide && styles.card]}>
@@ -108,7 +114,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         accessibilityRole="button"
         accessibilityLabel={p.paused ? 'Play' : 'Pause'}
       >
-        {p.paused && (
+        {p.paused && !inspecting && (
           <View style={styles.pausedIcon} pointerEvents="none">
             <Ionicons name="play" size={38} color="#fff" style={{ marginLeft: 5 }} />
           </View>
@@ -126,6 +132,10 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           aspect={clip.aspect ?? 9 / 16}
           fit={fit}
           top={wide ? 12 : insets.top + 54}
+          paused={p.paused}
+          onPause={h.pause}
+          onPlay={h.play}
+          onInspect={onInspect}
         />
       )}
       {p.boost && (
@@ -137,35 +147,37 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         </View>
       )}
 
-      <Animated.View style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]} pointerEvents="box-none">
-        <View style={styles.authorRow} pointerEvents="box-none">
-          <Avatar name={clip.author} size={32} />
-          <Text style={styles.handle} numberOfLines={1}>
-            @{clip.author}
-          </Text>
-          {clip.verified && <Ionicons name="checkmark-circle" size={14} color="#e8e8e8" style={{ marginLeft: -4 }} />}
-          <Pressable
-            onPress={() => h.toggleFollow(clip.author)}
-            style={({ pressed }) => [styles.subscribe, p.followed && styles.subscribed, pressed && styles.pressed]}
-            hitSlop={8}
-          >
-            <Text style={[styles.subscribeText, p.followed && styles.subscribedText]}>
-              {p.followed ? 'Subscribed' : 'Subscribe'}
+      {!inspecting && (
+        <Animated.View style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]} pointerEvents="box-none">
+          <View style={styles.authorRow} pointerEvents="box-none">
+            <Avatar name={clip.author} size={32} />
+            <Text style={styles.handle} numberOfLines={1}>
+              @{clip.author}
             </Text>
-          </Pressable>
-        </View>
-        <Text style={styles.caption} numberOfLines={1}>
-          {clip.caption}
-        </Text>
-        <View style={styles.audioRow}>
-          <Ionicons name="musical-notes" size={12} color="#ddd" />
-          <Text style={styles.audioText} numberOfLines={1}>
-            {clip.audio}
+            {clip.verified && <Ionicons name="checkmark-circle" size={14} color="#e8e8e8" style={{ marginLeft: -4 }} />}
+            <Pressable
+              onPress={() => h.toggleFollow(clip.author)}
+              style={({ pressed }) => [styles.subscribe, p.followed && styles.subscribed, pressed && styles.pressed]}
+              hitSlop={8}
+            >
+              <Text style={[styles.subscribeText, p.followed && styles.subscribedText]}>
+                {p.followed ? 'Subscribed' : 'Subscribe'}
+              </Text>
+            </Pressable>
+          </View>
+          <Text style={styles.caption} numberOfLines={1}>
+            {clip.caption}
           </Text>
-        </View>
-      </Animated.View>
+          <View style={styles.audioRow}>
+            <Ionicons name="musical-notes" size={12} color="#ddd" />
+            <Text style={styles.audioText} numberOfLines={1}>
+              {clip.audio}
+            </Text>
+          </View>
+        </Animated.View>
+      )}
 
-      {!wide && <Rail {...p} />}
+      {!wide && !inspecting && <Rail {...p} />}
 
       <View style={styles.progressTrack} pointerEvents="none">
         <Animated.View
