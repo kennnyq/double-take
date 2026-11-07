@@ -111,7 +111,7 @@ node scripts/annotate/annotate.ts replay --all   # re-validate saved model repli
 
 ```bash
 npm run check        # typecheck, lint, app + pipeline tests, Worker tests (offline)
-BASE_URL=https://double-take-api.<subdomain>.workers.dev npm run check:prod   # end-to-end tests against the deployed Worker (needs worker/.prod.vars)
+npm run check:prod   # end-to-end tests against the deployed Worker (needs worker/.prod.vars; BASE_URL overrides the URL)
 npx expo start       # then open in Expo Go: any clip with tells → "Reveal AI tells"
 ```
 

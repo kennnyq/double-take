@@ -1,7 +1,7 @@
 # double-take-api
 
-Cloudflare Worker that serves the demo feed and media. Once deployed it lives at
-`https://double-take-api.<your-subdomain>.workers.dev`.
+Cloudflare Worker that serves the demo feed and media. Live at
+`https://double-take-api.double-take-api.workers.dev`.
 
 | Route | Auth | Returns |
 |---|---|---|
@@ -43,7 +43,7 @@ npm run test:e2e          # end-to-end against the running Worker
 ```bash
 npm run deploy                         # stages build/ and uploads Worker + changed assets
 npx wrangler secret bulk .prod.vars    # first time only; .prod.vars is git-ignored
-BASE_URL=https://double-take-api.<your-subdomain>.workers.dev \
+BASE_URL=https://double-take-api.double-take-api.workers.dev \
 DEMO_PASSCODE=$(grep DEMO_PASSCODE .prod.vars | cut -d= -f2) npm run test:e2e
 npx wrangler tail                      # live request log
 ```
