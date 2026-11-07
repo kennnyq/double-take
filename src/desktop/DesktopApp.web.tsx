@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
-import { CircleUserRound, House, Plus, Send, Sparkles, type LucideIcon } from 'lucide-react';
+import { CircleUserRound, House, Plus, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import type { Clip } from '@/data/clips';
 import { Profile } from '@/profile/Profile';
+import { SettingsScreen } from '@/settings/SettingsScreen';
+import { openSettings, useSettingsOpen } from '@/settings/store';
 import { ShareSheet } from '@/share/ShareSheet';
 import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
@@ -41,6 +43,7 @@ export function DesktopApp({
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetProgress] = useState(() => new Animated.Value(0));
   const current = NAV.find((n) => n.id === tab)!;
+  const settingsOpen = useSettingsOpen();
 
   const closeSheet = useCallback(() => setSheetOpen(false), []);
   const onSheetClosed = useCallback(() => setSheet(null), []);
@@ -102,12 +105,23 @@ export function DesktopApp({
               </button>
             ))}
           </div>
+          <div className="rail-bottom">
+            <button
+              className={`rail-item ${settingsOpen ? 'active' : ''}`}
+              onClick={openSettings}
+              aria-label="Settings"
+              aria-haspopup="dialog"
+              data-tip="Settings"
+            >
+              <Settings size={25} strokeWidth={settingsOpen ? 2.6 : 1.9} />
+            </button>
+          </div>
         </nav>
 
         <main className="desk-main">
           {/* The feed stays mounted so its position survives tab switches; it pauses when hidden. */}
           <div className="tab-pane" hidden={tab !== 'home'}>
-            <DesktopFeed ref={feedRef} visible={tab === 'home'} scrollEnabled={sheet === null} />
+            <DesktopFeed ref={feedRef} visible={tab === 'home'} scrollEnabled={sheet === null && !settingsOpen} />
           </div>
           {tab === 'profile' && (
             <div className="desk-profile">
@@ -125,6 +139,7 @@ export function DesktopApp({
           {sheet.kind === 'share' && <ShareSheet key={sheet.clip.id} clip={sheet.clip} {...sheetProps} />}
         </div>
       )}
+      <SettingsScreen />
     </AppNavContext.Provider>
   );
 }
