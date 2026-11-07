@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "tells": [
+    {
+      "id": "garbled-sign-text",
+      "category": "text",
+      "label": "Gibberish on the highway sign",
+      "detail": "The sign reads like \"EB JE P ETHI\" and \"EIITER KKIMTIV\". Real highway signs use real words; AI video still struggles to render text.",
+      "t0": 0.0,
+      "t1": 1.8,
+      "box": { "x": 0.58, "y": 0.06, "w": 0.42, "h": 0.3 },
+      "source": "community_note",
+      "checked": "frames"
+    },
+    {
+      "id": "sign-folds-like-cloth",
+      "category": "physics",
+      "label": "Metal sign folds like fabric",
+      "detail": "The steel sign wraps around the car and hangs in soft green ribbons, as if it were cloth.",
+      "t0": 2.5,
+      "t1": 5.0,
+      "box": { "x": 0.4, "y": 0.04, "w": 0.6, "h": 0.55 },
+      "source": "frames",
+      "checked": "frames"
+    }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "tells": [
+    {
+      "id": "arm-becomes-leg",
+      "category": "anatomy",
+      "label": "Arm turns into a leg",
+      "detail": "From a boxing stance, the limb that throws the strike starts as an arm and lands as a leg and foot. Pause around 2s.",
+      "t0": 1.6,
+      "t1": 2.4,
+      "box": { "x": 0.12, "y": 0.05, "w": 0.46, "h": 0.9 },
+      "source": "community_note",
+      "checked": "frames"
+    }
+  ]
+}

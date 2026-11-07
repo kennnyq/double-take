@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "tells": [
+    {
+      "id": "gurney-flips",
+      "category": "physics",
+      "label": "Gurney keeps flipping over",
+      "detail": "Rolling downhill, the gurney alternates between mattress-up (blue) and frame-up (yellow) every half second without ever tumbling in between, and the patient stays strapped flat throughout.",
+      "t0": 1.5,
+      "t1": 6.5,
+      "box": { "x": 0.15, "y": 0.35, "w": 0.7, "h": 0.4 },
+      "source": "community_note",
+      "checked": "frames"
+    }
+  ]
+}
