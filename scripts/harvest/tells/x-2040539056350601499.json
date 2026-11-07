@@ -1,0 +1,60 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "inconsistencies in light reflection on the eyes",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854"
+    },
+    {
+      "quote": "inconsistencies in light reflection on the shape of the teeth",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854"
+    },
+    {
+      "quote": "the voice is one of the standard AI voices used by AI models",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:16:31.535Z",
+    "clip": {
+      "id": "x-2040539056350601499",
+      "url": "https://x.com/i/status/2040539056350601499",
+      "sha256": "e249b8953ca8083e73bb8b5ec263b0b4ea6fd3c1c35f6f60a995f222d78c8fab"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2040618398606839854",
+      "url": "https://x.com/i/birdwatch/n/2040618398606839854",
+      "text": "Video is AI generated, can be confirmed by the inconsistencies in light reflection on the eyes and on the shape of the teeth. Furthermore the voice is one of the standard AI voices used by AI models.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.64,
+        1.92,
+        3.2,
+        4.48,
+        5.76,
+        7.04,
+        8.32,
+        9.6
+      ]
+    }
+  }
+}

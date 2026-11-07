@@ -1,0 +1,58 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:16:05.972Z",
+    "clip": {
+      "id": "x-2017409571430531115",
+      "url": "https://x.com/i/status/2017409571430531115",
+      "sha256": "f179d61bac968522ff75f04e815ab0d7e32cfba05a69a78fdf74e137234924ef"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2017483376605761851",
+      "url": "https://x.com/i/birdwatch/n/2017483376605761851",
+      "text": "AI-generated video (Sora-style). Trailer wheels vanish mid-crash + trailer disappears after impact instead of realistic physics. Common in current generative AI clips.      https://help.openai.com/en/articles/9957612-sora",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.65,
+        1.94,
+        3.23,
+        4.52,
+        5.81,
+        7.1,
+        8.4,
+        9.69
+      ]
+    },
+    "review": [
+      {
+        "tell": "trailer-wheels-vanish-mid-crash",
+        "action": "reject",
+        "by": "agent",
+        "why": "Agent frame check (8.4s): after the fall the frame shows road and the bike wheel; no trailer is in the box.",
+        "label": "Trailer wheels vanish mid-crash",
+        "at": "2026-11-07T07:19:20.462Z"
+      },
+      {
+        "tell": "trailer-disappears-after-impact-instead-",
+        "action": "reject",
+        "by": "agent",
+        "why": "Agent frame check (8.4s): the box covers empty road and barrier; no trailer in frame to judge.",
+        "label": "Trailer disappears after impact instead of realistic physics",
+        "at": "2026-11-07T07:19:20.545Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,70 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "text/logo morphing",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+    },
+    {
+      "quote": "garbled licenses",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+    },
+    {
+      "quote": "lighting/shadow inconsistencies",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2080762761903296582"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:17:14.625Z",
+    "clip": {
+      "id": "x-2080524541978136834",
+      "url": "https://x.com/i/status/2080524541978136834",
+      "sha256": "3145c5cf7368423a023f2e7c1ca356f19c9333330114e036d9877dd188a2ca11"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2080762761903296582",
+      "url": "https://x.com/i/birdwatch/n/2080762761903296582",
+      "text": "This car video is not real but AI-generated (Seedance2 model).  It features telltale signs of AI generation (vehicle anomalies, text/logo morphing, garbled licenses, lighting/shadow inconsistencies, etc.) and is identified as AI by AI detection platforms.    https://share.gemini.google/GhaBIdr37bFj    https://hivedetect.ai/zKTFOy    https://isthisai.com/scan/298a146b-09ec-484c-9664-9e73c917d6a6",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.48,
+        4.44,
+        7.39,
+        10.35,
+        13.31,
+        16.27,
+        19.22,
+        22.18
+      ]
+    },
+    "review": [
+      {
+        "tell": "truck-tilts-and-leans-into-container",
+        "action": "reject",
+        "by": "agent",
+        "why": "Agent frame check (1.48s vs 4.44s): the box tracks the truck correctly, but tipping is the clip's event, not an anomaly the note names.",
+        "label": "truck tilts and leans into container",
+        "at": "2026-11-07T07:19:20.629Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "ai-artifacts-in-mouth-and-eyes",
+      "category": "anatomy",
+      "label": "AI artifacts in mouth and eyes",
+      "t0": 1.04,
+      "t1": 3.04,
+      "focusT": 2.04,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The characters' mouths and eyes show unnatural, AI-generated distortions across multiple frames.",
+      "box": {
+        "x": 0.37,
+        "y": 0.28,
+        "w": 0.22,
+        "h": 0.17
+      },
+      "evidence": {
+        "quote": "AI artifacts in both the mouth and eyes on the characters",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2095562982675693697"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:17:07.374Z",
+    "clip": {
+      "id": "x-2095254895863505050",
+      "url": "https://x.com/i/status/2095254895863505050",
+      "sha256": "348c41fd4567c7554d6a855711ff240da8ec8fcace55bd75b70a88075e575d78"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2095562982675693697",
+      "url": "https://x.com/i/birdwatch/n/2095562982675693697",
+      "text": "Despite claims to the contrary, this video is entirely AI generated. At basically any timestamp in this video, you can pause and see AI artifacts in both the mouth and eyes on the characters, or garbled text in the background. See below video for a breakdown with examples.  https://x.com/jacksfilms/status/2095521389339951524?s=46",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        2.04,
+        6.13,
+        10.22,
+        14.31,
+        18.4,
+        22.48,
+        26.57,
+        30.66
+      ]
+    },
+    "review": [
+      {
+        "tell": "garbled-text-in-background",
+        "action": "reject",
+        "by": "agent",
+        "why": "Agent frame check (10.22s): the boxed text reads FLORIDA KEYS correctly; it is not garbled.",
+        "label": "garbled text in background",
+        "at": "2026-11-07T07:19:20.293Z"
+      }
+    ]
+  }
+}

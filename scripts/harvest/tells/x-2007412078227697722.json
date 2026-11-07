@@ -1,0 +1,116 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "dragging-shows-impossible-limb-physics",
+      "category": "anatomy",
+      "label": "dragging shows impossible limb physics",
+      "t0": 2.78,
+      "t1": 4.78,
+      "focusT": 3.78,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The bobcat cub’s limbs bend and slide in ways that look physically impossible with no realistic resistance against the floor.",
+      "box": {
+        "x": 0.03,
+        "y": 0.25,
+        "w": 0.49,
+        "h": 0.31
+      },
+      "evidence": {
+        "quote": "dragging shows impossible limb physics & no realistic resistance",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2007510184164503789"
+      }
+    },
+    {
+      "id": "orange-cat-face-morphs-between-frames",
+      "category": "anatomy",
+      "label": "orange cat face morphs between frames",
+      "t0": 11.33,
+      "t1": 12.33,
+      "focusT": 11.33,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The orange cat’s face and stripe pattern change shape unnaturally from frame to frame, especially around the muzzle and eyes.",
+      "box": {
+        "x": 0.25,
+        "y": 0,
+        "w": 0.66,
+        "h": 0.52
+      },
+      "evidence": {
+        "quote": "Frame-by-frame orange cat's stripes & face shape morph unnaturally",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2007510184164503789"
+      }
+    },
+    {
+      "id": "bobcat-cub-spots-and-ear-tufts-shift",
+      "category": "text",
+      "label": "bobcat cub spots and ear tufts shift",
+      "t0": 18.88,
+      "t1": 19.88,
+      "focusT": 18.88,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The bobcat cub’s spot pattern and ear tufts appear to move and change between frames rather than staying fixed on the body.",
+      "box": {
+        "x": 0.24,
+        "y": 0.12,
+        "w": 0.41,
+        "h": 0.58
+      },
+      "evidence": {
+        "quote": "bobcat cub's spots/ear tufts shift",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2007510184164503789"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:16:58.768Z",
+    "clip": {
+      "id": "x-2007412078227697722",
+      "url": "https://x.com/i/status/2007412078227697722",
+      "sha256": "28219c6af82e10f8fcf92064a6e9d50a21ac7ccc430c10b292c4b8362c7ad857"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2007510184164503789",
+      "url": "https://x.com/i/birdwatch/n/2007510184164503789",
+      "text": "This video is AI-generated.Frame-by-frame orange cat's stripes & face shape morph unnaturally; bobcat cub's spots/ear tufts shift;dragging shows impossible limb physics & no realistic resistance.Common in viral \"cute animal\" AI videos.  See analyses of similar fake clips:    https://petapixel.com/2025/11/12/is-this-reddit-video-of-two-cats-ai-generated/    https://a-z-animals.com/articles/are-those-viral-animal-videos-real-tell-tale-signs-of-ai/  ",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        3.78,
+        11.33,
+        18.88,
+        26.43,
+        33.99,
+        41.54,
+        49.09,
+        56.64
+      ]
+    }
+  }
+}

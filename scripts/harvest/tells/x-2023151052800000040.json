@@ -1,16 +1,55 @@
 {
-  "version": 1,
+  "version": 2,
   "tells": [
     {
       "id": "arm-becomes-leg",
       "category": "anatomy",
       "label": "Arm turns into a leg",
-      "detail": "From a boxing stance, the limb that throws the strike starts as an arm and lands as a leg and foot. Pause around 2s.",
       "t0": 1.6,
       "t1": 2.4,
-      "box": { "x": 0.12, "y": 0.05, "w": 0.46, "h": 0.9 },
+      "detail": "From a boxing stance, the limb that throws the strike starts as an arm and lands as a leg and foot. Pause around 2s.",
+      "box": {
+        "x": 0.12,
+        "y": 0.05,
+        "w": 0.46,
+        "h": 0.9
+      },
       "source": "community_note",
-      "checked": "frames"
+      "review": "spot_checked"
     }
-  ]
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:15:57.341Z",
+    "clip": {
+      "id": "x-2023151052800000040",
+      "url": "https://x.com/i/status/2023151052800000040",
+      "sha256": "ffbedc8495091a7379b0d811c03de806648d6b3ec4858c43abb805e085450e18"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2023374107396526168",
+      "url": "https://x.com/i/birdwatch/n/2023374107396526168",
+      "text": "This video is AI generated and is not a real clip from the anime series Spy x Family. This is evident by the fact that the woman's arm morphs into a leg and foot around 2 seconds in.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video  https://en.wikipedia.org/wiki/Text-to-video_model  https://en.wikipedia.org/wiki/List_of_Spy_%C3%97_Family_episodes",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 6,
+      "times": [
+        0.5,
+        1,
+        1.5,
+        2,
+        2.5,
+        3
+      ]
+    }
+  }
 }

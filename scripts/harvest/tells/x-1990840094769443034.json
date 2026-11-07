@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:16:54.214Z",
+    "clip": {
+      "id": "x-1990840094769443034",
+      "url": "https://x.com/i/status/1990840094769443034",
+      "sha256": "52a2e470830825bf7c7d468231641041648be20befe22cc7bc6b315472644f6f"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1991172489079337206",
+      "url": "https://x.com/i/birdwatch/n/1991172489079337206",
+      "text": "this is AI, here is the analysis: https://x.com/Ai_or_Not/status/1991172204361642279?s=20     He is also moving backwards in the water without motioning to do, the physics are off.     https://www.aiornot.com/blog/openai-sora-video-watermark-removers-push-real-ai-slop",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.64,
+        1.91,
+        3.18,
+        4.45,
+        5.72,
+        6.99,
+        8.26,
+        9.53
+      ]
+    },
+    "review": [
+      {
+        "tell": "man-moves-backward-away-from-dock",
+        "action": "reject",
+        "by": "agent",
+        "why": "Agent frame check (0.64s): the box frame shows him standing on the dock, before the claimed backwards drift in the water.",
+        "label": "Man moves backward away from dock",
+        "at": "2026-11-07T07:19:20.378Z"
+      }
+    ]
+  }
+}

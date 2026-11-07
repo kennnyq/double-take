@@ -1,16 +1,65 @@
 {
-  "version": 1,
+  "version": 2,
   "tells": [
     {
       "id": "gurney-flips",
       "category": "physics",
       "label": "Gurney keeps flipping over",
-      "detail": "Rolling downhill, the gurney alternates between mattress-up (blue) and frame-up (yellow) every half second without ever tumbling in between, and the patient stays strapped flat throughout.",
       "t0": 1.5,
       "t1": 6.5,
-      "box": { "x": 0.15, "y": 0.35, "w": 0.7, "h": 0.4 },
+      "detail": "Rolling downhill, the gurney alternates between mattress-up (blue) and frame-up (yellow) every half second without ever tumbling in between, and the patient stays strapped flat throughout.",
+      "box": {
+        "x": 0.15,
+        "y": 0.35,
+        "w": 0.7,
+        "h": 0.4
+      },
       "source": "community_note",
-      "checked": "frames"
+      "review": "spot_checked"
     }
-  ]
+  ],
+  "unplaced": [
+    {
+      "quote": "the blurring of the Sora logo in the upper right",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2034015574486093878"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T07:16:37.533Z",
+    "clip": {
+      "id": "x-2033695783682462025",
+      "url": "https://x.com/i/status/2033695783682462025",
+      "sha256": "e0bafbf9a18a70b39de4348119c1dd9e3de3b5479531b6739fa8efafba9baf1d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2034015574486093878",
+      "url": "https://x.com/i/birdwatch/n/2034015574486093878",
+      "text": "This is an AI generated video, evident by the 10 second length, unrealistic physics, and the blurring of the Sora logo in the upper right.   https://www.bbb.org/all/spot-a-scam/how-to-identify-ai  https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.89,
+        3.16,
+        4.42,
+        5.68,
+        6.94,
+        8.21,
+        9.47
+      ]
+    }
+  }
 }
