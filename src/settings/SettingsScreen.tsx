@@ -1,38 +1,9 @@
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import type { FeedMode } from './settings';
+import { useDevSettings } from '@/devtools/store';
+import { feedModeOptions } from './feedModeOptions';
 import { appSettings, closeSettings, useAppSettings, useSettingsOpen } from './store';
-
-type IconName = React.ComponentProps<typeof Ionicons>['name'];
-
-/** The feed modes as the viewer sees them. "Reveal" is whatever gesture opens a clip's tells. */
-export const FEED_MODE_OPTIONS: { id: FeedMode; title: string; description: string; icon: IconName }[] = [
-  {
-    id: 'default',
-    title: 'Default',
-    description: 'No labels. Reveal a clip to see the AI verdict and the reasoning.',
-    icon: 'eye-off-outline',
-  },
-  {
-    id: 'autoLabel',
-    title: 'Auto label',
-    description: 'Every clip says AI or Not AI up front. Reveal to see the reasoning.',
-    icon: 'pricetag-outline',
-  },
-  {
-    id: 'onlyAi',
-    title: 'Only AI content',
-    description: 'Just AI-generated clips. Practice spotting the tells.',
-    icon: 'sparkles-outline',
-  },
-  {
-    id: 'onlyReal',
-    title: 'Only real content',
-    description: 'Just real footage. No AI-generated clips.',
-    icon: 'videocam-outline',
-  },
-];
 
 /**
  * The viewer's Settings: a bottom sheet on phones, a centred dialog on wide
@@ -45,6 +16,9 @@ export function SettingsScreen() {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const wide = width >= 760;
+  // The reveal's wording follows the dev setting for the double take's gesture.
+  const { revealGesture } = useDevSettings();
+  const options = feedModeOptions(revealGesture, wide);
 
   return (
     <Modal
@@ -84,7 +58,7 @@ export function SettingsScreen() {
             <Text style={styles.sectionTitle}>Feed mode</Text>
             <Text style={styles.sectionHint}>How the feed handles whether a clip is AI.</Text>
             <View style={styles.group} role="radiogroup" aria-label="Feed mode">
-              {FEED_MODE_OPTIONS.map((o, i) => {
+              {options.map((o, i) => {
                 const on = feedMode === o.id;
                 return (
                   <Pressable
