@@ -1,0 +1,26 @@
+{
+  "name": "double-take-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/stage.ts && wrangler dev --port 8787",
+    "deploy": "node scripts/stage.ts && wrangler deploy",
+    "types": "wrangler types --strict-vars=false",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test 'src/**/*.test.ts'",
+    "test:e2e": "node --test test/e2e.test.ts",
+    "seed:local": "node scripts/publish.ts --local",
+    "publish:remote": "node scripts/publish.ts --remote",
+    "stage": "node scripts/stage.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^24.19.2",
+    "typescript": "~6.0.3",
+    "wrangler": "^4.158.0"
+  },
+  "allowScripts": {
+    "workerd@1.20261104.1": true,
+    "esbuild@0.28.2": true
+  }
+}
