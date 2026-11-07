@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useVideoPlayer, type VideoPlayer } from 'expo-video';
+import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { useEventListener } from 'expo';
 import * as Haptics from 'expo-haptics';
 import { makeClips, type Clip } from '@/data/clips';
@@ -60,6 +61,8 @@ export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
   const [muted, setMuted] = useState(Platform.OS === 'web');
   const [paused, setPaused] = useState(false);
   const [boost, setBoost] = useState(false);
+  // The tells walkthrough loops a stretch in slow motion, muted.
+  const [slowmo, setSlowmo] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const listRef = useRef<FlatList<Clip>>(null);
   const activeRef = useRef(active);
@@ -113,8 +116,8 @@ export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
       const player = players[s];
       const isActive = idx === active && loaded[s] === idx;
       if (isActive && live) {
-        player.muted = muted;
-        player.playbackRate = boost ? 2 : 1;
+        player.muted = muted || slowmo;
+        player.playbackRate = boost ? 2 : slowmo ? REPLAY_RATE : 1;
         if (paused) player.pause();
         else player.play();
       } else {
@@ -132,7 +135,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
       });
     }, 450);
     return () => clearTimeout(t);
-  }, [slotIndex, loaded, active, focused, appActive, muted, paused, boost, players]);
+  }, [slotIndex, loaded, active, focused, appActive, muted, paused, boost, slowmo, players]);
 
   useEffect(() => {
     let live = true;
@@ -328,6 +331,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, ref }: FeedProps) {
         if (on) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         setBoost(on);
       },
+      setSlowmo,
     }),
     [actions, nav, changePaused, paused],
   );
@@ -410,4 +414,6 @@ export type FeedHandlers = {
   openComments: (clip: Clip) => void;
   openShare: (clip: Clip) => void;
   setBoost: (on: boolean) => void;
+  /** Slow-motion, muted playback for the tells walkthrough's replays. */
+  setSlowmo: (on: boolean) => void;
 };

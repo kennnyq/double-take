@@ -4,7 +4,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import type { Tell } from './format.ts';
 import { isUnverified, readTell, readTellsFile } from './format.ts';
 import { applyReview, buildTellsFile, mergeTells, tellsFileName } from './publish.ts';
-import { activeTells, compareMoments, seekTimeFor, stepCopy, walkthroughSteps } from './walkthrough.ts';
+import { REPLAY_MAX, REPLAY_MIN, activeTells, boxShownAt, replayWindow, seekTimeFor, stepCopy, walkthroughSteps } from './walkthrough.ts';
 
 const base: Tell = { id: 'a', category: 'continuity', label: 'A', t0: 2, t1: 3, box: { x: 0, y: 0, w: 0.2, h: 0.2 } };
 
@@ -25,28 +25,15 @@ test('every step seeks to a moment where its own box is drawn (paused playback s
   assert.equal(seekTimeFor(tells[0]), 6.4);
 });
 
-test('step copy is honest about source and review state', () => {
+test('step copy marks anything a person has not checked as a draft', () => {
   const draft: Tell = { ...base, source: 'community_note', review: 'unreviewed', model: 'nvidia/nemotron-3.5-super-vl-120b-a12b' };
-  const c = stepCopy(draft, 0, 3);
-  assert.equal(c.position, 'Step 1 of 3');
-  assert.equal(c.source, 'Community Note');
-  assert.equal(c.status, 'AI draft · not verified');
-  assert.ok(c.unverified);
-  assert.match(c.caveat!, /Nemotron/);
-
-  const checked = stepCopy({ ...base, source: 'curator', review: 'spot_checked' }, 1, 3);
-  assert.equal(checked.status, 'Checked on frames');
-  assert.equal(checked.caveat, undefined);
-
-  const unseen = stepCopy({ ...draft, box: undefined, seenInFrames: false }, 2, 3);
-  assert.match(unseen.caveat!, /couldn't find/);
-
-  const comment = stepCopy({ ...draft, source: 'comment', evidence: { quote: 'q', from: 'comment', author: 'kim' } }, 0, 1);
-  assert.equal(comment.source, 'Comment by @kim');
-
-  assert.match(stepCopy({ ...draft, model: undefined }, 0, 1).caveat!, /an AI model/);
+  assert.deepEqual(stepCopy(draft, 0, 3), { position: '1/3', unverified: true, doubtful: false });
+  assert.equal(stepCopy({ ...draft, seenInFrames: false }, 0, 1).doubtful, true);
+  assert.equal(stepCopy({ ...draft, confidence: 'low' }, 0, 1).doubtful, true);
+  assert.equal(stepCopy({ ...base, source: 'curator', review: 'spot_checked' }, 1, 3).unverified, false);
+  assert.equal(stepCopy({ ...base, review: 'verified' }, 0, 1).unverified, false);
   // v1 tells without provenance never claim to be verified.
-  assert.equal(stepCopy({ ...base }, 0, 1).status, 'Not verified');
+  assert.equal(stepCopy({ ...base }, 0, 1).unverified, true);
   assert.ok(isUnverified({ ...base, source: 'model' }));
 });
 
@@ -118,19 +105,29 @@ test('review: anyone can reject, only a person can promote, every decision needs
   assert.equal(h.tells[0].review, 'spot_checked');
 });
 
-test('compareMoments orders before/after by time, whichever frame holds the box', () => {
-  const vanish: Tell = { ...base, t0: 4.5, t1: 7, focusT: 5.5, compareT: 6.5 };
-  assert.deepEqual(compareMoments(vanish), [
-    { label: 'Before', t: 5.5, isFocus: true },
-    { label: 'After', t: 6.5, isFocus: false },
-  ]);
-  const appear: Tell = { ...base, t0: 0, t1: 4, focusT: 3, compareT: 1 };
-  assert.deepEqual(compareMoments(appear)!.map((m) => [m.label, m.isFocus]), [
-    ['Before', false],
-    ['After', true],
-  ]);
-  assert.equal(compareMoments({ ...base }), null);
-  assert.equal(compareMoments({ ...vanish, box: undefined }), null);
+test('replay loops cover the focus frame, the change, and stay inside the clip', () => {
+  const cases: [Tell, number][] = [
+    [{ ...base, t0: 4.5, t1: 7, focusT: 5.5, compareT: 6.5 }, 10], // vanish
+    [{ ...base, t0: 0, t1: 4, focusT: 3, compareT: 1 }, 10], // appear (compare before focus)
+    [{ ...base, t0: 0, t1: 0.5 }, 10], // at the very start
+    [{ ...base, t0: 9.6, t1: 10, focusT: 9.9 }, 10], // at the very end
+    [{ ...base, t0: 0, t1: 10, focusT: 6 }, 10], // whole-clip window
+    [{ ...base, t0: 2, t1: 2.2 }, 2.5], // clip shorter than a loop would like
+  ];
+  for (const [t, dur] of cases) {
+    const r = replayWindow(t, dur);
+    const focus = seekTimeFor(t);
+    assert.ok(r.from >= 0 && r.to <= dur, `${JSON.stringify(r)} inside 0..${dur}`);
+    assert.ok(r.from <= focus && focus <= r.to, `focus ${focus} in ${JSON.stringify(r)}`);
+    assert.ok(r.to - r.from <= REPLAY_MAX + 1e-9, `${JSON.stringify(r)} too long`);
+    assert.ok(r.to - r.from >= Math.min(REPLAY_MIN, dur) - 1e-9, `${JSON.stringify(r)} too short`);
+  }
+  // Before/after: both moments are in the loop, with a lead-in and a tail.
+  assert.deepEqual(replayWindow({ ...base, t0: 4.5, t1: 7, focusT: 5.5, compareT: 6.5 }, 10), { from: 4.9, to: 7.1 });
+  // Short clips: the loop shifts back from the end rather than shrinking.
+  assert.deepEqual(replayWindow({ ...base, t0: 9.6, t1: 10, focusT: 9.9 }, 10), { from: 8.8, to: 10 });
+  // No duration known: still a sane loop.
+  assert.deepEqual(replayWindow({ ...base, t0: 2, t1: 3 }), { from: 1.6, to: 3.4 });
 });
 
 test('unplaced claims round-trip; malformed entries are dropped', () => {
@@ -157,4 +154,25 @@ test('a box-less draft never duplicates a checked tell at the same moment', () =
   const boxless: Tell = { id: 'arm2', category: 'text', label: 'Arm morphs', t0: 2, t1: 3, review: 'unreviewed' };
   const later: Tell = { ...boxless, id: 'later', t0: 5, t1: 6 };
   assert.deepEqual(mergeTells([checked], [boxless, later]).tells.map((t) => t.id), ['arm', 'later']);
+});
+
+test('the box shows only while its tell applies, tightly inside a shot', () => {
+  const loose: Tell = { ...base, t0: 2, t1: 3 };
+  assert.ok(boxShownAt(loose, 1.8) && boxShownAt(loose, 3.2));
+  assert.ok(!boxShownAt(loose, 1.5) && !boxShownAt(loose, 3.5));
+  const shot: Tell = { ...base, t0: 2.5, t1: 2.6, focusT: 2.55, shot: { t0: 2.5, t1: 2.6 } };
+  assert.ok(boxShownAt(shot, 2.55));
+  assert.ok(!boxShownAt(shot, 2.75), 'not after the cut');
+  // The replay loop always contains moments where the box is shown.
+  const r = replayWindow(shot, 10);
+  assert.ok(r.from <= 2.55 && r.to >= 2.55);
+});
+
+test('a draft trimmed to just past a checked tell of the same kind is still a duplicate', () => {
+  const checked: Tell = { ...base, id: 'arm-becomes-leg', category: 'anatomy', t0: 1.6, t1: 2.4, review: 'spot_checked' };
+  const draft: Tell = { ...base, id: 'arm-morphs', category: 'anatomy', t0: 2.5, t1: 2.6, review: 'unreviewed', box: { x: 0.5, y: 0.5, w: 0.2, h: 0.2 } };
+  const m = mergeTells([checked], [draft]);
+  assert.deepEqual(m.tells.map((t) => t.id), ['arm-becomes-leg']);
+  // Well apart in time, a different artifact of the same kind is kept.
+  assert.equal(mergeTells([checked], [{ ...draft, t0: 4, t1: 5 }]).tells.length, 2);
 });

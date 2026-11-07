@@ -125,7 +125,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
       </Pressable>
       {clip.tellsUrl && p.isActive && (
         <TellOverlay
-          url={clip.tellsUrl}
+          variants={clip.tellsVariants ?? [{ name: 'main', url: clip.tellsUrl }]}
           player={p.player}
           stageW={stageW}
           stageH={stageH}
@@ -135,6 +135,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           paused={p.paused}
           onPause={h.pause}
           onPlay={h.play}
+          onSlowmo={h.setSlowmo}
           onInspect={onInspect}
         />
       )}

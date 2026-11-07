@@ -73,7 +73,7 @@ test('applyChangeCheck: moves a wrong after moment, flags a still region, leaves
   assert.equal(still.tell.pixelCheck, 'unchanged');
   assert.equal(still.tell.confidence, 'low');
   assert.match(still.note!, /barely changes \(max diff 2.8/);
-  assert.match(stepCopy(still.tell, 0, 1).caveat!, /barely changes/);
+  assert.equal(stepCopy(still.tell, 0, 1).doubtful, true);
 
   const same = applyChangeCheck(tell, { changeT: null, unchanged: false, samples: [] }, 15);
   assert.equal(same.tell, tell);
