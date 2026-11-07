@@ -9,12 +9,22 @@
       "@/assets/*": [
         "./assets/*"
       ]
-    }
+    },
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": [
+      "node"
+    ]
   },
   "include": [
     "**/*.ts",
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "build",
+    "worker"
   ]
 }
