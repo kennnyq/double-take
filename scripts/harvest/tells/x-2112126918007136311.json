@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "vehicle-morphs-mid-air",
+      "category": "text",
+      "label": "Vehicle morphs mid-air",
+      "t0": 13.75,
+      "t1": 14.79,
+      "focusT": 13.79,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The car changes shape while airborne, appearing as a different vehicle by the time it lands.",
+      "box": {
+        "x": 0.33,
+        "y": 0.34,
+        "w": 0.19,
+        "h": 0.12
+      },
+      "evidence": {
+        "quote": "Notice the vehicle morphing at the end of the jump",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:43:31.130Z",
+    "clip": {
+      "id": "x-2112126918007136311",
+      "url": "https://x.com/i/status/2112126918007136311",
+      "sha256": "b4a9219941f7fcdedbc712525cae2463ffff88ddd04689be14381f6c92e94ee4"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This is not an authentic footage of a Tesla Roadster. It is AI-generated. Notice the vehicle morphing at the end of the jump.    A real footage of the Tesla Roadster event is shown here and no laws of physics were violated: https://www.youtube.com/live/qt5p-_tE8d0  https://caniphish.com/blog/how-to-spot-ai-videos"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.25,
+        3.76,
+        6.27,
+        8.78,
+        11.29,
+        13.79,
+        16.3,
+        18.81
+      ]
+    }
+  }
+}

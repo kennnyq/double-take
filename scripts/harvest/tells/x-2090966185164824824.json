@@ -1,0 +1,101 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "bees-swarm-unnaturally-onto-back",
+      "category": "text",
+      "label": "bees swarm unnaturally onto back",
+      "t0": 11.01,
+      "t1": 13.82,
+      "focusT": 13.82,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In frames 0-4 the bees stay clustered on the hive, but in frames 5-7 they suddenly cover the man's back in a thick, uniform layer that looks digitally added rather than natural swarming.",
+      "box": {
+        "x": 0.1,
+        "y": 0.24,
+        "w": 0.8,
+        "h": 0.32
+      },
+      "evidence": {
+        "quote": "unnatural bee behaviour",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2091199430984974355"
+      }
+    },
+    {
+      "id": "person-has-extra-limbs",
+      "category": "anatomy",
+      "label": "person has extra limbs",
+      "t0": 13.8,
+      "t1": 14.82,
+      "focusT": 13.82,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In frame 14, as the man falls backward, an additional arm-like shape appears extending from his upper back/shoulder area, giving him a third limb that is not present in earlier frames.",
+      "box": {
+        "x": 0.34,
+        "y": 0.24,
+        "w": 0.42,
+        "h": 0.16
+      },
+      "evidence": {
+        "quote": "the person has extra limbs",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2091199430984974355"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:32:17.961Z",
+    "clip": {
+      "id": "x-2090966185164824824",
+      "url": "https://x.com/i/status/2090966185164824824",
+      "sha256": "808865b843f2aef2f77c9256315b944eafe25120a7bb5224f4202afe3e1e0a49"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2091199430984974355",
+      "url": "https://x.com/i/birdwatch/n/2091199430984974355",
+      "text": "This video is Ai- generated.    The video shows unnatural bee behaviour and physics and also the person has extra limbs.    Signs to spot Ai generated videos:  https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.26,
+        3.77,
+        6.28,
+        8.8,
+        11.31,
+        13.82,
+        16.34,
+        18.85
+      ]
+    },
+    "review": [
+      {
+        "tell": "hive-detaches-and-falls-straight-down",
+        "action": "reject",
+        "by": "agent",
+        "why": "The box sits on empty river water beside the man's leg while the hive is still held against his side, so it marks nothing that falls",
+        "label": "hive detaches and falls straight down",
+        "at": "2026-11-07T20:37:30.129Z"
+      }
+    ]
+  }
+}

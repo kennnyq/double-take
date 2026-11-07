@@ -1,0 +1,162 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "tablet-screen-floats-above-instrument-pa",
+      "category": "physics",
+      "label": "tablet screen floats above instrument panel",
+      "t0": 0,
+      "t1": 1,
+      "focusT": 0,
+      "compareT": 0.5,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The tablet mounted on the dashboard drifts upward and sideways across the frames instead of staying fixed.",
+      "box": {
+        "x": 0.17,
+        "y": 0.47,
+        "w": 0.28,
+        "h": 0.26
+      },
+      "evidence": {
+        "quote": "The tablet screen floats around above the instrument panel",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1944837422178820533"
+      },
+      "pixelCheck": "changed",
+      "shot": {
+        "t0": 0,
+        "t1": 9.7
+      }
+    },
+    {
+      "id": "gibberish-text-and-symbols-on-instrument",
+      "category": "text",
+      "label": "gibberish text and symbols on instrument panel",
+      "t0": 0,
+      "t1": 1,
+      "focusT": 0,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The digital gauges and readouts on the dashboard show distorted, unreadable characters rather than real instrument markings.",
+      "box": {
+        "x": 0,
+        "y": 0.75,
+        "w": 1,
+        "h": 0.25
+      },
+      "evidence": {
+        "quote": "Text and symbols on the instrument panel are all gibberish",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1944837422178820533"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 9.7
+      }
+    },
+    {
+      "id": "cloud-physics-look-wrong",
+      "category": "physics",
+      "label": "cloud physics look wrong",
+      "t0": 0,
+      "t1": 1,
+      "focusT": 0,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The cloud formation and rain shaft behave in an unnatural, shifting way that does not match real storm physics.",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.4
+      },
+      "evidence": {
+        "quote": "That’s not how cloud physics works",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1944837422178820533"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 9.7
+      }
+    },
+    {
+      "id": "dark-line-morphs-into-row-of-vegetation-",
+      "category": "continuity",
+      "label": "dark line morphs into row of vegetation on display",
+      "t0": 0.5,
+      "t1": 2.5,
+      "focusT": 1.5,
+      "compareT": 2,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "On the tablet screen, a dark horizontal line shifts and resolves into what looks like a row of trees or bushes.",
+      "box": {
+        "x": 0.3,
+        "y": 0.56,
+        "w": 0.26,
+        "h": 0.14
+      },
+      "evidence": {
+        "quote": "a dark line appears on the display then morphs into a row of vegetation",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1944837422178820533"
+      },
+      "pixelCheck": "changed",
+      "shot": {
+        "t0": 0,
+        "t1": 9.7
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:30:11.569Z",
+    "clip": {
+      "id": "x-1944501764553584892",
+      "url": "https://x.com/i/status/1944501764553584892",
+      "sha256": "5f4185990305b25748c13292f93a0e1a6236cc444b86636cfd01b3cadb712243"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1944837422178820533",
+      "url": "https://x.com/i/birdwatch/n/1944837422178820533",
+      "text": "This is AI generated video. The tablet screen floats around above the instrument panel. Text and symbols on the instrument panel are all gibberish. At around 0:03, a dark line appears on the display then morphs into a row of vegetation. That’s not how cloud physics works.     https://www.pcmag.com/how-to/how-to-detect-ai-generated-video-footage",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 9,
+      "times": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        2.5,
+        3,
+        3.5,
+        4
+      ]
+    }
+  }
+}

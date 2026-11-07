@@ -1,0 +1,94 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "timestamps-rewind-repeatedly",
+      "category": "text",
+      "label": "Timestamps rewind repeatedly",
+      "t0": 0,
+      "t1": 3.18,
+      "focusT": 0.96,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The timestamp in the top-left corner jumps backward from 11:27:33 PM to 11:27:32 PM between frames.",
+      "box": {
+        "x": 0.03,
+        "y": 0.02,
+        "w": 0.49,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "Timestamps rewind repeatedly",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2098859789946114433"
+      },
+      "pixelCheck": "unchanged"
+    },
+    {
+      "id": "second-figure-vanishes",
+      "category": "continuity",
+      "label": "Second figure vanishes",
+      "t0": 1.92,
+      "t1": 5.1,
+      "focusT": 2.88,
+      "compareT": 4.8,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The woman in the black dress walks beside the first woman, then disappears completely after they pass each other.",
+      "box": {
+        "x": 0.62,
+        "y": 0.2,
+        "w": 0.14,
+        "h": 0.32
+      },
+      "evidence": {
+        "quote": "figures appear, vanish or change outfits",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2098859789946114433"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:32:00.143Z",
+    "clip": {
+      "id": "x-2098794690480902597",
+      "url": "https://x.com/i/status/2098794690480902597",
+      "sha256": "6c57150f8aa21a3835b774fd81fbaaf42f90dd4fa8033790a2808c39a3bb5dae"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2098859789946114433",
+      "url": "https://x.com/i/birdwatch/n/2098859789946114433",
+      "text": "The video is AI-generated. Timestamps rewind repeatedly while figures appear, vanish or change outfits, matching common deceptive &quot;security camera&quot; AI slop.  https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video  https://pixabay.com/videos/ai-generated-figure-hallway-356489/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.96,
+        2.88,
+        4.8,
+        6.72,
+        8.65,
+        10.57,
+        12.49,
+        14.41
+      ]
+    }
+  }
+}

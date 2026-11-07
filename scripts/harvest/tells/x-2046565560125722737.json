@@ -1,0 +1,78 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "oversized-head-and-neck-relative-to-body",
+      "category": "anatomy",
+      "label": "Oversized head and neck relative to body",
+      "t0": 0,
+      "t1": 1.63,
+      "focusT": 0.63,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The alpaca's head and neck are disproportionately large compared to the visible body inside the truck door.",
+      "box": {
+        "x": 0.26,
+        "y": 0.23,
+        "w": 0.31,
+        "h": 0.23
+      },
+      "evidence": {
+        "quote": "The alpaca exhibits unnatural anatomy: oversized head/neck relative to body and stunted legs appearing missing",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2046648472561230288"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 10.07
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "stunted legs appearing missing",
+      "from": "community_note",
+      "reason": "not_checked",
+      "url": "https://x.com/i/birdwatch/n/2046648472561230288"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:32:42.578Z",
+    "clip": {
+      "id": "x-2046565560125722737",
+      "url": "https://x.com/i/status/2046565560125722737",
+      "sha256": "a5c37e70dccb669c7812d465b1da4e50110201f4e612e1b6ea374fca0b9f41b5"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2046648472561230288",
+      "url": "https://x.com/i/birdwatch/n/2046648472561230288",
+      "text": "This video is AI-generated. The alpaca exhibits unnatural anatomy: oversized head/neck relative to body and stunted legs appearing missing, unlike real alpacas.    Real alpaca spitting:    https://www.youtube.com/watch?v=ZP46zHfjKqk    https://www.tiktok.com/@grizwold1/video/7529360333723471135    https://www.fox32chicago.com/video/fmc-7q14kyr39dj14998",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.9,
+        3.17,
+        4.44,
+        5.71,
+        6.98,
+        8.24,
+        9.51
+      ]
+    }
+  }
+}

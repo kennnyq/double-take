@@ -1,0 +1,103 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "grill-transforms-into-small-table",
+      "category": "object_morph",
+      "label": "Grill transforms into small table",
+      "t0": 0.68,
+      "t1": 2.34,
+      "focusT": 0.68,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the early frames the grill is a large black rectangular unit on the ground; by the later frames it has become a much smaller black table-like object while the man sits nearby.",
+      "box": {
+        "x": 0.12,
+        "y": 0.78,
+        "w": 0.3,
+        "h": 0.219
+      },
+      "evidence": {
+        "quote": "The grill visibly transforms into a small table",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2021757224612184535"
+      },
+      "compareT": 2.04,
+      "pixelCheck": "changed",
+      "shot": {
+        "t0": 0,
+        "t1": 10.77
+      }
+    },
+    {
+      "id": "food-disappears-from-grill",
+      "category": "continuity",
+      "label": "Food disappears from grill",
+      "t0": 0.68,
+      "t1": 2.34,
+      "focusT": 0.68,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The grill initially holds visible food items, but after the man falls the grill surface is empty and no food remains on it.",
+      "box": {
+        "x": 0.14,
+        "y": 0.85,
+        "w": 0.19,
+        "h": 0.1
+      },
+      "evidence": {
+        "quote": "the food that was on the grill disappears",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2021757224612184535"
+      },
+      "compareT": 2.04,
+      "pixelCheck": "changed",
+      "shot": {
+        "t0": 0,
+        "t1": 10.77
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:33:12.006Z",
+    "clip": {
+      "id": "x-2021645460994240890",
+      "url": "https://x.com/i/status/2021645460994240890",
+      "sha256": "57e4a411e697888efdfe6c6e5a0870208b41a3fde23f0c755b5b562fa9c66227"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2021757224612184535",
+      "url": "https://x.com/i/birdwatch/n/2021757224612184535",
+      "text": "This video is AI-generated. The grill visibly transforms into a small table, and the food that was on the grill disappears once the person falls onto it. These visual inconsistencies are common artifacts in AI-generated videos, where objects can morph or vanish.    Source: https://x.com/tragicbirdapp/status/2021645460994240890",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.68,
+        2.04,
+        3.4,
+        4.76,
+        6.12,
+        7.48,
+        8.84,
+        10.2
+      ]
+    }
+  }
+}

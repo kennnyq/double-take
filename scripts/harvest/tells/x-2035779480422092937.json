@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "sora-watermark-appears-in-lower-right",
+      "category": "watermark",
+      "label": "Sora watermark appears in lower right",
+      "t0": 0,
+      "t1": 1.62,
+      "focusT": 0.62,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The Sora watermark with handle @ocean51702 is visible in the lower right corner across multiple frames.",
+      "box": {
+        "x": 0.07,
+        "y": 0.9,
+        "w": 0.28,
+        "h": 0.09
+      },
+      "evidence": {
+        "quote": "Sora watermark",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2035805234094629296"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:32:49.598Z",
+    "clip": {
+      "id": "x-2035779480422092937",
+      "url": "https://x.com/i/status/2035779480422092937",
+      "sha256": "f2c5adc265a9b822682e0e63c98c9a8ca373a1f5c93432bdd5a9206543988653"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2035805234094629296",
+      "url": "https://x.com/i/birdwatch/n/2035805234094629296",
+      "text": "This is clearly an AI generated video as evidenced by the Sora watermark which appears multiple times. It is not genuine WBZ footage.    Link to article on how to spot AI generated content:    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.62,
+        1.87,
+        3.11,
+        4.36,
+        5.61,
+        6.85,
+        8.1,
+        9.34
+      ]
+    }
+  }
+}

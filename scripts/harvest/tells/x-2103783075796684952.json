@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "many-trucks-in-convoy",
+      "category": "text",
+      "label": "many trucks in convoy",
+      "t0": 0.11,
+      "t1": 2.11,
+      "focusT": 1.11,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "Multiple trucks are visible driving one after another along the dusty road throughout the clip.",
+      "box": {
+        "x": 0,
+        "y": 0.56,
+        "w": 1,
+        "h": 0.14
+      },
+      "evidence": {
+        "quote": "more trucks than are likely available for this route",
+        "from": "community_note"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "an implausibly sideways car at the end",
+      "from": "community_note",
+      "reason": "not_seen"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:44:22.598Z",
+    "clip": {
+      "id": "x-2103783075796684952",
+      "url": "https://x.com/i/status/2103783075796684952",
+      "sha256": "60d8e4d268c632c17dc84215123a10cd0e78fdc972b9c149463fd6115e57196c"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This appears to be an AI generated video, with an implausibly sideways car at the end and more trucks than are likely available for this route.    The roads look somewhat different:   https://www.bloomberg.com/news/articles/2026-07-18/thousands-of-trucks-haul-iraq-s-oil-through-syria-in-sign-of-hormuz-legacy"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.11,
+        3.34,
+        5.57,
+        7.79,
+        10.02,
+        12.24,
+        14.47,
+        16.7
+      ]
+    },
+    "review": [
+      {
+        "tell": "dirt-road-with-uneven-surface",
+        "action": "reject",
+        "by": "agent",
+        "why": "Generic description of a rutted dirt road with no anomaly; the note's 'roads look different' is a comparison to a linked news article, not something visible in this clip.",
+        "label": "dirt road with uneven surface",
+        "at": "2026-11-07T20:50:14.599Z"
+      }
+    ]
+  }
+}

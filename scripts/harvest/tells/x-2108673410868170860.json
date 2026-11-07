@@ -1,0 +1,110 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "statue-eyes-lack-pupils",
+      "category": "anatomy",
+      "label": "Statue eyes lack pupils",
+      "t0": 1.08,
+      "t1": 3.08,
+      "focusT": 2.08,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The gold statue's eyes appear as smooth, featureless surfaces with no visible pupils or irises.",
+      "box": {
+        "x": 0.56,
+        "y": 0.1,
+        "w": 0.12,
+        "h": 0.08
+      },
+      "evidence": {
+        "quote": "the statue's solid gold eyes without pupils",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "toddler-movements-look-unnatural",
+      "category": "physics",
+      "label": "Toddler movements look unnatural",
+      "t0": 1.08,
+      "t1": 3.08,
+      "focusT": 2.08,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The toddler's motions, especially the sudden hand-to-face gesture and shifting stance, appear jerky and physically inconsistent.",
+      "box": {
+        "x": 0.04,
+        "y": 0.15,
+        "w": 0.52,
+        "h": 0.84
+      },
+      "evidence": {
+        "quote": "floaty/unatural toddler movements and physics",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "background-elements-look-anomalous",
+      "category": "text",
+      "label": "Background elements look anomalous",
+      "t0": 1.08,
+      "t1": 3.08,
+      "focusT": 2.08,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "Background figures and objects appear blurred, distorted, or inconsistently rendered compared to the foreground subjects.",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 0.4,
+        "h": 0.25
+      },
+      "evidence": {
+        "quote": "anomalous background elements",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:43:48.746Z",
+    "clip": {
+      "id": "x-2108673410868170860",
+      "url": "https://x.com/i/status/2108673410868170860",
+      "sha256": "12baeba2c7bd1efa9312064ade32f7f4f1f932023cfb96f60d826f60532905ec"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video is AI-generated, showing common artifacts like the statue's solid gold eyes without pupils, floaty/unatural toddler movements and physics, and anomalous background elements.    https://x.com/Samanth60625323/status/2108847056269783509    https://www.youtube.com/watch?v=-_JoLzvpwLE"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        2.08,
+        6.24,
+        10.4,
+        14.56,
+        18.72,
+        22.88,
+        27.04,
+        31.19
+      ]
+    }
+  }
+}

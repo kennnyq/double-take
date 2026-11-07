@@ -1,0 +1,162 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "solid-black-front-legs",
+      "category": "text",
+      "label": "Solid black front legs",
+      "t0": 0,
+      "t1": 1.65,
+      "focusT": 0.65,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The cat's front legs are uniformly black with no tabby or calico markings, unlike the rest of its coat.",
+      "box": {
+        "x": 0.1,
+        "y": 0.42,
+        "w": 0.45,
+        "h": 0.52
+      },
+      "evidence": {
+        "quote": "Impossible coat: solid black",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2082513250974138611"
+      }
+    },
+    {
+      "id": "black-legs-meeting-tabby-body",
+      "category": "anatomy",
+      "label": "Black legs meeting tabby body",
+      "t0": 0,
+      "t1": 1.65,
+      "focusT": 0.65,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The solid black front legs abruptly transition into the orange tabby body without intermediate calico patches.",
+      "box": {
+        "x": 0.1,
+        "y": 0.42,
+        "w": 0.88,
+        "h": 0.52
+      },
+      "evidence": {
+        "quote": "opera glove' legs meeting abrupt tabby/calico patterns",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2082513250974138611"
+      }
+    },
+    {
+      "id": "shimmering-asphalt-ground-texture",
+      "category": "text",
+      "label": "Shimmering asphalt ground texture",
+      "t0": 0,
+      "t1": 1.65,
+      "focusT": 0.65,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The asphalt background shows subtle shifting and shimmering patterns typical of AI-generated video.",
+      "evidence": {
+        "quote": "Shimmering asphalt ground texture typical of AI video generators",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2082513250974138611"
+      }
+    },
+    {
+      "id": "morphing-torso",
+      "category": "text",
+      "label": "Morphing torso",
+      "t0": 3.52,
+      "t1": 6.11,
+      "focusT": 4.52,
+      "compareT": 5.81,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The cat's body shifts and twists unnaturally as it moves, especially around the midsection.",
+      "box": {
+        "x": 0.15,
+        "y": 0.38,
+        "w": 0.83,
+        "h": 0.56
+      },
+      "evidence": {
+        "quote": "Morphing torso",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2082513250974138611"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "mushy-paws-during-movement",
+      "category": "anatomy",
+      "label": "Mushy paws during movement",
+      "t0": 3.52,
+      "t1": 6.11,
+      "focusT": 4.52,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The paws blur and lose definition as the cat shifts position, appearing soft and indistinct.",
+      "box": {
+        "x": 0.15,
+        "y": 0.42,
+        "w": 0.4,
+        "h": 0.52
+      },
+      "evidence": {
+        "quote": "mushy paws during movement",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2082513250974138611"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:30:29.145Z",
+    "clip": {
+      "id": "x-2082309674960032067",
+      "url": "https://x.com/i/status/2082309674960032067",
+      "sha256": "3293d540d4af5fc4372e9d9d8d33210581466b06b76b1453efc8d3124ebd73b0"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2082513250974138611",
+      "url": "https://x.com/i/birdwatch/n/2082513250974138611",
+      "text": "This is an AI-generated video (Text-To-Video Model: Seedance).    Key giveaways:    Impossible coat: solid black &quot;opera glove&quot; legs meeting abrupt tabby/calico patterns.    Morphing torso &amp; mushy paws during movement.    Shimmering asphalt ground texture typical of AI video generators.  https://hivedetect.ai/W4C8FD",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.65,
+        1.94,
+        3.23,
+        4.52,
+        5.81,
+        7.1,
+        8.4,
+        9.69
+      ]
+    }
+  }
+}

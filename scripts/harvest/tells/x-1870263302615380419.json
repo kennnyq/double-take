@@ -1,0 +1,95 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "phone-screen-shows-different-crowd",
+      "category": "text",
+      "label": "phone screen shows different crowd",
+      "t0": 0,
+      "t1": 1.63,
+      "focusT": 0.63,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The phone held in the foreground displays a scene that does not match the people visible on the street behind it.",
+      "box": {
+        "x": 0.44,
+        "y": 0.71,
+        "w": 0.38,
+        "h": 0.29
+      },
+      "evidence": {
+        "quote": "the people on the phone not matching with the people on the street",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1870560566567399600"
+      }
+    },
+    {
+      "id": "person-in-white-shirt-appears-suddenly",
+      "category": "text",
+      "label": "person in white shirt appears suddenly",
+      "t0": 4,
+      "t1": 5,
+      "focusT": 4,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "A person in a white shirt is not present in the early frames but appears in the middle of the street around the 5-second mark.",
+      "box": {
+        "x": 0.48,
+        "y": 0.54,
+        "w": 0.07,
+        "h": 0.1
+      },
+      "evidence": {
+        "quote": "a random person in a white shirt appearing from seemingly nowhere",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1870560566567399600"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:35:59.651Z",
+    "clip": {
+      "id": "x-1870263302615380419",
+      "url": "https://x.com/i/status/1870263302615380419",
+      "sha256": "49bc5f42a8677891892dfe4fa6b3f047c5cff882434b3c11475d849188450e75"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1870560566567399600",
+      "url": "https://x.com/i/birdwatch/n/1870560566567399600",
+      "text": "This video is AI-generated, and sound effects were edited in afterwards. There are many inconsistencies in the video, including the people on the phone not matching with the people on the street, and a random person in a white shirt appearing from seemingly nowhere at 0:05.     https://en.wikipedia.org/wiki/Text-to-video_model",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 12,
+      "times": [
+        0.63,
+        1.89,
+        3.16,
+        3.5,
+        4,
+        4.5,
+        5,
+        5.5,
+        6,
+        6.94,
+        8.21,
+        9.47
+      ]
+    }
+  }
+}

@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "jcb-floats-above-ground",
+      "category": "object_morph",
+      "label": "JCB floats above ground",
+      "t0": 0,
+      "t1": 1.63,
+      "focusT": 0.63,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The JCB is shown suspended in mid-air with its wheels off the ground throughout the clip.",
+      "box": {
+        "x": 0,
+        "y": 0.15,
+        "w": 0.999,
+        "h": 0.49
+      },
+      "evidence": {
+        "quote": "a floating JCB",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:45:39.160Z",
+    "clip": {
+      "id": "x-2098033802673319982",
+      "url": "https://x.com/i/status/2098033802673319982",
+      "sha256": "765691c8d87b4743f30917c6174786386cbe485a8edf482da87d383d5369c138"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video is AI-generated, not authentic footage, with clear signs like a floating JCB and a riderless scooter visible near the end.   https://invideo.io/faq/why-do-ai-generated-videos-have-glitches-like-floating/  https://x.com/nishantchant/status/2098265903377043839  https://x.com/buttu_iam27/status/2098317745322598499"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.89,
+        3.14,
+        4.4,
+        5.66,
+        6.91,
+        8.17,
+        9.43
+      ]
+    },
+    "review": [
+      {
+        "tell": "riderless-scooter",
+        "action": "reject",
+        "by": "agent",
+        "why": "Boxes a distant motorbike at 0.63s that appears to carry a rider, while the note places the riderless scooter near the end of the video.",
+        "label": "riderless scooter",
+        "at": "2026-11-07T20:50:14.906Z"
+      }
+    ]
+  }
+}

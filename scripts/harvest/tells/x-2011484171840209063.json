@@ -1,0 +1,48 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:33:25.749Z",
+    "clip": {
+      "id": "x-2011484171840209063",
+      "url": "https://x.com/i/status/2011484171840209063",
+      "sha256": "49c204b91e853a726c5dd7e3ebdeaff0817589c18361cfc1619ad7eba1d11562"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2011830550307430894",
+      "url": "https://x.com/i/birdwatch/n/2011830550307430894",
+      "text": "This is an AI generated video, here is the detection report: https://x.com/Ai_or_Not/status/2011830261273805258?s=20     At the 0:02 mark, you can see the license plate has fake characters.     Detected with AI Blocker: https://chromewebstore.google.com/detail/ai-blocker/jhigdcjaokfemfaofdiibcohjpgnmidc ",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 6,
+      "times": [
+        0.5,
+        1,
+        1.5,
+        2,
+        2.5,
+        3
+      ]
+    },
+    "review": [
+      {
+        "tell": "license-plate-shows-fake-characters",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box sits on empty asphalt below the SUV, not on its license plate",
+        "label": "License plate shows fake characters",
+        "at": "2026-11-07T20:37:40.993Z"
+      }
+    ]
+  }
+}

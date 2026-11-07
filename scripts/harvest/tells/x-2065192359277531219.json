@@ -1,0 +1,90 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "workers-appear-and-disappear-abruptly",
+      "category": "text",
+      "label": "Workers appear and disappear abruptly",
+      "t0": 0.1,
+      "t1": 3.6,
+      "focusT": 1.1,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "Multiple workers in blue shirts are present during cleaning and painting but vanish once the pool is finished.",
+      "box": {
+        "x": 0.1,
+        "y": 0.15,
+        "w": 0.8,
+        "h": 0.65
+      },
+      "evidence": {
+        "quote": "artifacts",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "pool-shape-changes-between-frames",
+      "category": "text",
+      "label": "Pool shape changes between frames",
+      "t0": 0.6,
+      "t1": 1.6,
+      "focusT": 1.1,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The pool outline shifts from a rounded organic shape in the first frame to a more angular shape in later frames.",
+      "evidence": {
+        "quote": "inconsistences",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:52.325Z",
+    "clip": {
+      "id": "x-2065192359277531219",
+      "url": "https://x.com/i/status/2065192359277531219",
+      "sha256": "eaba67f85859ac0e9cc495281d9e5c080cabd1daf0387506f04f25d945fbc1c3"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This is an AI video, it can be seen by the inconsistences, morphing elements and artifacts, such sped-up videos are common to blur the fact that they are fake.    https://mashable.com/article/how-to-identify-ai-generated-videos"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.1,
+        3.3,
+        5.51,
+        7.71,
+        9.91,
+        12.12,
+        14.32,
+        16.52
+      ]
+    },
+    "review": [
+      {
+        "tell": "shark-painting-morphs-into-finished-mura",
+        "action": "reject",
+        "by": "agent",
+        "why": "Text describes ordinary timelapse painting progress (painted blue, then teeth, gills and fins added) rather than any morph or inconsistency.",
+        "label": "Shark painting morphs into finished mural",
+        "at": "2026-11-07T20:50:15.110Z"
+      }
+    ]
+  }
+}

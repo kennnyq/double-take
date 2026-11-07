@@ -6,7 +6,7 @@
       "category": "anatomy",
       "label": "Paw passes through another paw",
       "t0": 7.05,
-      "t1": 8.59,
+      "t1": 8.43,
       "focusT": 8.05,
       "source": "community_note",
       "review": "unreviewed",
@@ -24,6 +24,10 @@
         "quote": "unnatural paw movements (one passing through another on the glass surface)",
         "from": "community_note",
         "url": "https://x.com/i/birdwatch/n/2108421161994297356"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 8.43
       }
     }
   ],

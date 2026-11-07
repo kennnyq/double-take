@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:43:56.897Z",
+    "clip": {
+      "id": "x-2107141233755697624",
+      "url": "https://x.com/i/status/2107141233755697624",
+      "sha256": "12f8187e77b65fed9946bd0175468725d25ff564bc5d26ad0f65bf6979991226"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The shared video appears AI-generated. The Thai signage contains nonsensical/gibberish text that does not form valid Thai words or match any real shop.    https://x.com/Idarabasimi/status/2107141233755697624  https://x.com/Platoo_yang/status/2107321403922080217  https://x.com/pionyo/status/2107429088067747994"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.32,
+        0.97,
+        1.61,
+        2.26,
+        2.9,
+        3.54,
+        4.19,
+        4.83
+      ]
+    },
+    "review": [
+      {
+        "tell": "thai-signage-text",
+        "action": "reject",
+        "by": "agent",
+        "why": "Text says the sign appears to be real shop signage rather than gibberish, contradicting the note's claim; a card saying nothing is wrong is not a tell.",
+        "label": "Thai signage text",
+        "at": "2026-11-07T20:50:14.398Z"
+      }
+    ]
+  }
+}

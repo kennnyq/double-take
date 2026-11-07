@@ -1,0 +1,120 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "church-background-changes-to-mosque-inte",
+      "category": "text",
+      "label": "Church background changes to mosque interior",
+      "t0": 2.35,
+      "t1": 10,
+      "focusT": 2.35,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The first clip shows a church with a wooden cross and pews, while the later clip shows a mosque interior with a different ceiling and crowd.",
+      "evidence": {
+        "quote": "background inconsistencies",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1990552853249695855"
+      }
+    },
+    {
+      "id": "sora-logo-appears-on-black-cat",
+      "category": "watermark",
+      "label": "Sora logo appears on black cat",
+      "t0": 6.04,
+      "t1": 8.04,
+      "focusT": 7.04,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "A small white Sora logo is visible on the black cat's head in the church clip.",
+      "box": {
+        "x": 0.74,
+        "y": 0.425,
+        "w": 0.06,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "the Sora logo applied to AI-generated videos appears throughout it",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1990552853249695855"
+      }
+    },
+    {
+      "id": "cat-merges-into-man-s-shoulder",
+      "category": "text",
+      "label": "Cat merges into man's shoulder",
+      "t0": 15.44,
+      "t1": 17.44,
+      "focusT": 16.44,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the mosque clip, the cat's body blends into the man's striped robe and its head rests on his shoulder in a physically implausible way.",
+      "box": {
+        "x": 0.48,
+        "y": 0.45,
+        "w": 0.22,
+        "h": 0.17
+      },
+      "evidence": {
+        "quote": "merging furniture",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1990552853249695855"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:31:26.951Z",
+    "clip": {
+      "id": "x-1990498185589219397",
+      "url": "https://x.com/i/status/1990498185589219397",
+      "sha256": "460353e4daa42eeaf940201f9aa111b58fb7aeb54995655be88c38871e064401"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1990552853249695855",
+      "url": "https://x.com/i/birdwatch/n/1990552853249695855",
+      "text": "This video is not real but comprised of clips generated with Sora AI.  It depicts AI-generation anomalies (background inconsistencies, merging furniture, facial abnormalities, etc.), and the Sora logo applied to AI-generated videos appears throughout it.    https://openai.com/sora/  https://www.npr.org/2025/10/03/nx-s1-5560200/openai-sora-social-media#:~:text=Videos%20downloaded%20from%20the%20app%20contain%20moving%20watermarks%20bearing%20the%20Sora%20logo",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        2.35,
+        7.04,
+        11.74,
+        16.44,
+        21.13,
+        25.83,
+        30.53,
+        35.22
+      ]
+    },
+    "review": [
+      {
+        "tell": "man-s-face-appears-distorted",
+        "action": "reject",
+        "by": "agent",
+        "why": "The box is on the 'Islam' caption sticker above the man's head, not on his face",
+        "label": "Man's face appears distorted",
+        "at": "2026-11-07T20:37:18.196Z"
+      }
+    ]
+  }
+}

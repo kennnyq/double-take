@@ -1,0 +1,99 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "toddler-torso-and-hands-face-opposite-di",
+      "category": "anatomy",
+      "label": "toddler torso and hands face opposite directions",
+      "t0": 0,
+      "t1": 1.95,
+      "focusT": 0.95,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The toddler held by the woman in green has a torso facing one way while the hands appear oriented differently, creating an anatomically impossible pose.",
+      "box": {
+        "x": 0.25,
+        "y": 0.29,
+        "w": 0.31,
+        "h": 0.23
+      },
+      "evidence": {
+        "quote": "the torso and hands of the toddler in the back are placed in opposite directions",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1999620245070434479"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 14.77
+      }
+    },
+    {
+      "id": "toddler-leg-faces-a-third-direction",
+      "category": "anatomy",
+      "label": "toddler leg faces a third direction",
+      "t0": 0,
+      "t1": 1.95,
+      "focusT": 0.95,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The toddler's leg points in yet another direction, compounding the impossible pose seen in the back.",
+      "box": {
+        "x": 0.3,
+        "y": 0.38,
+        "w": 0.24,
+        "h": 0.12
+      },
+      "evidence": {
+        "quote": "the leg faces a third direction in an an impossible pose",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1999620245070434479"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 14.77
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:01.365Z",
+    "clip": {
+      "id": "x-1999500279465804024",
+      "url": "https://x.com/i/status/1999500279465804024",
+      "sha256": "183a751e7b523b11888cdd80db125f84d374af899066ab01810be70ae26d5dfe"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1999620245070434479",
+      "url": "https://x.com/i/birdwatch/n/1999620245070434479",
+      "text": "The is an AI generated video, the torso and hands of the toddler in the back are placed in opposite directions and the leg faces a third direction in an an impossible pose     https://x.com/palestine001_/status/1999500279465804024?s=46&amp;t=9AaZ2XklwZodphjYvkzqPA",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.95,
+        2.85,
+        4.75,
+        6.64,
+        8.54,
+        10.44,
+        12.34,
+        14.24
+      ]
+    }
+  }
+}

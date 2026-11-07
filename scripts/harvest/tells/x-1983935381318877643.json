@@ -1,0 +1,90 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "inconsistent-font",
+      "category": "text",
+      "label": "Inconsistent font",
+      "t0": 0,
+      "t1": 1.96,
+      "focusT": 0.96,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The top and bottom text overlays use different font styles and sizes.",
+      "box": {
+        "x": 0.28,
+        "y": 0.0025,
+        "w": 0.43,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "Inconsistent font",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1983944433209843867"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "flickering",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1983944433209843867"
+    },
+    {
+      "quote": "letters and numbers morphing",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1983944433209843867"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:35:05.659Z",
+    "clip": {
+      "id": "x-1983935381318877643",
+      "url": "https://x.com/i/status/1983935381318877643",
+      "sha256": "15e09b5dd996d466bdcffab504348f5d4faa15424e4cd37b81a0785c00719543"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1983944433209843867",
+      "url": "https://x.com/i/birdwatch/n/1983944433209843867",
+      "text": "The video has been generated using AI.    Inconsistent font,  flickering, letters and numbers morphing    https://x.com/conspiracyslyr/status/1983842829421134077/video/1    &quot;jaxa suntracker cam 04&quot; doesn't exist    https://www.google.com/search?q=jaxa+suntracker+cam+04",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.96,
+        2.88,
+        4.8,
+        6.72,
+        8.65,
+        10.57,
+        12.49,
+        14.41
+      ]
+    },
+    "review": [
+      {
+        "tell": "jaxa-suntracker-cam-04-doesn-t-exist",
+        "action": "reject",
+        "by": "agent",
+        "why": "Text only says the camera name is present in the overlay and never states the anomaly (that no such JAXA camera exists), so the card argues nothing is wrong",
+        "label": "jaxa suntracker cam 04 doesn't exist",
+        "at": "2026-11-07T20:37:47.493Z"
+      }
+    ]
+  }
+}

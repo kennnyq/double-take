@@ -1,0 +1,69 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "container-falls-onto-car",
+      "category": "physics",
+      "label": "container falls onto car",
+      "t0": 0,
+      "t1": 1.68,
+      "focusT": 0.68,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The shipping container tips forward and lands directly on top of the green sports car, crushing it flat, which is physically implausible.",
+      "box": {
+        "x": 0.185,
+        "y": 0.3,
+        "w": 0.475,
+        "h": 0.32
+      },
+      "evidence": {
+        "quote": "implausible physics",
+        "from": "community_note"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "aivideo.com watermark",
+      "from": "community_note",
+      "reason": "not_seen"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:46:10.222Z",
+    "clip": {
+      "id": "x-2090524271357415510",
+      "url": "https://x.com/i/status/2090524271357415510",
+      "sha256": "da48b0f878ff61cfd91a5dd6f8a3e9efe0e3259158278d1913c8f652f231dcb7"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "AI 🤖 Slop    AI 🤖 generated video    The video is AI-generated (aivideo.com watermark, implausible physics) and does not depict a real event.   https://www.aivideo.com/  https://www.instagram.com/reel/DcQ9q-zNcwg/  https://www.instagram.com/reel/DcRLsPHTCSh/  https://x.com/SofieElma/status/2090657853056991495"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.68,
+        2.04,
+        3.4,
+        4.75,
+        6.11,
+        7.47,
+        8.83,
+        10.19
+      ]
+    }
+  }
+}

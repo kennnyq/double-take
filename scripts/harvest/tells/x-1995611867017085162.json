@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "child-s-arm-splits-into-two-hands",
+      "category": "anatomy",
+      "label": "Child's arm splits into two hands",
+      "t0": 0.53,
+      "t1": 1.9,
+      "focusT": 0.53,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the first frame the child's right arm appears as a single limb, but in the next frame it splits into two separate hands/arms held by rescuers.",
+      "box": {
+        "x": 0.1,
+        "y": 0.4,
+        "w": 0.7,
+        "h": 0.25
+      },
+      "evidence": {
+        "quote": "a child’s arm suddenly splitting into two hands",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1995915583049613583"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:07.929Z",
+    "clip": {
+      "id": "x-1995611867017085162",
+      "url": "https://x.com/i/status/1995611867017085162",
+      "sha256": "1962b38b589ab17bf816b8ea9633188824ed48f153ee28cfba4c7e83aad7657e"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1995915583049613583",
+      "url": "https://x.com/i/birdwatch/n/1995915583049613583",
+      "text": "This video appears to be AI-generated. It shows visual inconsistencies, including a child’s arm suddenly splitting into two hands, which is anatomically impossible.  https://x.com/ImMeme0/status/1995891828101415045?t=bRy7w8SJyOdyj2Q8z3e2dA&amp;s=19",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.53,
+        1.6,
+        2.67,
+        3.74,
+        4.81,
+        5.87,
+        6.94,
+        8.01
+      ]
+    }
+  }
+}

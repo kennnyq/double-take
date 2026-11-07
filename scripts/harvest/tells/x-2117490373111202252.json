@@ -1,0 +1,45 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:43:25.008Z",
+    "clip": {
+      "id": "x-2117490373111202252",
+      "url": "https://x.com/i/status/2117490373111202252",
+      "sha256": "0a886d61c0586583017202d807448e95c88f482186cbac81b98846d6d6878d9b"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This is a fake video created by AI.  At 5 seconds you can see a 2nd arm appear.  https://x.com/yousef19940610/status/2117635916026232941?a=mFufe-335e_0wbJJMc4&amp;s=19    Pole vault is not a contested event in Para Athletics.  https://en.wikipedia.org/wiki/Para_athletics"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 6,
+      "times": [
+        3.5,
+        4,
+        4.5,
+        5,
+        5.5,
+        6
+      ]
+    },
+    "review": [
+      {
+        "tell": "the-dresser-disappears-and-the-fire-alar",
+        "action": "reject",
+        "by": "agent",
+        "why": "Note claims a second arm appears at 5s, but the tell is about a dresser and fire alarm vanishing, which the note never mentions.",
+        "label": "The dresser disappears and the fire alarm vanishes",
+        "at": "2026-11-07T20:50:16.172Z"
+      }
+    ]
+  }
+}

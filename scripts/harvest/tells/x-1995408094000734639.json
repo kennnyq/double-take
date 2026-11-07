@@ -1,0 +1,93 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "boy-in-back-has-seven-fingers",
+      "category": "anatomy",
+      "label": "Boy in back has seven fingers",
+      "t0": 0,
+      "t1": 1.63,
+      "focusT": 0.63,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The boy in the back right appears to have an extra finger on his hand, suggesting AI generation.",
+      "box": {
+        "x": 0.59,
+        "y": 0.34,
+        "w": 0.3,
+        "h": 0.16
+      },
+      "evidence": {
+        "quote": "the boy in the back of the videos with 7 fingers on one hand",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1995522433172787243"
+      }
+    },
+    {
+      "id": "frontmost-boy-s-teeth-shift",
+      "category": "anatomy",
+      "label": "Frontmost boy's teeth shift",
+      "t0": 0,
+      "t1": 2.2,
+      "focusT": 0.63,
+      "compareT": 1.9,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The frontmost boy's teeth appear to change shape and position across frames, indicating AI artifacts.",
+      "box": {
+        "x": 0.1,
+        "y": 0.45,
+        "w": 0.15,
+        "h": 0.07
+      },
+      "evidence": {
+        "quote": "The shifting rendering of the frontmost boys' teeth",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1995522433172787243"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:25.219Z",
+    "clip": {
+      "id": "x-1995408094000734639",
+      "url": "https://x.com/i/status/1995408094000734639",
+      "sha256": "18b9bb62042c28e72501bfc219f0acdcbb2033ca68726451341bf52167278b7d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1995522433172787243",
+      "url": "https://x.com/i/birdwatch/n/1995522433172787243",
+      "text": "The video is AI-generated. Has the typical hallmarks like the boy in the back of the videos with 7 fingers on one hand. The very short runtime.  Extremely staged situation. The shifting rendering of the frontmost boys' teeth.  https://focalml.com/blog/how-to-tell-if-a-video-is-ai-generated/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.9,
+        3.16,
+        4.43,
+        5.69,
+        6.96,
+        8.23,
+        9.49
+      ]
+    }
+  }
+}

@@ -1,0 +1,91 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "extra-leg-emerging-from-man-s-shorts",
+      "category": "anatomy",
+      "label": "extra leg emerging from man's shorts",
+      "t0": 0.85,
+      "t1": 2.85,
+      "focusT": 1.85,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the bottom-right corner of the frame, an extra leg-like shape appears to emerge from the man's shorts with impossible geometry.",
+      "box": {
+        "x": 0.62,
+        "y": 0.78,
+        "w": 0.38,
+        "h": 0.22
+      },
+      "evidence": {
+        "quote": "impossible limb geometry—specifically an extra leg emerging from the man's shorts",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2102045788323139878"
+      }
+    },
+    {
+      "id": "smooth-warping-across-lion-s-face",
+      "category": "text",
+      "label": "smooth-warping across lion's face",
+      "t0": 23.02,
+      "t1": 25.02,
+      "focusT": 24.02,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The lion's face shows smooth-warping artifacts typical of AI generation, especially around the eyes and muzzle as it moves closer to the man.",
+      "box": {
+        "x": 0.28,
+        "y": 0.42,
+        "w": 0.72,
+        "h": 0.36
+      },
+      "evidence": {
+        "quote": "typical AI generation smooth-warping",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2102045788323139878"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:31:53.632Z",
+    "clip": {
+      "id": "x-2101798471829246249",
+      "url": "https://x.com/i/status/2101798471829246249",
+      "sha256": "0739027b26e5b0932d6d4952bf194cbf885fd1fb375f0880c04e133753662d85"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2102045788323139878",
+      "url": "https://x.com/i/birdwatch/n/2102045788323139878",
+      "text": "This clip is AI-generated synthetic media (Seedance 2.0), not real safari footage. Key visual artifacts include impossible limb geometry—specifically an extra leg emerging from the man's shorts at the bottom right—and typical AI generation smooth-warping.    https://hivedetect.ai/7vXZNu",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.85,
+        5.54,
+        9.24,
+        12.94,
+        16.63,
+        20.33,
+        24.02,
+        27.72
+      ]
+    }
+  }
+}

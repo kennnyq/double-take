@@ -1,0 +1,80 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "uniform-does-not-match-israeli-air-force",
+      "category": "text",
+      "label": "uniform does not match Israeli Air Force uniform",
+      "t0": 11.01,
+      "t1": 13.01,
+      "focusT": 12.01,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The garment lacks recognizable Israeli Air Force insignia or standard uniform features.",
+      "box": {
+        "x": 0.1,
+        "y": 0.4,
+        "w": 0.65,
+        "h": 0.55
+      },
+      "evidence": {
+        "quote": "the uniform in the video does not match with the standard Israeli Air Force uniform",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:43:03.902Z",
+    "clip": {
+      "id": "x-1933884605070709014",
+      "url": "https://x.com/i/status/1933884605070709014",
+      "sha256": "db5a575834cc492bd6bf6d6c54fe4ddb713a9b10cd5eb1a46db0be92f6d879e4"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This is a fake video, we can see that the uniform in the video does not match with the standard Israeli Air Force uniform, it has some gibberish text on his arm, which is consistent with AI use and the look of his eyes also tends to indicate it is AI generated.   https://x.com/JCheerack/status/1933902051546689885  https://www.timesofisrael.com/in-first-israeli-f-35s-train-in-italy-with-iran-in-their-sights/  https://en.wikipedia.org/wiki/Israeli_Air_Force"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.09,
+        3.28,
+        5.46,
+        7.64,
+        9.83,
+        12.01,
+        14.19,
+        16.38
+      ]
+    },
+    "review": [
+      {
+        "tell": "gibberish-text-on-his-arm",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box sits on a motion-blurred lower-frame area at 12.01s where no arm or lettering is visible, so it is not on the sleeve text the tell names.",
+        "label": "gibberish text on his arm",
+        "at": "2026-11-07T20:50:14.698Z"
+      },
+      {
+        "tell": "eyes-look-ai-generated",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box is on the blurred torso/chest area, not on the man's face or eyes, which are not visible in this frame.",
+        "label": "eyes look AI-generated",
+        "at": "2026-11-07T20:50:14.805Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "boarding-pass-text-is-garbled",
+      "category": "text",
+      "label": "Boarding pass text is garbled",
+      "t0": 8.53,
+      "t1": 10.17,
+      "focusT": 9.53,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The boarding pass held by the kangaroo shows blurry, unreadable text instead of legible characters.",
+      "box": {
+        "x": 0.62,
+        "y": 0.78,
+        "w": 0.28,
+        "h": 0.18
+      },
+      "evidence": {
+        "quote": "Text is garbled on the boarding pass",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1927873285834035298"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "Humans speak non-existent language",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1927873285834035298"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:35:50.324Z",
+    "clip": {
+      "id": "x-1927790096884928945",
+      "url": "https://x.com/i/status/1927790096884928945",
+      "sha256": "38865f4259a319ef8a41ca0d247d30563634223b2a80f7fcf4da06bf686a3c1a"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1927873285834035298",
+      "url": "https://x.com/i/birdwatch/n/1927873285834035298",
+      "text": "This is an AI-generated video.     - Originally posted by infiniteunreality on Insta  - Text is garbled on the boarding pass  - Humans speak non-existent language  - Passenger's hand has a magically-appearing wedding ring     Details, sources, evidence here: https://leadstories.com/hoax-alert/2025/05/fact-check-emotional-support-kangaroo-airport-plane-flight.html",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.64,
+        1.91,
+        3.18,
+        4.45,
+        5.72,
+        6.99,
+        8.26,
+        9.53
+      ]
+    },
+    "review": [
+      {
+        "tell": "wedding-ring-appears-on-passenger-s-hand",
+        "action": "reject",
+        "by": "agent",
+        "why": "The box is on the kangaroo's arm and harness mid-frame, while the passenger's ringed hand is at the top edge of the frame",
+        "label": "Wedding ring appears on passenger's hand",
+        "at": "2026-11-07T20:37:36.387Z"
+      }
+    ]
+  }
+}

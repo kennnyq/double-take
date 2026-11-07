@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "goat-floats-mid-air-on-narrow-ledge",
+      "category": "physics",
+      "label": "Goat floats mid-air on narrow ledge",
+      "t0": 4,
+      "t1": 6,
+      "focusT": 5,
+      "compareT": 5.5,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "At about 5 seconds, a goat is suspended above the path with no visible support, appearing to float in mid-air.",
+      "box": {
+        "x": 0.46,
+        "y": 0.42,
+        "w": 0.08,
+        "h": 0.1
+      },
+      "evidence": {
+        "quote": "At the 0:05 mark, the goats are defying gravity and floating in the air.",
+        "from": "community_note"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:42:52.590Z",
+    "clip": {
+      "id": "x-2003247506524926357",
+      "url": "https://x.com/i/status/2003247506524926357",
+      "sha256": "66a5dc04a875f453143f67de562fa5689f69da23fccfcf902eef3caea2f38221"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "this is AI, here is the detection report: https://x.com/Ai_or_Not/status/2001461010717401447?s=20     At the 0:05 mark, the goats are defying gravity and floating in the air.     https://www.aiornot.com/blog/openai-sora-video-watermark-removers-push-real-ai-slop "
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 6,
+      "times": [
+        3.5,
+        4,
+        4.5,
+        5,
+        5.5,
+        6
+      ]
+    }
+  }
+}

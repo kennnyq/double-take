@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "movements are isolated instead of coordinated",
+      "from": "community_note",
+      "reason": "not_checked",
+      "url": "https://x.com/i/birdwatch/n/2077556696042414283"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:32:26.515Z",
+    "clip": {
+      "id": "x-2077384862575534174",
+      "url": "https://x.com/i/status/2077384862575534174",
+      "sha256": "3d5c1a864753102c3531ae44613cad80f117478d2a962bd31b389478db293efb"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2077556696042414283",
+      "url": "https://x.com/i/birdwatch/n/2077556696042414283",
+      "text": "Typical AI video: faces blur or morph as the camera moves, people don't meaningfully interact with each other or their surroundings, and movements are isolated instead of coordinated.**    https://www.popsci.com/diy/how-to-spot-ai-generated-video/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.95,
+        2.86,
+        4.76,
+        6.66,
+        8.57,
+        10.47,
+        12.38,
+        14.28
+      ]
+    },
+    "review": [
+      {
+        "tell": "faces-blur-as-camera-pans-down-line",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box sits on the foreground woman's neck and chest below her face, and the faces in this frame are sharp, so it does not point at a blurred or morphing face",
+        "label": "faces blur as camera pans down line",
+        "at": "2026-11-07T20:37:47.293Z"
+      },
+      {
+        "tell": "people-stand-apart-without-interacting",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box is on a motion-blurred passerby walking past, not on the people in the queue the text describes",
+        "label": "people stand apart without interacting",
+        "at": "2026-11-07T20:37:47.393Z"
+      }
+    ]
+  }
+}

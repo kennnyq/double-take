@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "warping-letters-on-generator-side",
+      "category": "text",
+      "label": "warping letters on generator side",
+      "t0": 10.04,
+      "t1": 11.77,
+      "focusT": 11.04,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The text on the yellow generator side appears distorted and warped in the frames where it is visible.",
+      "box": {
+        "x": 0.19,
+        "y": 0.2,
+        "w": 0.24,
+        "h": 0.18
+      },
+      "evidence": {
+        "quote": "the warping letters on the side of the generator",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1987292863286140949"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:43.912Z",
+    "clip": {
+      "id": "x-1987093824540381592",
+      "url": "https://x.com/i/status/1987093824540381592",
+      "sha256": "af7f8e3acf08c377f05a58ce79aaecc4a5e6536342ae22810f1b022e71f0ac08"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1987292863286140949",
+      "url": "https://x.com/i/birdwatch/n/1987292863286140949",
+      "text": "The video was made using AI, as seen in the warping letters on the side of the generator.    https://caniphish.com/blog/how-to-spot-ai-videos    Also, most EVs lock out the ability for the vehicle to drive when the car is charging.    https://www.tesla.com/ownersmanual/model3/en_us/GUID-BEE08D47-0CE0-4BDD-83F2-9854FB3D578F.html#:~:text=Tesla%20strongly%20recommends%20leaving%20Model%203%20plugged%20in%20when%20not%20in%20use.  https://www.woodhouseplacehyundai.com/ev-charging-faq/#:~:text=Yes!%20It%20is%20perfectly%20safe%20and%20appropriate%20to%20turn%20your%20car%20on%20while%20it%20is%20charging.%20Safety%20measures%20are%20in%20place%20that%20do%20not%20allow%20the%20powertrain%20to%20engage%20while%20it%20is%20charging.%20Therefore%2C%20you%20do%20not%20need%20to%20worry%20that%20your%20car%20will%20suddenly%20accelerate.%C2%A0    Moreover, inauthentic content goes against X's TOS.    https://help.x.com/en/rules-and-policies/authenticity#:~:text=You%20may%20not%20share%20inauthentic,we%20may%20not%20take%20action",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.74,
+        2.21,
+        3.68,
+        5.15,
+        6.62,
+        8.09,
+        9.56,
+        11.04
+      ]
+    }
+  }
+}

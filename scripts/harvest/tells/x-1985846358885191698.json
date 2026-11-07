@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "hand-on-door-frame-glitches",
+      "category": "anatomy",
+      "label": "hand on door frame glitches",
+      "t0": 0.94,
+      "t1": 1.94,
+      "focusT": 0.94,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the early frames the person's hand rests on the white door frame, then the hand and arm disappear as the person moves behind the wall.",
+      "box": {
+        "x": 0.48,
+        "y": 0.58,
+        "w": 0.08,
+        "h": 0.07
+      },
+      "evidence": {
+        "quote": "glitches like the hand on the door frame",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1985971194718237030"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:55.143Z",
+    "clip": {
+      "id": "x-1985846358885191698",
+      "url": "https://x.com/i/status/1985846358885191698",
+      "sha256": "1bc32015fbf769160e1eed511e714881531671213a1180be99b2239aaa8fd831"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1985971194718237030",
+      "url": "https://x.com/i/birdwatch/n/1985971194718237030",
+      "text": "Readers may note that this video appears AI-generated due to glitches like the hand on the door frame. It is not real CCTV and resembles the 2016 Badaling tiger attack in a safari park, not a home. Timestamp is fake. https://www.reuters.com/article/world/woman-mauled-by-tiger-to-sue-beijing-wildlife-park-idUSKCN12E08J/ https://a-z-animals.com/articles/are-those-viral-animal-videos-real-tell-tale-signs-of-ai/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.94,
+        2.83,
+        4.71,
+        6.59,
+        8.48,
+        10.36,
+        12.24,
+        14.13
+      ]
+    }
+  }
+}

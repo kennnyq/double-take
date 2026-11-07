@@ -1,0 +1,84 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "unnatural-lip-movement",
+      "category": "text",
+      "label": "unnatural lip movement",
+      "t0": 0,
+      "t1": 1.88,
+      "focusT": 0.88,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The man in the white robe moves his mouth while speaking, but the lip shapes do not match natural speech articulation.",
+      "box": {
+        "x": 0.32,
+        "y": 0.375,
+        "w": 0.08,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "unnatural lip movement",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1995856290825076978"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 9.97
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "mismatched lighting",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1995856290825076978"
+    },
+    {
+      "quote": "distorted hand/face details",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1995856290825076978"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:17.392Z",
+    "clip": {
+      "id": "x-1995731223730082074",
+      "url": "https://x.com/i/status/1995731223730082074",
+      "sha256": "344856675ec5c0dae1af83a4c92493dd19e029da05b8e47fd372da32b5af922d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1995856290825076978",
+      "url": "https://x.com/i/birdwatch/n/1995856290825076978",
+      "text": "This video is AI-generated and not real. There is no verified evidence that the events or statements shown here ever occurred. Several visual inconsistencies (unnatural lip movement, mismatched lighting, distorted hand/face details) indicate synthetic generation. https://paperswithcode.com/task/deepfake-detection",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.88,
+        2.63,
+        4.39,
+        6.15,
+        7.9,
+        9.66,
+        11.41,
+        13.17
+      ]
+    }
+  }
+}

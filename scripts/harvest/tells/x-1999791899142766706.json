@@ -1,0 +1,76 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "woman-s-arm-contorting",
+      "category": "anatomy",
+      "label": "woman's arm contorting",
+      "t0": 11,
+      "t1": 12.24,
+      "focusT": 11.24,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the final frames, the woman's right arm appears to bend and merge unnaturally with her body as she lies on the floor.",
+      "box": {
+        "x": 0.65,
+        "y": 0.68,
+        "w": 0.15,
+        "h": 0.1
+      },
+      "evidence": {
+        "quote": "the woman's arm contorting",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2000037331479220239"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:33:54.796Z",
+    "clip": {
+      "id": "x-1999791899142766706",
+      "url": "https://x.com/i/status/1999791899142766706",
+      "sha256": "cb8d22ac32252dbd4404f02402d07f46d14af60d1e37962ec94372d71106a996"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2000037331479220239",
+      "url": "https://x.com/i/birdwatch/n/2000037331479220239",
+      "text": "This video was clearly created by AI. You can see several patterns; such as the video being up to 15 seconds long, the woman's arm contorting, the dog's paws transforming into human hands, etc.    https://www.getcybersafe.gc.ca/en/resources/recognize-artificial-intelligence-ai-9-ways-spot-ai-content-online  https://www.captechu.edu/blog/how-spot-ai-generated-content-it-fact-or-fiction",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.86,
+        2.59,
+        4.32,
+        6.05,
+        7.78,
+        9.51,
+        11.24,
+        12.97
+      ]
+    },
+    "review": [
+      {
+        "tell": "dog-s-paws-transforming-into-human-hands",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box covers the porch railing and lawn above the dog in both frames, not the dog's paws",
+        "label": "dog's paws transforming into human hands",
+        "at": "2026-11-07T20:37:41.095Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "styrofoam-balls-disappear-from-cat",
+      "category": "anatomy",
+      "label": "Styrofoam balls disappear from cat",
+      "t0": 0.63,
+      "t1": 1.89,
+      "focusT": 0.63,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The cat is covered in white styrofoam balls at the start, but as the hand moves over it, the balls vanish and the cat's fur becomes visible.",
+      "evidence": {
+        "quote": "the disappearance of the styrofoam when the hand moves them",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:06.598Z",
+    "clip": {
+      "id": "x-2079808613678551139",
+      "url": "https://x.com/i/status/2079808613678551139",
+      "sha256": "c90516be38fc6a53551e04bd276e7c8571cc6f4c7cbaee1ed2f41a25be2eda3d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is AI, evident by the disappearance of the styrofoam when the hand moves them.     https://www.wikihow.com/Tell-if-a-Video-Is-Ai-Generated"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.89,
+        3.16,
+        4.42,
+        5.68,
+        6.94,
+        8.21,
+        9.47
+      ]
+    }
+  }
+}

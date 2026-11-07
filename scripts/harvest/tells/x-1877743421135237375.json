@@ -1,0 +1,42 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:42:15.518Z",
+    "clip": {
+      "id": "x-1877743421135237375",
+      "url": "https://x.com/i/status/1877743421135237375",
+      "sha256": "9d3dd95201cfbcab33cd5d4f5b2cef8343ddb2d3c8b4878ade7871e92473e009"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "Video ini dibuat oleh AI.    Sumber:  Detik 0:00 ke 0:04  https://isitai.com/detection-result/burning-mountain-and-road-scene/    Detik 0:10 ke 0:15  https://isitai.com/detection-result/cityscape-engulfed-in-flames/    Detik 0:16 ke 0:20  https://isitai.com/detection-result/ai-generated-city-on-fire/    Detik 0:21 ke 0:26  https://isitai.com/detection-result/nighttime-hillside-fire-scene/    Detik 0:27  sampai selesai  https://isitai.com/detection-result/cityscape-engulfed-in-flames-2/"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 3,
+      "times": [
+        0,
+        0.5,
+        1
+      ]
+    },
+    "review": [
+      {
+        "tell": "the-note-states-the-video-was-made-by-ai",
+        "action": "reject",
+        "by": "agent",
+        "why": "No anomaly at all: the note only cites external AI-detector links per time range and the card itself says it gives no visual tell from this video.",
+        "label": "The note states the video was made by AI, but provides no…",
+        "at": "2026-11-07T20:50:14.500Z"
+      }
+    ]
+  }
+}

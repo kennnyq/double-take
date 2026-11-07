@@ -1,0 +1,78 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "officers-move-unnaturally",
+      "category": "text",
+      "label": "Officers move unnaturally",
+      "t0": 1.21,
+      "t1": 3.94,
+      "focusT": 1.21,
+      "compareT": 3.64,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The officers' bodies shift and overlap in ways that look jerky and inconsistent with normal walking motion.",
+      "box": {
+        "x": 0.1,
+        "y": 0.35,
+        "w": 0.85,
+        "h": 0.65
+      },
+      "evidence": {
+        "quote": "unnatural movements",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1986211083514736856"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:48.016Z",
+    "clip": {
+      "id": "x-1986136264220025066",
+      "url": "https://x.com/i/status/1986136264220025066",
+      "sha256": "d721779ec46d48636f234e3b996b849c3e56588b0bf07e61156f09b41ad69e77"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1986211083514736856",
+      "url": "https://x.com/i/birdwatch/n/1986211083514736856",
+      "text": "The video is AI-generated, showing visual anomalies like disappearing feet and unnatural movements. No such arrests occurred.  https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video  https://www.media.mit.edu/projects/detect-fakes/overview/  https://www.engineering.columbia.edu/about/news/turns-out-im-not-real-detecting-ai-generated-videos",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.21,
+        3.64,
+        6.07,
+        8.5,
+        10.93,
+        13.36,
+        15.79,
+        18.22
+      ]
+    },
+    "review": [
+      {
+        "tell": "feet-disappear-behind-car",
+        "action": "reject",
+        "by": "agent",
+        "why": "Text explains the feet as simply hidden behind a car door, a normal occlusion that argues nothing is wrong, and the box shows legs on open pavement with no door",
+        "label": "Feet disappear behind car",
+        "at": "2026-11-07T20:37:29.989Z"
+      }
+    ]
+  }
+}

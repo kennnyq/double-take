@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "white-dog-floats-backward-off-bed",
+      "category": "physics",
+      "label": "White dog floats backward off bed",
+      "t0": 2.78,
+      "t1": 6.59,
+      "focusT": 3.78,
+      "compareT": 6.29,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The white dog slides backward off the bed without normal leg movement, appearing to float.",
+      "box": {
+        "x": 0.08,
+        "y": 0.375,
+        "w": 0.46,
+        "h": 0.5
+      },
+      "evidence": {
+        "quote": "the dog floats backwards",
+        "from": "community_note"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:17.770Z",
+    "clip": {
+      "id": "x-2075739949492514870",
+      "url": "https://x.com/i/status/2075739949492514870",
+      "sha256": "c889e1a7174bb95c71a675325193f88698d75c921e907ae58f223eb01fa9ccf9"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This is an AI-generated video. It has the typical low-res, somewhat glitchy/motion-blurry quality of many AI animal videos. Movements look off (the dog floats backwards).     Searches turn up no &quot;Greenfield Animal Care&quot; or a  &quot;Dr. Yusuf Okonkwo&quot; in Sacramento.      https://www.cityofsacramento.gov/community-development/animal-care     https://www.instagram.com/reel/DaCtK8PgwSb/     https://www.instagram.com/reel/DZk5gm7yFn1/     https://hivemoderation.com/ai-generated-content-detection-demo    "
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.26,
+        3.78,
+        6.29,
+        8.81,
+        11.33,
+        13.84,
+        16.36,
+        18.88
+      ]
+    }
+  }
+}

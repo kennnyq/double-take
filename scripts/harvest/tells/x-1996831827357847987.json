@@ -1,0 +1,111 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "komodo-dragon-passes-through-glass",
+      "category": "object_morph",
+      "label": "Komodo dragon passes through glass",
+      "t0": 0.72,
+      "t1": 2.47,
+      "focusT": 0.72,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the first frames the Komodo dragon is inside the glass enclosure, then it is seen outside on the floor with no opening shown.",
+      "box": {
+        "x": 0,
+        "y": 0.25,
+        "w": 0.62,
+        "h": 0.37
+      },
+      "evidence": {
+        "quote": "The Komodo dragon clips through the glass",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1996963756220289201"
+      }
+    },
+    {
+      "id": "people-appear-and-disappear",
+      "category": "continuity",
+      "label": "People appear and disappear",
+      "t0": 2.17,
+      "t1": 5.37,
+      "focusT": 2.17,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "Several people stand by the enclosure early on, then they are gone as the camera pans away down the hall.",
+      "box": {
+        "x": 0.35,
+        "y": 0.2,
+        "w": 0.65,
+        "h": 0.32
+      },
+      "evidence": {
+        "quote": "people appear and disappear",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1996963756220289201"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "faces deform",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1996963756220289201"
+    },
+    {
+      "quote": "the tank has no consistent enclosure",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1996963756220289201"
+    },
+    {
+      "quote": "The melting textures and visual glitches confirm it isn't real footage",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1996963756220289201"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:31:02.821Z",
+    "clip": {
+      "id": "x-1996831827357847987",
+      "url": "https://x.com/i/status/1996831827357847987",
+      "sha256": "26ce8b94ea0a41766abb59fc7f449a2022eaa3168f33a9f00b8e8d543455ac78"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1996963756220289201",
+      "url": "https://x.com/i/birdwatch/n/1996963756220289201",
+      "text": "This video is AI generated.  The Komodo dragon clips through the glass, people appear and disappear, faces deform, and the tank has no consistent enclosure. The melting textures and visual glitches confirm it isn't real footage.    https://caniphish.com/blog/how-to-spot-ai-videos",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.72,
+        2.17,
+        3.62,
+        5.07,
+        6.52,
+        7.97,
+        9.41,
+        10.86
+      ]
+    }
+  }
+}

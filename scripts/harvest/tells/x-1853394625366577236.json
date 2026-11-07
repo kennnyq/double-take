@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "fingers-merge-with-seal",
+      "category": "anatomy",
+      "label": "fingers merge with seal",
+      "t0": 0.66,
+      "t1": 2.27,
+      "focusT": 0.66,
+      "compareT": 1.97,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the early frames the gloved fingers holding the seal appear to blend into the seal's body, then separate again as the seal shifts.",
+      "box": {
+        "x": 0.17,
+        "y": 0.64,
+        "w": 0.27,
+        "h": 0.19
+      },
+      "evidence": {
+        "quote": "the fingers of the female you will see it's merging with the seal and back again",
+        "from": "community_note"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:43:13.967Z",
+    "clip": {
+      "id": "x-1853394625366577236",
+      "url": "https://x.com/i/status/1853394625366577236",
+      "sha256": "5f595a337b5110642e23645ee344db19d252ade022ff83a0d33f5106a6579355"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video is AI manipulated. If you look at the fingers of the female you will see it's merging with the seal and back again.     https://www.buzzfeednews.com/article/pranavdixit/ai-generated-art-hands-fingers-messed-up"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.66,
+        1.97,
+        3.29,
+        4.6,
+        5.92,
+        7.23,
+        8.55,
+        9.86
+      ]
+    }
+  }
+}

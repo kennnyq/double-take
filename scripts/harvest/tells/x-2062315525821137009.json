@@ -1,0 +1,50 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:32:34.877Z",
+    "clip": {
+      "id": "x-2062315525821137009",
+      "url": "https://x.com/i/status/2062315525821137009",
+      "sha256": "265d15ddec41b3e075ffa848253b5fca31412c8bbc27e9af32b9f781b37ad76a"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2062375654700757458",
+      "url": "https://x.com/i/birdwatch/n/2062375654700757458",
+      "text": "This is an AI generated video.   1. another video showing the same two dogs (https://www.instagram.com/reel/DY41OtFk-2U/) shows the smaller one leg and tail &quot;merge&quot; towards the end of the clip",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.25,
+        3.76,
+        6.27,
+        8.78,
+        11.28,
+        13.79,
+        16.3,
+        18.81
+      ]
+    },
+    "review": [
+      {
+        "tell": "smaller-dog-s-leg-and-tail-merge",
+        "action": "reject",
+        "by": "agent",
+        "why": "The note's leg-and-tail merge is in a different video of the same dogs (linked Instagram reel), not this clip",
+        "label": "Smaller dog's leg and tail merge",
+        "at": "2026-11-07T20:38:10.758Z"
+      }
+    ]
+  }
+}

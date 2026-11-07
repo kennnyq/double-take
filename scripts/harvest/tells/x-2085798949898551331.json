@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:46:25.335Z",
+    "clip": {
+      "id": "x-2085798949898551331",
+      "url": "https://x.com/i/status/2085798949898551331",
+      "sha256": "927a01e73aa9ebf89c03edb779f476a97f2c32cad94ece446f3e6ba12b9a9ae0"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is AI-generated. It features robots based on the Unitree G1 but includes visual glitches such as arms passing through each other. Verified videos of real G1 robots dancing exist separately. https://www.dw.com/en/fact-check-are-chinas-robot-soldiers-just-ai-fakes/a-76072991 https://www.scmp.com/tech/tech-trends/article/3355993/brilliant-us-public-cheers-dancing-unitree-robots-while-congress-looks-ban-them"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.71,
+        5.12,
+        8.53,
+        11.94,
+        15.35,
+        18.76,
+        22.17,
+        25.58
+      ]
+    },
+    "review": [
+      {
+        "tell": "arms-pass-through-each-other",
+        "action": "reject",
+        "by": "agent",
+        "why": "In the boxed frame all arms are down and apart; the box covers the yellow robot's head, not arms overlapping as the text claims.",
+        "label": "arms pass through each other",
+        "at": "2026-11-07T20:50:24.315Z"
+      }
+    ]
+  }
+}

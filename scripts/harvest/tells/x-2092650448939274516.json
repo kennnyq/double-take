@@ -1,0 +1,78 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "cow-s-nose-merging-with-dog-s-head",
+      "category": "text",
+      "label": "cow's nose merging with dog's head",
+      "t0": 3.29,
+      "t1": 5.29,
+      "focusT": 4.29,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the first frame, the cow's snout appears to press directly into the dog's forehead with no clear boundary between them.",
+      "box": {
+        "x": 0.28,
+        "y": 0.25,
+        "w": 0.3,
+        "h": 0.1
+      },
+      "evidence": {
+        "quote": "the cow's nose physically merging with the dog's head",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 41.03
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "the dog's pupils distorting",
+      "from": "community_note",
+      "reason": "not_seen"
+    },
+    {
+      "quote": "unnatural fur blending",
+      "from": "community_note",
+      "reason": "not_seen"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:45:53.973Z",
+    "clip": {
+      "id": "x-2092650448939274516",
+      "url": "https://x.com/i/status/2092650448939274516",
+      "sha256": "a62de24603e7b8dc21b7e934ad4215a0691c350aedfa011615e7f986dc097ae9"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is AI-generated, not authentic footage. Unnatural motion artifacts—such as the dog's pupils distorting, the cow's nose physically merging with the dog's head, and unnatural fur blending—are visible.    Text-to-video model: Seedance 2.5:    https://hivedetect.ai/Jt2tK3"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        4.29,
+        12.87,
+        21.46,
+        30.04,
+        38.62,
+        47.2,
+        55.79,
+        64.37
+      ]
+    }
+  }
+}

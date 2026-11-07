@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "At 8s30 the sitting woman's arm and leg fuse",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1982100451421048976"
+    },
+    {
+      "quote": "At 9s30 the standing man in blue shirt left arm disappears",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/1982100451421048976"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:29:54.324Z",
+    "clip": {
+      "id": "x-1981858244827271503",
+      "url": "https://x.com/i/status/1981858244827271503",
+      "sha256": "3fcf861df7107fc441239cfd1907be6b33eabc4da76fcb8f6d2ffb94eb37cb3e"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1982100451421048976",
+      "url": "https://x.com/i/birdwatch/n/1982100451421048976",
+      "text": "This video is AI-generated.    - The floating woman downward movement before impact is unnatural  - The dog movement while falling is  unnatural  - At 8s30 the sitting woman's arm and leg fuse  - At 9s30 the standing man in blue shirt left arm disappears    Already face-checked: https://www.facebook.com/share/r/1D2L4aznEE/?mibextid=wwXIfr",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.64,
+        1.91,
+        3.18,
+        4.45,
+        5.72,
+        6.99,
+        8.26,
+        9.53
+      ]
+    },
+    "review": [
+      {
+        "tell": "woman-falls-backward-into-pool",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box sits on empty water, not on the woman; the text calls her fall natural, which contradicts the note's claim",
+        "label": "Woman falls backward into pool",
+        "at": "2026-11-07T20:33:01.839Z"
+      },
+      {
+        "tell": "dog-leaps-from-roof-into-pool",
+        "action": "reject",
+        "by": "agent",
+        "why": "Text says the dog falls in a normal arc, contradicting the note's claim that the fall is unnatural; a card saying nothing is wrong is not a tell",
+        "label": "Dog leaps from roof into pool",
+        "at": "2026-11-07T20:33:01.925Z"
+      }
+    ]
+  }
+}

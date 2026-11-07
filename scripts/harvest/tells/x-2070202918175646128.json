@@ -1,0 +1,77 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "spray-painted-word-misspelled",
+      "category": "text",
+      "label": "Spray-painted word misspelled",
+      "t0": 0,
+      "t1": 1.95,
+      "focusT": 0.95,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The word on the window reads UNCLIM instead of UNCLEAN, missing the E and A.",
+      "box": {
+        "x": 0.04,
+        "y": 0.28,
+        "w": 0.58,
+        "h": 0.14
+      },
+      "evidence": {
+        "quote": "The spray painted word unclean is spelt incorrectly",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:39.551Z",
+    "clip": {
+      "id": "x-2070202918175646128",
+      "url": "https://x.com/i/status/2070202918175646128",
+      "sha256": "b556abe47b5cd4b25aea07252f06b0507cb133c513cf65ff6b148004dd7cdfa2"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is AI generated.     At 0:06 the man retracts the spray paint can you can see 6 fingers holding the can.    The protester contradicts themself saying to support local businesses and calls the butchers a bakers.    The spray painted word unclean is spelt incorrectly.    https://x.com/corleone040480/status/2070202918175646128?s=46    https://gijn.org/resource/guide-detecting-ai-generated-content/"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 13,
+      "times": [
+        0.95,
+        2.84,
+        4.5,
+        4.73,
+        5,
+        5.5,
+        6,
+        6.5,
+        7,
+        8.52,
+        10.41,
+        12.3,
+        14.19
+      ]
+    },
+    "review": [
+      {
+        "tell": "six-fingers-holding-spray-can",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box at 6s sits on the empty display-case glass; the hand holding the spray can is to the right, outside the box.",
+        "label": "Six fingers holding spray can",
+        "at": "2026-11-07T20:50:24.213Z"
+      }
+    ]
+  }
+}

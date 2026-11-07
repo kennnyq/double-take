@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "cyclist-s-leg-passing-through-bicycle-fr",
+      "category": "anatomy",
+      "label": "cyclist's leg passing through bicycle frame",
+      "t0": 0.76,
+      "t1": 2.76,
+      "focusT": 1.76,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the first frame, the cyclist's right leg appears to pass through the bicycle frame near the rear wheel.",
+      "box": {
+        "x": 0.5,
+        "y": 0.4,
+        "w": 0.47,
+        "h": 0.35
+      },
+      "evidence": {
+        "quote": "a cyclist's leg passing through the bicycle frame",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:44:43.906Z",
+    "clip": {
+      "id": "x-2101355817781916006",
+      "url": "https://x.com/i/status/2101355817781916006",
+      "sha256": "2d49deb58dc3285a499dabf946211470299e9d0ff1bcc1a44d47f6896b5005fb"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video appears AI-generated, with artifacts like a cyclist's leg passing through the bicycle frame (a common synthetic video flaw) rather than real footage of animal communication.     https://www.forbes.com/sites/technology/article/how-to-tell-if-a-video-is-ai/  https://www.howtogeek.com/how-you-can-spot-ai-generated-videos/  https://x.com/RealKoenaza/status/2101355817781916006"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.76,
+        5.28,
+        8.8,
+        12.32,
+        15.84,
+        19.36,
+        22.89,
+        26.41
+      ]
+    }
+  }
+}

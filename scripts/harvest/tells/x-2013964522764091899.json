@@ -1,0 +1,99 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "dog-teeth-morphing-into-skull",
+      "category": "anatomy",
+      "label": "Dog teeth morphing into skull",
+      "t0": 12.36,
+      "t1": 14.36,
+      "focusT": 13.36,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the Rottweiler segment, the dog's teeth appear to stretch and merge into the skull's surface rather than breaking it cleanly.",
+      "box": {
+        "x": 0.24,
+        "y": 0.75,
+        "w": 0.32,
+        "h": 0.15
+      },
+      "evidence": {
+        "quote": "the teeth of the dogs morphing",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2014182677293756482"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 24.13
+      }
+    },
+    {
+      "id": "skull-deforms-like-soft-material",
+      "category": "physics",
+      "label": "Skull deforms like soft material",
+      "t0": 12.36,
+      "t1": 14.36,
+      "focusT": 13.36,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The skull bends and stretches around the dog's bite instead of cracking, showing unphysical behavior.",
+      "box": {
+        "x": 0.45,
+        "y": 0.15,
+        "w": 0.55,
+        "h": 0.75
+      },
+      "evidence": {
+        "quote": "the weird physics",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2014182677293756482"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 24.13
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:33:18.937Z",
+    "clip": {
+      "id": "x-2013964522764091899",
+      "url": "https://x.com/i/status/2013964522764091899",
+      "sha256": "6ba8c7e6b27c86aa9cc44677c7479726ce4ae935ad929e371372fddc1b478123"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2014182677293756482",
+      "url": "https://x.com/i/birdwatch/n/2014182677293756482",
+      "text": "This is an AI generated video.   Take a look at the teeth of the dogs morphing and the weird physics.     https://libraryhelp.sfcc.edu/misinformation-literacy/spot-ai-generated-content",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.91,
+        5.72,
+        9.54,
+        13.36,
+        17.17,
+        20.99,
+        24.8,
+        28.62
+      ]
+    }
+  }
+}

@@ -1,0 +1,104 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "unnatural-movements",
+      "category": "text",
+      "label": "unnatural movements",
+      "t0": 1.2,
+      "t1": 2.2,
+      "focusT": 1.2,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The man's body twists and contorts unnaturally as he lifts the object onto his shoulder.",
+      "box": {
+        "x": 0.062,
+        "y": 0.225,
+        "w": 0.663,
+        "h": 0.774
+      },
+      "evidence": {
+        "quote": "unnatural movements",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 12.43
+      }
+    },
+    {
+      "id": "extra-limbs",
+      "category": "anatomy",
+      "label": "extra limbs",
+      "t0": 5.02,
+      "t1": 6.02,
+      "focusT": 6.02,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The man appears to have an extra arm or hand emerging from his back while lifting the object.",
+      "box": {
+        "x": 0.2,
+        "y": 0.2,
+        "w": 0.562,
+        "h": 0.4
+      },
+      "evidence": {
+        "quote": "extra limbs",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 12.43
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:45:44.943Z",
+    "clip": {
+      "id": "x-2094954791025987590",
+      "url": "https://x.com/i/status/2094954791025987590",
+      "sha256": "ae13158ae327205b6b4f3112030a455a7895126500921351af9d26340f35a7a8"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is AI-generated. It shows unnatural movements, extra limbs, and surreal distorted transitions inconsistent with real footage.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video  https://x.com/NatureChapter/status/2090966185164824824  https://leadstories.com/hoax-alert/2025/10/fact-check-fake-video-shows-dogs-trying-to-steal-honey-getting-stung-by-bees-its-ai.html"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.2,
+        3.61,
+        6.02,
+        8.43,
+        10.84,
+        13.25,
+        15.66,
+        18.07
+      ]
+    },
+    "review": [
+      {
+        "tell": "surreal-distorted-transitions",
+        "action": "reject",
+        "by": "agent",
+        "why": "Text describes cuts to distorted faces, but the boxed frame at 10.84s shows only the man's bee-covered back with no faces in it.",
+        "label": "surreal distorted transitions",
+        "at": "2026-11-07T20:50:24.111Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,86 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "bicycle-splits-apart-mid-air",
+      "category": "text",
+      "label": "bicycle splits apart mid-air",
+      "t0": 3.42,
+      "t1": 5.98,
+      "focusT": 4.42,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the air, the bike frame appears to separate into disconnected pieces rather than staying whole.",
+      "box": {
+        "x": 0.42,
+        "y": 0.27,
+        "w": 0.25,
+        "h": 0.15
+      },
+      "evidence": {
+        "quote": "unnatural bicycle deformations (e.g. splitting during stunts)",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "rider-balances-on-tiny-red-posts",
+      "category": "physics",
+      "label": "rider balances on tiny red posts",
+      "t0": 4.68,
+      "t1": 6.68,
+      "focusT": 5.68,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The rider lands and balances on small red posts sticking out of water, which would be unstable in reality.",
+      "box": {
+        "x": 0.37,
+        "y": 0.66,
+        "w": 0.12,
+        "h": 0.09
+      },
+      "evidence": {
+        "quote": "implausible physics on tiny unstable platforms over water",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:45:25.379Z",
+    "clip": {
+      "id": "x-2099422765958746540",
+      "url": "https://x.com/i/status/2099422765958746540",
+      "sha256": "3cd3e0f59030058eb1165e6fc40d0881ea5e8a73633ff773f42b9993fbbc1906"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is AI-generated, with unnatural bicycle deformations (e.g. splitting during stunts) and implausible physics on tiny unstable platforms over water.    https://leadstories.com/hoax-alert/2026/05/fact-check-fake-video-shows-fictional-prototype-for-floating-bicycle-made-of-recycled-plastic-bottles.html  https://www.lighthousejournalism.com/viral/fact-check-viral-video-of-boy-riding-a-bicycle-on-water-is-ai-generated-5233/  https://x.com/Shimazaki_D/status/2099543213824426032  https://x.com/TheOgVicious/status/2099543164440740139"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.89,
+        3.16,
+        4.42,
+        5.68,
+        6.94,
+        8.21,
+        9.47
+      ]
+    }
+  }
+}

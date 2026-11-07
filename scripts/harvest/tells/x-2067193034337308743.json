@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "man-s-arm-passes-through-banner",
+      "category": "anatomy",
+      "label": "Man's arm passes through banner",
+      "t0": 1.69,
+      "t1": 2.69,
+      "focusT": 1.69,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the early frames, the man's arm and body overlap the banner as if passing through it, which is physically impossible.",
+      "box": {
+        "x": 0.35,
+        "y": 0.6,
+        "w": 0.15,
+        "h": 0.15
+      },
+      "evidence": {
+        "quote": "the man's arm passes through the banner",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 26.43
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:46.892Z",
+    "clip": {
+      "id": "x-2067193034337308743",
+      "url": "https://x.com/i/status/2067193034337308743",
+      "sha256": "694d3eaabfc971dadf40c1b5a89e41ba56ddb4e90b3e54ce3162b0073a602e0d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video shows an AI-generated scene, not a real event; the man's arm passes through the banner. https://x.com/JohnKel58896389/status/2067195459991429391 https://x.com/joncoopertweets/status/2067199095647752696"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.69,
+        5.06,
+        8.44,
+        11.81,
+        15.19,
+        18.57,
+        21.94,
+        25.32
+      ]
+    }
+  }
+}

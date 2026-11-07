@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "trailer-vanishes-after-passing-truck",
+      "category": "text",
+      "label": "Trailer vanishes after passing truck",
+      "t0": 4.68,
+      "t1": 7.24,
+      "focusT": 5.68,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The blue trailer is clearly visible in frames 0-4 as the cyclist passes the truck, but by frame 5 onward the trailer is gone and only the white cab remains.",
+      "box": {
+        "x": 0.32,
+        "y": 0.18,
+        "w": 0.25,
+        "h": 0.15
+      },
+      "evidence": {
+        "quote": "visual glitches like a vanishing trailer",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:44:49.811Z",
+    "clip": {
+      "id": "x-2100977887302033615",
+      "url": "https://x.com/i/status/2100977887302033615",
+      "sha256": "7aa4f76504d1c7a3635fa36ed2d5f0ff6d161f03c5b0f860e4739f0f47120621"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video quoted here is AI-generated, with visual glitches like a vanishing trailer and replies identifying it as fake, contrary to claims of real reckless behavior.  https://x.com/NIKURIMETERO/status/2100624616058196386  https://x.com/DaveYsxg9rcz7t/status/2101006370786988060  https://x.com/techAU/status/2017341718904131694"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.89,
+        3.16,
+        4.42,
+        5.68,
+        6.94,
+        8.21,
+        9.47
+      ]
+    }
+  }
+}

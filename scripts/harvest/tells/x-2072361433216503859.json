@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "belly-stays-rigid-while-dancing",
+      "category": "physics",
+      "label": "belly stays rigid while dancing",
+      "t0": 0.26,
+      "t1": 2.26,
+      "focusT": 1.26,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The large belly remains perfectly still and smooth as the person moves and sways, unlike natural tissue which would jiggle or shift.",
+      "box": {
+        "x": 0.28,
+        "y": 0.48,
+        "w": 0.48,
+        "h": 0.24
+      },
+      "evidence": {
+        "quote": "unnatural lack of belly movement during dancing",
+        "from": "community_note"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "no mastectomy scars",
+      "from": "community_note",
+      "reason": "not_seen"
+    },
+    {
+      "quote": "inconsistent body physics",
+      "from": "community_note",
+      "reason": "not_checked"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:24.253Z",
+    "clip": {
+      "id": "x-2072361433216503859",
+      "url": "https://x.com/i/status/2072361433216503859",
+      "sha256": "1912b2a67e1f39977e62ebb75ccd49945ba3b414a80f4145745cc37437b1b90a"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video appears to be AI-generated or fabricated, with unnatural lack of belly movement during dancing, inconsistent body physics, and no mastectomy scars. https://x.com/unwiredtourist/status/2072444365474001055 https://x.com/CorgiBeliefs/status/2072419212954402954"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.26,
+        3.79,
+        6.31,
+        8.84,
+        11.36,
+        13.89,
+        16.41,
+        18.94
+      ]
+    }
+  }
+}

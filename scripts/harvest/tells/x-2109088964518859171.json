@@ -1,0 +1,77 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "unnatural-expression",
+      "category": "text",
+      "label": "unnatural expression",
+      "t0": 0,
+      "t1": 1.68,
+      "focusT": 0.68,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The man's facial expression appears stiff and unnatural, especially around the mouth and eyes.",
+      "evidence": {
+        "quote": "unnatural expression",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 1.8
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "robotic voice",
+      "from": "community_note",
+      "reason": "not_seen"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:43:41.194Z",
+    "clip": {
+      "id": "x-2109088964518859171",
+      "url": "https://x.com/i/status/2109088964518859171",
+      "sha256": "6122c84002de3b91f9e891e502621bfe3758fb8ae897a70aadc8f4827ce8fb8f"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is fake and was created with artificial intelligence, according to a VoxCheck fact-check. It found the face was very likely AI-generated, citing unnatural expression, glassy eyes and a robotic voice. https://voxukraine.org/ru/fejk-ravvyn-utverzhdaet-chto-ego-synovyam-pryshlos-sluzhyt-v-ttsk-potomu-chto-ym-otkazaly-v-otpravke-na-front-vydeo"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.68,
+        2.05,
+        3.41,
+        4.77,
+        6.14,
+        7.5,
+        8.87,
+        10.23
+      ]
+    },
+    "review": [
+      {
+        "tell": "glassy-eyes",
+        "action": "reject",
+        "by": "agent",
+        "why": "Text names the man's eyes but the box sits on the face of a woman, a different person from the one the note says is AI-generated.",
+        "label": "glassy eyes",
+        "at": "2026-11-07T20:50:24.009Z"
+      }
+    ]
+  }
+}

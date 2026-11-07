@@ -1,0 +1,54 @@
+{
+  "version": 2,
+  "tells": [],
+  "unplaced": [
+    {
+      "quote": "Sora watermarks in similar clips",
+      "from": "community_note",
+      "reason": "not_seen"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:46:37.484Z",
+    "clip": {
+      "id": "x-2084605679319327105",
+      "url": "https://x.com/i/status/2084605679319327105",
+      "sha256": "9e4ae5dc03f6c80a22c852615dc10a573b8a488b1831d7fa82ad0c35fe5f3ce4"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video depicting a Cybertruck with an &quot;infinite energy glitch&quot; by towing a generator is AI-generated, as indicated by visual inconsistencies like shifting license plates and Sora watermarks in similar clips. https://www.aap.com.au/factcheck/videos-of-teslas-charging-from-towed-diesel-generators-are-ai-fakes"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.82,
+        2.45,
+        4.08,
+        5.71,
+        7.34,
+        8.98,
+        10.61,
+        12.24
+      ]
+    },
+    "review": [
+      {
+        "tell": "license-plate-changes-from-yellow-to-whi",
+        "action": "reject",
+        "by": "agent",
+        "why": "Compares two different plates: the trailer's yellow plate and the Cybertruck's separate white plate are both visible in the first frame, and the after box sits on the trailer fender with no plate in it.",
+        "label": "License plate changes from yellow to white",
+        "at": "2026-11-07T20:50:16.273Z"
+      }
+    ]
+  }
+}

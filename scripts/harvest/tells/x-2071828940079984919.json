@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "face-swap-visible-in-mirror-reflection",
+      "category": "anatomy",
+      "label": "Face swap visible in mirror reflection",
+      "t0": 0,
+      "t1": 1.42,
+      "focusT": 0.42,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The man's face appears swapped onto the figure reflected in the mirror behind him, matching the claim of an AI-generated face swap.",
+      "box": {
+        "x": 0.55,
+        "y": 0.33,
+        "w": 0.35,
+        "h": 0.47
+      },
+      "evidence": {
+        "quote": "an AI-generated face swap of a Chinese comedian's skit",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:33.689Z",
+    "clip": {
+      "id": "x-2071828940079984919",
+      "url": "https://x.com/i/status/2071828940079984919",
+      "sha256": "389452cfbae6eb114848f4099f2e9ac983d01dfe7443aa5ae57d4b872c455822"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video showing Erling Haaland getting spooked by his reflection is an AI-generated face swap of a Chinese comedian's skit, not real footage. https://leadstories.com/hoax-alert/2026/06/fact-check-altered-video-of-erling-haaland-eating-and-scaring-himself-is-a-face-swap-spoof-of-a-chinese-slapstick-comedy-video.html"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.42,
+        1.25,
+        2.09,
+        2.93,
+        3.76,
+        4.6,
+        5.43,
+        6.27
+      ]
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "body-orientation-flips-mid-air",
+      "category": "text",
+      "label": "Body orientation flips mid-air",
+      "t0": 16.96,
+      "t1": 17.96,
+      "focusT": 16.96,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "At 00:19 the dancer is upside down facing the camera, then at 00:20 she is right-side up facing away, showing an abrupt front-back swap during the flip.",
+      "box": {
+        "x": 0.412,
+        "y": 0.248,
+        "w": 0.15,
+        "h": 0.064
+      },
+      "evidence": {
+        "quote": "身体や服装の前後が不自然に入れ替わる物理的不整合",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:44:37.973Z",
+    "clip": {
+      "id": "x-2101685701322703331",
+      "url": "https://x.com/i/status/2101685701322703331",
+      "sha256": "9bfd1be2f93489fd4e57f5f5d2d11e01343668e56c32b7a60b2f2aa25c54d71b"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "この投稿の動画はAI生成です。AI動画モデルは複雑な空中回転で身体や服装の前後が不自然に入れ替わる物理的不整合を起こしやすい。    https://arstechnica.com/information-technology/2024/12/twirling-body-horror-in-gymnastics-video-exposes-ais-flaws/    https://invideo.io/faq/why-do-ai-generated-videos-have-glitches-like-floating/"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.88,
+        5.65,
+        9.42,
+        13.19,
+        16.96,
+        20.72,
+        24.49,
+        28.26
+      ]
+    }
+  }
+}

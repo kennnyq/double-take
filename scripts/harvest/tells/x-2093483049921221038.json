@@ -1,0 +1,74 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "guard-s-lips-move-while-hugging-boy",
+      "category": "lighting",
+      "label": "Guard's lips move while hugging boy",
+      "t0": 0,
+      "t1": 1.94,
+      "focusT": 0.94,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The guard's mouth is visible moving near the boy's head across the frames.",
+      "box": {
+        "x": 0.38,
+        "y": 0.415,
+        "w": 0.14,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "The guard’s lips move to say the same words that the boy is saying",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2093771551938334935"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "the guards hands disappear into the coat",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2093771551938334935"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:32:07.355Z",
+    "clip": {
+      "id": "x-2093483049921221038",
+      "url": "https://x.com/i/status/2093483049921221038",
+      "sha256": "3e757b8d2ad6c56c839e70b17a16eb25898a92ca746fdb9b49f5538959a1af0d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2093771551938334935",
+      "url": "https://x.com/i/birdwatch/n/2093771551938334935",
+      "text": "This entire video is AI generated. The guard’s lips move to say the same words that the boy is saying  &amp; the guards hands   disappear into the coat. This video &amp; variations of it have been posted &amp; flagged as fake numerous times on Facebook, Instagram and X over the past year.   https://www.facebook.com/share/r/1DLUAnYqpi/?mibextid=wwXIfr",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.94,
+        2.83,
+        4.72,
+        6.61,
+        8.5,
+        10.39,
+        12.28,
+        14.17
+      ]
+    }
+  }
+}

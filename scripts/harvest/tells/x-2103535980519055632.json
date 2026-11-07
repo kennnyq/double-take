@@ -1,0 +1,111 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "lighting-shifts-as-camera-pans",
+      "category": "lighting",
+      "label": "lighting shifts as camera pans",
+      "t0": 0,
+      "t1": 2.87,
+      "focusT": 0.86,
+      "compareT": 2.57,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The bright work lights cast uneven shadows across the floor and walls as the camera pans right, creating inconsistent illumination between frames.",
+      "box": {
+        "x": 0.1,
+        "y": 0.45,
+        "w": 0.8,
+        "h": 0.25
+      },
+      "evidence": {
+        "quote": "lighting/shadow inconsistencies",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2103627614300570052"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "hieroglyphs-distort-near-figure",
+      "category": "anatomy",
+      "label": "hieroglyphs distort near figure",
+      "t0": 5,
+      "t1": 7,
+      "focusT": 6,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The carved symbols on the wall appear stretched and warped around the tall figure's arm and body, suggesting digital compositing artifacts.",
+      "box": {
+        "x": 0,
+        "y": 0.1,
+        "w": 1,
+        "h": 0.5
+      },
+      "evidence": {
+        "quote": "symbol warping",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2103627614300570052"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "OpenAI embedded SynthID watermark",
+      "from": "community_note",
+      "reason": "not_seen",
+      "url": "https://x.com/i/birdwatch/n/2103627614300570052"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:31:44.340Z",
+    "clip": {
+      "id": "x-2103535980519055632",
+      "url": "https://x.com/i/status/2103535980519055632",
+      "sha256": "1549e4085f76e68bcaefdab42fa50f34aab93258ac96468498249157c3cfd717"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2103627614300570052",
+      "url": "https://x.com/i/birdwatch/n/2103627614300570052",
+      "text": "This video is not real but AI-generated, with telltale signs of generation (lighting/shadow inconsistencies, render anomalies, symbol warping, etc.) and an OpenAI embedded SynthID watermark.    https://share.gemini.google/g3GNgbxCylSV  https://hivedetect.ai/xrttWt",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.86,
+        2.57,
+        4.29,
+        6,
+        7.72,
+        9.43,
+        11.15,
+        12.87
+      ]
+    },
+    "review": [
+      {
+        "tell": "giant-figure-appears-abruptly",
+        "action": "reject",
+        "by": "agent",
+        "why": "The note never claims a figure appears abruptly, and the robed figure is already visible in the earlier 2.57s frame, so this invents an anomaly",
+        "label": "giant figure appears abruptly",
+        "at": "2026-11-07T20:37:29.676Z"
+      }
+    ]
+  }
+}

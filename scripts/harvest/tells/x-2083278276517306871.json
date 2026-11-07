@@ -1,0 +1,110 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "lighting-artifacts-around-the-toy",
+      "category": "lighting",
+      "label": "lighting artifacts around the toy",
+      "t0": 2.83,
+      "t1": 5.02,
+      "focusT": 2.83,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The toy appears to float and move without proper interaction with the water or the elephant's trunk.",
+      "box": {
+        "x": 0.69,
+        "y": 0.645,
+        "w": 0.07,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "lighting artifacts around the toy",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "lighting-artifacts-around-the-water",
+      "category": "lighting",
+      "label": "lighting artifacts around the water",
+      "t0": 3.72,
+      "t1": 6.9,
+      "focusT": 4.72,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "medium",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The water surface shows smooth, unnatural reflections and ripples that do not match the elephant's movement.",
+      "box": {
+        "x": 0.3,
+        "y": 0.5,
+        "w": 0.4,
+        "h": 0.4
+      },
+      "evidence": {
+        "quote": "lighting artifacts around the water",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "unnatural-morphing",
+      "category": "text",
+      "label": "unnatural morphing",
+      "t0": 5.6,
+      "t1": 8.79,
+      "focusT": 6.6,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The elephant's trunk bends and stretches in ways that look physically impossible as it reaches for the toy.",
+      "box": {
+        "x": 0.56,
+        "y": 0.5,
+        "w": 0.11,
+        "h": 0.2
+      },
+      "evidence": {
+        "quote": "unnatural morphing",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:47:36.953Z",
+    "clip": {
+      "id": "x-2083278276517306871",
+      "url": "https://x.com/i/status/2083278276517306871",
+      "sha256": "17fa12e10b7677c41be5fff463934ad5a1d3d1799bc4da616b0515e7fe389fdd"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "Digital forensic analysis confirms that this video is AI-generated (Text-to video model: Seedance 2.0).    Real-world physical inconsistencies—such as unnatural morphing and lighting artifacts around the water and toy—further indicate that the footage is fake.    https://hivedetect.ai/MLiuP2"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.94,
+        2.83,
+        4.72,
+        6.6,
+        8.49,
+        10.38,
+        12.26,
+        14.15
+      ]
+    }
+  }
+}

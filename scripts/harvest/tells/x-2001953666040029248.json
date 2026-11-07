@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "third-hand-on-man-carrying-child",
+      "category": "anatomy",
+      "label": "third hand on man carrying child",
+      "t0": 4.31,
+      "t1": 5.31,
+      "focusT": 5.31,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The man holding the baby appears to have an extra hand supporting the child, which is not anatomically possible.",
+      "box": {
+        "x": 0.53,
+        "y": 0.17,
+        "w": 0.12,
+        "h": 0.16
+      },
+      "evidence": {
+        "quote": "an extra (third) hand on the man carrying the child out of the tent",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2001996058822631447"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:30:56.580Z",
+    "clip": {
+      "id": "x-2001953666040029248",
+      "url": "https://x.com/i/status/2001953666040029248",
+      "sha256": "51115bb47b6be0a596edb0e3f2d741fa8fb7f6031d80da29cc16d1f19b2263d7"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2001996058822631447",
+      "url": "https://x.com/i/birdwatch/n/2001996058822631447",
+      "text": "This video is AI-generated. A telltale sign of artificial generation is the appearance of an extra (third) hand on the man carrying the child out of the tent.    While severe real flooding occurred in Gaza displacement camps but this specific footage is not authentic.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video    https://caniphish.com/blog/how-to-spot-ai-videos",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.76,
+        2.28,
+        3.79,
+        5.31,
+        6.83,
+        8.35,
+        9.87,
+        11.38
+      ]
+    }
+  }
+}

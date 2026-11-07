@@ -1,0 +1,80 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "garbled-text-on-signs",
+      "category": "text",
+      "label": "garbled text on signs",
+      "t0": 12.17,
+      "t1": 14,
+      "focusT": 13.17,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The signs on the storefronts in frames 3 and 4 contain nonsensical lettering such as 'Ren Trumpe Freoengfrghaue' and 'Pecgniss', which are not real words.",
+      "box": {
+        "x": 0.1,
+        "y": 0,
+        "w": 0.6,
+        "h": 0.08
+      },
+      "evidence": {
+        "quote": "duplicated buildings in the skyline",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2097165249245806668"
+      },
+      "shot": {
+        "t0": 10.27,
+        "t1": 15.27
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:30:21.957Z",
+    "clip": {
+      "id": "x-2096951855272300753",
+      "url": "https://x.com/i/status/2096951855272300753",
+      "sha256": "b1c660eb5ef587266ca2ad49b64d0d9af92cd59b0c7abd7d3eeaa951e603d777"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2097165249245806668",
+      "url": "https://x.com/i/birdwatch/n/2097165249245806668",
+      "text": "The AI video exhibits common generation errors such as duplicated buildings in the skyline and garbled text on signs, and does not match authentic 1993 New York footage.  https://x.com/carlos_dnger/status/2097062194189840857  https://www.youtube.com/watch?v=fT4lDU-QLUY  https://www.opus.pro/blog/ai-slop-aesthetic-12-tells  https://invideo.io/faq/why-do-ai-generated-videos-have-glitches-like-floating/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.88,
+        5.65,
+        9.41,
+        13.17,
+        16.94,
+        20.7,
+        24.47,
+        28.23
+      ]
+    },
+    "review": [
+      {
+        "tell": "duplicated-buildings-in-the-skyline",
+        "action": "reject",
+        "by": "agent",
+        "why": "The 20.7s frame is a street-level shot with a taxi and pedestrians and no skyline; the box sits on a dark storefront pillar, not on any duplicated skyscrapers",
+        "label": "duplicated buildings in the skyline",
+        "at": "2026-11-07T20:37:18.082Z"
+      }
+    ]
+  }
+}

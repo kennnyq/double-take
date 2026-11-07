@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:33:04.702Z",
+    "clip": {
+      "id": "x-2023933070735536501",
+      "url": "https://x.com/i/status/2023933070735536501",
+      "sha256": "c5342d8495e91f86e95e3a5f2068708735ef0d310372f9cde78d674bd90baf54"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2023970501090021798",
+      "url": "https://x.com/i/birdwatch/n/2023970501090021798",
+      "text": "The video is obviously AI-generated and does not depict a real scene.   There are many glitches and issues like disappearing magazines, optics appearing out of nowhere (and why would robots need them?), and more.   https://x.com/LiberalLogic0/status/2023953617841971617  https://x.com/Abriael/status/2023968656384794937  https://x.com/realDrewMullins/status/2023956479150112890",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        2.98,
+        8.94,
+        14.9,
+        20.86,
+        26.81,
+        32.77,
+        38.73,
+        44.69
+      ],
+      "crop": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.9479166666666666
+      }
+    },
+    "review": [
+      {
+        "tell": "scope-appears-on-rifle",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box sits on a distant robot's head and the mountains above the rifles, not on any rifle or scope",
+        "label": "Scope appears on rifle",
+        "at": "2026-11-07T20:37:29.221Z"
+      },
+      {
+        "tell": "magazine-vanishes-from-rifle",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box covers the foreground robot's elbow, not a rifle magazine, so it does not point at the thing that supposedly vanishes",
+        "label": "Magazine vanishes from rifle",
+        "at": "2026-11-07T20:37:29.527Z"
+      }
+    ]
+  }
+}

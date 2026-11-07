@@ -1,0 +1,72 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "babuno-shop-watermark-in-top-corner",
+      "category": "watermark",
+      "label": "@BABUNO_SHOP watermark in top corner",
+      "t0": 0.89,
+      "t1": 2.89,
+      "focusT": 1.89,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The watermark appears in the top right corner starting at 1.89s and remains visible through the end.",
+      "box": {
+        "x": 0.76,
+        "y": 0,
+        "w": 0.24,
+        "h": 0.1
+      },
+      "evidence": {
+        "quote": "@BABUNO_SHOP watermark visible in the top corner of the generated clip",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:46:18.536Z",
+    "clip": {
+      "id": "x-2089166456600641994",
+      "url": "https://x.com/i/status/2089166456600641994",
+      "sha256": "6fce21ba9216694174026fd01e677a8cea5ec07dacee0401d2a8ba5671aba400"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video in this post is AI-generated media (Text-to-video model: Seedance 2.0).    https://hivedetect.ai/wY4V6p    The poster claims no affiliation, yet followed up with a link to an e-commerce store (⁠babuno.store⁠), which matches the ⁠@BABUNO_SHOP⁠ watermark visible in the top corner of the generated clip.    https://x.com/crystalhope1979/status/2089356470701744513?s=46"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.89,
+        3.14,
+        4.4,
+        5.66,
+        6.91,
+        8.17,
+        9.43
+      ]
+    },
+    "review": [
+      {
+        "tell": "ai-generated-video-per-seedance-2-0",
+        "action": "reject",
+        "by": "agent",
+        "why": "No anomaly: card restates the detector verdict and itself says there is no visible artifact; the Seedance attribution comes from an external detection link.",
+        "label": "AI-generated video per Seedance 2.0",
+        "at": "2026-11-07T20:50:15.009Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "goat-floats-mid-air-at-0-05s",
+      "category": "physics",
+      "label": "Goat floats mid-air at 0:05s",
+      "t0": 4,
+      "t1": 6,
+      "focusT": 5,
+      "compareT": 5.5,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "At 0:05s the goat is clearly suspended in mid-air with no contact with the ground, matching the claim.",
+      "box": {
+        "x": 0.458,
+        "y": 0.42,
+        "w": 0.074,
+        "h": 0.09
+      },
+      "evidence": {
+        "quote": "At the 0:05 mark, the goats are defying gravity and floating in the air.",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/2001461218532560973"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:33:30.371Z",
+    "clip": {
+      "id": "x-2001291399254450628",
+      "url": "https://x.com/i/status/2001291399254450628",
+      "sha256": "f315fd4ea30f416523a64e85ce8aa1368020eb47b56865d4ee46de6cd045ee98"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "2001461218532560973",
+      "url": "https://x.com/i/birdwatch/n/2001461218532560973",
+      "text": "this is AI, here is the detection report: https://x.com/Ai_or_Not/status/2001461010717401447?s=20     At the 0:05 mark, the goats are defying gravity and floating in the air.     https://www.aiornot.com/blog/openai-sora-video-watermark-removers-push-real-ai-slop",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 6,
+      "times": [
+        3.5,
+        4,
+        4.5,
+        5,
+        5.5,
+        6
+      ]
+    }
+  }
+}

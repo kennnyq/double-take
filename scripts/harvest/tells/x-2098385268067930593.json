@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "gemini-logo-and-garbled-on-screen-text",
+      "category": "text",
+      "label": "Gemini logo and garbled on-screen text",
+      "t0": 0,
+      "t1": 1.63,
+      "focusT": 0.63,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The Gemini sparkle logo appears in the lower right corner of every frame, and the on-screen text in the close-up frames is garbled and unreadable.",
+      "box": {
+        "x": 0.875,
+        "y": 0.8,
+        "w": 0.06,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "Gemini logo and garbled on-screen text",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 2.93
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:45:33.427Z",
+    "clip": {
+      "id": "x-2098385268067930593",
+      "url": "https://x.com/i/status/2098385268067930593",
+      "sha256": "f5e5fc7cac7a447451d21f674a50ec8ea893c1c21c44debc06d44ddcdfe4374f"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video is AI-generated (Gemini logo and garbled on-screen text) with no disclosure. It inaccurately shows two separate phones rather than Apple's single foldable iPhone Duo.    https://x.com/cartidise/status/2098454147590947145  https://www.apple.com/iphone-duo/  https://support.google.com/gemini/answer/16126339"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.63,
+        1.89,
+        3.14,
+        4.4,
+        5.66,
+        6.91,
+        8.17,
+        9.43
+      ]
+    }
+  }
+}

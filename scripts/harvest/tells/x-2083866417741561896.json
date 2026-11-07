@@ -1,0 +1,90 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "trailer-detaches-and-boat-flies-off",
+      "category": "text",
+      "label": "trailer detaches and boat flies off",
+      "t0": 5.16,
+      "t1": 7.82,
+      "focusT": 6.16,
+      "compareT": 7.52,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The trailer stays behind while the boat lifts off and flies into the water, leaving the trailer alone on the road.",
+      "box": {
+        "x": 0.1,
+        "y": 0.55,
+        "w": 0.28,
+        "h": 0.075
+      },
+      "evidence": {
+        "quote": "trailer duplicating itself",
+        "from": "community_note"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "boat-flies-off-trailer-into-water",
+      "category": "physics",
+      "label": "boat flies off trailer into water",
+      "t0": 5.16,
+      "t1": 7.82,
+      "focusT": 6.16,
+      "compareT": 7.52,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The boat detaches from the trailer, lifts into the air, and lands in the water without the truck stopping.",
+      "box": {
+        "x": 0.31,
+        "y": 0.475,
+        "w": 0.39,
+        "h": 0.075
+      },
+      "evidence": {
+        "quote": "unnatural physics",
+        "from": "community_note"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:46:48.219Z",
+    "clip": {
+      "id": "x-2083866417741561896",
+      "url": "https://x.com/i/status/2083866417741561896",
+      "sha256": "855ce5b20d6f90115579f76754902278b507186c502ef93728910b37b61bae6d"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "The video is AI-generated, as comments on the originating post note visual anomalies like the trailer duplicating itself and unnatural physics. https://www.facebook.com/EvanEraTV/videos/1074375315580953"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.68,
+        2.05,
+        3.42,
+        4.79,
+        6.16,
+        7.52,
+        8.89,
+        10.26
+      ]
+    }
+  }
+}

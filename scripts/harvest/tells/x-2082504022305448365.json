@@ -1,0 +1,110 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "hand-positioning-on-back-looks-wrong",
+      "category": "anatomy",
+      "label": "hand positioning on back looks wrong",
+      "t0": 0.12,
+      "t1": 3.67,
+      "focusT": 1.12,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the first frame, the hands gripping the blue scrubber on the back appear distorted and anatomically implausible.",
+      "box": {
+        "x": 0,
+        "y": 0.25,
+        "w": 1,
+        "h": 0.27
+      },
+      "evidence": {
+        "quote": "The hand positioning on the 1st take doesn’t make any sense",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "wall-tiles-change-between-shots",
+      "category": "text",
+      "label": "wall tiles change between shots",
+      "t0": 0.12,
+      "t1": 3.67,
+      "focusT": 1.12,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The wall behind the scrubber shifts from small white subway tiles in the first frame to larger beige tiles in later frames.",
+      "box": {
+        "x": 0.7,
+        "y": 0.2,
+        "w": 0.3,
+        "h": 0.8
+      },
+      "evidence": {
+        "quote": "the wall changing textures",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "soap-clumps-morph-into-odd-shapes",
+      "category": "text",
+      "label": "soap clumps morph into odd shapes",
+      "t0": 0.12,
+      "t1": 3.67,
+      "focusT": 1.12,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The gray soap residue on the back changes shape and texture between frames, looking like it is melting or morphing.",
+      "box": {
+        "x": 0.28,
+        "y": 0.72,
+        "w": 0.28,
+        "h": 0.26
+      },
+      "evidence": {
+        "quote": "the “clutter” morphing into weird shapes",
+        "from": "community_note"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:47:45.023Z",
+    "clip": {
+      "id": "x-2082504022305448365",
+      "url": "https://x.com/i/status/2082504022305448365",
+      "sha256": "e188763191aac7cd965cd8cfaea9fdba28184373788a07333f9abf094621ed40"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video is clearly AI generated. The hand positioning on the 1st take doesn’t make any sense, and more visual details are inconsistent, such as the wall changing textures, and the “clutter” morphing into weird shapes.    https://gijn.org/resource/guide-detecting-ai-generated-content/"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        1.12,
+        3.37,
+        5.62,
+        7.86,
+        10.11,
+        12.36,
+        14.6,
+        16.85
+      ]
+    }
+  }
+}

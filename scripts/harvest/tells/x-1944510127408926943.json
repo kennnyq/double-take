@@ -1,0 +1,139 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "tablet-screen-floats-above-instrument-pa",
+      "category": "physics",
+      "label": "tablet screen floats above instrument panel",
+      "t0": 0,
+      "t1": 1,
+      "focusT": 0,
+      "compareT": 0.5,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The tablet mounted on the dashboard drifts upward and sideways across the frames instead of staying fixed.",
+      "box": {
+        "x": 0.18,
+        "y": 0.54,
+        "w": 0.29,
+        "h": 0.26
+      },
+      "evidence": {
+        "quote": "The tablet screen floats around above the instrument panel",
+        "from": "community_note"
+      },
+      "pixelCheck": "changed"
+    },
+    {
+      "id": "instrument-panel-text-and-symbols-are-gi",
+      "category": "text",
+      "label": "instrument panel text and symbols are gibberish",
+      "t0": 0,
+      "t1": 1,
+      "focusT": 0,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The gauges and readouts on the dashboard show distorted, unreadable characters rather than coherent text.",
+      "box": {
+        "x": 0,
+        "y": 0.78,
+        "w": 1,
+        "h": 0.22
+      },
+      "evidence": {
+        "quote": "Text and symbols on the instrument panel are all gibberish",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "cloud-physics-look-wrong",
+      "category": "physics",
+      "label": "cloud physics look wrong",
+      "t0": 0,
+      "t1": 1,
+      "focusT": 0,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "low",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The cloud formation and rain shaft behave in an unnatural, shifting way that does not match real storm physics.",
+      "box": {
+        "x": 0,
+        "y": 0,
+        "w": 1,
+        "h": 0.5
+      },
+      "evidence": {
+        "quote": "That’s not how cloud physics works",
+        "from": "community_note"
+      }
+    },
+    {
+      "id": "dark-line-on-display-morphs-into-vegetat",
+      "category": "continuity",
+      "label": "dark line on display morphs into vegetation",
+      "t0": 0.5,
+      "t1": 2.5,
+      "focusT": 1.5,
+      "compareT": 2,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "On the tablet screen, a dark streak appears and then resolves into a line of trees or bushes.",
+      "box": {
+        "x": 0.32,
+        "y": 0.6,
+        "w": 0.24,
+        "h": 0.18
+      },
+      "evidence": {
+        "quote": "a dark line appears on the display then morphs into a row of vegetation",
+        "from": "community_note"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:42:22.460Z",
+    "clip": {
+      "id": "x-1944510127408926943",
+      "url": "https://x.com/i/status/1944510127408926943",
+      "sha256": "a301f925a72ff3af386b2ee1dab067d6298068e1e549c27a65627c2253d43544"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "  This is AI generated video. The tablet screen floats around above the instrument panel. Text and symbols on the instrument panel are all gibberish. At around 0:03, a dark line appears on the display then morphs into a row of vegetation. That’s not how cloud physics works.     https://www.pcmag.com/how-to/how-to-detect-ai-generated-video-footage"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 9,
+      "times": [
+        0,
+        0.5,
+        1,
+        1.5,
+        2,
+        2.5,
+        3,
+        3.5,
+        4
+      ]
+    }
+  }
+}

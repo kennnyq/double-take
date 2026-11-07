@@ -1,0 +1,79 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "car-explodes-into-fireball",
+      "category": "physics",
+      "label": "Car explodes into fireball",
+      "t0": 3.83,
+      "t1": 5.22,
+      "focusT": 3.83,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The silver sedan suddenly bursts into a large fireball between frames 3 and 4, which is not physically plausible in normal traffic.",
+      "box": {
+        "x": 0.34,
+        "y": 0.14,
+        "w": 0.58,
+        "h": 0.42
+      },
+      "evidence": {
+        "quote": "impossible physics",
+        "from": "community_note"
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "transformations inconsistent with real events",
+      "from": "community_note",
+      "reason": "not_checked"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:44:02.622Z",
+    "clip": {
+      "id": "x-2107112605563453747",
+      "url": "https://x.com/i/status/2107112605563453747",
+      "sha256": "8361fd4fbbe7330e47a255d7c39a7c90e1b26dcc62ef3ec09b7a675f07ef5228"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video shows impossible physics, morphing objects and transformations inconsistent with real events and is likely AI-generated or CGI, not authentic captured footage. Similar clips from this account have been called out as AI.    https://thenightly.com.au/culture/get-back-to-reality-for-fakes-sake-social-media-is-bad-c-20380285  https://leadstories.com/hoax-alert/2026/08/fact-check-video-of-stunt-resulting-in-car-crash-is-not-real.html  https://english.bharatexpress.com/fact-check/pib-fact-check-warns-against-fake-ai-generated-cctv-visual-300441  https://x.com/Suddencaptured/status/2069805297821208627"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.55,
+        1.64,
+        2.73,
+        3.83,
+        4.92,
+        6.01,
+        7.11,
+        8.2
+      ]
+    },
+    "review": [
+      {
+        "tell": "car-turns-into-fireball",
+        "action": "reject",
+        "by": "agent",
+        "why": "Duplicates car-explodes-into-fireball: same moment and time, overlapping box; one step per moment",
+        "label": "Car turns into fireball",
+        "at": "2026-11-07T20:50:51.448Z"
+      }
+    ]
+  }
+}

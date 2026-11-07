@@ -1,0 +1,78 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "gas-tank-bounces-unnaturally",
+      "category": "physics",
+      "label": "Gas tank bounces unnaturally",
+      "t0": 1.72,
+      "t1": 4.11,
+      "focusT": 2.72,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The white gas tank tumbles across the road in an exaggerated, bouncy way before the explosion.",
+      "box": {
+        "x": 0.62,
+        "y": 0.5,
+        "w": 0.16,
+        "h": 0.12
+      },
+      "evidence": {
+        "quote": "The gas tank bounces unnaturally",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0.03,
+        "t1": 8.7
+      }
+    }
+  ],
+  "unplaced": [
+    {
+      "quote": "the car launches into the air",
+      "from": "community_note",
+      "reason": "not_seen"
+    },
+    {
+      "quote": "it transforms into a different type of vehicle",
+      "from": "community_note",
+      "reason": "not_seen"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:44:11.511Z",
+    "clip": {
+      "id": "x-2106134268011499670",
+      "url": "https://x.com/i/status/2106134268011499670",
+      "sha256": "cc7d6cdfb7822e672e2e4566ff1dcaa4bf09b0bbd96a37e33fa92eac21e99b85"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video appears AI-generated. The gas tank bounces unnaturally, the car launches into the air, and near the end it transforms into a different type of vehicle. These changes do not match real dashcam physics.    https://www.youtube.com/watch?v=MtEe3NJnqQs"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.54,
+        1.63,
+        2.72,
+        3.81,
+        4.9,
+        5.98,
+        7.07,
+        8.16
+      ]
+    }
+  }
+}

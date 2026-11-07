@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "tells": [],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:48:11.460Z",
+    "clip": {
+      "id": "x-2075910346846687613",
+      "url": "https://x.com/i/status/2075910346846687613",
+      "sha256": "639cd68f70c0d47bc91e0e3f8c5015bb5e3f7077d7ca04eca9f75bfa41286908"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "This video was generated using AI. The mall store signs show nonsensical text such as RALESJOVA and DADES. Real security footage does not have these errors. https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video https://gijn.org/resource/guide-detecting-ai-generated-content/"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.94,
+        2.83,
+        4.72,
+        6.6,
+        8.49,
+        10.38,
+        12.26,
+        14.15
+      ]
+    },
+    "review": [
+      {
+        "tell": "store-signs-show-ralesjova-and-dades",
+        "action": "reject",
+        "by": "agent",
+        "why": "Box sits on the upper-floor balcony railing and spectators; no store sign or RALESJOVA/DADES text is inside it.",
+        "label": "Store signs show RALESJOVA and DADES",
+        "at": "2026-11-07T20:50:16.371Z"
+      }
+    ]
+  }
+}

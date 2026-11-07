@@ -1,0 +1,64 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "cat-back-leg-rotates-unnaturally",
+      "category": "anatomy",
+      "label": "Cat back leg rotates unnaturally",
+      "t0": 10.5,
+      "t1": 11.8,
+      "focusT": 11,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In the frames around 11 seconds, the cat’s hind leg twists into an impossible position as it is placed into the boat.",
+      "box": {
+        "x": 0.62,
+        "y": 0.42,
+        "w": 0.2,
+        "h": 0.1
+      },
+      "evidence": {
+        "quote": "the orange cat’s back leg rotates in a clearly unnatural way",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1995107917129740621"
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:34:31.696Z",
+    "clip": {
+      "id": "x-1994872642151628933",
+      "url": "https://x.com/i/status/1994872642151628933",
+      "sha256": "d70e9f78552ce3e0c89ddded4288561d4e4ff7c19b92d9872eff2dfd830f2f7b"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1995107917129740621",
+      "url": "https://x.com/i/birdwatch/n/1995107917129740621",
+      "text": "This video was generated using AI and contains several imperfections typical of AI-created content. For example, at the 0:11 mark, the orange cat’s back leg rotates in a clearly unnatural way.    https://www.bbc.com/future/article/20251031-the-number-one-sign-you-might-be-watching-ai-video  https://caniphish.com/blog/how-to-spot-ai-videos",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 6,
+      "times": [
+        9.5,
+        10,
+        10.5,
+        11,
+        11.5,
+        12
+      ]
+    }
+  }
+}

@@ -1,0 +1,78 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "dog-tail-blurs-into-tv-edge",
+      "category": "watermark",
+      "label": "Dog tail blurs into TV edge",
+      "t0": 2.18,
+      "t1": 4.75,
+      "focusT": 3.18,
+      "compareT": 4.45,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "In frame 2 the dog's tail is visible behind the TV, but by frame 3 it merges with the TV edge and disappears.",
+      "box": {
+        "x": 0.78,
+        "y": 0.4675,
+        "w": 0.14,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "On the dog's tail",
+        "from": "community_note",
+        "url": "https://x.com/i/birdwatch/n/1978843599602327866"
+      },
+      "pixelCheck": "changed"
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:35:27.815Z",
+    "clip": {
+      "id": "x-1978690182229504317",
+      "url": "https://x.com/i/status/1978690182229504317",
+      "sha256": "df1d8705c954a68fa261d9c3a86e9a26a0dc4df49bd6ff39a75959d4b1a981a1"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "id": "1978843599602327866",
+      "url": "https://x.com/i/birdwatch/n/1978843599602327866",
+      "text": "It is made with AI. The video has been edited specifically to censor the “Sora” watermark that usually appears in videos made with this tool    1. On the dog's tail (second 3 of the video)  2. On the lower left corner (second 5 of the video)    - https://openai.com/index/video-generation-models-as-world-simulators/",
+      "status": "CURRENTLY_RATED_HELPFUL (2026-11-05 snapshot)"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        0.64,
+        1.91,
+        3.18,
+        4.45,
+        5.72,
+        6.99,
+        8.26,
+        9.53
+      ]
+    },
+    "review": [
+      {
+        "tell": "lower-left-corner-blurs-into-tv-edge",
+        "action": "reject",
+        "by": "agent",
+        "why": "Note means the blurred-out Sora watermark in the lower left corner of the video frame; the tell boxes the TV and talks about the TV's corner blurring, misreading the claim",
+        "label": "Lower left corner blurs into TV edge",
+        "at": "2026-11-07T20:37:47.592Z"
+      }
+    ]
+  }
+}

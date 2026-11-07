@@ -1,0 +1,66 @@
+{
+  "version": 2,
+  "tells": [
+    {
+      "id": "shifting-letters-on-the-sign",
+      "category": "text",
+      "label": "shifting letters on the sign",
+      "t0": 3.74,
+      "t1": 5.3,
+      "focusT": 4.74,
+      "source": "community_note",
+      "review": "unreviewed",
+      "confidence": "high",
+      "seenInFrames": true,
+      "model": "nvidia/nemotron-3.5-super-vl-120b-a12b",
+      "detail": "The green highway sign in frame 0 shows letters that appear to shift or morph between frames, consistent with AI generation.",
+      "box": {
+        "x": 0.9,
+        "y": 0.355,
+        "w": 0.08,
+        "h": 0.06
+      },
+      "evidence": {
+        "quote": "shifting letters on the sign",
+        "from": "community_note"
+      },
+      "shot": {
+        "t0": 0,
+        "t1": 5.3
+      }
+    }
+  ],
+  "provenance": {
+    "pipeline": "annotate@1",
+    "generatedAt": "2026-11-07T20:47:53.093Z",
+    "clip": {
+      "id": "x-2080725871904596453",
+      "url": "https://x.com/i/status/2080725871904596453",
+      "sha256": "06381e7f7be6aae036b7dc4cffda04314f63c69843951d0823009a8dc7724da4"
+    },
+    "models": [
+      "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b"
+    ],
+    "note": {
+      "text": "First clip is AI generated, you can easily tell from the shifting letters on the sign.     https://caniphish.com/blog/how-to-spot-ai-videos"
+    },
+    "servedBy": {
+      "nvidia/nemotron-3.5-bolt-e4b": "nvidia/nemotron-3.5-bolt-e4b",
+      "nvidia/nemotron-3.5-super-vl-120b-a12b": "private/nvidia/nemotron-3.5-super-120b-a12b"
+    },
+    "frames": {
+      "count": 8,
+      "times": [
+        4.74,
+        14.22,
+        23.7,
+        33.18,
+        42.66,
+        52.14,
+        61.62,
+        71.1
+      ]
+    }
+  }
+}
