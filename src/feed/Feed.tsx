@@ -15,6 +15,7 @@ import { useVideoPlayer, type VideoPlayer } from 'expo-video';
 import { useEventListener } from 'expo';
 import * as Haptics from 'expo-haptics';
 import { makeClips, type Clip } from '@/data/clips';
+import { loadInitialClips } from '@/data/feed';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
 import { ClipItem } from './ClipItem';
 import { TopBar } from './TopBar';
@@ -31,7 +32,8 @@ import { TopBar } from './TopBar';
  * buffered when you swipe and memory stays flat no matter how far you scroll.
  */
 export function Feed({ focused }: { focused: boolean }) {
-  const [clips, setClips] = useState(() => makeClips(0, 24));
+  // Empty until the first page arrives (remote clips, then placeholders).
+  const [clips, setClips] = useState<Clip[]>([]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [active, setActive] = useState(0);
   // Browsers require a user gesture before playing video with sound.
@@ -116,6 +118,14 @@ export function Feed({ focused }: { focused: boolean }) {
   }, [slotIndex, loaded, active, focused, appActive, muted, paused, boost, players]);
 
   useEffect(() => {
+    let live = true;
+    loadInitialClips().then((c) => live && setClips(c));
+    return () => {
+      live = false;
+    };
+  }, []);
+
+  useEffect(() => {
     const sub = AppState.addEventListener('change', (s) => setAppActive(s === 'active'));
     return () => sub.remove();
   }, []);
@@ -185,7 +195,8 @@ export function Feed({ focused }: { focused: boolean }) {
     if (size.h) listRef.current?.scrollToOffset({ offset: activeRef.current * size.h, animated: false });
   }, [size.h]);
 
-  const onEndReached = () => setClips((c) => [...c, ...makeClips(c.length, 12)]);
+  // Wait for the first page so placeholders never jump ahead of remote clips.
+  const onEndReached = () => setClips((c) => (c.length ? [...c, ...makeClips(c.length, 12)] : c));
 
   // ---- interactions --------------------------------------------------------
   const toggleIn = (set: React.Dispatch<React.SetStateAction<Set<string>>>, id: string, force?: boolean) =>
