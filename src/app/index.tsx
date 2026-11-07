@@ -30,7 +30,7 @@ export default function Home() {
 }
 
 function Screen({ startAt }: { startAt?: number }) {
-  const [tab, setTab] = useState<TabId>('takes');
+  const [tab, setTab] = useState<TabId>('home');
   const [profileTab, setProfileTab] = useState<ProfileTab>('reposts');
   const feedRef = useRef<FeedHandle>(null);
   // `sheet` stays set until the slide-out finishes; `sheetOpen` drives the slide.
@@ -51,7 +51,7 @@ function Screen({ startAt }: { startAt?: number }) {
         setTab('you');
       },
       openClip: (clipId) => {
-        setTab('takes');
+        setTab('home');
         feedRef.current?.jumpTo(clipIndex(clipId));
       },
       openSheet: (kind, clip) => {
@@ -70,9 +70,9 @@ function Screen({ startAt }: { startAt?: number }) {
       <View style={styles.root}>
         <View style={styles.main}>
           {/* Feed stays mounted so its position survives tab switches; it pauses when hidden. */}
-          <View style={[StyleSheet.absoluteFill, tab !== 'takes' && styles.hidden]}>
+          <View style={[StyleSheet.absoluteFill, tab !== 'home' && styles.hidden]}>
             <Feed
-              focused={screenFocused && tab === 'takes'}
+              focused={screenFocused && tab === 'home'}
               sheetOpen={sheet !== null}
               sheetProgress={sheetProgress}
               startAt={startAt}
@@ -80,7 +80,7 @@ function Screen({ startAt }: { startAt?: number }) {
             />
           </View>
           {tab === 'you' && <Profile tab={profileTab} onTab={setProfileTab} />}
-          {tab !== 'takes' && tab !== 'you' && <Placeholder title={current.label} icon={current.iconActive} />}
+          {tab !== 'home' && tab !== 'you' && <Placeholder title={current.label} icon={current.iconActive} />}
         </View>
         <TabBar tab={tab} onTab={setTab} />
         {/* Sheets sit above the tab bar; keyed by clip so composer/search state starts fresh. */}

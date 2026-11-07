@@ -3,13 +3,12 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-export type TabId = 'home' | 'takes' | 'create' | 'you';
+export type TabId = 'home' | 'create' | 'you';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export const TABS: { id: TabId; label: string; icon: IconName; iconActive: IconName }[] = [
   { id: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
-  { id: 'takes', label: 'Takes', icon: 'film-outline', iconActive: 'film' },
   { id: 'create', label: 'Create', icon: 'add-circle-outline', iconActive: 'add-circle' },
   { id: 'you', label: 'You', icon: 'person-circle-outline', iconActive: 'person-circle' },
 ];
