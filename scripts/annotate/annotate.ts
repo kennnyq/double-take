@@ -1,7 +1,7 @@
 /**
  * Draft AI-video tells for demo clips with NVIDIA Nemotron and publish them.
  *
- *   node scripts/annotate/annotate.ts run <clipId…|--all> [--publish]   (key: .env.nvidia.local, see nim.ts)
+ *   node scripts/annotate/annotate.ts run <clipId…|--all> [--publish]   (key: scripts/annotate/.env.local, see nim.ts)
  *   node scripts/annotate/annotate.ts review <clipId> --reject <tellId> --why "…" [--by agent|human]
  *   node scripts/annotate/annotate.ts review <clipId> --check|--verify <tellId> --why "…" --by human
  *   node scripts/annotate/annotate.ts publish <clipId…>     publish an existing draft (with review decisions)

@@ -5,10 +5,12 @@
  * The key is read at call time; the first of these wins:
  *   1. NVIDIA_API_KEY in the environment
  *   2. the file named by NVIDIA_API_KEY_FILE
- *   3. NVIDIA_API_KEY in `.env.nvidia.local` at the root of this checkout
+ *   3. NVIDIA_API_KEY in `scripts/annotate/.env.local` in this checkout
  *   4. the same file in the main checkout, so every git worktree finds it
- * `.env.nvidia.local` is gitignored (`.env*.local`) and Expo never loads it, so
- * it can't end up in the app bundle. It is never logged or included in errors. Developer-program access is a free, rate-limited trial
+ * The file is gitignored (`.env*.local`). It must stay out of the project root:
+ * in development Expo bundles every root file whose name starts with `.env`
+ * for the web, so a key there reaches the browser. It is never logged or
+ * included in errors. Developer-program access is a free, rate-limited trial
  * with no per-call billing; running out of credits returns an error, which
  * stops the run (no retries).
  */
@@ -34,7 +36,8 @@ export function redact(s: string): string {
   return s.replace(/(Bearer\s+)[\w.-]+/gi, '$1…').replace(/nvapi-[\w-]+/g, 'nvapi-…');
 }
 
-export const KEY_ENV_FILE = '.env.nvidia.local';
+/** Relative to the repo root. */
+export const KEY_ENV_FILE = 'scripts/annotate/.env.local';
 const REPO_ROOT = resolve(import.meta.dirname, '../..');
 
 /** NVIDIA_API_KEY from a dotenv-style file, or null. */
@@ -48,7 +51,7 @@ export function keyFromEnvFile(file: string): string | null {
   return null;
 }
 
-/** `.env.nvidia.local` in this checkout, then in the main checkout (worktrees share the git common dir). */
+/** The key file in this checkout, then in the main checkout (worktrees share the git common dir). */
 export function keyEnvFiles(root = REPO_ROOT): string[] {
   const files = [join(root, KEY_ENV_FILE)];
   try {
@@ -78,7 +81,7 @@ export function loadKey(env: Record<string, string | undefined> = process.env, f
     const k = keyFromEnvFile(f);
     if (k) return k;
   }
-  throw new NimError(`No NVIDIA key: put NVIDIA_API_KEY=... in ${KEY_ENV_FILE} at the repo root, or set NVIDIA_API_KEY_FILE`);
+  throw new NimError(`No NVIDIA key: put NVIDIA_API_KEY=... in ${KEY_ENV_FILE}, or set NVIDIA_API_KEY_FILE`);
 }
 
 export type Content = string | ({ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } })[];

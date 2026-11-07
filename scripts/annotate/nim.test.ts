@@ -73,7 +73,7 @@ test('keys never appear in errors', async () => {
   await assert.rejects(c.chat({ model: 'm', messages: [] }), (e: unknown) => !String((e as Error).message).includes('SECRET123'));
 });
 
-test('loadKey: env var, then key file, then .env.nvidia.local here, then in the main checkout', () => {
+test('loadKey: env var, then key file, then the key file here, then in the main checkout', () => {
   const dir = mkdtempSync(join(tmpdir(), 'nimkey-'));
   const here = join(dir, 'here.env');
   const main = join(dir, 'main.env');
@@ -84,13 +84,14 @@ test('loadKey: env var, then key file, then .env.nvidia.local here, then in the 
   assert.equal(loadKey({}, [here, main]), 'nvapi-here');
   writeFileSync(here, 'NVIDIA_API_KEY=\n');
   assert.equal(keyFromEnvFile(here), null, 'empty value is no key');
-  assert.throws(() => loadKey({}, [join(dir, 'none')]), /No NVIDIA key.*\.env\.nvidia\.local/);
+  assert.throws(() => loadKey({}, [join(dir, 'none')]), /No NVIDIA key.*scripts\/annotate\/\.env\.local/);
   assert.throws(() => loadKey({ NVIDIA_API_KEY_FILE: '/nonexistent/key' }, [main]), /cannot be read/);
 });
 
-test('the key file is gitignored and Expo never loads it', () => {
+test('the key file is gitignored and outside the project root', () => {
   const root = join(import.meta.dirname, '../..');
-  assert.match(execFileSync('git', ['-C', root, 'check-ignore', KEY_ENV_FILE], { encoding: 'utf8' }), /\.env\.nvidia\.local/);
-  // Expo loads only .env, .env.local, .env.<mode> and .env.<mode>.local.
-  assert.ok(!['.env', '.env.local', '.env.development', '.env.development.local', '.env.production', '.env.production.local'].includes(KEY_ENV_FILE));
+  assert.match(execFileSync('git', ['-C', root, 'check-ignore', KEY_ENV_FILE], { encoding: 'utf8' }), /scripts\/annotate\/\.env\.local/);
+  // In development Expo bundles every root file starting with `.env` for the web
+  // (require.context(root, false, /^\.\/\.env/)), whatever its name.
+  assert.ok(KEY_ENV_FILE.includes('/'), 'the key file must not sit in the project root');
 });

@@ -6,7 +6,8 @@
 # Copies only files that exist in the main checkout and are missing here, owner-only
 # (chmod 600), and never prints their contents. All of them are gitignored.
 #   .env.local          app: API URL and demo passcode (Expo loads it)
-#   .env.nvidia.local   annotation pipeline: NVIDIA_API_KEY (Expo never loads it)
+#   scripts/annotate/.env.local   annotation pipeline: NVIDIA_API_KEY (kept out of the
+#                                 root, where Expo's dev server would bundle it)
 #   worker/.dev.vars    local Worker secrets (wrangler dev)
 #   worker/.prod.vars   prod passcode for the end-to-end tests
 set -euo pipefail
@@ -18,7 +19,7 @@ if [ "$here" = "$main" ]; then
   exit 0
 fi
 
-for f in .env.local .env.nvidia.local worker/.dev.vars worker/.prod.vars; do
+for f in .env.local scripts/annotate/.env.local worker/.dev.vars worker/.prod.vars; do
   if [ ! -f "$main/$f" ]; then
     echo "skip  $f (not in the main checkout)"
   elif [ -f "$here/$f" ]; then

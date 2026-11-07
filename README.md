@@ -112,8 +112,8 @@ node scripts/annotate/annotate.ts run <clipId> --publish
 node scripts/annotate/annotate.ts replay --all   # re-validate saved model replies, no API calls
 ```
 
-**NVIDIA key.** Put `NVIDIA_API_KEY=nvapi-…` in `.env.nvidia.local` at the repo root.
-- The file is gitignored, and Expo never loads it, so it can't reach the app bundle.
+**NVIDIA key.** Put `NVIDIA_API_KEY=nvapi-…` in `scripts/annotate/.env.local`. Keep it out of the repo root: in development, Expo bundles every root file whose name starts with `.env` into the web app.
+- The file is gitignored, and outside the root Expo never bundles it.
 - Worktrees find the main checkout's copy automatically. `npm run worktree:env` copies it, plus `.env.local` and the Worker's `.dev.vars`/`.prod.vars`, into a new worktree.
 - `npm run key:check` lists the models the key can call; it costs one free API call.
 - `NVIDIA_API_KEY` or `NVIDIA_API_KEY_FILE` in the environment still take precedence.
