@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import type { VideoPlayer } from 'expo-video';
 import { useEventListener } from 'expo';
 import { Ionicons } from '@expo/vector-icons';
-import { activeTells, boxOnStage, parseTells, videoRect, type Fit, type Tell } from './tells';
+import { activeTells, boxOnStage, parseTells, revealTime, videoRect, type Fit, type Tell } from './tells';
 
 interface Props {
   /** Signed URL of the clip's tells JSON. */
@@ -53,7 +53,7 @@ export function TellOverlay(p: Props) {
       list = await loadTells(p.url);
       setTells(list);
     }
-    if (list.length && p.player) seekTo(p.player, Math.max(0, Math.min(...list.map((t) => t.t0)) - 0.4));
+    if (list.length && p.player) seekTo(p.player, revealTime(list));
   };
 
   const count = tells?.length;

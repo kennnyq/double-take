@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeTells, boxOnStage, fitFor, parseTells, videoRect, type Tell } from './tells.ts';
+import { activeTells, boxOnStage, fitFor, parseTells, revealTime, videoRect, type Tell } from './tells.ts';
 
 const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} ≈ ${b}`);
 
@@ -62,4 +62,13 @@ test('parseTells keeps well-formed tells and drops the rest', () => {
   assert.deepEqual(ok.map((t) => t.id), ['a', 'b']);
   assert.deepEqual(parseTells(null), []);
   assert.deepEqual(parseTells({ tells: 'nope' }), []);
+});
+
+test('revealTime lands inside the first tell window, so a paused clip shows its box', () => {
+  for (const tells of [TELLS, [{ ...TELLS[1], t0: 1.6, t1: 2.4 }], [{ ...TELLS[0], t0: 0.05 }]]) {
+    const t = revealTime(tells);
+    assert.ok(t >= 0);
+    assert.ok(activeTells(tells, t).length > 0, `nothing visible at ${t}s`);
+  }
+  close(revealTime([{ ...TELLS[1], t0: 1.6, t1: 2.4 }]), 1.45);
 });

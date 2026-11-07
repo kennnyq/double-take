@@ -54,8 +54,19 @@ export function boxOnStage(box: Box, frame: Box, stageW: number, stageH: number)
  * Tells to show at playback time `t`. A little slack either side, because
  * `timeUpdate` only arrives every 250 ms.
  */
-export function activeTells(tells: Tell[], t: number, slack = 0.3): Tell[] {
+export function activeTells(tells: Tell[], t: number, slack = TELL_SLACK): Tell[] {
   return tells.filter((x) => t >= x.t0 - slack && t <= x.t1 + slack);
+}
+
+/** Seconds of slack around each tell's window (see `activeTells`). */
+export const TELL_SLACK = 0.3;
+
+/**
+ * Where "reveal" seeks to: a beat before the first tell, but inside its window,
+ * so a paused clip already shows the box.
+ */
+export function revealTime(tells: Tell[]): number {
+  return Math.max(0, Math.min(...tells.map((t) => t.t0)) - TELL_SLACK / 2);
 }
 
 /** Keep only well-formed tells; the file comes from the network. */
