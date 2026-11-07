@@ -32,6 +32,9 @@ npm run media       # regenerate placeholder clips into assets/media (needs ffmp
 | `src/feed/Feed.tsx` | Paged feed, three-player video pool, playback state, progress |
 | `src/feed/ClipItem.tsx` | One clip: video, tap/double-tap/long-press, overlay, action rail, iPhone and iPad layouts |
 | `src/feed/pool.ts` | Pure logic (pool window, page index, layout choice), tested in `pool.test.ts` |
+| `src/feed/TellOverlay.tsx` | "Reveal AI tells" overlay |
+| `src/annotations/` | Tells format, validation, geometry, timing and walkthrough logic shared by the app and the pipeline (pure, tested) |
+| `scripts/annotate/` | Pipeline that drafts tells with NVIDIA Nemotron and publishes them to the feed |
 | `src/data/` | Placeholder clips, the remote feed client, stand-in comments and friends |
 | `src/social/` | In-memory engagement store (likes, saves, reposts, sends, follows, comments), actions with toasts, app navigation |
 | `src/comments/`, `src/share/` | Comments and Send to bottom sheets |
@@ -60,3 +63,41 @@ npm run media       # regenerate placeholder clips into assets/media (needs ffmp
 - **Comments:** stand-in comments and replies are generated per clip. The sheet opens with the clip shrunk above it; drag down or tap above it to close.
 - **Share:** Send to with friend search, repost, copy link, system share and download.
 - **Profile:** tapping a tile jumps back to that clip in the feed.
+
+## AI tells
+
+Each clip can carry a tells file (`scripts/harvest/tells/<clipId>.json`): timed
+moments with a box on the frame, a short explanation, the claim it came from and
+how far anyone has checked it. "Reveal AI tells" walks through them one step at a
+time, pausing on each moment.
+
+The pipeline in `scripts/annotate/` drafts these from a clip's Community Note
+(`scripts/annotate/notes.jsonl`) and any saved replies:
+
+1. **Claims.** A text model (`nvidia/nemotron-3.5-bolt-e4b`) splits the note into
+   one claim per artifact. Each must quote the source word for word, and the quote
+   is checked against the source text.
+2. **Boxes.** A vision model (`nvidia/nemotron-3.5-super-vl-120b-a12b`) sees
+   labelled frames bracketing each claim's time. It boxes the claim on the frame
+   where it shows and names a later frame for "after". Letterbox bars are cropped
+   off first and mapped back.
+3. **Checks.** A deterministic pixel check measures whether the boxed region
+   really changes. A wrong "after" frame is moved. A spot that never changes is
+   flagged on the card ("This spot barely changes…").
+4. **Review.** `build/annotate/<clipId>/review.jpg` draws every box on the full
+   frame, the same way the app places it. Agents may only reject a tell. Marking
+   one checked or verified needs `--by human`.
+5. **Publish.** Content-addressed files (`tells.<hash>.json`) are written next to
+   the media, so cached media URLs never serve stale tells. Then run
+   `cd worker && npm run deploy`.
+
+```bash
+NVIDIA_API_KEY_FILE=~/path/to/key node scripts/annotate/annotate.ts run <clipId> --publish
+node scripts/annotate/annotate.ts replay --all   # re-validate saved model replies, no API calls
+```
+
+Model output is treated as unverified evidence:
+
+- Drafts show **AI draft · not verified** and "Box placed by NVIDIA Nemotron. It may be off."
+- Claims that couldn't be placed on the video go on a closing **Also claimed** card rather than being dropped or invented.
+- Tells the model finds without a note or comment behind them are dropped unless you pass `--allow-model-only`.

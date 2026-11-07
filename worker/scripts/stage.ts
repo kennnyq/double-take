@@ -42,5 +42,6 @@ for (const file of walk(join(BUILD, 'media'))) {
 }
 
 writeFileSync(join(BUILD, 'asset-manifest.json'), JSON.stringify(manifest));
-writeFileSync(join(BUILD, '.assetsignore'), 'archive/\n.DS_Store\n*.part\n');
+// annotate/ holds the tells pipeline's working files (frames, model replies); only tells.*.json under media/ ships.
+writeFileSync(join(BUILD, '.assetsignore'), 'archive/\nannotate/\n.DS_Store\n*.part\n');
 console.log(`staged ${Object.keys(manifest).length} media files from ${BUILD}`);
