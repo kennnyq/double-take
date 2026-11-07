@@ -23,10 +23,13 @@ import { receiveHandoff } from '@/landing/handoff';
 import { useSocialActions } from '@/social/actions';
 import { useAppNav } from '@/social/nav';
 import { useSocial } from '@/social/store';
+import { appSettings, useAppSettings } from '@/settings/store';
+import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf } from './feedMode';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
 import { shrinkGeometry } from './shrink';
 import { ClipItem } from './ClipItem';
 import { TopBar } from './TopBar';
+import { FeedEmpty } from './VerdictBadge';
 
 interface FeedProps {
   focused: boolean;
@@ -57,7 +60,12 @@ export interface FeedHandle {
  */
 export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedProps) {
   // Empty until the first page arrives (remote clips, then placeholders).
-  const [clips, setClips] = useState<Clip[]>([]);
+  const [all, setAll] = useState<Clip[]>([]);
+  // The feed mode (Settings) may keep only AI or only real clips. A filtered
+  // feed ends: placeholders have no verdict, so it never grows.
+  const { feedMode } = useAppSettings();
+  const filter = modeFilter(feedMode);
+  const clips = useMemo(() => clipsForMode(all, feedMode), [all, feedMode]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [active, setActive] = useState(startAt ?? 0);
   // Browsers require a user gesture before playing video with sound.
@@ -94,6 +102,24 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const [loaded, setLoaded] = useState<number[]>(() => Array(POOL_SIZE).fill(-1));
   const loadGen = useRef<number[]>(Array(POOL_SIZE).fill(0));
   const wanted = useRef<number[]>(Array(POOL_SIZE).fill(-1));
+
+  // The feed mode changed what's shown: stay on the same clip (or the nearest
+  // one after it) and reload the players, since every index now means another
+  // clip. Runs before the loader below, so it sees the reset.
+  const shownBefore = useRef(clips);
+  useEffect(() => {
+    const prev = shownBefore.current;
+    shownBefore.current = clips;
+    if (isAppend(prev, clips)) return;
+    const i = keepPosition(prev, clips, activeRef.current);
+    wanted.current = Array(POOL_SIZE).fill(-1);
+    setLoaded(Array(POOL_SIZE).fill(-1));
+    activeRef.current = i;
+    setActive(i);
+    setPaused(false);
+    setBoost(false);
+    if (size.h) listRef.current?.scrollToOffset({ offset: i * size.h, animated: false });
+  }, [clips, size.h]);
 
   useEffect(() => {
     slotIndex.forEach((idx, s) => {
@@ -144,10 +170,22 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
 
   useEffect(() => {
     let live = true;
-    loadInitialClips().then((c) => live && setClips(c));
+    loadInitialClips().then((c) => {
+      if (!live) return;
+      // A filtered feed opens on the landing's clip, or the next one it shows.
+      const mode = appSettings.getSnapshot().feedMode;
+      if (startAt !== undefined && modeFilter(mode)) {
+        const i = shownIndexOf(clipsForMode(c, mode), startAt);
+        activeRef.current = i;
+        setActive(i);
+      }
+      setAll(c);
+    });
     return () => {
       live = false;
     };
+    // Read once, at mount, like `startAt` itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -221,7 +259,9 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   }, [size.h]);
 
   // Wait for the first page so placeholders never jump ahead of remote clips.
-  const onEndReached = () => setClips((c) => (c.length ? [...c, ...makeClips(c.length, 12)] : c));
+  const onEndReached = () => {
+    if (!filter) setAll((c) => (c.length ? [...c, ...makeClips(c.length, 12)] : c));
+  };
 
   // ---- jump to a clip (profile tile) ---------------------------------------
   // If the index isn't loaded yet, grow the list and land once the new
@@ -246,16 +286,21 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   useImperativeHandle(
     ref,
     () => ({
-      jumpTo: (i: number) => {
+      jumpTo: (feedIndex: number) => {
+        if (filter) {
+          landOn(shownIndexOf(clips, feedIndex));
+          return;
+        }
+        const i = feedIndex;
         if (i < clipCount.current) {
           landOn(i);
           return;
         }
         pendingJump.current = i;
-        setClips((c) => (c.length > i ? c : [...c, ...makeClips(c.length, i + 6 - c.length)]));
+        setAll((c) => (c.length > i ? c : [...c, ...makeClips(c.length, i + 6 - c.length)]));
       },
     }),
-    [landOn],
+    [landOn, filter, clips],
   );
   const onContentSizeChange = (_w: number, contentH: number) => {
     const i = pendingJump.current;
@@ -360,6 +405,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
         sent={sent.has(item.id)}
         followed={followed.has(item.author)}
         myComments={social.comments[item.id]?.length ?? 0}
+        label={autoLabel(item, feedMode)}
         progress={progress}
         chrome={chrome}
         h={handlers}
@@ -377,9 +423,9 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
           data={clips}
           keyExtractor={(c) => c.id}
           renderItem={renderItem}
-          extraData={[active, loaded, paused, boost, social, wide, size]}
+          extraData={[active, loaded, paused, boost, social, wide, size, feedMode]}
           getItemLayout={(_, i) => ({ length: size.h, offset: size.h * i, index: i })}
-          initialScrollIndex={startAt}
+          initialScrollIndex={active}
           pagingEnabled
           decelerationRate="fast"
           disableIntervalMomentum
@@ -398,6 +444,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
           onContentSizeChange={onContentSizeChange}
         />
       )}
+      {filter && all.length > 0 && clips.length === 0 && <FeedEmpty verdict={filter} />}
       <TopBar muted={muted} onToggleMute={toggleMute} opacity={chrome} hidden={sheetOpen} />
     </View>
   );

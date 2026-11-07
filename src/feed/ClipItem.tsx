@@ -4,7 +4,7 @@ import { VideoView, type VideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { formatCount, type Clip } from '@/data/clips';
+import { formatCount, type Clip, type Verdict } from '@/data/clips';
 import { baseReposts } from '@/social/clipRefs';
 import { Avatar } from '@/ui/Avatar';
 import { gestureAction, isDoubleTap, type Tap } from '@/devtools/gesture';
@@ -12,6 +12,7 @@ import { useDevSettings } from '@/devtools/store';
 import type { FeedHandlers } from './Feed';
 import { TellOverlay, type TellOverlayHandle } from './TellOverlay';
 import { fitFor } from './tells';
+import { VerdictBadge } from './VerdictBadge';
 
 interface Props {
   clip: Clip;
@@ -29,6 +30,8 @@ interface Props {
   followed: boolean;
   /** How many comments you've added (shown on top of the clip's count). */
   myComments: number;
+  /** The verdict shown on the clip without a reveal (Auto label mode), or null. */
+  label: Verdict | null;
   progress: Animated.Value;
   /** Overlay opacity: fades rail/meta out while the page is shrunk above a sheet. */
   chrome: Animated.AnimatedInterpolation<number>;
@@ -164,6 +167,12 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           onInspect={onInspect}
         />
       )}
+      {/* The reveal shows the verdict along with the reasoning, in every feed mode. */}
+      {inspecting && clip.verdict && (
+        <View style={[styles.revealVerdict, { top: (wide ? 12 : insets.top + 54) + 3 }]} pointerEvents="none">
+          <VerdictBadge verdict={clip.verdict} />
+        </View>
+      )}
       {p.boost && (
         <View style={styles.boostWrap} pointerEvents="none">
           <View style={styles.boost}>
@@ -175,6 +184,11 @@ export const ClipItem = memo(function ClipItem(p: Props) {
 
       {!inspecting && (
         <Animated.View style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]} pointerEvents="box-none">
+          {p.label && (
+            <View style={styles.labelRow} pointerEvents="none">
+              <VerdictBadge verdict={p.label} />
+            </View>
+          )}
           <View style={styles.authorRow} pointerEvents="box-none">
             <Avatar name={clip.author} size={32} />
             <Text style={styles.handle} numberOfLines={1}>
@@ -375,6 +389,8 @@ const styles = StyleSheet.create({
   burst: { position: 'absolute' },
   meta: { position: 'absolute', left: 12, right: 80, bottom: 16, gap: 8 },
   metaWide: { right: 16 },
+  labelRow: { flexDirection: 'row' },
+  revealVerdict: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   authorRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   handle: { color: '#fff', fontSize: 15, fontWeight: '600', flexShrink: 1, ...textShadow },
   subscribe: {
