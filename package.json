@@ -47,7 +47,9 @@
     "test": "node --test 'src/**/*.test.ts' 'scripts/**/*.test.ts'",
     "media": "bash scripts/generate-media.sh",
     "key:check": "node scripts/annotate/annotate.ts models",
-    "worktree:env": "bash scripts/worktree-env.sh"
+    "worktree:env": "bash scripts/worktree-env.sh",
+    "check": "tsc --noEmit && expo lint && npm test && npm --prefix worker test",
+    "check:prod": "cd worker && BASE_URL=\"${BASE_URL:?set BASE_URL to the deployed Worker URL}\" DEMO_PASSCODE=\"$(sed -n 's/^DEMO_PASSCODE=//p' .prod.vars | tr -d '\\\"')\" npm run test:e2e"
   },
   "private": true
 }
