@@ -1,17 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
-import {
-  Bell,
-  CircleUserRound,
-  House,
-  LayoutGrid,
-  Menu,
-  Plus,
-  Search,
-  Send,
-  Sparkles,
-  type LucideIcon,
-} from 'lucide-react';
+import { CircleUserRound, House, Plus, Send, Sparkles, type LucideIcon } from 'lucide-react';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import type { Clip } from '@/data/clips';
 import { Profile } from '@/profile/Profile';
@@ -22,13 +11,11 @@ import { DesktopFeed, type DesktopFeedHandle } from './DesktopFeed';
 import { Logo } from './Logo';
 import './desktop.css';
 
-type DesktopTab = 'home' | 'messages' | 'search' | 'activity' | 'create' | 'profile';
+type DesktopTab = 'home' | 'messages' | 'create' | 'profile';
 
-const NAV: { id: DesktopTab; label: string; icon: LucideIcon; dot?: boolean }[] = [
+const NAV: { id: DesktopTab; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Home', icon: House },
   { id: 'messages', label: 'Messages', icon: Send },
-  { id: 'search', label: 'Search', icon: Search },
-  { id: 'activity', label: 'Notifications', icon: Bell, dot: true },
   { id: 'create', label: 'Create', icon: Plus },
   { id: 'profile', label: 'Profile', icon: CircleUserRound },
 ];
@@ -95,7 +82,7 @@ export function DesktopApp({ startAt }: { startAt?: number }) {
             <Logo />
           </button>
           <div className="rail-items">
-            {NAV.map(({ id, label, icon: Icon, dot }) => (
+            {NAV.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 className={`rail-item ${tab === id ? 'active' : ''}`}
@@ -105,17 +92,8 @@ export function DesktopApp({ startAt }: { startAt?: number }) {
                 data-tip={label}
               >
                 <Icon size={26} strokeWidth={tab === id ? 2.6 : 1.9} />
-                {dot && <span className="notif-dot" />}
               </button>
             ))}
-          </div>
-          <div className="rail-bottom">
-            <button className="rail-item" aria-label="More" data-tip="More">
-              <Menu size={26} strokeWidth={1.9} />
-            </button>
-            <button className="rail-item" aria-label="Also from Double Take" data-tip="Apps">
-              <LayoutGrid size={24} strokeWidth={1.9} />
-            </button>
           </div>
         </nav>
 

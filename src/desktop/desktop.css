@@ -60,7 +60,8 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 22px 0 18px;
+  /* Bottom padding matches the logo above, so the items sit centred on the screen. */
+  padding: 22px 0 70px;
   border-right: 1px solid rgba(255, 255, 255, 0.06);
   z-index: 5;
 }
@@ -78,12 +79,6 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  gap: 10px;
-}
-
-.desk .rail-bottom {
-  display: flex;
-  flex-direction: column;
   gap: 10px;
 }
 
@@ -129,17 +124,6 @@
   opacity: 1;
   transform: none;
   transition-delay: 0.35s;
-}
-
-.desk .notif-dot {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--like);
-  box-shadow: 0 0 0 2px var(--bg);
 }
 
 .desk .desk-main {
