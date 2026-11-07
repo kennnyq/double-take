@@ -34,8 +34,13 @@ function toGallery(clips: readonly Clip[]): GalleryClip[] {
 /**
  * Web: the landing page in front of the app. Its launch mounts the app beneath,
  * opened on the clip that grew into the feed (`startAt`), then gets out of the way.
+ * The app gets `showLanding` to come back here (the desktop logo).
  */
-export function WithLanding({ children }: { children(startAt: number | undefined): ReactNode }) {
+export function WithLanding({
+  children,
+}: {
+  children(startAt: number | undefined, showLanding?: () => void): ReactNode;
+}) {
   const [stage, setStage] = useState<Stage>(() => (window.location.hash === APP_HASH ? 'app' : 'landing'));
   const [startAt, setStartAt] = useState<number | undefined>();
   const [landingKey, setLandingKey] = useState(0);
@@ -103,7 +108,7 @@ export function WithLanding({ children }: { children(startAt: number | undefined
 
   return (
     <>
-      {stage !== 'landing' && children(startAt)}
+      {stage !== 'landing' && children(startAt, showLanding)}
       {stage !== 'app' && (
         <GalleryClips.Provider value={gallery}>
           <Landing

@@ -25,7 +25,14 @@ const NAV: { id: DesktopTab; label: string; icon: LucideIcon }[] = [
  * Shares the social store, toasts, profile and clip data with the app; only the
  * layout and the feed's input handling (wheel, keyboard, buttons) are desktop's own.
  */
-export function DesktopApp({ startAt }: { startAt?: number }) {
+export function DesktopApp({
+  startAt,
+  onLogo,
+}: {
+  startAt?: number;
+  /** The rail's logo: back to the landing page. */
+  onLogo?: () => void;
+}) {
   const [tab, setTab] = useState<DesktopTab>('home');
   const [profileTab, setProfileTab] = useState<ProfileTab>('reposts');
   const feedRef = useRef<DesktopFeedHandle>(null);
@@ -78,7 +85,7 @@ export function DesktopApp({ startAt }: { startAt?: number }) {
     <AppNavContext.Provider value={nav}>
       <div className="desk">
         <nav className="rail" aria-label="Main">
-          <button className="rail-logo" onClick={() => setTab('home')} aria-label="Double Take">
+          <button className="rail-logo" onClick={onLogo ?? (() => setTab('home'))} aria-label="Double Take home page">
             <Logo />
           </button>
           <div className="rail-items">

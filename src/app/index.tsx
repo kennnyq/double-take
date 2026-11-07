@@ -23,7 +23,11 @@ export default function Home() {
     <SocialProvider>
       <ToastProvider>
         {/* Web shows a landing page first; the apps open on the feed. */}
-        <WithLanding>{(startAt) => (desktop ? <DesktopApp startAt={startAt} /> : <Screen startAt={startAt} />)}</WithLanding>
+        <WithLanding>
+          {(startAt, showLanding) =>
+            desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} /> : <Screen startAt={startAt} />
+          }
+        </WithLanding>
       </ToastProvider>
     </SocialProvider>
   );
