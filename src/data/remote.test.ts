@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FeedError, fetchRemoteClips, toCaption, toClip, toHandle, type RemoteClip } from './remote.ts';
+import { FeedError, fetchRemoteClips, toCaption, toClip, toHandle, verdictFromLabel, type RemoteClip } from './remote.ts';
 
 const CLIP: RemoteClip = {
   id: 'x-2023151052800000040',
@@ -33,8 +33,20 @@ test('toClip maps a remote clip onto the feed shape', () => {
   assert.equal(c.tile, CLIP.tile);
 });
 
-test('toClip never leaks the ground-truth label', () => {
-  assert.ok(!JSON.stringify(toClip(CLIP, 0)).includes('confirmed'));
+test('toClip keeps the ground truth only as a verdict, never the raw label', () => {
+  const c = toClip(CLIP, 0);
+  assert.equal(c.verdict, 'ai');
+  assert.ok(!JSON.stringify(c).includes('confirmed'));
+  assert.equal(toClip({ ...CLIP, label: null }, 0).verdict, undefined);
+});
+
+test('verdictFromLabel', () => {
+  assert.equal(verdictFromLabel('confirmed'), 'ai');
+  assert.equal(verdictFromLabel(' AI '), 'ai');
+  assert.equal(verdictFromLabel('real'), 'real');
+  assert.equal(verdictFromLabel('not_ai'), 'real');
+  assert.equal(verdictFromLabel('disputed'), undefined);
+  assert.equal(verdictFromLabel(undefined), undefined);
 });
 
 test('toClip copes with missing source metadata', () => {

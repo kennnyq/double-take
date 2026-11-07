@@ -3,7 +3,7 @@
  * clips to the app's `Clip` shape. No React Native imports, so it runs under
  * `node --test`.
  */
-import type { Clip } from './clips';
+import type { Clip, Verdict } from './clips';
 
 /** One clip as `/feed` returns it: media fields are signed, absolute URLs. */
 export interface RemoteClip {
@@ -86,6 +86,25 @@ function tellsVariants(r: RemoteClip): Clip['tellsVariants'] {
   return out.length ? out : undefined;
 }
 
+/**
+ * The harvest's ground-truth label as a verdict. `confirmed` means confirmed
+ * AI-generated (e.g. by a community note); the rest are accepted ahead of the
+ * harvest labelling real footage. Anything else is unknown.
+ */
+export function verdictFromLabel(label: string | null | undefined): Verdict | undefined {
+  switch (label?.trim().toLowerCase()) {
+    case 'confirmed':
+    case 'ai':
+      return 'ai';
+    case 'real':
+    case 'not_ai':
+    case 'authentic':
+      return 'real';
+    default:
+      return undefined;
+  }
+}
+
 /** Turn an uploader name into a feed handle: "Gabriele Corno" → "gabriele_corno". */
 export function toHandle(author: string | null | undefined, fallback: string): string {
   const h = (author ?? '')
@@ -134,5 +153,6 @@ export function toClip(r: RemoteClip, index: number): Clip {
     tellsVariants: tellsVariants(r),
     sourceUrl: r.source?.url,
     tile: typeof r.tile === 'string' && r.tile ? r.tile : undefined,
+    verdict: verdictFromLabel(r.label),
   };
 }

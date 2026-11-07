@@ -28,7 +28,15 @@ export interface Clip {
   sourceUrl?: string;
   /** Remote clips only: a small silent copy (URL) for the web landing's gallery. */
   tile?: string;
+  /**
+   * Ground truth from the harvest (community notes etc.). Missing when unknown,
+   * as for the bundled placeholders, which are neither AI video nor real footage.
+   */
+  verdict?: Verdict;
 }
+
+/** Whether a clip is AI-generated or real footage. */
+export type Verdict = 'ai' | 'real';
 
 export interface TellsVariant {
   /** `main` for the published file, else the pipeline name. */
