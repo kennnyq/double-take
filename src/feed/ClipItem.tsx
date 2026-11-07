@@ -7,6 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { formatCount, type Clip } from '@/data/clips';
 import { Avatar } from '@/ui/Avatar';
 import type { FeedHandlers } from './Feed';
+import { TellOverlay } from './TellOverlay';
+import { fitFor } from './tells';
 
 interface Props {
   clip: Clip;
@@ -58,15 +60,18 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const cardTop = wide ? Math.max(14, insets.top + 8) : 0;
   const stageH = wide ? height - cardTop - 14 : height;
   const stageW = wide ? Math.round((stageH * 9) / 16) : width;
+  // Landscape and square clips are shown whole over a blurred fill.
+  const fit = fitFor(clip.aspect);
 
   const stage = (
     <View style={[styles.stage, { width: stageW, height: stageH }, wide && styles.card]}>
-      <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" />
+      <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={fit === 'contain' ? 40 : 0} />
+      {fit === 'contain' && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="contain" />}
       {p.player && (
         <VideoView
           player={p.player}
           style={StyleSheet.absoluteFill}
-          contentFit="cover"
+          contentFit={fit}
           nativeControls={false}
           playsInline
           allowsVideoFrameAnalysis={false}
@@ -105,6 +110,17 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           <HeartBurst key={b.id} x={b.x} y={b.y} tilt={b.tilt} onDone={() => setBursts((all) => all.filter((o) => o.id !== b.id))} />
         ))}
       </Pressable>
+      {clip.tellsUrl && p.isActive && (
+        <TellOverlay
+          url={clip.tellsUrl}
+          player={p.player}
+          stageW={stageW}
+          stageH={stageH}
+          aspect={clip.aspect ?? 9 / 16}
+          fit={fit}
+          top={wide ? 12 : insets.top + 54}
+        />
+      )}
       {p.boost && (
         <View style={styles.boostWrap} pointerEvents="none">
           <View style={styles.boost}>
