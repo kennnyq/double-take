@@ -2,13 +2,19 @@
  * Minimal client for NVIDIA's hosted API catalog (OpenAI-compatible chat
  * completions at integrate.api.nvidia.com).
  *
- * The key is read from NVIDIA_API_KEY, or from the file named by
- * NVIDIA_API_KEY_FILE, at call time. It is never logged, written to disk or
- * included in errors. Developer-program access is a free, rate-limited trial
+ * The key is read at call time; the first of these wins:
+ *   1. NVIDIA_API_KEY in the environment
+ *   2. the file named by NVIDIA_API_KEY_FILE
+ *   3. NVIDIA_API_KEY in `.env.nvidia.local` at the root of this checkout
+ *   4. the same file in the main checkout, so every git worktree finds it
+ * `.env.nvidia.local` is gitignored (`.env*.local`) and Expo never loads it, so
+ * it can't end up in the app bundle. It is never logged or included in errors. Developer-program access is a free, rate-limited trial
  * with no per-call billing; running out of credits returns an error, which
  * stops the run (no retries).
  */
-import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 
 export const NIM_BASE = 'https://integrate.api.nvidia.com/v1';
 
@@ -28,7 +34,37 @@ export function redact(s: string): string {
   return s.replace(/(Bearer\s+)[\w.-]+/gi, '$1…').replace(/nvapi-[\w-]+/g, 'nvapi-…');
 }
 
-export function loadKey(env: Record<string, string | undefined> = process.env): string {
+export const KEY_ENV_FILE = '.env.nvidia.local';
+const REPO_ROOT = resolve(import.meta.dirname, '../..');
+
+/** NVIDIA_API_KEY from a dotenv-style file, or null. */
+export function keyFromEnvFile(file: string): string | null {
+  if (!existsSync(file)) return null;
+  for (const line of readFileSync(file, 'utf8').split('\n')) {
+    const m = /^\s*(?:export\s+)?NVIDIA_API_KEY\s*=\s*(.*)$/.exec(line);
+    const v = m?.[1].trim().replace(/^(['"])(.*)\1$/, '$2').trim();
+    if (v) return v;
+  }
+  return null;
+}
+
+/** `.env.nvidia.local` in this checkout, then in the main checkout (worktrees share the git common dir). */
+export function keyEnvFiles(root = REPO_ROOT): string[] {
+  const files = [join(root, KEY_ENV_FILE)];
+  try {
+    const common = execFileSync('git', ['-C', root, 'rev-parse', '--path-format=absolute', '--git-common-dir'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+    const main = dirname(common);
+    if (resolve(main) !== resolve(root)) files.push(join(main, KEY_ENV_FILE));
+  } catch {
+    // Not a git checkout: only this one.
+  }
+  return files;
+}
+
+export function loadKey(env: Record<string, string | undefined> = process.env, files: string[] = keyEnvFiles()): string {
   if (env.NVIDIA_API_KEY?.trim()) return env.NVIDIA_API_KEY.trim();
   if (env.NVIDIA_API_KEY_FILE) {
     try {
@@ -38,7 +74,11 @@ export function loadKey(env: Record<string, string | undefined> = process.env): 
       throw new NimError('NVIDIA_API_KEY_FILE is set but the file cannot be read');
     }
   }
-  throw new NimError('No NVIDIA key: set NVIDIA_API_KEY_FILE (preferred) or NVIDIA_API_KEY');
+  for (const f of files) {
+    const k = keyFromEnvFile(f);
+    if (k) return k;
+  }
+  throw new NimError(`No NVIDIA key: put NVIDIA_API_KEY=... in ${KEY_ENV_FILE} at the repo root, or set NVIDIA_API_KEY_FILE`);
 }
 
 export type Content = string | ({ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } })[];

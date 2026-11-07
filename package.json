@@ -45,7 +45,9 @@
     "lint": "expo lint",
     "typecheck": "tsc --noEmit",
     "test": "node --test 'src/**/*.test.ts' 'scripts/**/*.test.ts'",
-    "media": "bash scripts/generate-media.sh"
+    "media": "bash scripts/generate-media.sh",
+    "key:check": "node scripts/annotate/annotate.ts models",
+    "worktree:env": "bash scripts/worktree-env.sh"
   },
   "private": true
 }
