@@ -52,8 +52,10 @@ async function run(browser: Browser, layout: Layout) {
       : { viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true },
   );
   const page = await context.newPage();
-  await page.addInitScript(() => {
+  await page.addInitScript((l) => {
     localStorage.clear();
+    // The phone tries the "Text" end cue (the faint "Tap to …" line); desktop keeps the default (a check button).
+    if (l === 'phone') localStorage.setItem('double-take:dev-settings:v1', JSON.stringify({ endCue: 'text' }));
     // Every frame: each <video>'s currentTime.
     const w = window as unknown as { __samples: Sample[]; __sampling: boolean };
     w.__samples = [];
@@ -63,7 +65,7 @@ async function run(browser: Browser, layout: Layout) {
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-  });
+  }, layout);
   await page.goto(`${BASE_URL}/#app`);
   await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
   await page.waitForTimeout(2500);
@@ -81,13 +83,27 @@ async function run(browser: Browser, layout: Layout) {
   await page.waitForSelector('[aria-label="Close the walkthrough"]', { timeout: 10_000 });
   // Long enough for the scrub and a few slow-mo loops.
   await page.waitForTimeout(9000);
-  // The card: only the reason and a faint way on, worded for the input (mouse: click; touch: tap).
+  // The card: only the reason, and no labels.
   const card = await page.evaluate(() => document.body.innerText);
-  const verb = layout === 'desktop' ? 'Click' : 'Tap';
-  check(`${layout}: the card says "${verb} to …" and carries no labels`, new RegExp(`${verb} to (continue|finish)`).test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
-    card: card.slice(0, 300),
-  });
-  await page.click('[aria-label="Close the walkthrough"]');
+  const finish = await page.evaluate(() => document.querySelectorAll('[aria-label="Finish the walkthrough"]').length);
+  if (layout === 'desktop') {
+    // Default end cue: this one-tell clip's card ends with a "finish" (check) button.
+    check('desktop: the card carries no labels and offers a finish button', finish >= 2 && !/AI draft|Slow-mo|slow mo|Not shown on screen|to (continue|finish)/i.test(card), {
+      card: card.slice(0, 300),
+      finish,
+    });
+    // → goes on: on the last tell, that ends the walkthrough.
+    await page.keyboard.press('ArrowRight');
+    await page.waitForTimeout(600);
+    const open = await page.evaluate(() => !!document.querySelector('[aria-label="Close the walkthrough"]'));
+    check('desktop: → on the last tell ends the walkthrough', !open, { open });
+  } else {
+    // "Text" end cue, worded for touch.
+    check('phone: the card says "Tap to …" and carries no labels', /Tap to (continue|finish)/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
+      card: card.slice(0, 300),
+    });
+    await page.click('[aria-label="Close the walkthrough"]');
+  }
   await page.waitForTimeout(1500);
   const { samples, marks } = await page.evaluate(() => {
     const w = window as unknown as { __samples: Sample[]; __sampling: boolean; __dtMarks?: Mark[] };
