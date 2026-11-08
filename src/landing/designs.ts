@@ -312,7 +312,7 @@ export const LANDING_PRESETS: readonly Preset<LandingTrials>[] = [
     accent: 'coral',
     scan: 'none',
     vanish: 'recede',
-    grow: 'spring',
+    grow: 'straight',
     beat: 'none',
   }),
   preset('wall', 'Video wall', 'A dense grid of clips, sharp in the middle and blurred at the edges.', {

@@ -231,6 +231,41 @@ function arriveChrome(style: LandingValues['arrive']) {
   });
 }
 
+/** Keep the fading wall behind desktop chrome while the picked card lands. */
+function layerDesktopHandoff(root: HTMLElement, picked: HTMLElement): () => void {
+  const desk = document.querySelector<HTMLElement>('.desk');
+  if (!desk || !root.parentElement) return () => {};
+  const background = desk.style.background;
+  const zIndex = desk.style.zIndex;
+  const backdrop = document.createElement('div');
+  Object.assign(backdrop.style, {
+    position: 'fixed', inset: '0', pointerEvents: 'none', zIndex: '49',
+    background: getComputedStyle(desk).background,
+  });
+  root.before(backdrop);
+  // The backdrop stays below the wall; app content paints above it. Moving
+  // the imperatively-created picked layer preserves its viewport coordinates.
+  desk.style.background = 'transparent';
+  desk.style.zIndex = '51';
+  root.after(picked);
+  picked.style.zIndex = '52';
+  const reveal = desk.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-in-out' });
+  let cleaned = false;
+  const cleanup = () => {
+    if (cleaned) return;
+    cleaned = true;
+    observer.disconnect();
+    reveal.cancel();
+    desk.style.background = background;
+    desk.style.zIndex = zIndex;
+    backdrop.remove();
+    picked.remove();
+  };
+  const observer = new MutationObserver(() => { if (!root.isConnected) cleanup(); });
+  observer.observe(root.parentElement, { childList: true });
+  return cleanup;
+}
+
 /** The feed's video box for `clip` once the app has jumped to it. */
 /**
  * The phone feed's video on screen, under the landing: the top one at the
@@ -844,9 +879,29 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
       const exitFrames = vanish.frames(opacity, filter, deep, sunk?.scale);
       release?.detach(t.el);
       if (sunk) t.el.style.transformOrigin = sunk.origin;
-      // Restore c901688's per-card exit/fade on desktop. Phones retain their
-      // independent wall fade and existing displacement schedule.
-      const leaving = t.el.animate(deskFeed ? exitFrames : exitFrames.map(({ opacity: _opacity, ...frame }) => frame), {
+      if (deskFeed) {
+        // A faint tint builds during the fade's second half, independently
+        // of displacement and without a live brightness filter on the video.
+        const tint = document.createElement('div');
+        Object.assign(tint.style, { position: 'absolute', inset: '0', background: '#000', opacity: '0', pointerEvents: 'none', borderRadius: 'inherit' });
+        t.el.append(tint);
+        tint.animate([{ opacity: 0 }, { opacity: 0.12 }], {
+          delay: vanish.ms * 0.5, duration: vanish.ms * 0.5, easing: 'ease-in-out', fill: 'forwards',
+        });
+      }
+      // Keep the sink's opening hold and initial fade slope, then fade faster
+      // through its middle. Separate opacity so this never retimes displacement.
+      const fasterSinkFade = deskFeed && v.vanish === 'recede';
+      if (fasterSinkFade) {
+        t.el.animate([
+          { opacity },
+          { offset: 0.35, opacity, easing: 'cubic-bezier(.3,.23,.55,1)' },
+          { offset: 0.85, opacity: 0 },
+          { opacity: 0 },
+        ], { duration: vanish.ms, easing: vanish.easing, fill: 'forwards' });
+      }
+      // Phones retain their independent wall fade and displacement schedule.
+      const leaving = t.el.animate(deskFeed && !fasterSinkFade ? exitFrames : exitFrames.map(({ opacity: _opacity, ...frame }) => frame), {
         duration: vanish.ms,
         easing: vanish.easing,
         fill: 'forwards',
@@ -1031,10 +1086,12 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const phone: { video: HTMLVideoElement | null } = { video: null };
   const feedVideo = stage?.querySelector('video') ?? null;
   let concealedFeed: Animation | undefined;
+  let restoreDesktopLayers = () => {};
   const revealChrome = async () => {
     if (!alive()) return;
     if (deskFeed) {
       concealedFeed = feedVideo?.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'both' });
+      restoreDesktopLayers = layerDesktopHandoff(root, L.frame);
       // A slower focus setting may still have a veil up. Finish its opacity
       // fade with the background reveal so it cannot linger over the reels.
       for (const el of overlays) {
@@ -1095,5 +1152,6 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // layer until every remaining card has faded, even with an earlier handoff.
   if (deskFeed) await Promise.all(desktopExits);
   else await fade.run?.finished.catch(() => {});
+  restoreDesktopLayers();
   if (alive()) hooks.done();
 }
