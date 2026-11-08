@@ -10,6 +10,7 @@ import { replayWindow, stepCopy, walkthroughSteps, type Replay } from '@/annotat
 import type { TellsVariant } from '@/data/clips';
 import { variantIndex } from '@/devtools/settings';
 import { useDevSettings } from '@/devtools/store';
+import { pointerVerb } from '@/ui/pointer';
 import { usePalette } from '@/ui/theme';
 import './devSection';
 import { cardSpot, emptierSide, estimateCardHeight, type CardSpot } from './card';
@@ -213,20 +214,19 @@ export function TellOverlay({ ref, ...p }: Props) {
   const cardFor = (d: Loaded, i: number) => {
     const n = d.steps.length + (d.unplaced.length ? 1 : 0);
     const last = i + 1 >= n;
-    const tap = `Tap to ${last ? 'finish' : 'continue'}`;
+    // Only the reason, and a faint way on. Reviewers can mark model drafts (dev settings, off by default).
+    const tap = `${pointerVerb()} to ${last ? 'finish' : 'continue'}`;
     const tell = d.steps[i];
     if (tell) {
-      const c = stepCopy(tell, i, n);
       const text = tell.detail ?? tell.label;
-      // Model drafts nobody checked stay marked, quietly, in the hint line.
-      const hint = c.unverified ? `${c.doubtful ? 'Unsure AI draft' : 'AI draft'} · ${tap}` : tap;
+      const hint = settings.markDrafts && stepCopy(tell, i, n).unverified ? `AI draft · ${tap}` : tap;
       return { spot: spotFor(d, i, text), text, hint, loop: true };
     }
     const text = d.unplaced
       .slice(0, 3)
       .map((u) => `“${u.quote}”`)
       .join('\n');
-    return { spot: spotFor(d, i, text), text, hint: `Not shown on screen · ${tap}`, loop: false };
+    return { spot: spotFor(d, i, text), text, hint: tap, loop: false };
   };
 
   // ---- steps ----------------------------------------------------------------
@@ -287,7 +287,7 @@ export function TellOverlay({ ref, ...p }: Props) {
     }
     if (!d.steps.length && !d.unplaced.length) {
       setStep(-1);
-      showCard({ spot: cardSpot({ hole: null, placement: 'top', stageW: p.stageW, stageH: p.stageH, cardH: 60, safeTop: p.top, safeBottom }), text: 'No tells found for this clip', loop: false });
+      showCard({ spot: cardSpot({ hole: null, placement: 'top', stageW: p.stageW, stageH: p.stageH, cardH: 60, safeTop: p.top, safeBottom }), text: 'No tells found', loop: false });
       setTimeout(() => {
         leaveCards();
         setStep((s) => (s === -1 ? null : s));
