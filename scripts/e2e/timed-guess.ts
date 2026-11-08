@@ -436,9 +436,31 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   const introUp = await waitFor(page, 'the intro', (s) => s.intro === true, 5000);
   check('the Game tab opens with a short intro the first time', !!introUp && (await anyVisible(page, '[data-testid="game-intro"]')));
 
+  // Watch the feed's scroll position through the mark's advance: it scrolls there, eased, never jumps.
+  await page.evaluate((sel) => {
+    const w = window as unknown as { __adv: number[]; __advOn: boolean };
+    const el = [...document.querySelectorAll(sel)].find((e) => (e as HTMLElement).scrollHeight > (e as HTMLElement).clientHeight + 10) as HTMLElement | undefined;
+    w.__adv = [];
+    w.__advOn = true;
+    const tick = () => {
+      if (el) w.__adv.push(el.scrollTop);
+      if (w.__advOn) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, layout === 'desktop' ? '.feed' : '[data-testid="clip-feed"], [data-testid="clip-feed"] *');
   await doubleTap(page, layout);
   const marked = await waitFor(page, 'the mark advances', (s) => s.guesses.length === 1 && !s.busy);
   check('Game tab: a double tap marks AI (the double take’s gesture)', marked?.guesses[0]?.guess === 'ai', marked?.guesses);
+  await page.waitForTimeout(700);
+  const adv = await page.evaluate(() => {
+    const w = window as unknown as { __adv: number[]; __advOn: boolean };
+    w.__advOn = false;
+    return w.__adv;
+  });
+  const from = adv[0] ?? 0;
+  const to = adv[adv.length - 1] ?? 0;
+  const between = new Set(adv.filter((y) => y > from + 2 && y < to - 2).map((y) => Math.round(y))).size;
+  check('marking AI scrolls on to the next clip (eased, not a jump)', to > from && between >= 3, { from, to, between });
   check('the first answer puts the intro away', marked?.intro === false);
   if (layout === 'desktop') await page.mouse.wheel(0, 240);
   else await swipeUp(page);
@@ -449,8 +471,10 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   const live = await page.locator('[data-testid="game-score-live"]').last().getAttribute('aria-label');
   check('the live score shows what was judged', /, 2 judged$/.test(live ?? ''), live);
 
-  // A hold is the double take's gesture too (the setting is both by default): it marks AI.
+  // A hold is the double take's gesture too (the setting is both by default): it marks AI, with nothing shown while it's held.
+  const ringWhileHeld = page.evaluate(() => new Promise<boolean>((done) => setTimeout(() => done(!!document.querySelector('[data-testid="press-ring"]')), 450)));
   await hold(page, layout);
+  check('nothing shows while a hold is pressed', !(await ringWhileHeld));
   const held = await waitFor(page, 'the hold marks', (s) => s.guesses.length === 3 && !s.busy);
   check(`Game tab: ${layout === 'desktop' ? 'holding Space' : 'a hold'} marks AI`, held?.guesses[2]?.guess === 'ai', held?.guesses);
 
