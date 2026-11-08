@@ -47,7 +47,8 @@ function rows(): DevRow[] {
     },
     {
       kind: 'action',
-      label: 'Start a round',
+      label: 'Play the timed round',
+      note: 'The 60 s demo round. The Game tab plays untimed.',
       run: () => {
         closeDevSettings();
         router.push('/game');
