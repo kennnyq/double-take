@@ -45,6 +45,7 @@ import type { RevealGesture } from '@/settings/settings';
 import { useSocial } from '@/social/store';
 import { useToast } from '@/ui/Toast';
 import { HtmlVideoPlayer } from './HtmlVideoPlayer';
+import { createFocusTracker, keyOwner } from './feedKeys';
 import { mediaUri } from './media';
 import { useFeedScroller } from './useFeedScroller';
 
@@ -237,8 +238,11 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   // Space = play/pause, or held = the double take; M = mute (arrows, Page keys and
   // J/K live in the scroller). When holding Space opens the active clip's double
   // take, a quick press plays/pauses on release, so a hold never pauses first;
-  // otherwise Space plays/pauses on press, as always.
+  // otherwise Space plays/pauses on press, as always. Listening in the capture
+  // phase lets the feed take Space before a mouse-focused button does (see
+  // feedKeys.ts); controls reached with Tab, text fields and dialogs keep it.
   const space = useRef({ down: false, waiting: false, held: false, timer: 0 });
+  const [focus] = useState(createFocusTracker);
   useEffect(() => {
     if (!visible || !scrollEnabled) return;
     const sp = space.current;
@@ -246,13 +250,16 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       window.clearTimeout(sp.timer);
       sp.down = sp.waiting = sp.held = false;
     };
+    const onPointerDown = () => focus.onPointerDown();
     const onKey = (e: KeyboardEvent) => {
+      focus.onKeyDown(e.key);
       if (e.altKey || e.ctrlKey || e.metaKey) return;
-      const t = e.target as HTMLElement | null;
-      if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
-      if (t?.closest?.('[aria-modal="true"]')) return;
+      const owner = keyOwner(e.target as Element | null, focus.keyboardFocus);
       if (e.key === ' ') {
-        e.preventDefault(); // never scroll the page, repeats included
+        if (owner !== 'feed') return;
+        // Never scroll the page or press the focused button, repeats included.
+        e.preventDefault();
+        e.stopPropagation();
         if (e.repeat || sp.down) return;
         sp.down = true;
         if (spaceWaitsForHold(revealGesture, !!reveal.current)) {
@@ -264,27 +271,31 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
         } else {
           togglePause();
         }
-      } else if ((e.key === 'm' || e.key === 'M') && !e.repeat) {
+      } else if ((e.key === 'm' || e.key === 'M') && !e.repeat && (owner === 'feed' || owner === 'control')) {
         toggleMute();
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key !== ' ' || !sp.down) return;
+      // A button presses on Space's release: this one was the feed's.
       e.preventDefault();
+      e.stopPropagation();
       const tap = sp.waiting && !sp.held;
       reset();
       if (tap) togglePause();
     };
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('keydown', onKey, true);
+    window.addEventListener('keyup', onKeyUp, true);
+    window.addEventListener('pointerdown', onPointerDown, true);
     window.addEventListener('blur', reset);
     return () => {
       reset();
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('keydown', onKey, true);
+      window.removeEventListener('keyup', onKeyUp, true);
+      window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('blur', reset);
     };
-  }, [visible, scrollEnabled, togglePause, toggleMute, revealGesture, holdMs]);
+  }, [visible, scrollEnabled, togglePause, toggleMute, revealGesture, holdMs, focus]);
 
   // ---- feed mode switch ------------------------------------------------------
   // Stay on the same clip, or the nearest one after it.
