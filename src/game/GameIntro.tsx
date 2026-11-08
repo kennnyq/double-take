@@ -16,6 +16,7 @@ export function GameIntro({ on, desktop }: { on: boolean; desktop: boolean }) {
   const still = useReduceMotion();
   const c = usePalette();
   const ink = { color: c.text };
+  const backing = { backgroundColor: `${c.bgDeep}e6` };
   const shown = useEased(on ? 1 : 0, on ? 420 : 300);
   // The hand stays mounted until it has faded out.
   const [mounted, setMounted] = useState(on);
@@ -28,8 +29,8 @@ export function GameIntro({ on, desktop }: { on: boolean; desktop: boolean }) {
     <View style={StyleSheet.absoluteFill} pointerEvents="none" testID="game-intro" accessibilityLabel={label}>
       <HintView demo={revealGesture} design="hand" mouse={desktop} still={still} on={on} onGone={() => setMounted(false)} />
       <View style={[StyleSheet.absoluteFill, styles.center]}>
-        <Animated.Text style={[styles.ask, ink, styles.above, words]}>AI?</Animated.Text>
-        <Animated.View style={[styles.below, words]}>
+        <Animated.Text style={[styles.ask, ink, styles.pill, backing, styles.above, words]}>AI?</Animated.Text>
+        <Animated.View style={[styles.below, styles.pill, backing, words]}>
           <Text style={[styles.ask, ink]}>Real?</Text>
           <Text style={[styles.how, ink]}>{real}</Text>
         </Animated.View>
@@ -58,7 +59,9 @@ const styles = StyleSheet.create({
   center: { alignItems: 'center', justifyContent: 'center' },
   // Above the hint's hand, and below its caption.
   above: { position: 'absolute', marginTop: -170 },
-  below: { position: 'absolute', marginTop: 210, alignItems: 'center', gap: 2 },
+  below: { position: 'absolute', marginTop: 246, alignItems: 'center', gap: 2 },
+  // Fixed paint alpha; only the existing entrance/exit opacity and transform animate.
+  pill: { borderRadius: 20, paddingHorizontal: 16, paddingVertical: 8, overflow: 'hidden' },
   ask: { fontSize: 22, fontWeight: '800', ...shadow },
   how: { fontSize: 14, fontWeight: '600', ...shadow },
 });

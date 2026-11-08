@@ -384,7 +384,7 @@ function pool(c: Palette): ViewStyle {
 
 const useTint = themed((c: Palette) => ({
   scrim: pool(c),
-  caption: { color: c.text },
+  caption: { color: c.text, backgroundColor: alpha(c.bgDeep, 0.9) },
   castShadow: { backgroundColor: 'rgba(0,0,0,0.22)', boxShadow: '0 0 14px 7px rgba(0,0,0,0.22)' },
   contact: { backgroundColor: 'rgba(0,0,0,0.5)', boxShadow: '0 0 8px 5px rgba(0,0,0,0.4)' },
   nail: { borderColor: alpha(c.textDim, 0.45) },
@@ -409,6 +409,12 @@ const styles = StyleSheet.create({
     // icon stage. Override it so the wider caption fits and stays centered.
     maxWidth: SCRIM,
     bottom: 6,
+    // A real text backing stays legible even over burned-in white captions.
+    // Its alpha is in the paint, not a translucent parent over playing video.
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    overflow: 'hidden',
     textAlign: 'center',
     fontSize: 14,
     fontWeight: '600',
