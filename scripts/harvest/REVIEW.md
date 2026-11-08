@@ -9,18 +9,16 @@ npm run review                                   # http://0.0.0.0:8090 (reachabl
 REVIEW_PORT=8088 npm run review                  # another port
 ```
 
-On kenny-wsl, with the harvest worker's local Worker and its vetted decisions:
+**One decisions log:** `scripts/harvest/review/decisions.jsonl`, committed in the repo. The site appends to it, in the checkout that runs the server; `build_media.py` reads it (`--only-kept`, `--exclude-discarded`); the harvest worker vets clips into it too. Commit it from the checkout that ran the server. Branches that each add decisions merge as a union (`.gitattributes`), so nothing is lost or duplicated.
+
+On kenny-wsl, to see the local Worker's build (its passcode lives in another checkout):
 
 ```bash
-R=~/.t3/worktrees/double-take/feat-real-clips
-REVIEW_PORT=8088 REVIEW_LOCAL_DEV_VARS=$R/worker/.dev.vars \
-  REVIEW_ALSO_DECISIONS=$R/scripts/harvest/review/decisions.jsonl npm run review
+REVIEW_PORT=8088 REVIEW_LOCAL_DEV_VARS=~/.t3/worktrees/double-take/feat-real-clips/worker/.dev.vars npm run review
 ```
 
 - `REVIEW_LOCAL_DEV_VARS` reads the local Worker's `DEMO_PASSCODE` from that checkout. It's never printed or sent to the browser.
-- `REVIEW_ALSO_DECISIONS` folds another checkout's log in **read-only**. Both copies live at the same repo path and merge as a union (below), so this shows the state the merged file will have.
-
-**Where decisions go:** your decisions are appended to the decisions file **of the checkout that runs the server**, `scripts/harvest/review/decisions.jsonl`, and nowhere else. Commit that file from that checkout.
+- Optional, `REVIEW_ALSO_DECISIONS=<path>[,<path>]`: fold another checkout's decisions log in **read-only**, to see decisions that aren't merged yet (for example a worker's vetting in progress). Events in both logs count once. It isn't needed once those decisions are on main.
 
 It's a small Node server (`scripts/review/`). It isn't part of the app: Metro never bundles `scripts/`, nothing deploys it, and it refuses to start with `NODE_ENV=production`. It has no login, so only run it on a private network such as the tailnet.
 

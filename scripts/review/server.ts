@@ -22,9 +22,10 @@
  *            REVIEW_LOCAL_DEV_VARS=<path>   read the local Worker's DEMO_PASSCODE from another
  *                                           checkout's worker/.dev.vars (never printed)
  *
- * Decisions: appended to this checkout's scripts/harvest/review/decisions.jsonl.
- * REVIEW_ALSO_DECISIONS=<path>[,<path>] folds other checkouts' logs in read-only
- * (e.g. the harvest worker's, whose clips show as worker-vetted).
+ * Decisions: one committed log, scripts/harvest/review/decisions.jsonl, which this
+ * server appends to (in its own checkout) and build_media.py reads. Optionally,
+ * REVIEW_ALSO_DECISIONS=<path>[,<path>] folds other checkouts' logs in read-only, to see
+ * decisions that aren't merged yet.
  *
  * /app/<path> serves the app's pure double take modules type-stripped (appModules.ts),
  * so the page presents clips exactly the way the app does.
