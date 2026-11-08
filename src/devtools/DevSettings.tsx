@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { containOverscroll, ownWheelProps } from '@/ui/ownWheel';
 import { useDevTabs } from './api';
 import { BuiltInSources } from './builtins';
 import { DEV_EASE_MS, useDevChrome } from './chrome';
@@ -86,6 +87,7 @@ function DevSettingsHost({ desktop }: { desktop: boolean }) {
       )}
       {mounted && (
         <Animated.View
+          {...ownWheelProps}
           pointerEvents={open ? 'auto' : 'none'}
           style={[
             styles.panelHost,
@@ -241,7 +243,7 @@ function Panel({ tabs, tab, desktop, maxBody }: { tabs: ResolvedTab[]; tab: stri
               {tabs.map((t) => (
                 <ScrollView
                   key={t.id}
-                  style={{ width: pageW }}
+                  style={[{ width: pageW }, containOverscroll]}
                   contentContainerStyle={styles.page}
                   onContentSizeChange={measure(t.id)}
                   keyboardShouldPersistTaps="handled"
@@ -349,7 +351,7 @@ function SearchResults({
   const c = useDevChrome();
   const hits = searchTabs(tabs, query);
   return (
-    <ScrollView contentContainerStyle={styles.page} onContentSizeChange={onContentSizeChange} keyboardShouldPersistTaps="handled">
+    <ScrollView style={containOverscroll} contentContainerStyle={styles.page} onContentSizeChange={onContentSizeChange} keyboardShouldPersistTaps="handled">
       {hits.length === 0 && <Text style={[styles.sectionNote, c.dim]}>Nothing matches “{query.trim()}”.</Text>}
       {hits.map((h) => (
         <View key={h.section.id} style={styles.hit}>

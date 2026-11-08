@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
+import { ownsWheel } from '@/ui/ownWheel';
 import { WheelGestureDetector, normalizeWheelDelta } from './wheelGesture';
 
 /**
@@ -133,8 +134,8 @@ export function useFeedScroller(
     // columns, arrows, nav) drives the feed.
     const onWheel = (e: WheelEvent) => {
       if (e.ctrlKey) return; // pinch-zoom on trackpads
-      // Panels and dialogs that scroll on their own (comments, share) keep their wheel.
-      if (e.target instanceof Element && e.target.closest('[data-own-wheel]')) return;
+      // Panels and dialogs that scroll on their own (comments, dev settings, modals) keep their wheel.
+      if (ownsWheel(e.target)) return;
       if (Math.abs(e.deltaX) > Math.abs(e.deltaY)) return; // allow back-swipe
       e.preventDefault();
       const dy = normalizeWheelDelta(e.deltaY, e.deltaMode, el.clientHeight);
