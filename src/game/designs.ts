@@ -5,7 +5,7 @@
  * defaults. Pure, for `node --test`.
  */
 
-export const GAME_ELEMENTS = ['countdown', 'hud', 'transition', 'reveal', 'grid', 'expand'] as const;
+export const GAME_ELEMENTS = ['countdown', 'hud', 'reveal', 'grid', 'expand'] as const;
 export type GameElement = (typeof GAME_ELEMENTS)[number];
 
 export interface DesignOption {
@@ -44,16 +44,6 @@ export const GAME_DESIGNS = {
     ],
     default: 'pill',
     why: 'One compact object the countdown can land in; it stays out of the clip’s middle and leaves the corners to the buttons.',
-  },
-  transition: {
-    label: 'Clip change',
-    options: [
-      { id: 'slide', label: 'Slide', note: 'The deck slides up, like the feed.' },
-      { id: 'stack', label: 'Stack', note: 'A card stack: a skipped clip flies up, a marked one flies off to the side and tilts; the next rises from below.' },
-      { id: 'fade', label: 'Dissolve', note: 'The clip fades and grows a little as the next settles in underneath.' },
-    ],
-    default: 'stack',
-    why: 'The direction says what you did (up for skip, sideways for AI), and the springy card matches the double take’s.',
   },
   reveal: {
     label: 'Results reveal',

@@ -1,32 +1,33 @@
-import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { Animated, AppState, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
-import type { SkillCategory } from '@/skills/categories';
-import { WheelGestureDetector, normalizeWheelDelta } from '@/desktop/wheelGesture';
-import { themed, usePalette } from '@/ui/theme';
-import { GAME } from './config';
-import { buildDeck, clipKey } from './deck';
-import { buildAdaptiveDeck } from './adaptive';
-import { gameDev, useGameDev } from './devOptions';
-import { stageSize, useFrame } from './frame';
-import { GameStage, type Stamp } from './GameStage';
-import { recentClipKeys } from './history';
-import { Countdown } from './hud/Countdown';
-import { BUTTONS_W, Hud, ROW_H, ROW_Y, hudAnchor, useTimeFraction } from './hud/Hud';
-import { lerp, useEased } from './motion';
-import { Pager, slideTo, type Point } from './Pager';
-import { loadPlayableClips } from './playable';
-import { ResolveText } from './ResolveText';
-import { createRound, remaining, roundReducer, type Phase } from './round';
-import { roundStats } from './score';
-import { getFinishedRound, gameHistory, setFinishedRound } from './store';
 import { signals } from '@/engagement/store';
+import type { FeedMode, StageRect } from '@/feed/mode';
+import type { SkillCategory } from '@/skills/categories';
 import { clipMeta, loadMetas } from '@/skills/loadMeta';
 import { difficultyOf } from '@/skills/state';
 import { skillStore } from '@/skills/store';
+import { themed, usePalette } from '@/ui/theme';
+import { buildAdaptiveDeck } from './adaptive';
+import { GAME } from './config';
+import { buildDeck, clipKey } from './deck';
+import { gameDev, useGameDev } from './devOptions';
+import { useFrame } from './frame';
+import { recentClipKeys } from './history';
+import { Countdown } from './hud/Countdown';
+import { Hud, ROW_H, ROW_Y, hudAnchor, useTimeFraction } from './hud/Hud';
+import { safeClip } from './leaks';
+import { MarkStamp } from './MarkStamp';
+import { lerp, useEased } from './motion';
+import { loadPlayableClips } from './playable';
+import { ResolveText } from './ResolveText';
+import { createRound, remaining, roundReducer, type Phase, type RoundState } from './round';
+import { RoundFeed, type RoundFeedHandle } from './RoundFeed';
+import { roundStats } from './score';
+import { getFinishedRound, gameHistory, setFinishedRound } from './store';
 
 const now = () => performance.now();
 /** How often the clock checks the deadline and refreshes the readout. */
@@ -37,8 +38,10 @@ const END_HOLD_MS = 1300;
 const MORPH_MS = 560;
 
 type Dealt = { clip: Clip; truth: 'ai' | 'real' };
+type Point = { x: number; y: number };
+type Designs = ReturnType<typeof useGameDev>['designs'];
 
-/** The `/game` screen: deals a deck of clips whose media loads, then plays one round. */
+/** The `/game` screen: deals a deck of clips whose media loads, then plays one round in the feed. */
 export function GameRound() {
   const [deck, setDeck] = useState<Dealt[] | null>(null);
   const dev = useGameDev();
@@ -52,9 +55,9 @@ export function GameRound() {
         // Near the player's skill: each clip's categories and difficulty first.
         const metas = await loadMetas(clips);
         const state = skillStore.getSnapshot();
-        const sources = clips.map((c) => {
-          const m = metas.get(clipKey(c))!;
-          return { ...c, cats: m.cats, difficulty: difficultyOf(state, clipKey(c), m.prior) };
+        const sources = clips.map((cl) => {
+          const m = metas.get(clipKey(cl))!;
+          return { ...cl, cats: m.cats, difficulty: difficultyOf(state, clipKey(cl), m.prior) };
         });
         dealt = buildAdaptiveDeck(sources, { skills: state.skills, recent });
       } else {
@@ -72,7 +75,33 @@ export function GameRound() {
   return <Round deck={deck} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
 }
 
-function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durationMs: number; showTruth: boolean; designs: ReturnType<typeof useGameDev>['designs'] }) {
+/** What the overlay over the feed draws from: the round, and what it can do. */
+interface RoundUi {
+  s: RoundState;
+  clock: number;
+  shown: number;
+  designs: Designs;
+  showTruth: boolean;
+  truth: 'ai' | 'real' | undefined;
+  poster: Clip['poster'] | undefined;
+  stamp: { key: number; x: number; y: number; leaving: boolean } | null;
+  quitAsked: boolean;
+  start: () => void;
+  resume: () => void;
+  askQuit: () => void;
+  quit: () => void;
+}
+const RoundContext = createContext<RoundUi | null>(null);
+
+/**
+ * One round, run as a mode of the app's own feed (see `src/feed/mode.ts`):
+ * the feed shows the deck through `safeClip` (nothing that gives an answer
+ * away), with the clips' controls locked; a double tap marks the clip AI and
+ * moving past the clip being judged skips it. This component only keeps the
+ * round's state and draws the overlay: the clock, the countdown, the veil and
+ * the round's buttons.
+ */
+function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durationMs: number; showTruth: boolean; designs: Designs }) {
   // TODO(feat/gesture-hint): call useBlockHints() from '@/onboarding/store' here once it lands on main.
   const clips = useMemo(() => deck.map((d) => d.clip), [deck]);
   const [s, dispatch] = useReducer(roundReducer, null, () =>
@@ -81,11 +110,7 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
       durationMs,
     ),
   );
-  const frame = useFrame();
-  const { width: stageW, height: stageH, marginTop } = stageSize(frame);
-  const top = frame.desktop ? 0 : frame.top;
   const tint = useTint();
-  const c = usePalette();
 
   // ---- the clock ---------------------------------------------------------------
   const [clock, setClock] = useState(0);
@@ -108,70 +133,78 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
     return () => sub.remove();
   }, []);
 
-  // ---- the pager ---------------------------------------------------------------
-  // `shown`: the clip the pager is on or moving to. The round's own index moves
-  // at once on a decision; `shown` follows when the move starts.
+  // ---- the feed's events ----------------------------------------------------------
+  // `shown`: the clip the feed rests on. The round's own index moves at once on a
+  // decision; `shown` follows when the feed comes to rest on the next clip.
+  // Moving on from the clip being judged skips it; looking back is fine, but a
+  // clip already judged can't be judged again.
   const [shown, setShown] = useState(0);
-  const [pos] = useState(() => new Animated.Value(0));
-  // How the clip leaves: 0 up (skip), 1 to the side (mark). Set before each move.
-  const [dir] = useState(() => new Animated.Value(0));
+  const feed = useRef<RoundFeedHandle>(null);
   const [busy, setBusy] = useState(false);
-  const [stamps, setStamps] = useState<Stamp[]>([]);
+  const [stamp, setStamp] = useState<RoundUi['stamp']>(null);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
-
-  const moveOn = useCallback(
-    (from: number, velocity = 0) => {
-      const next = from + 1;
-      if (next >= clips.length) {
-        setBusy(false);
-        return;
-      }
-      setShown(next);
-      slideTo(pos, next, velocity, () => {
-        setBusy(false);
-        // The card that left is off the stage in every design: point the next leave up again.
-        dir.setValue(0);
-        setStamps((st) => st.filter((x) => x.idx >= next - 1));
-      });
-    },
-    [clips.length, pos, dir],
-  );
-
   const playing = s.phase === 'playing';
   const canAct = playing && !busy && s.index === shown;
 
-  const markAI = useCallback(
-    (at: Point) => {
-      if (!canAct) return;
-      dispatch({ type: 'MARK_AI', now: now(), index: shown });
-      setBusy(true);
-      if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-      setStamps((st) => [...st, { key: shown, idx: shown, x: at.x, y: at.y }]);
-      dir.setValue(1);
-      advanceTimer.current = setTimeout(() => moveOn(shown), GAME.markAdvanceMs);
-    },
-    [canAct, shown, moveOn, dir],
-  );
-
-  const skip = useCallback(
-    (velocity: number) => {
-      if (!canAct) return false;
-      dispatch({ type: 'SKIP', now: now(), index: shown });
-      setBusy(true);
-      moveOn(shown, velocity);
-      return true;
-    },
-    [canAct, shown, moveOn],
+  const onActive = (i: number) => {
+    if (i > shown && shown === s.index && playing && !busy) dispatch({ type: 'SKIP', now: now(), index: shown });
+    setShown(i);
+    setBusy(false);
+    setStamp(null);
+  };
+  const markAI = (at: Point) => {
+    if (!canAct) return;
+    dispatch({ type: 'MARK_AI', now: now(), index: shown });
+    setBusy(true);
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    setStamp({ key: shown, x: at.x, y: at.y, leaving: false });
+    const next = shown + 1;
+    advanceTimer.current = setTimeout(() => {
+      if (next >= clips.length) return setBusy(false);
+      setStamp((st) => (st ? { ...st, leaving: true } : st));
+      feed.current?.goTo(next);
+    }, GAME.markAdvanceMs);
+  };
+  const onDoubleTap = (i: number, at: Point, stage: StageRect | null) => {
+    if (i !== shown) return;
+    // Browsers can leave a tap's position unset: the stamp goes to the middle then.
+    const ok = Number.isFinite(at.x) && Number.isFinite(at.y);
+    markAI(ok ? at : { x: (stage?.w ?? 0) / 2, y: (stage?.h ?? 0) / 2 });
+  };
+  // The mode stays the same object across the clock's ticks; its callbacks reach the latest round through refs.
+  const events = useRef({ onActive, onDoubleTap, markAI });
+  useEffect(() => {
+    events.current = { onActive, onDoubleTap, markAI };
+  });
+  const lastStage = useRef<StageRect | null>(null);
+  const scrollEnabled = playing && !busy;
+  const mode = useMemo<FeedMode>(
+    () => ({
+      clips,
+      present: safeClip,
+      onDoubleTap: (i, at) => events.current.onDoubleTap(i, at, lastStage.current),
+      noHold: true,
+      noTapPause: true,
+      lockControls: true,
+      keys: false,
+      scrollEnabled,
+      onActive: (i) => events.current.onActive(i),
+      overlay: (stage) => {
+        lastStage.current = stage;
+        return <RoundOverlay stage={stage} />;
+      },
+    }),
+    [clips, scrollEnabled],
   );
 
   // ---- pausing and quitting -----------------------------------------------------
   const [quitAsked, setQuitAsked] = useState(false);
-  const start = () => dispatch({ type: 'START', now: now() });
-  const resume = () => {
+  const start = useCallback(() => dispatch({ type: 'START', now: now() }), []);
+  const resume = useCallback(() => {
     setQuitAsked(false);
     dispatch({ type: 'RESUME', now: now() });
-  };
+  }, []);
   const askQuit = useCallback(() => {
     setQuitAsked(true);
     dispatch({ type: 'PAUSE', now: now() });
@@ -182,7 +215,7 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
     else router.replace('/');
   }, []);
 
-  // ---- keys and wheel (browsers) ------------------------------------------------------
+  // ---- the round's keys (browsers): the feed's own (↓/J, ↑/K, wheel) move it ----
   const phaseRef = useRef<Phase>(s.phase);
   useEffect(() => {
     phaseRef.current = s.phase;
@@ -191,44 +224,22 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      const k = e.key;
-      if (k === 'Escape') {
+      if (e.key === 'Escape') {
         e.preventDefault();
         if (quitAsked || phaseRef.current === 'ready') quit();
         else askQuit();
-      } else if (k === ' ') {
+      } else if (e.key === ' ') {
         // Nothing: a stray Space must not count as a guess.
         e.preventDefault();
-      } else if (k === 'a' || k === 'A') {
+      } else if (e.key === 'a' || e.key === 'A') {
         e.preventDefault();
-        markAI({ x: stageW / 2, y: stageH / 2 });
-      } else if (k === 'ArrowDown' || k === 'j' || k === 'J') {
-        e.preventDefault();
-        skip(0);
+        const st = lastStage.current;
+        events.current.markAI({ x: (st?.w ?? 0) / 2, y: (st?.h ?? 0) / 2 });
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [markAI, skip, askQuit, quit, quitAsked, stageW, stageH]);
-
-  const [wheel] = useState(() => new WheelGestureDetector());
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const onWheel = (e: WheelEvent) => {
-      // The rail and the rest of the page keep their own wheel.
-      if (e.target instanceof Element && e.target.closest('.rail, [data-own-wheel]')) return;
-      e.preventDefault();
-      const d = wheel.push(normalizeWheelDelta(e.deltaY, e.deltaMode, stageH), e.timeStamp);
-      if (d === 1) skip(0);
-    };
-    window.addEventListener('wheel', onWheel, { passive: false });
-    return () => window.removeEventListener('wheel', onWheel);
-  }, [wheel, skip, stageH]);
-
-  // ---- sound ---------------------------------------------------------------------
-  // Browsers only allow sound after a gesture, and play starts after the countdown: start muted there.
-  const [muted, setMuted] = useState(Platform.OS === 'web');
-  const onMutedByBrowser = useCallback(() => setMuted(true), []);
+  }, [askQuit, quit, quitAsked]);
 
   // ---- the end ---------------------------------------------------------------------
   const ended = useRef(false);
@@ -288,11 +299,43 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
     };
   }, [s, shown, busy, designs]);
 
-  // ---- what shows ------------------------------------------------------------------
+  const ui: RoundUi = {
+    s,
+    clock,
+    shown,
+    designs,
+    showTruth,
+    truth: deck[shown]?.truth,
+    poster: clips[shown]?.poster,
+    stamp,
+    quitAsked,
+    start,
+    resume,
+    askQuit,
+    quit,
+  };
+  return (
+    <View style={[styles.root, tint.root]}>
+      <RoundContext.Provider value={ui}>
+        <RoundFeed mode={mode} live={playing} ref={feed} />
+      </RoundContext.Provider>
+    </View>
+  );
+}
+
+/** Over the feed, on the active clip's stage: the veil, the clock, the countdown and the round's buttons. */
+function RoundOverlay({ stage }: { stage: StageRect }) {
+  const ui = useContext(RoundContext)!;
+  const { s, designs } = ui;
+  const frame = useFrame();
+  const tint = useTint();
+  const c = usePalette();
+  // Under the status bar when the stage starts at the top of a phone screen.
+  const top = !frame.desktop && stage.y === 0 ? frame.top : 0;
+
   // The countdown holds its last end time while it flies into the timer.
   const [cdEnd, setCdEnd] = useState<number | null>(null);
   if (s.countdownEnd !== null && s.countdownEnd !== cdEnd) setCdEnd(s.countdownEnd);
-
   const hudOn = s.phase === 'playing' || s.phase === 'paused' || s.phase === 'over';
   const morph = useEased(hudOn ? 1 : 0, MORPH_MS);
   const countdownShown = useEased(s.phase === 'ready' ? 0 : 1);
@@ -301,101 +344,80 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
   const pausedCard = useEased(s.phase === 'paused' ? 1 : 0);
   const frac = useTimeFraction(s.remainingMs, s.phase === 'playing' ? s.deadline : null, s.durationMs);
   // The readout follows the clock's ticks; the timer's fill runs on its own from the deadline.
-  const displayMs = Math.min(s.remainingMs, remaining(s, clock));
-  const anchor = hudAnchor(designs.hud, stageW, top);
-  const current = clips[shown];
-  const truth = deck[shown]?.truth;
-  const desktop = frame.desktop;
+  const displayMs = Math.min(s.remainingMs, remaining(s, ui.clock));
 
   return (
-    <View style={[styles.root, tint.root]}>
-      <View style={[styles.stage, { width: stageW, height: stageH, marginTop }, desktop && styles.stageCard]}>
-        <GameStage
-          clips={clips}
-          index={shown}
-          pos={pos}
-          dir={dir}
-          design={designs.transition}
-          stamps={stamps}
-          width={stageW}
-          height={stageH}
-          live={playing}
-          muted={muted}
-          onMutedByBrowser={onMutedByBrowser}
-        />
-        <Pager index={shown} pos={pos} height={stageH} enabled={canAct} onDoubleTap={markAI} onSwipe={skip} />
+    <View
+      style={[styles.stage, { left: stage.x, top: stage.y, width: stage.w, height: stage.h }, (frame.desktop || stage.y > 0) && styles.stageCard]}
+      pointerEvents="box-none"
+      testID="round-overlay"
+    >
+      {/* The veil: dims and blurs the waiting clip; fades out at Go. */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: veil }]} pointerEvents={s.phase === 'playing' ? 'none' : 'auto'}>
+        {ui.poster && <Image source={ui.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={28} />}
+        <View style={[StyleSheet.absoluteFill, styles.dim]} />
+      </Animated.View>
 
-        {/* The veil: dims and blurs the waiting clip; fades out at Go. */}
-        <Animated.View style={[StyleSheet.absoluteFill, { opacity: veil }]} pointerEvents="none">
-          {current && <Image source={current.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={28} />}
-          <View style={[StyleSheet.absoluteFill, styles.dim]} />
-        </Animated.View>
-
-        {/* The timer grows out of where the countdown lands. */}
-        <Hud
-          design={designs.hud}
-          frac={frac}
-          durationMs={s.durationMs}
-          displayMs={displayMs}
-          judged={s.guesses.length}
-          width={stageW}
-          top={top}
-          appear={morph}
-        />
-        <Countdown
-          design={designs.countdown}
-          endAt={cdEnd}
-          totalMs={GAME.countdownMs}
-          width={stageW}
-          height={stageH}
-          anchor={anchor}
-          morph={morph}
-          shown={countdownShown}
-        />
-
-        {/* The round's buttons: always there. */}
-        <View style={[styles.buttons, { top: top + ROW_Y, width: BUTTONS_W }]} pointerEvents="box-none">
-          <IconButton icon={muted ? 'volume-mute' : 'volume-high'} label={muted ? 'Unmute' : 'Mute'} onPress={() => setMuted((m) => !m)} />
-          <IconButton icon="close" label="Quit round" onPress={s.phase === 'ready' ? quit : askQuit} />
+      {ui.stamp && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <MarkStamp key={ui.stamp.key} x={ui.stamp.x} y={ui.stamp.y} leaving={ui.stamp.leaving} />
         </View>
+      )}
 
-        {/* Ready: how to play, and Start. */}
-        <Fade value={readyCard} on={s.phase === 'ready'}>
-          <View style={[styles.card, tint.card]}>
-            <Hint icon="hand-left-outline" text={desktop ? 'Double-click or A: AI' : 'Double tap: AI'} />
-            <Hint icon="arrow-up-outline" text={desktop ? 'Scroll or ↓: skip, counts as real' : 'Swipe up: skip, counts as real'} />
-            <Pressable onPress={start} style={({ pressed }) => [styles.primary, tint.primary, pressed && styles.pressed]} accessibilityRole="button">
-              <Text style={[styles.primaryText, tint.primaryText]}>Start</Text>
-            </Pressable>
-          </View>
-        </Fade>
+      {/* The timer grows out of where the countdown lands. */}
+      <Hud design={designs.hud} frac={frac} durationMs={s.durationMs} displayMs={displayMs} judged={s.guesses.length} width={stage.w} top={top} appear={morph} />
+      <Countdown
+        design={designs.countdown}
+        endAt={cdEnd}
+        totalMs={GAME.countdownMs}
+        width={stage.w}
+        height={stage.h}
+        anchor={hudAnchor(designs.hud, stage.w, top)}
+        morph={morph}
+        shown={countdownShown}
+      />
 
-        {/* Paused (the app went to the background, or ✕). */}
-        <Fade value={pausedCard} on={s.phase === 'paused'}>
-          <View style={[styles.card, tint.card]}>
-            <Text style={[styles.title, tint.text]}>{quitAsked ? 'Quit round?' : 'Paused'}</Text>
-            <Pressable onPress={resume} style={({ pressed }) => [styles.primary, tint.primary, pressed && styles.pressed]} accessibilityRole="button">
-              <Text style={[styles.primaryText, tint.primaryText]}>Resume</Text>
-            </Pressable>
-            <Pressable onPress={quit} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">
-              <Text style={[styles.secondaryText, tint.dim]}>Quit</Text>
-            </Pressable>
-          </View>
-        </Fade>
-
-        {/* Time's up: resolves like the double take's text. */}
-        <View style={styles.center} pointerEvents="none">
-          <ResolveText on={s.phase === 'over' && s.endReason !== 'quit'} style={[styles.big, tint.text]}>
-            {s.endReason === 'deck' ? 'Done' : 'Time'}
-          </ResolveText>
-        </View>
-
-        {__DEV__ && showTruth && truth && (
-          <View style={[styles.truth, { top: top + ROW_Y + ROW_H + 8 }]} pointerEvents="none">
-            <Text style={[styles.truthText, { color: c.textDim }]}>dev: {truth}</Text>
-          </View>
-        )}
+      {/* Quit (sound is the feed's own button). */}
+      <View style={[styles.buttons, { top: top + ROW_Y }]} pointerEvents="box-none">
+        <IconButton icon="close" label="Quit round" onPress={s.phase === 'ready' ? ui.quit : ui.askQuit} />
       </View>
+
+      {/* Ready: how to play, and Start. */}
+      <Fade value={readyCard} on={s.phase === 'ready'}>
+        <View style={[styles.card, tint.card]}>
+          <Hint icon="hand-left-outline" text={frame.desktop ? 'Double-click or A: AI' : 'Double tap: AI'} />
+          <Hint icon="arrow-up-outline" text={frame.desktop ? 'Scroll or ↓: skip, counts as real' : 'Swipe up: skip, counts as real'} />
+          <Pressable onPress={ui.start} style={({ pressed }) => [styles.primary, tint.primary, pressed && styles.pressed]} accessibilityRole="button">
+            <Text style={[styles.primaryText, tint.primaryText]}>Start</Text>
+          </Pressable>
+        </View>
+      </Fade>
+
+      {/* Paused (the app went to the background, or ✕). */}
+      <Fade value={pausedCard} on={s.phase === 'paused'}>
+        <View style={[styles.card, tint.card]}>
+          <Text style={[styles.title, tint.text]}>{ui.quitAsked ? 'Quit round?' : 'Paused'}</Text>
+          <Pressable onPress={ui.resume} style={({ pressed }) => [styles.primary, tint.primary, pressed && styles.pressed]} accessibilityRole="button">
+            <Text style={[styles.primaryText, tint.primaryText]}>Resume</Text>
+          </Pressable>
+          <Pressable onPress={ui.quit} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">
+            <Text style={[styles.secondaryText, tint.dim]}>Quit</Text>
+          </Pressable>
+        </View>
+      </Fade>
+
+      {/* Time's up: resolves like the double take's text. */}
+      <View style={styles.center} pointerEvents="none">
+        <ResolveText on={s.phase === 'over' && s.endReason !== 'quit'} style={[styles.big, tint.text]}>
+          {s.endReason === 'deck' ? 'Done' : 'Time'}
+        </ResolveText>
+      </View>
+
+      {__DEV__ && ui.showTruth && ui.truth && (
+        <View style={[styles.truth, { top: top + ROW_Y + ROW_H + 8 }]} pointerEvents="none">
+          <Text style={[styles.truthText, { color: c.textDim }]}>dev: {ui.truth}</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -438,11 +460,11 @@ function IconButton({ icon, label, onPress }: { icon: React.ComponentProps<typeo
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: 'center' },
-  stage: { overflow: 'hidden', backgroundColor: '#000' },
-  stageCard: { borderRadius: 18 },
+  root: { flex: 1 },
+  stage: { position: 'absolute', overflow: 'hidden' },
+  stageCard: { borderRadius: 14 },
   dim: { backgroundColor: 'rgba(0,0,0,0.55)' },
-  buttons: { position: 'absolute', right: 0, height: ROW_H, paddingRight: 14, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 },
+  buttons: { position: 'absolute', right: 14, height: ROW_H, flexDirection: 'row', justifyContent: 'flex-end' },
   iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },
   center: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: { width: '100%', maxWidth: 320, borderRadius: 20, padding: 20, gap: 12 },

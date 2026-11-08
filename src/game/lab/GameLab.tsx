@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useReducer, useState } from 'react';
-import { Animated, Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { Image, Platform, Pressable, ScrollView, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,11 +10,9 @@ import { GAME } from '../config';
 import { GAME_DESIGNS, GAME_ELEMENTS, isDesign, stepDesign, type GameDesigns, type GameElement } from '../designs';
 import { setGameDesign, useGameDesigns } from '../devOptions';
 import { FrameContext, stageSize, useFrame, type FrameSize } from '../frame';
-import { GameStage, type Stamp } from '../GameStage';
 import { Countdown } from '../hud/Countdown';
 import { Hud, hudAnchor, useTimeFraction } from '../hud/Hud';
 import { useEased } from '../motion';
-import { Pager, slideTo, type Point } from '../Pager';
 import { loadPlayableClips } from '../playable';
 import { Results } from '../results/Results';
 import { createRound, remaining, roundReducer, type RoundState } from '../round';
@@ -214,7 +212,6 @@ export function GameLab() {
           </View>
         </>
       )}
-      {el === 'transition' && <Text style={[styles.optionNote, tint.dim]}>Double tap (or A) marks AI; swipe up (wheel, J) skips. The buttons below the clip do the same.</Text>}
 
       <Pressable onPress={() => setReplay((r) => r + 1)} style={({ pressed }) => [styles.replay, tint.primary, pressed && styles.pressed]} accessibilityRole="button" testID="lab-replay">
         <Ionicons name="refresh" size={16} color={c.onAccent} />
@@ -231,7 +228,6 @@ export function GameLab() {
         {size.width > 0 && clips.length > 0 && (
           <FrameContext.Provider value={frame}>
             {(el === 'countdown' || el === 'hud') && <HudPreview key={`hud-${replay}`} designs={designs} timeLeftMs={timeLeft} poster={clips[0]} />}
-            {el === 'transition' && <TransitionPreview key={`tr-${replay}-${designs.transition}`} designs={designs} clips={clips} />}
             {resultsEl && <ResultsPreview key={`res-${replay}-${designs.reveal}-${designs.grid}`} designs={designs} clips={clips} judged={judged} right={right} newBest={newBest} />}
             {el === 'skills' && <SkillsSim key={`sk-${replay}`} clips={clips} params={sim} width={Math.min(size.width - 16, 640)} />}
             {el === 'ranker' && <RankerSim key={`rk-${replay}`} clips={clips} taste={taste} sessions={12} width={Math.min(size.width - 16, 640)} />}
@@ -288,75 +284,6 @@ function HudPreview({ designs, timeLeftMs, poster }: { designs: GameDesigns; tim
             accessibilityRole="button"
           >
             <Text style={[styles.smallButtonText, tint.text]}>{paused ? 'Resume (morphs back out)' : 'Pause'}</Text>
-          </Pressable>
-        </View>
-      </View>
-    </View>
-  );
-}
-
-/** Clip change: the real stage and pager over the lab's clips, looping. */
-function TransitionPreview({ designs, clips }: { designs: GameDesigns; clips: Clip[] }) {
-  const frame = useFrame();
-  const { width, height, marginTop } = stageSize(frame);
-  const deck = useMemo(() => Array.from({ length: 200 }, (_, i) => ({ ...clips[i % clips.length], id: `t-${i}` })), [clips]);
-  const [shown, setShown] = useState(0);
-  const [pos] = useState(() => new Animated.Value(0));
-  const [dir] = useState(() => new Animated.Value(0));
-  const [busy, setBusy] = useState(false);
-  const [stamps, setStamps] = useState<Stamp[]>([]);
-  const tint = useTint();
-  const moveOn = useCallback(
-    (from: number, velocity = 0) => {
-      const next = from + 1;
-      setShown(next);
-      slideTo(pos, next, velocity, () => {
-        setBusy(false);
-        dir.setValue(0);
-        setStamps((st) => st.filter((x) => x.idx >= next - 1));
-      });
-    },
-    [pos, dir],
-  );
-  const mark = useCallback(
-    (at: Point) => {
-      if (busy) return;
-      setBusy(true);
-      setStamps((st) => [...st, { key: shown, idx: shown, x: at.x, y: at.y }]);
-      dir.setValue(1);
-      setTimeout(() => moveOn(shown), GAME.markAdvanceMs);
-    },
-    [busy, shown, moveOn, dir],
-  );
-  const skip = useCallback(
-    (velocity: number) => {
-      if (busy) return false;
-      setBusy(true);
-      moveOn(shown, velocity);
-      return true;
-    },
-    [busy, shown, moveOn],
-  );
-  useEffect(() => {
-    if (Platform.OS !== 'web') return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'a' || e.key === 'A') mark({ x: width / 2, y: height / 2 });
-      else if (e.key === 'j' || e.key === 'J' || e.key === 'ArrowDown') skip(0);
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [mark, skip, width, height]);
-  return (
-    <View style={styles.center}>
-      <View style={[styles.stage, { width, height, marginTop }]}>
-        <GameStage clips={deck} index={shown} pos={pos} dir={dir} design={designs.transition} stamps={stamps} width={width} height={height} live muted />
-        <Pager index={shown} pos={pos} height={height} enabled={!busy} onDoubleTap={mark} onSwipe={skip} />
-        <View style={[styles.stageButtons, styles.stageButtonsRow]}>
-          <Pressable onPress={() => mark({ x: width / 2, y: height / 2 })} style={({ pressed }) => [styles.smallButton, tint.option, pressed && styles.pressed]} accessibilityRole="button" testID="lab-mark">
-            <Text style={[styles.smallButtonText, tint.text]}>Mark AI</Text>
-          </Pressable>
-          <Pressable onPress={() => skip(0)} style={({ pressed }) => [styles.smallButton, tint.option, pressed && styles.pressed]} accessibilityRole="button" testID="lab-skip">
-            <Text style={[styles.smallButtonText, tint.text]}>Skip</Text>
           </Pressable>
         </View>
       </View>
