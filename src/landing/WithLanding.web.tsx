@@ -11,6 +11,7 @@ import { GalleryAtlas, GalleryClips, type GalleryClip } from './Tile';
 import {
   FEATURE_PRESETS,
   FEATURE_TRIALS,
+  DEFAULT_FEATURES_PRESET,
   FEATURES_PRESET_PARAM,
   FEATURES_STORAGE_PREFIX,
   GLOBAL_PRESETS,
@@ -70,7 +71,7 @@ export function WithLanding({
   const [landingKey, setLandingKey] = useState(0);
   const trials = useTrials(LANDING_TRIALS, LANDING_PRESETS, LANDING_STORAGE_PREFIX, DEFAULT_LANDING_PRESET);
   // The features below the hero have their own designs (`?fdesign=`), and the page its own aids.
-  const features = useTrials(FEATURE_TRIALS, FEATURE_PRESETS, FEATURES_STORAGE_PREFIX, undefined, FEATURES_PRESET_PARAM);
+  const features = useTrials(FEATURE_TRIALS, FEATURE_PRESETS, FEATURES_STORAGE_PREFIX, DEFAULT_FEATURES_PRESET, FEATURES_PRESET_PARAM);
   const global = useTrials(GLOBAL_TRIALS, GLOBAL_PRESETS, FEATURES_STORAGE_PREFIX, undefined, 'fglobal');
   // The feed's first-run hint waits until the launch has handed over to it.
   useBlockHints(stage !== 'app');

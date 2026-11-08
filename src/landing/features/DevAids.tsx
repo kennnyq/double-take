@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { TrialButton } from '../TrialBar';
 import { SECTION_WORDS } from './content';
+import { scrollToSection } from './Features';
 import type { SectionId } from './timeline';
 
 /** Development aids for the landing (the trial bar's Global tab). */
@@ -41,24 +42,18 @@ function Meter() {
 
 /** Jumps around the landing: the hero, each features section, the end. */
 function Jumps() {
-  const go = (where: 'top' | 'end' | number) => {
+  const go = (where: 'end' | number) => {
     const root = document.querySelector<HTMLElement>('.lt-root');
-    const track = document.querySelector<HTMLElement>('#features');
     if (!root) return;
-    if (where === 'top') return root.scrollTo({ top: 0, behavior: 'smooth' });
-    if (where === 'end') return root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' });
-    if (!track) return;
-    const starts = (track.dataset.starts ?? '').split(',').map(Number);
-    const h = track.querySelector<HTMLElement>('.ft-stage')?.clientHeight ?? window.innerHeight;
-    const top = track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop;
-    root.scrollTo({ top: top + (starts[where] ?? 0) * h + (where ? 0.05 * h : 0), behavior: 'smooth' });
+    if (where === 'end') root.scrollTo({ top: root.scrollHeight, behavior: 'smooth' });
+    else scrollToSection(root, where);
   };
   const ids = (document.querySelector<HTMLElement>('#features')?.dataset.ids ?? '').split(',').filter(Boolean) as SectionId[];
   return (
     <fieldset className="tb-group">
       <legend className="tb-legend">Go to</legend>
       <div className="tb-jumps">
-        <TrialButton onClick={() => go('top')}>Hero</TrialButton>
+        <TrialButton onClick={() => go(-1)}>Hero</TrialButton>
         {ids.map((id, i) => (
           <TrialButton key={id} onClick={() => go(i)}>
             {SECTION_WORDS[id]?.name ?? id}

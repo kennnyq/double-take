@@ -4,7 +4,8 @@ import { Logo } from '@/desktop/Logo';
 import { COPY, STEPS, TELLS } from './content';
 import type { LandingValues } from './designs';
 import type { FeatureValues } from './features/designs';
-import { Features } from './features/Features';
+import { FinalCta, type CtaDesign } from './features/Cta';
+import { Features, SectionLinks } from './features/Features';
 import { Gallery } from './Galleries';
 import { Tile, useAtlasBoards, useGalleryClip, useTilePlayback } from './Tile';
 import { launch } from './launch';
@@ -139,6 +140,8 @@ export function Landing({
           {v.header === 'full' && (
             <>
               <nav className="lt-nav">
+                {/* With the old sections hidden, the links go to the showcase's sections. */}
+                {v.below === 'none' && features && <SectionLinks rootRef={rootRef} />}
                 {v.below !== 'none' && (
                   <a href="#how" onClick={scrollTo}>
                     How it works
@@ -192,6 +195,11 @@ export function Landing({
               <span>{words.button}</span>
               {v.cta !== 'play' && <ArrowRight size={20} />}
             </button>
+            {v.below === 'none' && features && (
+              <a className="lt-secondary" href="#features" onClick={scrollTo}>
+                How it works <ArrowDown size={16} />
+              </a>
+            )}
             {v.below !== 'none' && (
               <a className="lt-secondary" href={v.below === 'quiz' ? '#try' : '#how'} onClick={scrollTo}>
                 {v.below === 'quiz' ? 'Try one first' : 'How it works'} <ArrowDown size={16} />
@@ -204,7 +212,7 @@ export function Landing({
       {v.below !== 'none' && <Below design={v.below} pressTile={pressTile} />}
       {/* The features tour ends straight into the last call to action and the footer. */}
       {features && <Features rootRef={rootRef} values={features} />}
-      {(v.below !== 'none' || features) && <Closing press={press} button={words.button} />}
+      {(v.below !== 'none' || features) && <Closing press={press} launchFrom={go} cta={features?.cta} button={words.button} rootRef={rootRef} />}
     </div>
   );
 }
@@ -337,20 +345,42 @@ function Below({ design, pressTile }: { design: LandingValues['below']; pressTil
 }
 
 /** The last call to open the app (the same launch as the hero's button), and the footer. */
-function Closing({ press, button }: { press(e: MouseEvent<HTMLElement>): void; button: string }) {
+function Closing({
+  press,
+  launchFrom,
+  cta,
+  button,
+  rootRef,
+}: {
+  press(e: MouseEvent<HTMLElement>): void;
+  launchFrom(el: HTMLElement | null): void;
+  /** The features' design for it; the plain heading and button without. */
+  cta?: CtaDesign;
+  button: string;
+  rootRef: React.RefObject<HTMLElement | null>;
+}) {
   return (
     <>
-      <section className="lt-section lt-final" data-exit="">
-        <h2 className="lt-h2">Ready for a double take?</h2>
-        <button type="button" className="lt-cta" onClick={press}>
-          <span>{button}</span>
-          <ArrowRight size={20} />
-        </button>
-      </section>
+      {cta ? (
+        <FinalCta design={cta} button={button} launchFrom={launchFrom} rootRef={rootRef} />
+      ) : (
+        <section className="lt-section lt-final" data-exit="">
+          <h2 className="lt-h2">Ready for a double take?</h2>
+          <button type="button" className="lt-cta" onClick={press}>
+            <span>{button}</span>
+            <ArrowRight size={20} />
+          </button>
+        </section>
+      )}
       <footer className="lt-footer" data-exit="">
         <span className="lt-brand">
           <Logo size={20} /> Double Take
         </span>
+        {cta && (
+          <nav className="lt-footer-links" aria-label="Features">
+            <SectionLinks rootRef={rootRef} />
+          </nav>
+        )}
         <span>A prototype. Clips belong to their creators.</span>
       </footer>
     </>

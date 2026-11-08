@@ -5,7 +5,9 @@
  *   BASE_URL=http://localhost:8101 node scripts/e2e/landing-features.ts [out-dir]
  *
  * Options (env): SIZES="1440x900,390x844", DESIGNS="side,stage,rail",
- * SHOTS=0 (timings only), TIMING=0 (shots only).
+ * SHOTS=0 (timings only), TIMING=0 (shots only),
+ * CTAS="quiz,phone,score,wall,plain" (instead: each last call to action is
+ * photographed, played, and pressed, which must launch into the app).
  */
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -88,7 +90,55 @@ function summary(times: number[]): Record<string, number> {
 const browser = await chromium.launch({ executablePath: findChrome(), args: ['--autoplay-policy=no-user-gesture-required'] });
 mkdirSync(out, { recursive: true });
 const results: Record<string, unknown> = {};
-for (const [w, h] of sizes) {
+const ctas = process.env.CTAS?.split(',');
+
+/** Each last call to action: at rest, after playing it, and whether its button launches into the app. */
+async function checkCtas(names: string[]) {
+  for (const [w, h] of sizes) {
+    for (const cta of names) {
+      const mobile = w < 760;
+      const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: mobile ? 2 : 1, isMobile: mobile, hasTouch: mobile });
+      const page = await ctx.newPage();
+      await cacheFeed(page);
+      page.on('pageerror', (e) => console.error(`[cta ${cta} ${w}] page error:`, e.message));
+      await page.goto(`${BASE_URL}/?fcta=${cta}`, { waitUntil: 'domcontentloaded' });
+      await page.waitForSelector('#features .ft-device', { timeout: 60_000 });
+      await page.waitForTimeout(1500);
+      // Arrive the way a visitor does: scrolled down to it (the wall and the phone move with the scroll).
+      await page.evaluate(() => {
+        const root = document.querySelector<HTMLElement>('.lt-root')!;
+        const final = document.querySelector<HTMLElement>('.lt-final')!;
+        root.scrollTop = final.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop - root.clientHeight * 0.9;
+      });
+      await page.waitForTimeout(600);
+      await page.evaluate(() => document.querySelector('.lt-final')!.scrollIntoView({ block: 'center' }));
+      await page.waitForTimeout(2200);
+      const shot = (n: string) => page.screenshot({ path: join(out, `cta-${cta}-${w}x${h}-${n}.jpg`), type: 'jpeg', quality: 70 });
+      await shot('a');
+      if (cta === 'quiz') for (const b of await page.$$('.ftc-calls button:last-child')) await b.click();
+      if (cta === 'score') for (const t of await page.$$('.ftc-markable')) await t.click();
+      if (cta === 'quiz' || cta === 'score') {
+        await page.waitForTimeout(1500);
+        await shot('b');
+      }
+      const t0 = Date.now();
+      await page.click('.lt-final .lt-cta');
+      const ok = await page
+        .waitForFunction(() => location.hash === '#app' && !document.querySelector('.lt-root'), null, { timeout: 20_000 })
+        .then(
+          () => true,
+          () => false,
+        );
+      results[`cta ${cta} ${w}x${h}`] = ok ? `launched into the app in ${Date.now() - t0} ms` : 'DID NOT LAUNCH';
+      await page.waitForTimeout(400);
+      await shot('c');
+      await ctx.close();
+    }
+  }
+}
+
+if (ctas) await checkCtas(ctas);
+for (const [w, h] of ctas ? [] : sizes) {
   for (const design of designs) {
     const mobile = w < 760;
     const ctx = await browser.newContext({ viewport: { width: w, height: h }, deviceScaleFactor: mobile ? 2 : 1, isMobile: mobile, hasTouch: mobile });

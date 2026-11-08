@@ -40,6 +40,13 @@ export const FEATURE_TRIALS = {
     { value: 'none', label: 'Nothing' },
     { value: 'poster', label: 'The clip, blurred' },
   ]),
+  cta: trial(LOOK, 'Last call to action', 'fcta', [
+    { value: 'quiz', label: 'Real or AI? on three clips' },
+    { value: 'phone', label: 'The phone becomes the app' },
+    { value: 'score', label: 'A score to beat' },
+    { value: 'wall', label: 'The wall comes back' },
+    { value: 'plain', label: 'Heading and button' },
+  ]),
   nav: trial(LOOK, 'Section index', 'fnav', [
     { value: 'dots', label: 'Labels with a line' },
     { value: 'none', label: 'None' },
@@ -88,6 +95,7 @@ const BASE: FeatureValues = {
   layout: 'side',
   device: 'titanium',
   glow: 'soft',
+  cta: 'quiz',
   nav: 'dots',
   length: 'medium',
   follow: 'smooth',
@@ -112,15 +120,18 @@ export const FEATURE_PRESETS: readonly Preset<FeatureTrials>[] = [
     id: 'stage',
     label: 'Center stage',
     note: 'The phone in the middle, big words behind it. Cards come out to both sides, further, in 3D.',
-    values: { ...BASE, layout: 'stage', pop: 'wild', tilt: 'more', glow: 'poster' },
+    values: { ...BASE, layout: 'stage', pop: 'wild', tilt: 'more', glow: 'poster', cta: 'phone' },
   },
   {
     id: 'rail',
     label: 'Story rail',
     note: 'Scrolling moves a row of panels sideways past the phone; cards land on the panel.',
-    values: { ...BASE, layout: 'rail', device: 'black', tilt: 'none' },
+    values: { ...BASE, layout: 'rail', device: 'black', tilt: 'none', cta: 'wall' },
   },
 ];
+
+/** Shown when nothing else picks one (Kenny's pick for now). */
+export const DEFAULT_FEATURES_PRESET = 'stage';
 
 export const FEATURES_STORAGE_PREFIX = 'dt-landing-features:';
 export const FEATURES_PRESET_PARAM = 'fdesign';

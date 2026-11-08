@@ -126,11 +126,12 @@ export const LANDING_TRIALS = {
     { value: 'logo', label: 'Logo only' },
     { value: 'none', label: 'None' },
   ]),
-  below: trial(PAGE, 'Below the hero', 'below', [
+  // The features showcase (Features tab) replaces these; they stay here to compare.
+  below: trial(PAGE, 'Old sections below the hero', 'below', [
+    { value: 'none', label: 'Hidden (the showcase instead)' },
     { value: 'full', label: 'How it works, tells, try one' },
     { value: 'steps', label: 'How it works' },
     { value: 'quiz', label: 'Try one' },
-    { value: 'none', label: 'Nothing' },
   ]),
 
   // ---- Launch ------------------------------------------------------------
@@ -257,7 +258,7 @@ const BASE: LandingValues = {
   accent: 'blue',
   tier: 'auto',
   header: 'full',
-  below: 'full',
+  below: 'none',
   motion: 'decelerate',
   pick: 'center',
   order: 'random',
@@ -336,7 +337,7 @@ export const LANDING_PRESETS: readonly Preset<LandingTrials>[] = [
     cta: 'play',
     accent: 'white',
     header: 'logo',
-    below: 'steps',
+    below: 'none',
     pace: '2600',
     grow: 'slow',
     focus: 'early',
@@ -385,7 +386,7 @@ export const LANDING_PRESETS: readonly Preset<LandingTrials>[] = [
     type: 'serif',
     emphasis: 'bracket',
     scan: 'none',
-    below: 'quiz',
+    below: 'none',
     pick: 'button',
   }),
   preset('editorial', 'Editorial', 'Big serif words on black over one filmstrip of clips; coral accents.', {

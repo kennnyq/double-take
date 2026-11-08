@@ -250,15 +250,9 @@ export function Features({ rootRef, values: v }: { rootRef: RefObject<HTMLElemen
   // The index: jumping to a section scrolls there (navigation).
   const jump = useCallback(
     (e: MouseEvent<HTMLButtonElement>) => {
-      const root = rootRef.current;
-      const track = trackRef.current;
-      const i = Number(e.currentTarget.dataset.index);
-      const s = layout.sections[i];
-      if (!root || !track || !s || !dims) return;
-      const top = track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop;
-      root.scrollTo({ top: top + (s.start + (i === 0 ? 0 : 0.05)) * dims.H, behavior: 'smooth' });
+      if (rootRef.current) scrollToSection(rootRef.current, Number(e.currentTarget.dataset.index));
     },
-    [rootRef, layout, dims],
+    [rootRef],
   );
 
   if (!ids.length) return null;
@@ -346,5 +340,44 @@ export function Features({ rootRef, values: v }: { rootRef: RefObject<HTMLElemen
         </div>
       </section>
     </SceneContext.Provider>
+  );
+}
+
+/** Scrolls the landing to features section `i` (its start, just past its crossover), or the hero for -1. */
+export function scrollToSection(root: HTMLElement, i: number) {
+  if (i < 0) return root.scrollTo({ top: 0, behavior: 'smooth' });
+  const track = root.querySelector<HTMLElement>('#features');
+  if (!track) return;
+  const starts = (track.dataset.starts ?? '').split(',').map(Number);
+  const h = track.querySelector<HTMLElement>('.ft-stage')?.clientHeight ?? root.clientHeight;
+  const top = track.getBoundingClientRect().top - root.getBoundingClientRect().top + root.scrollTop;
+  root.scrollTo({ top: top + (starts[i] ?? 0) * h + (i ? 0.05 * h : 0), behavior: 'smooth' });
+}
+
+/** Links to each feature, by name, for the header's nav and the footer (scrolling there is navigation). */
+export function SectionLinks({ rootRef }: { rootRef: RefObject<HTMLElement | null> }) {
+  const [ids, setIds] = useState<SectionId[]>([]);
+  useEffect(() => {
+    const read = () => setIds(((rootRef.current?.querySelector<HTMLElement>('#features')?.dataset.ids ?? '').split(',').filter(Boolean)) as SectionId[]);
+    read();
+    const t = window.setTimeout(read, 500);
+    return () => window.clearTimeout(t);
+  }, [rootRef]);
+  if (!ids.length) return null;
+  return (
+    <>
+      {ids.map((id, i) => (
+        <a
+          key={id}
+          href="#features"
+          onClick={(e) => {
+            e.preventDefault();
+            if (rootRef.current) scrollToSection(rootRef.current, i);
+          }}
+        >
+          {SECTION_WORDS[id].name}
+        </a>
+      ))}
+    </>
   );
 }
