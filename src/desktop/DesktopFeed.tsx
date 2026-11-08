@@ -247,13 +247,18 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     }
   }, [safePlay]);
 
-  // Space = play/pause, or held = the double take; M = mute (arrows, Page keys and
+  // Space = play/pause, or held = the double take (then each press goes on to
+  // its next step); M = mute (arrows, Page keys and
   // J/K live in the scroller). When holding Space opens the active clip's double
   // take, a quick press plays/pauses on release, so a hold never pauses first;
   // otherwise Space plays/pauses on press, as always. Listening in the capture
   // phase lets the feed take Space before a mouse-focused button does (see
   // feedKeys.ts); controls reached with Tab, text fields and dialogs keep it.
   const space = useRef({ down: false, waiting: false, held: false, timer: 0 });
+  const inspectingRef = useRef(inspecting);
+  useEffect(() => {
+    inspectingRef.current = inspecting;
+  }, [inspecting]);
   const [focus] = useState(createFocusTracker);
   useEffect(() => {
     if (!visible || !scrollEnabled) return;
@@ -274,6 +279,12 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
         e.stopPropagation();
         if (e.repeat || sp.down) return;
         sp.down = true;
+        // During a double take, Space goes on to the next step (as a click
+        // does). Only a new press: the hold that opened it never advances it.
+        if (inspectingRef.current && reveal.current?.next()) {
+          sp.waiting = false;
+          return;
+        }
         if (spaceWaitsForHold(revealGesture, !!reveal.current)) {
           sp.waiting = true;
           sp.timer = window.setTimeout(() => {
