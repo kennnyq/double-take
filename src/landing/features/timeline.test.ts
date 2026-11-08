@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { follow, layoutSections, localProgress, presence, stepsAt, wheels, SECTION_SCREENS } from './timeline.ts';
 import { checkLook, dotLook, walkFrame, STEPS_FROM, STEPS_TO } from './walk.ts';
-import { GAME_CALLS, SKILLS, answer, isRight, showcaseTabs } from './mock.ts';
+import { DEMO_CATEGORIES, GAME_CALLS, answer, demoSkills, isRight } from './mock.ts';
+import { toScore } from '../../skills/skill.ts';
 
 test('layoutSections: end to end, scaled, skipping hidden ones', () => {
   const l = layoutSections(['scroll', 'game'], 0.5);
@@ -99,21 +100,17 @@ test('wheels: an odometer, the tens wheel turning only while the ones roll over'
   assert.ok(maxJump((v) => wheels(v).tens, 50, 80) < 0.02);
 });
 
-test('mock: answers follow the clip, and the skill scores stay in range', () => {
+test('demo data: answers follow the clip; the skills read back as the Skills tab would show them', () => {
   assert.equal(GAME_CALLS.length, 2);
   assert.ok(isRight(answer('ai', 'ai')));
   assert.ok(!isRight(answer('real', 'ai')));
   assert.equal(answer('real', 'ai', 'Uploaded 2016').why, 'Uploaded 2016');
-  for (const r of SKILLS.rows) assert.ok(r.low <= r.score && r.score <= r.high && r.high <= 100);
-});
-
-test('showcaseTabs: Game and Skills stand in after Home until the app has them', () => {
-  const tab = (id: string) => ({ id, label: id, icon: `${id}-outline`, iconActive: id });
-  const main = [tab('home'), tab('create'), tab('you'), tab('settings')];
-  assert.deepEqual(
-    showcaseTabs(main).map((t) => t.id),
-    ['home', 'game', 'skills', 'create', 'you'],
-  );
-  const merged = [tab('home'), tab('game'), tab('skills'), tab('create'), tab('you')];
-  assert.deepEqual(showcaseTabs(merged), merged, 'the real ones, as they are');
+  const d = demoSkills();
+  assert.deepEqual(toScore(d.general.now), { score: 68, low: 61, high: 74 });
+  assert.equal(toScore(d.general.before).score, 62);
+  for (const c of DEMO_CATEGORIES) {
+    const now = toScore(d.now[c]);
+    assert.ok(now.low <= now.score && now.score <= now.high && now.high <= 100, c);
+    assert.ok(toScore(d.before[c]).score <= now.score, `${c} doesn't drop`);
+  }
 });

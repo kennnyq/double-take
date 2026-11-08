@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Ionicons } from '@expo/vector-icons';
+import { alpha } from '@/feed/glass';
+import { usePalette } from '@/ui/theme';
 import { Asset } from 'expo-asset';
 import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { DEFAULT_SETTINGS } from '@/devtools/settings';
@@ -71,7 +73,17 @@ function geometry(steps: DemoStep[], aspect: number, d: Dims, cardW: number, pla
     const box = st.box ? boxOnScreen(st.box, aspect, d.sw, fh) : { x: d.sw * 0.25, y: fh * 0.35, w: d.sw * 0.5, h: fh * 0.2 };
     const hole = holeFor(box, S.spotlightShape, paddingPx(S.spotlightPadding) * (d.sw / CANVAS_W));
     const h = TEXT_TOP + (plans[k]?.height ?? 40) + FOOTER + BOTTOM;
-    const spot = cardSpot({ hole, subject: box, placement: 'bottom', stageW: d.sw, stageH: fh, cardH: h, safeTop: 56, safeBottom: 20, maxWidth: cardW });
+    const spot = cardSpot({
+      hole,
+      subject: box,
+      placement: 'bottom',
+      stageW: d.sw,
+      stageH: fh,
+      cardH: h,
+      safeTop: 56,
+      safeBottom: 20,
+      maxWidth: cardW,
+    });
     const y = spot.side === 'top' ? spot.offset : fh - spot.offset - h;
     return { box, hole, x: spot.cx - spot.width / 2, y, h, spot };
   });
@@ -83,8 +95,14 @@ function geometry(steps: DemoStep[], aspect: number, d: Dims, cardW: number, pla
  * shadow under it. It stays parallel to the screen.
  */
 function liftPlace(g: StepGeo, side: 1 | -1, d: Dims, w: number) {
-  const shift = Math.min(w * (d.narrow ? 0.05 : 0.11), d.narrow ? 14 : 34) * Math.min(1, d.pop || 1);
-  return { x: g.x + side * shift, y: g.y - (d.narrow ? 4 : 8), z: d.narrow ? 14 : 30, rot: 0, scale: 1.02 };
+  const shift = Math.min(w * (d.narrow ? 0.08 : 0.14), d.narrow ? 24 : 44);
+  return {
+    x: g.x + side * shift,
+    y: g.y - (d.narrow ? 4 : 8),
+    z: d.narrow ? 14 : 30,
+    rot: 0,
+    scale: 1.02,
+  };
 }
 
 /** How far in front of the screen the side card floats, px. */
@@ -107,12 +125,23 @@ function sidePlace(g: StepGeo, side: 1 | -1, d: Dims, w: number, fh: number) {
   const reach = Math.min(gap, Math.max(-w * 0.6, room - w - 8));
   const x = side > 0 ? d.sw + reach : -reach - w;
   const cy = d.railY ?? g.hole.y + g.hole.h / 2;
-  return { x, y: Math.max(8, Math.min(d.sh - g.h - 8, cy - g.h / 2)), below: false };
+  return {
+    x,
+    y: Math.max(8, Math.min(d.sh - g.h - 8, cy - g.h / 2)),
+    below: false,
+  };
 }
 
 /** Where a card goes out to: beside the phone on `side`, level with its tell (or on the rail's panel). */
 function popPlace(g: StepGeo, side: 1 | -1, d: Dims, w: number, scale: number) {
-  if (d.narrow || d.pop <= 0) return { x: g.x, y: g.y - 10 * d.pop, z: 60 * d.pop, rot: 0, scale: 1 + 0.12 * d.pop };
+  if (d.narrow || d.pop <= 0)
+    return {
+      x: g.x,
+      y: g.y - 10 * d.pop,
+      z: 60 * d.pop,
+      rot: 0,
+      scale: 1 + 0.12 * d.pop,
+    };
   const half = (w * scale) / 2;
   const reach = 30 + 40 * d.pop;
   // Kept on the stage (with room for its turn and its nearness): overlapping the phone's edge if it must.
@@ -120,7 +149,13 @@ function popPlace(g: StepGeo, side: 1 | -1, d: Dims, w: number, scale: number) {
   const cx = side > 0 ? Math.max(d.sw * 0.66, Math.min(d.sw + reach + half, d.sw + room - half)) : Math.min(d.sw * 0.34, Math.max(-reach - half, -room + half));
   const cy = d.railY ?? Math.max(g.h / 2 + 8, Math.min(d.sh - g.h / 2 - 8, g.hole.y + g.hole.h / 2));
   // Turned to face the phone a little: its far edge recedes.
-  return { x: cx - w / 2, y: cy - g.h / 2, z: 70 * d.pop, rot: side * (6 + 6 * d.pop), scale };
+  return {
+    x: cx - w / 2,
+    y: cy - g.h / 2,
+    z: 70 * d.pop,
+    rot: side * (6 + 6 * d.pop),
+    scale,
+  };
 }
 
 /**
@@ -132,6 +167,10 @@ function popPlace(g: StepGeo, side: 1 | -1, d: Dims, w: number, scale: number) {
  */
 export function WalkScene() {
   const { dims, media, values, invalidate } = useHost();
+  // InfoCard's NavButton icons: the palette's text at 85 %, and onTell on the check.
+  const palette = usePalette();
+  const NAV_ICON = alpha(palette.text, 0.85);
+  const NAV_CHECK = palette.onTell;
   const walk = media?.walk;
   const other = media?.others[0];
   const steps = useMemo(() => (walk ? walk.steps.slice(0, Number(values.steps)) : []), [walk, values.steps]);
@@ -193,7 +232,11 @@ export function WalkScene() {
         const tops = els.map((e) => e.offsetTop);
         const xs = els.map((e) => (e.offsetLeft + e.offsetWidth / 2) / Math.max(1, block.offsetWidth));
         const plan = revealPlan('siri', linesFromTops(tops), xs);
-        return { units: plan.units, total: plan.total, height: block.offsetHeight || box.height };
+        return {
+          units: plan.units,
+          total: plan.total,
+          height: block.offsetHeight || box.height,
+        };
       });
       geo.current = geometry(steps, aspect, dims, cardW, plans.current);
       invalidate();
@@ -206,7 +249,12 @@ export function WalkScene() {
   }, [dims, steps, n, aspect, cardW, invalidate]);
 
   // The video: plays the feed, or loops the current step in slow motion, getting there by an eased scrub.
-  const video = useRef({ mode: -2, cancel: null as null | (() => void), loop: null as null | { from: number; to: number }, raf: 0 });
+  const video = useRef({
+    mode: -2,
+    cancel: null as null | (() => void),
+    loop: null as null | { from: number; to: number },
+    raf: 0,
+  });
   const setMode = (m: number) => {
     const c = video.current;
     const v = videoB.current;
@@ -223,7 +271,10 @@ export function WalkScene() {
     const st = steps[m];
     if (!st) return;
     const end = Number.isFinite(v.duration) && v.duration > 0 ? v.duration - 0.06 : st.replay.to;
-    const loop = { from: Math.min(st.replay.from, end - 0.5), to: Math.min(st.replay.to, end) };
+    const loop = {
+      from: Math.min(st.replay.from, end - 0.5),
+      to: Math.min(st.replay.to, end),
+    };
     v.pause();
     c.cancel = runScrub(v, planScrub(v.currentTime, loop.from), () => {
       c.cancel = null;
@@ -302,7 +353,12 @@ export function WalkScene() {
     const cur = g[k];
     const m = k > 0 ? f.at - (k - 1) : 1;
     const mix = (a: number, b: number) => lerp(a, b, m);
-    const hole = { x: mix(prev.hole.x, cur.hole.x), y: mix(prev.hole.y, cur.hole.y), w: mix(prev.hole.w, cur.hole.w), h: mix(prev.hole.h, cur.hole.h) };
+    const hole = {
+      x: mix(prev.hole.x, cur.hole.x),
+      y: mix(prev.hole.y, cur.hole.y),
+      w: mix(prev.hole.w, cur.hole.w),
+      h: mix(prev.hole.h, cur.hole.h),
+    };
 
     // The spotlight: the hole image and four bands around it, by transform only.
     const r = maskPlacement(hole);
@@ -311,9 +367,12 @@ export function WalkScene() {
     // opacity on their group), so neither a light nor a dark seam shows where they meet.
     paint(spotEl.current, 'none', shade);
     paint(holeEl.current, `translate3d(${px(r.x + r.w / 2)}, ${px(r.y + r.h / 2)}, 0) scale(${(r.w / MASK_SIZE).toFixed(5)}, ${(r.h / MASK_SIZE).toFixed(5)})`, 1);
-    dimBands(d.sw, fh, { x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }).forEach((b, i) =>
-      paint(bandEls.current[i], `translate3d(${px(b.tx)}, ${px(b.ty)}, 0) scale(${b.sx.toFixed(5)}, ${b.sy.toFixed(5)})`, 1),
-    );
+    dimBands(d.sw, fh, {
+      x: r.x + 1,
+      y: r.y + 1,
+      w: r.w - 2,
+      h: r.h - 2,
+    }).forEach((b, i) => paint(bandEls.current[i], `translate3d(${px(b.tx)}, ${px(b.ty)}, 0) scale(${b.sx.toFixed(5)}, ${b.sy.toFixed(5)})`, 1));
 
     // The card: in from below its tell as the double take opens, then over to each next tell.
     const mode = values.card;
@@ -324,10 +383,19 @@ export function WalkScene() {
     let rot = 0;
     let s = 0.96 + 0.04 * f.open;
     let L: number;
-    // Beside the phone (one side, so a step's card changes in place); stage's alternating sides apply to the old pop only.
+    // One side (so a step's card changes in place); stage's alternating sides apply to the old pop only.
     let side: 1 | -1 = d.popSide === -1 ? -1 : 1;
     let below = false;
-    if (mode === 'side') {
+    if (mode === 'rest') {
+      // Where the lift used to end: over the screen's edge, partly past it, a little raised. It appears there.
+      const a = liftPlace(prev, side, d, cardW);
+      const b = liftPlace(cur, side, d, cardW);
+      L = 1;
+      x = mix(a.x, b.x);
+      y = mix(a.y, b.y) + (1 - f.open) * TRAVEL;
+      z = b.z;
+      s *= b.scale;
+    } else if (mode === 'side') {
       // Beside the phone from the start: it rises and fades in where it stays, and moves from tell to tell there.
       const a = sidePlace(prev, side, d, cardW, fh);
       const b = sidePlace(cur, side, d, cardW, fh);
@@ -354,10 +422,14 @@ export function WalkScene() {
     paint(glass.current, `scaleY(${(h / 200).toFixed(4)})`, 1);
     paint(footer.current, `translate3d(0, ${px(h - FOOTER - BOTTOM)}, 0)`, 1);
     // A soft shadow under it, falling away from the phone as if lit from above.
-    paint(shadow.current, `translate3d(${px((mode === 'side' ? side * 6 : -side * (lifted ? 10 : 0)) * L)}, ${px(h * 0.5 + (lifted ? 10 : 18) * L)}, 0) scale(1, ${(h / 200).toFixed(4)})`, L * (lifted ? 0.7 : 0.9));
+    paint(
+      shadow.current,
+      `translate3d(${px((mode === 'side' ? side * 6 : -side * (lifted ? 10 : 0)) * L)}, ${px(h * 0.5 + (lifted ? 10 : 18) * L)}, 0) scale(1, ${(h / 200).toFixed(4)})`,
+      L * (lifted ? 0.7 : 0.9),
+    );
     // Its tell's time and name above it (beside the phone, or out with the old pop), the next one taking over as the steps change.
     chips.current.forEach((el, j) => {
-      const on = mode === 'lift' ? 0 : j === k ? (k > 0 ? m : 1) : j === k - 1 ? 1 - m : 0;
+      const on = mode === 'lift' || mode === 'rest' ? 0 : j === k ? (k > 0 ? m : 1) : j === k - 1 ? 1 - m : 0;
       paint(el, `translate3d(0, ${px((1 - on) * 6)}, 0)`, on * (mode === 'side' ? f.open : L));
     });
 
@@ -449,32 +521,32 @@ export function WalkScene() {
   return (
     <>
       <OnScreen layerRef={layer}>
-          <div className="ft-clip" ref={clipA} style={{ bottom: 'auto', height: fh }}>
-            <Clip src={seen ? other?.video : undefined} poster={other?.poster} playing={aPlaying} />
-            {chrome(other, chromeA)}
+        <div className="ft-clip" ref={clipA} style={{ bottom: 'auto', height: fh }}>
+          <Clip src={seen ? other?.video : undefined} poster={other?.poster} playing={aPlaying} />
+          {chrome(other, chromeA)}
+        </div>
+        <div className="ft-clip" ref={clipB} style={{ bottom: 'auto', height: fh }}>
+          <Clip src={seen ? walk?.video : undefined} poster={walk?.poster} playing={false} videoRef={videoB} loop={false} />
+          {chrome(walk, chromeB)}
+          <div className="ft-spot" ref={spotEl} style={{ opacity: 0 }} aria-hidden>
+            {[0, 1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="ft-band"
+                style={{ width: dims?.sw, height: fh }}
+                ref={(el) => {
+                  bandEls.current[i] = el;
+                }}
+              />
+            ))}
+            <img className="ft-hole" ref={holeEl} src={holeUri} alt="" />
           </div>
-          <div className="ft-clip" ref={clipB} style={{ bottom: 'auto', height: fh }}>
-            <Clip src={seen ? walk?.video : undefined} poster={walk?.poster} playing={false} videoRef={videoB} loop={false} />
-            {chrome(walk, chromeB)}
-            <div className="ft-spot" ref={spotEl} style={{ opacity: 0 }} aria-hidden>
-              {[0, 1, 2, 3].map((i) => (
-                <div
-                  key={i}
-                  className="ft-band"
-                  style={{ width: dims?.sw, height: fh }}
-                  ref={(el) => {
-                    bandEls.current[i] = el;
-                  }}
-                />
-              ))}
-              <img className="ft-hole" ref={holeEl} src={holeUri} alt="" />
-            </div>
-          </div>
-          <Canvas k={k}>
-            <AppTopBar barRef={topBar} />
-            <AppTabBar active="home" barRef={tabBar} />
-            <TapHand x={CANVAS_W / 2} y={380} handRef={hand} />
-          </Canvas>
+        </div>
+        <Canvas k={k}>
+          <AppTopBar barRef={topBar} />
+          <AppTabBar active="home" barRef={tabBar} />
+          <TapHand x={CANVAS_W / 2} y={380} handRef={hand} />
+        </Canvas>
       </OnScreen>
       <AroundScreen>
         {[0, 1, 2, 3].map((i) => (
@@ -530,25 +602,25 @@ export function WalkScene() {
           ))}
           <div className="ft-footer" ref={footer}>
             <span
-              className="ft-fpart ft-status"
+              className="ft-fpart ft-fstatus"
               style={{ opacity: 0 }}
               ref={(el) => {
                 footerParts.current[0] = el;
               }}
             >
-            <span className="ft-loop">
-              <i ref={loopFill} />
-            </span>
-            <span className="ft-dots">
-              {steps.map((_, i) => (
-                <i
-                  key={i}
-                  ref={(el) => {
-                    dots.current[i] = el;
-                  }}
-                />
-              ))}
-            </span>
+              <span className="ft-loop">
+                <i ref={loopFill} />
+              </span>
+              <span className="ft-dots">
+                {steps.map((_, i) => (
+                  <i
+                    key={i}
+                    ref={(el) => {
+                      dots.current[i] = el;
+                    }}
+                  />
+                ))}
+              </span>
             </span>
             <span className="ft-navs">
               <span
@@ -558,7 +630,7 @@ export function WalkScene() {
                   footerParts.current[1] = el;
                 }}
               >
-                <ChevronLeft size={16} />
+                <Ionicons name="chevron-back" size={16} color={NAV_ICON} />
               </span>
               <span
                 className="ft-nav-btn ft-fpart"
@@ -569,10 +641,10 @@ export function WalkScene() {
               >
                 <i className="ft-nav-fill" ref={fillOn} style={{ opacity: 0 }} />
                 <span ref={arrow} className="ft-nav-icon">
-                  <ChevronRight size={16} />
+                  <Ionicons name="chevron-forward" size={16} color={NAV_ICON} />
                 </span>
                 <span ref={check} className="ft-nav-icon ft-nav-check" style={{ opacity: 0 }}>
-                  <Check size={16} />
+                  <Ionicons name="checkmark" size={16} color={NAV_CHECK} />
                 </span>
               </span>
             </span>

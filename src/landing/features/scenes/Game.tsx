@@ -1,48 +1,72 @@
 import { useRef, useState } from 'react';
-import { Check, X } from 'lucide-react';
-import { dampedSpring } from '@/feed/reveal';
+import { Ionicons } from '@expo/vector-icons';
+import { ROW_H, ROW_Y } from '@/game/hud/Hud';
+import { MarkStamp } from '@/game/MarkStamp';
+import { POINTS } from '@/game/config';
+import { pointsFor } from '@/game/score';
+import { usePalette } from '@/ui/theme';
 import { paint, px, useHost, useScene } from '../engine';
 import { GAME_CALLS, answer, isRight } from '../mock';
-import { clamp01, easeInOut, easeOut, lerp, seg } from '../timeline';
-import { AppTabBar, AroundScreen, CANVAS_H, CANVAS_W, Canvas, Clip, OnScreen, useShown } from './parts';
+import { easeInOut, lerp, plateau, seg } from '../timeline';
+import { AppTabBar, AroundScreen, CANVAS_H, CANVAS_W, Canvas, Clip, OnScreen, TapHand, paintHand, useShown } from './parts';
 
-/** Each answer's beats, of the section's progress: the tap, the feedback, the swipe on. */
+/** Each answer's beats, of the section's progress: the double tap that marks it (its second tap), the swipe on. */
 const BEATS = [
-  { tap: 0.1, feedback: 0.17, swipe: 0.36 },
-  { tap: 0.47, feedback: 0.54, swipe: 0.73 },
+  { mark: 0.16, swipe: 0.38 },
+  { mark: 0.55, swipe: 0.76 },
 ];
+/** How much of the section one double tap takes (the hint's loop). */
+const TAP_SPAN = 0.16;
+/** The hint's second tap lands this far into its loop (HintView's doubleTap spec). */
+const SECOND_TAP = 0.38;
 /** Where the taps land, in canvas points. */
 const TAPS = [
-  { x: 230, y: 330 },
-  { x: 160, y: 420 },
+  { x: 230, y: 360 },
+  { x: 160, y: 430 },
 ];
+/** The status bar: the round's score row sits under it (GameRound: `top + ROW_Y`). */
+const TOP = 54;
+
+/** A stamp's life: shown from its mark until the feed moves on; a new key springs it in again. */
+interface StampState {
+  key: number;
+  on: boolean;
+  leaving: boolean;
+}
 
 /**
- * Game: spot the AI, no timer. A tap marks a clip as AI (the stamp springs in
- * where it landed), the answer comes back at once, the score ticks, and the
- * feed moves on; each answered clip leaves the screen for a stack beside the
- * phone. Drawn from `mock.ts` until the Game tab is merged.
+ * Game: spot the AI, no timer. The gesture hint's hand double-taps a clip to
+ * mark it AI, the game's own stamp springs in where it landed, the score pill
+ * shows the answer at once (its ✓ or ✕, scored with the game's own points),
+ * and the feed moves on; each answered clip leaves for a stack beside the
+ * phone. The clips' answers are their real verdicts.
  */
 export function GameScene() {
   const { dims, media } = useHost();
+  const c = usePalette();
   const [shown, setShown] = useShown();
   const [current, setCurrent] = useState(0);
   const k = dims ? dims.sw / CANVAS_W : 1;
   const pool = media?.others ?? [];
   // The round's clips: an AI one and a real one where the feed has them, then one more.
-  const ai = pool.find((c) => c.verdict === 'ai') ?? pool[1];
-  const real = pool.find((c) => c.verdict === 'real') ?? pool.find((c) => c !== ai && c.verdict);
-  const clips = [ai, real, pool.find((c) => c !== ai && c !== real)];
+  const ai = pool.find((x) => x.verdict === 'ai') ?? pool[1];
+  const real = pool.find((x) => x.verdict === 'real') ?? pool.find((x) => x !== ai && x.verdict);
+  const clips = [ai, real, pool.find((x) => x !== ai && x !== real)];
   // Each answer follows what its clip really is.
   const answers = GAME_CALLS.map((call, i) => answer(clips[i]?.verdict ?? 'ai', call, clips[i]?.evidence));
+  const guesses = answers.map((a) => ({ guess: a.call, truth: a.truth }));
+
+  const [stamps, setStamps] = useState<StampState[]>(BEATS.map(() => ({ key: 0, on: false, leaving: false })));
+  const stampsRef = useRef(stamps);
+  const [answered, setAnswered] = useState(0);
+  const answeredRef = useRef(0);
 
   const layer = useRef<HTMLDivElement>(null);
   const slides = useRef<(HTMLDivElement | null)[]>([]);
-  const rings = useRef<(HTMLElement | null)[]>([]);
-  const stamps = useRef<(HTMLElement | null)[]>([]);
-  const feedback = useRef<(HTMLElement | null)[]>([]);
-  const digits = useRef<HTMLElement>(null);
-  const hint = useRef<HTMLParagraphElement>(null);
+  const handA = useRef<HTMLDivElement>(null);
+  const handB = useRef<HTMLDivElement>(null);
+  const hands = [handA, handB];
+  const result = useRef<HTMLDivElement>(null);
   const tiles = useRef<(HTMLElement | null)[]>([]);
 
   useScene('game', ({ p, presence, dims: d }) => {
@@ -55,44 +79,68 @@ export function GameScene() {
     const playing = Math.round(at);
     if (playing !== current) setCurrent(playing);
     slides.current.forEach((el, i) => paint(el, `translate3d(0, ${px((i - at) * CANVAS_H)}, 0)`, 1));
-    paint(hint.current, 'none', 1 - seg(p, 0.05, 0.1) + seg(p, 0.8, 0.86));
 
-    let score = 0;
+    // The stamps: in at each mark, eased away as the feed moves on (or as the page goes back before the mark).
+    const next = stampsRef.current.map((st, i) => {
+      const want = p >= BEATS[i].mark && p < BEATS[i].swipe;
+      if (want && !st.on) return { key: st.key + 1, on: true, leaving: false };
+      if (!want && st.on && !st.leaving) return { ...st, leaving: true };
+      if (!want && st.leaving) return st;
+      return st;
+    });
+    if (next.some((st, i) => st !== stampsRef.current[i])) {
+      stampsRef.current = next;
+      setStamps(next);
+    }
+    // How many answers are in (the score pill shows the last one's ✓ or ✕).
+    const n = BEATS.filter((b) => p >= b.mark).length;
+    if (n !== answeredRef.current) {
+      answeredRef.current = n;
+      setAnswered(n);
+    }
+    const lastMark = n ? BEATS[n - 1].mark : 0;
+    const dot = n ? plateau(p, lastMark, lastMark + 0.03, BEATS[n - 1].swipe - 0.02, BEATS[n - 1].swipe + 0.04) : 0;
+    paint(result.current, `scale(${lerp(0.6, 1, dot).toFixed(4)})`, dot);
+
     BEATS.forEach((b, i) => {
-      const a = answers[i];
-      // The tap, then the stamp springing in where it landed (the app's card spring, run by the scroll).
-      const tap = seg(p, b.tap - 0.04, b.tap);
-      paint(rings.current[i], `scale(${(0.5 + easeOut(tap) * 1.1).toFixed(4)})`, tap > 0 && tap < 1 ? (1 - tap) * 0.9 : 0);
-      const t = Math.max(0, p - b.tap) * 9000;
-      const st = p < b.tap ? 0 : 1 - dampedSpring(t, 0.55, 420);
-      paint(stamps.current[i], `rotate(-10deg) scale(${lerp(1.6, 1, st).toFixed(4)})`, clamp01(st * 2.5));
-      // The answer, at once: right or not, and why.
-      const fb = easeOut(seg(p, b.feedback, b.feedback + 0.05));
-      paint(feedback.current[i], `translate3d(0, ${px((1 - fb) * 16)}, 0)`, fb);
-      if (isRight(a)) score += easeInOut(seg(p, b.feedback + 0.02, b.feedback + 0.07));
+      // The hint's hand double-taps where the mark lands; its second tap is the mark.
+      const u = (p - (b.mark - SECOND_TAP * TAP_SPAN)) / TAP_SPAN;
+      paintHand(hands[i].current, u);
 
       // The answered clip leaves for the stack beside the phone.
       const tile = tiles.current[i];
       const go = easeInOut(seg(p, b.swipe - 0.02, b.swipe + 0.1));
       const sx = (CANVAS_W / 2) * k - 45;
       const sy = (CANVAS_H / 2) * k - 80;
-      const out = d.narrow || d.pop <= 0
-        ? { x: 14 + i * 64, y: d.sh - 190, z: 30, s: 0.6 }
-        : { x: side > 0 ? d.sw + Math.min(50 + 20 * d.pop + i * 30, d.roomR - 110) : -Math.min(50 + 20 * d.pop + i * 30, d.roomL - 110) - 90, y: d.sh * 0.2 + i * 150, z: 50 * d.pop + i * 10, s: 1 };
+      const out =
+        d.narrow || d.pop <= 0
+          ? { x: 14 + i * 64, y: d.sh - 190, z: 30, s: 0.6 }
+          : {
+              x: side > 0 ? d.sw + Math.min(50 + 20 * d.pop + i * 30, d.roomR - 110) : -Math.min(50 + 20 * d.pop + i * 30, d.roomL - 110) - 90,
+              y: d.sh * 0.2 + i * 150,
+              z: 50 * d.pop + i * 10,
+              s: 1,
+            };
       paint(
         tile,
         `translate3d(${px(lerp(sx, out.x, go))}, ${px(lerp(sy, out.y, go))}, ${px(out.z * go + Math.sin(Math.PI * go) * 60 * d.pop)}) rotateY(${(side * 14 * go * Math.min(1, d.pop)).toFixed(2)}deg) rotateZ(${(lerp(0, i ? 4 : -4, go) * side).toFixed(2)}deg) scale(${lerp(1.6, out.s, go).toFixed(4)})`,
         go > 0 ? Math.min(1, go * 4) * presence : 0,
       );
     });
-    paint(digits.current, `translate3d(0, ${px(-score * 26)}, 0)`, 1);
   });
 
+  const last = answered ? guesses[answered - 1] : null;
+  const right = last ? last.guess === last.truth : false;
+  // The game's own scoring (score.ts's scoreRound, from each guess's points).
+  const score = Math.max(
+    POINTS.floor,
+    guesses.slice(0, answered).reduce((n, g) => n + pointsFor(g), 0),
+  );
   return (
     <>
       <OnScreen layerRef={layer}>
         <Canvas k={k}>
-          {clips.map((c, i) => (
+          {clips.map((clip, i) => (
             <div
               key={i}
               className="ft-slide ft-a"
@@ -100,61 +148,33 @@ export function GameScene() {
                 slides.current[i] = el;
               }}
             >
-              <Clip src={shown.seen && Math.abs(i - current) <= 1 ? c?.video : undefined} poster={c?.poster} playing={shown.on && i === current} />
+              <Clip src={shown.seen && Math.abs(i - current) <= 1 ? clip?.video : undefined} poster={clip?.poster} playing={shown.on && i === current} />
               <div className="ft-scrim" />
-              {i < 2 && (
-                <>
-                  <i
-                    className="ft-ring"
-                    style={{ left: TAPS[i].x - 36, top: TAPS[i].y - 36, opacity: 0 }}
-                    ref={(el) => {
-                      rings.current[i] = el;
-                    }}
-                  />
-                  <span
-                    className="ft-stamp ft-a"
-                    style={{ left: TAPS[i].x - 46, top: TAPS[i].y - 26, opacity: 0 }}
-                    ref={(el) => {
-                      stamps.current[i] = el;
-                    }}
-                  >
-                    AI
-                  </span>
-                  <div
-                    className="ft-answer ft-a"
-                    data-right={isRight(answers[i]) ? '' : undefined}
-                    style={{ opacity: 0 }}
-                    ref={(el) => {
-                      feedback.current[i] = el;
-                    }}
-                  >
-                    <span className="ft-answer-mark">{isRight(answers[i]) ? <Check size={18} strokeWidth={3} /> : <X size={18} strokeWidth={3} />}</span>
-                    <span>
-                      <b>{isRight(answers[i]) ? `Right, it’s ${answers[i].truth === 'ai' ? 'AI' : 'real'}` : `Not this time, it’s ${answers[i].truth === 'ai' ? 'AI' : 'real'}`}</b>
-                      <small>{answers[i].why}</small>
-                    </span>
-                  </div>
-                </>
-              )}
+              {i < BEATS.length && stamps[i].on && <MarkStamp key={stamps[i].key} x={TAPS[i].x} y={TAPS[i].y} leaving={stamps[i].leaving} />}
+              {i < BEATS.length && <TapHand x={TAPS[i].x} y={TAPS[i].y} handRef={hands[i]} />}
             </div>
           ))}
-          <div className="ft-gamebar">
-            <span>Spot the AI</span>
-            <span className="ft-score">
-              <Check size={15} strokeWidth={3} />
-              <span className="ft-digits">
-                <i ref={digits}>
-                  <b>0</b>
-                  <b>1</b>
-                  <b>2</b>
-                </i>
+          {/* GameRound's score row: the score, how many judged, and the last answer's ✓ or ✕. */}
+          <div className="ft-scorerow" style={{ top: TOP + ROW_Y, height: ROW_H }}>
+            <div className="ft-scorepill" aria-label={`Score ${score}, ${answered} judged`}>
+              <span className="ft-scoretext">{score}</span>
+              <span className="ft-judged">
+                <Ionicons name="layers-outline" size={13} color={c.textDim} />
+                <span>{answered}</span>
               </span>
-            </span>
+              <div
+                className="ft-result ft-a"
+                ref={result}
+                style={{
+                  opacity: 0,
+                  backgroundColor: right ? c.correct : c.incorrect,
+                }}
+              >
+                <Ionicons name={right ? 'checkmark' : 'close'} size={14} color={c.onAccent} />
+              </div>
+            </div>
           </div>
           <AppTabBar active="game" />
-          <p className="ft-hint ft-a" ref={hint}>
-            Tap if it’s AI · swipe on if it’s real
-          </p>
         </Canvas>
       </OnScreen>
       <AroundScreen>
@@ -169,7 +189,9 @@ export function GameScene() {
             }}
           >
             {clips[i]?.poster && <img src={clips[i]?.poster} alt="" />}
-            <span>{isRight(answers[i]) ? <Check size={14} strokeWidth={3} /> : <X size={14} strokeWidth={3} />}</span>
+            <span>
+              <Ionicons name={isRight(answers[i]) ? 'checkmark' : 'close'} size={14} color={isRight(answers[i]) ? '#000' : '#fff'} />
+            </span>
           </div>
         ))}
       </AroundScreen>

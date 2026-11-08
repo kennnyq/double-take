@@ -1,29 +1,21 @@
-import {
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type RefObject,
-} from "react";
-import { ArrowRight, Check, X } from "lucide-react";
-import type { Clip } from "@/data/clips";
-import { loadInitialClips } from "@/data/feed";
-import { readTellsFile } from "@/annotations/format";
-import { seekTimeFor, walkthroughSteps } from "@/annotations/walkthrough";
-import {
-  GalleryClips,
-  Tile,
-  useAtlasBoards,
-  useTilePlayback,
-  type GalleryClip,
-} from "../Tile";
-import type { FeatureValues } from "./designs";
-import { paint, px } from "./engine";
-import { SKILLS } from "./mock";
-import { clamp01, easeInOut, easeOut, lerp, seg, wheels } from "./timeline";
+import { useContext, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { ArrowRight, Check, X } from 'lucide-react';
+import type { Clip } from '@/data/clips';
+import { loadInitialClips } from '@/data/feed';
+import { readTellsFile } from '@/annotations/format';
+import { seekTimeFor, walkthroughSteps } from '@/annotations/walkthrough';
+import { GalleryClips, Tile, useAtlasBoards, useTilePlayback, type GalleryClip } from '../Tile';
+import type { FeatureValues } from './designs';
+import { paint, px } from './engine';
+import { toScore } from '@/skills/skill';
+import { demoSkills } from './mock';
 
-export type CtaDesign = FeatureValues["cta"];
+import { clamp01, easeInOut, easeOut, lerp, seg, wheels } from './timeline';
+
+/** The score to beat: the showcase's player (its Skills screen's general score). */
+const TO_BEAT = toScore(demoSkills().general.now).score;
+
+export type CtaDesign = FeatureValues['cta'];
 
 interface Props {
   design: CtaDesign;
@@ -41,23 +33,19 @@ interface Props {
  */
 export function FinalCta(p: Props) {
   switch (p.design) {
-    case "quiz":
+    case 'quiz':
       return <QuizCta {...p} />;
-    case "phone":
+    case 'phone':
       return <PhoneCta {...p} />;
-    case "score":
+    case 'score':
       return <ScoreCta {...p} />;
-    case "wall":
+    case 'wall':
       return <WallCta {...p} />;
     default:
       return (
         <section className="lt-section lt-final" data-exit="">
           <h2 className="lt-h2">Ready for a double take?</h2>
-          <button
-            type="button"
-            className="lt-cta"
-            onClick={(e) => p.launchFrom(e.currentTarget)}
-          >
+          <button type="button" className="lt-cta" onClick={(e) => p.launchFrom(e.currentTarget)}>
             <span>{p.button}</span>
             <ArrowRight size={20} />
           </button>
@@ -81,23 +69,20 @@ function useChallenge(n: number) {
   }, []);
   return useMemo(() => {
     const known = gallery.filter((g) => clips[g.index]?.verdict);
-    const ai = known.filter((g) => clips[g.index].verdict === "ai");
-    const real = known.filter((g) => clips[g.index].verdict === "real");
+    const ai = known.filter((g) => clips[g.index].verdict === 'ai');
+    const real = known.filter((g) => clips[g.index].verdict === 'real');
     // Skip the hero's first few (they're the ones on screen at the top).
     const pick: GalleryClip[] = [];
     const order = [ai[3], real[1], ai[5], real[2], ai[7], ...known.slice(8)];
-    for (const g of order)
-      if (g && !pick.includes(g) && pick.length < n) pick.push(g);
+    for (const g of order) if (g && !pick.includes(g) && pick.length < n) pick.push(g);
     return pick.map((g) => ({ gallery: g, clip: clips[g.index] }));
   }, [gallery, clips, n]);
 }
 
 /** A tell to show with an answer: the clip's first placed tell (fetched only once answered), else its evidence. */
 function useWhy(clip: Clip | undefined, on: boolean): string | null {
-  const fallback =
-    clip?.verdictEvidence ??
-    (clip?.verdict === "real" ? "Filmed, not generated." : null);
-  const fetches = on && !!clip && clip.verdict === "ai" && !!clip.tellsUrl;
+  const fallback = clip?.verdictEvidence ?? (clip?.verdict === 'real' ? 'Filmed, not generated.' : null);
+  const fetches = on && !!clip && clip.verdict === 'ai' && !!clip.tellsUrl;
   const [tell, setTell] = useState<string | null>(null);
   useEffect(() => {
     if (!fetches || !clip?.tellsUrl) return;
@@ -107,10 +92,7 @@ function useWhy(clip: Clip | undefined, on: boolean): string | null {
       .then((d) => {
         const t = d ? walkthroughSteps(readTellsFile(d).tells)[0] : undefined;
         const s = t ? Math.floor(seekTimeFor(t)) : 0;
-        if (live && t)
-          setTell(
-            `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")} · ${t.label}`,
-          );
+        if (live && t) setTell(`${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')} · ${t.label}`);
       })
       .catch(() => {});
     return () => {
@@ -125,12 +107,7 @@ function useWhy(clip: Clip | undefined, on: boolean): string | null {
  * bottom of the screen, 1 once its top has risen `span` screens), every frame
  * the page scrolls while it's in view. One listener, transforms only.
  */
-function useScrollIn(
-  rootRef: RefObject<HTMLElement | null>,
-  ref: RefObject<HTMLElement | null>,
-  span: number,
-  fn: (q: number) => void,
-) {
+function useScrollIn(rootRef: RefObject<HTMLElement | null>, ref: RefObject<HTMLElement | null>, span: number, fn: (q: number) => void) {
   const latest = useRef(fn);
   useEffect(() => {
     latest.current = fn;
@@ -158,25 +135,17 @@ function useScrollIn(
       { root },
     );
     io.observe(el);
-    root.addEventListener("scroll", schedule, { passive: true });
+    root.addEventListener('scroll', schedule, { passive: true });
     return () => {
       io.disconnect();
-      root.removeEventListener("scroll", schedule);
+      root.removeEventListener('scroll', schedule);
       cancelAnimationFrame(raf);
     };
   }, [rootRef, ref, span]);
 }
 
 function Mark({ right }: { right: boolean }) {
-  return (
-    <span className="ftc-mark">
-      {right ? (
-        <Check size={15} strokeWidth={3} />
-      ) : (
-        <X size={15} strokeWidth={3} />
-      )}
-    </span>
-  );
+  return <span className="ftc-mark">{right ? <Check size={15} strokeWidth={3} /> : <X size={15} strokeWidth={3} />}</span>;
 }
 
 // ---- (a) a three-clip challenge --------------------------------------------
@@ -185,19 +154,15 @@ function Mark({ right }: { right: boolean }) {
 function QuizCta({ launchFrom }: Props) {
   const ref = useRef<HTMLElement>(null);
   const items = useChallenge(3);
-  const [calls, setCalls] = useState<("ai" | "real" | undefined)[]>([]);
-  const key = items.map((i) => i.gallery.index).join(",");
+  const [calls, setCalls] = useState<('ai' | 'real' | undefined)[]>([]);
+  const key = items.map((i) => i.gallery.index).join(',');
   useTilePlayback(ref, key);
   useAtlasBoards(ref, key);
   const done = items.length > 0 && items.every((_, i) => calls[i]);
   const right = items.filter((it, i) => calls[i] === it.clip.verdict).length;
   const last = useRef<HTMLElement | null>(null);
   return (
-    <section
-      className="lt-section lt-final ftc ftc-quiz"
-      data-exit=""
-      ref={ref}
-    >
+    <section className="lt-section lt-final ftc ftc-quiz" data-exit="" ref={ref}>
       <h2 className="lt-h2">Real or AI?</h2>
       <p className="lt-lede">Three clips. Make your call on each.</p>
       <div className="ftc-row">
@@ -214,14 +179,10 @@ function QuizCta({ launchFrom }: Props) {
           />
         ))}
       </div>
-      <p className="ftc-tally" data-on={done ? "" : undefined}>
+      <p className="ftc-tally" data-on={done ? '' : undefined}>
         You got {right} of {items.length}.
       </p>
-      <button
-        type="button"
-        className="lt-cta"
-        onClick={(e) => launchFrom(last.current ?? e.currentTarget)}
-      >
+      <button type="button" className="lt-cta" onClick={(e) => launchFrom(last.current ?? e.currentTarget)}>
         <span>Keep playing in the app</span>
         <ArrowRight size={20} />
       </button>
@@ -229,47 +190,27 @@ function QuizCta({ launchFrom }: Props) {
   );
 }
 
-function QuizCard({
-  n,
-  clip,
-  call,
-  onCall,
-}: {
-  n: number;
-  clip: Clip;
-  call?: "ai" | "real";
-  onCall(c: "ai" | "real", tile: HTMLElement | null): void;
-}) {
+function QuizCard({ n, clip, call, onCall }: { n: number; clip: Clip; call?: 'ai' | 'real'; onCall(c: 'ai' | 'real', tile: HTMLElement | null): void }) {
   const tile = useRef<HTMLDivElement>(null);
   const why = useWhy(clip, !!call);
   const right = call === clip.verdict;
-  const answer = (c: "ai" | "real") => {
-    if (!call)
-      onCall(
-        c,
-        tile.current?.querySelector<HTMLElement>("[data-tile]") ?? null,
-      );
+  const answer = (c: 'ai' | 'real') => {
+    if (!call) onCall(c, tile.current?.querySelector<HTMLElement>('[data-tile]') ?? null);
   };
   return (
-    <div className="ftc-card" data-called={call ? "" : undefined}>
+    <div className="ftc-card" data-called={call ? '' : undefined}>
       <div className="ftc-tile" ref={tile}>
         <Tile clip={n} />
-        <div className="ftc-answer" data-right={right ? "" : undefined}>
+        <div className="ftc-answer" data-right={right ? '' : undefined}>
           <Mark right={right} />
-          <b>{clip.verdict === "ai" ? "AI" : "Real"}</b>
-          <small>{why ?? " "}</small>
+          <b>{clip.verdict === 'ai' ? 'AI' : 'Real'}</b>
+          <small>{why ?? ' '}</small>
         </div>
       </div>
       <div className="ftc-calls">
-        {(["real", "ai"] as const).map((c) => (
-          <button
-            key={c}
-            type="button"
-            aria-pressed={call === c}
-            disabled={!!call && call !== c}
-            onClick={() => answer(c)}
-          >
-            {c === "ai" ? "AI" : "Real"}
+        {(['real', 'ai'] as const).map((c) => (
+          <button key={c} type="button" aria-pressed={call === c} disabled={!!call && call !== c} onClick={() => answer(c)}>
+            {c === 'ai' ? 'AI' : 'Real'}
           </button>
         ))}
       </div>
@@ -290,21 +231,10 @@ function PhoneCta({ rootRef, launchFrom }: Props) {
   useAtlasBoards(ref, String(n));
   useScrollIn(rootRef, ref, 1.1, (q) => {
     const t = easeOut(q);
-    paint(
-      phone.current,
-      `translate3d(0, ${px((1 - t) * 160)}, ${px(lerp(-260, 0, t))}) rotateX(${lerp(26, 0, t).toFixed(2)}deg)`,
-      seg(q, 0, 0.35),
-    );
-    paint(
-      words.current,
-      `translate3d(0, ${px((1 - t) * 60)}, 0) scale(${lerp(0.9, 1, t).toFixed(4)})`,
-      seg(q, 0.2, 0.7),
-    );
+    paint(phone.current, `translate3d(0, ${px((1 - t) * 160)}, ${px(lerp(-260, 0, t))}) rotateX(${lerp(26, 0, t).toFixed(2)}deg)`, seg(q, 0, 0.35));
+    paint(words.current, `translate3d(0, ${px((1 - t) * 60)}, 0) scale(${lerp(0.9, 1, t).toFixed(4)})`, seg(q, 0.2, 0.7));
   });
-  const go = () =>
-    launchFrom(
-      phone.current?.querySelector<HTMLElement>("[data-tile]") ?? null,
-    );
+  const go = () => launchFrom(phone.current?.querySelector<HTMLElement>('[data-tile]') ?? null);
   return (
     <section className="lt-final ftc ftc-phone" data-exit="" ref={ref}>
       <h2 className="ftc-huge" ref={words}>
@@ -332,13 +262,11 @@ function ScoreCta({ launchFrom }: Props) {
   const ref = useRef<HTMLElement>(null);
   const items = useChallenge(3);
   const [marked, setMarked] = useState<boolean[]>([]);
-  const key = items.map((i) => i.gallery.index).join(",");
+  const key = items.map((i) => i.gallery.index).join(',');
   useTilePlayback(ref, key);
   useAtlasBoards(ref, key);
-  const spotted = items.filter(
-    (it, i) => marked[i] && it.clip.verdict === "ai",
-  ).length;
-  const aiCount = items.filter((it) => it.clip.verdict === "ai").length;
+  const spotted = items.filter((it, i) => marked[i] && it.clip.verdict === 'ai').length;
+  const aiCount = items.filter((it) => it.clip.verdict === 'ai').length;
   const digits = useRef<HTMLElement>(null);
   // The count rolls to its new value (an odometer wheel), eased, from wherever it is.
   const shown = useRef(0);
@@ -349,10 +277,7 @@ function ScoreCta({ launchFrom }: Props) {
     const step = (now: number) => {
       const t = easeInOut(Math.min(1, (now - start) / 420));
       shown.current = lerp(from, spotted, t);
-      paint(
-        digits.current,
-        `translate3d(0, ${(-wheels(shown.current).ones).toFixed(3)}em, 0)`,
-      );
+      paint(digits.current, `translate3d(0, ${(-wheels(shown.current).ones).toFixed(3)}em, 0)`);
       if (t < 1) raf = requestAnimationFrame(step);
     };
     raf = requestAnimationFrame(step);
@@ -360,26 +285,19 @@ function ScoreCta({ launchFrom }: Props) {
   }, [spotted]);
   const lastTile = useRef<HTMLElement | null>(null);
   return (
-    <section
-      className="lt-section lt-final ftc ftc-score"
-      data-exit=""
-      ref={ref}
-    >
+    <section className="lt-section lt-final ftc ftc-score" data-exit="" ref={ref}>
       <h2 className="lt-h2">
-        You spotted{" "}
+        You spotted{' '}
         <span className="ftc-odo">
           <i ref={digits}>
             {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 0].map((d, i) => (
               <b key={i}>{d}</b>
             ))}
           </i>
-        </span>{" "}
+        </span>{' '}
         of {aiCount || 3}.
       </h2>
-      <p className="lt-lede">
-        Tap the ones you think are AI. Most people who play land around{" "}
-        {SKILLS.general.score}. Can you beat it?
-      </p>
+      <p className="lt-lede">Tap the ones you think are AI. Most people who play land around {TO_BEAT}. Can you beat it?</p>
       <div className="ftc-row">
         {items.map((it, i) => (
           <div
@@ -388,23 +306,14 @@ function ScoreCta({ launchFrom }: Props) {
             aria-pressed={!!marked[i]}
             key={it.gallery.index}
             className="ftc-tile ftc-markable"
-            data-marked={marked[i] ? "" : undefined}
-            data-right={
-              (
-                marked[i]
-                  ? it.clip.verdict === "ai"
-                  : it.clip.verdict === "real"
-              )
-                ? ""
-                : undefined
-            }
+            data-marked={marked[i] ? '' : undefined}
+            data-right={(marked[i] ? it.clip.verdict === 'ai' : it.clip.verdict === 'real') ? '' : undefined}
             onClick={(e) => {
-              lastTile.current =
-                e.currentTarget.querySelector<HTMLElement>("[data-tile]");
+              lastTile.current = e.currentTarget.querySelector<HTMLElement>('[data-tile]');
               setMarked((m) => Object.assign([...m], { [i]: !m[i] }));
             }}
             onKeyDown={(e) => {
-              if (e.key !== "Enter" && e.key !== " ") return;
+              if (e.key !== 'Enter' && e.key !== ' ') return;
               e.preventDefault();
               e.currentTarget.click();
             }}
@@ -412,18 +321,14 @@ function ScoreCta({ launchFrom }: Props) {
             <Tile clip={it.gallery.index} />
             <span className="ftc-stamp">AI</span>
             <span className="ftc-verdict">
-              <Mark right={it.clip.verdict === "ai"} />
-              {it.clip.verdict === "ai" ? "It is AI" : "It is real"}
+              <Mark right={it.clip.verdict === 'ai'} />
+              {it.clip.verdict === 'ai' ? 'It is AI' : 'It is real'}
             </span>
           </div>
         ))}
       </div>
-      <button
-        type="button"
-        className="lt-cta"
-        onClick={(e) => launchFrom(lastTile.current ?? e.currentTarget)}
-      >
-        <span>Beat {SKILLS.general.score} in the app</span>
+      <button type="button" className="lt-cta" onClick={(e) => launchFrom(lastTile.current ?? e.currentTarget)}>
+        <span>Beat {TO_BEAT} in the app</span>
         <ArrowRight size={20} />
       </button>
     </section>
@@ -452,7 +357,7 @@ function WallCta({ rootRef, launchFrom, button }: Props) {
   const tiles = useRef<(HTMLDivElement | null)[]>([]);
   const pull = useRef<HTMLDivElement>(null);
   const words = useRef<HTMLDivElement>(null);
-  const key = "wall";
+  const key = 'wall';
   useTilePlayback(ref, key);
   useAtlasBoards(ref, key);
   useScrollIn(rootRef, ref, 1, (q) => {
@@ -466,27 +371,19 @@ function WallCta({ rootRef, launchFrom, button }: Props) {
         seg(q, 0.05, 0.4),
       );
     });
-    paint(
-      words.current,
-      `translate3d(0, ${px((1 - easeOut(seg(q, 0.45, 0.9))) * 30)}, 0)`,
-      seg(q, 0.45, 0.85),
-    );
+    paint(words.current, `translate3d(0, ${px((1 - easeOut(seg(q, 0.45, 0.9))) * 30)}, 0)`, seg(q, 0.45, 0.85));
   });
   // The button draws the wall toward it while the pointer is near (a CSS transition: it retargets smoothly).
-  const near = (on: boolean) => pull.current?.toggleAttribute("data-pull", on);
+  const near = (on: boolean) => pull.current?.toggleAttribute('data-pull', on);
   const go = (e: React.MouseEvent<HTMLElement>) => {
     const b = e.currentTarget.getBoundingClientRect();
     const cx = b.left + b.width / 2;
     const cy = b.top + b.height / 2;
     let best: HTMLElement | null = null;
     let bestD = Infinity;
-    for (const t of ref.current?.querySelectorAll<HTMLElement>("[data-tile]") ??
-      []) {
+    for (const t of ref.current?.querySelectorAll<HTMLElement>('[data-tile]') ?? []) {
       const r = t.getBoundingClientRect();
-      const d = Math.hypot(
-        r.left + r.width / 2 - cx,
-        r.top + r.height / 2 - cy,
-      );
+      const d = Math.hypot(r.left + r.width / 2 - cx, r.top + r.height / 2 - cy);
       if (d < bestD) [best, bestD] = [t, d];
     }
     launchFrom(best ?? e.currentTarget);
@@ -498,15 +395,12 @@ function WallCta({ rootRef, launchFrom, button }: Props) {
         <div className="ftc-wall-pull" ref={pull}>
           <div className="ftc-wall-grid">
             {SCATTER.map((_, i) => {
-              const centre =
-                i % WALL_COLS >= 2 &&
-                i % WALL_COLS <= 3 &&
-                Math.floor(i / WALL_COLS) === 1;
+              const centre = i % WALL_COLS >= 2 && i % WALL_COLS <= 3 && Math.floor(i / WALL_COLS) === 1;
               return (
                 <div
                   key={i}
                   className="ftc-wall-cell"
-                  data-centre={centre ? "" : undefined}
+                  data-centre={centre ? '' : undefined}
                   style={{ opacity: 0 }}
                   ref={(el) => {
                     tiles.current[i] = el;

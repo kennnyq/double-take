@@ -4,7 +4,6 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { HAND, HAND_TIP, RIPPLE, SPECS, frameAt } from '@/onboarding/HintView';
 import { TABS, tabBarHeight } from '@/ui/TabBar';
 import { paint } from '../engine';
-import { showcaseTabs } from '../mock';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -33,19 +32,19 @@ export const tabStrip = () => tabBarHeight(HOME_INSET);
 const TOP_INSET = 54;
 
 /**
- * The app's own tab bar (TabBar.tsx: a floating pill on a black strip, the
- * current tab's icon filled on a lighter pill), drawn in canvas points.
+ * The app's own tab bar (TabBar.tsx's TABS: a floating pill on a black strip,
+ * the current tab's icon filled on a lighter pill), drawn in canvas points.
  */
 export function AppTabBar({ active, barRef }: { active: string; barRef?: RefObject<HTMLDivElement | null> }) {
   return (
     <div className="ft-tabbar" style={{ height: tabStrip() }} ref={barRef}>
       <div className="ft-tabpill">
         {/* Read at render: the app's tab module is part of an import cycle with the landing. */}
-        {showcaseTabs(TABS).map((t) => {
+        {TABS.map((t) => {
           const on = t.id === active;
           return (
             <span key={t.id} className="ft-tab" data-on={on ? '' : undefined}>
-              <Ionicons name={(on ? t.iconActive : t.icon) as IconName} size={t.id === 'create' ? 28 : 25} color="#f1f1f1" />
+              <Ionicons name={on ? t.iconActive : t.icon} size={t.id === 'create' ? 28 : 25} color="#f1f1f1" />
             </span>
           );
         })}
@@ -106,7 +105,17 @@ export function TapHand({ x, y, handRef }: { x: number; y: number; handRef: RefO
   return (
     <div className="ft-hand" style={{ left: x, top: y }} ref={handRef}>
       {SPECS.doubleTap.taps.map((_, i) => (
-        <i key={i} className="ft-ripple" data-ripple="" style={{ width: RIPPLE, height: RIPPLE, margin: -RIPPLE / 2, opacity: 0 }} />
+        <i
+          key={i}
+          className="ft-ripple"
+          data-ripple=""
+          style={{
+            width: RIPPLE,
+            height: RIPPLE,
+            margin: -RIPPLE / 2,
+            opacity: 0,
+          }}
+        />
       ))}
       <div className="ft-hand-move" data-move="" style={{ opacity: 0 }}>
         <div className="ft-hand-at" data-shadow="">
@@ -165,7 +174,7 @@ export function paintHand(root: HTMLElement | null, u: number) {
   const lifted = spec.press[spec.press.length - 2][0];
   const inT = handEaseIn(Math.min(1, u / (firstTap - 0.06)));
   const outT = handEaseIn(Math.max(0, Math.min(1, (u - lifted) / (1 - lifted))));
-  const away = (1 - inT) + outT;
+  const away = 1 - inT + outT;
   const shown = u <= 0 || u >= 1 ? 0 : Math.min(1, inT * 1.6) * (1 - outT);
   paint(refs.move, `translate3d(${(away * 90).toFixed(2)}px, ${(away * 150).toFixed(2)}px, 0) rotate(${(away * 12).toFixed(2)}deg)`, shown);
   const scale = lerpP(1.04, 0.95).toFixed(4);
@@ -174,11 +183,7 @@ export function paintHand(root: HTMLElement | null, u: number) {
   spec.taps.forEach((at, i) => {
     const t = (u - at) / spec.ripple;
     const on = t >= 0 && t <= 1;
-    paint(
-      refs.ripples[i],
-      `scale(${(0.4 + 1.3 * Easing.out(Easing.cubic)(Math.max(0, Math.min(1, t)))).toFixed(4)})`,
-      on ? 0.9 * (1 - Easing.out(Easing.quad)(t)) : 0,
-    );
+    paint(refs.ripples[i], `scale(${(0.4 + 1.3 * Easing.out(Easing.cubic)(Math.max(0, Math.min(1, t)))).toFixed(4)})`, on ? 0.9 * (1 - Easing.out(Easing.quad)(t)) : 0);
   });
 }
 
@@ -209,19 +214,7 @@ export function Clip({
     if (playing) el.play().catch(() => {});
     else el.pause();
   }, [playing, src, ref]);
-  return (
-    <video
-      ref={ref}
-      className={className ?? 'ft-video'}
-      src={src}
-      poster={poster}
-      muted
-      playsInline
-      loop={loop}
-      preload={src ? 'auto' : 'none'}
-      disablePictureInPicture
-    />
-  );
+  return <video ref={ref} className={className ?? 'ft-video'} src={src} poster={poster} muted playsInline loop={loop} preload={src ? 'auto' : 'none'} disablePictureInPicture />;
 }
 
 /** The size the screens are drawn at (an iPhone's points); `Canvas` scales it to the phone. */
