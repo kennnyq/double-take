@@ -46,10 +46,13 @@ test('the text reveal defaults to the word wave, and reads the others', () => {
   assert.equal(parseSettings(JSON.stringify({ tabBarInDoubleTake: 'slide' })).tabBarInDoubleTake, 'stay');
 });
 
-test('the end cue defaults to the check, and reads the others', () => {
-  assert.equal(DEFAULT_SETTINGS.endCue, 'done');
+test('the end cue defaults to both and preserves explicit choices', () => {
+  assert.equal(DEFAULT_SETTINGS.endCue, 'both');
+  assert.equal(DEFAULT_SETTINGS.spotlightPadding, 'roomy');
+  assert.equal(parseSettings(JSON.stringify({ spotlightPadding: 'tight' })).spotlightPadding, 'tight');
+  for (const endCue of ['both', 'done', 'dots']) assert.equal(parseSettings(JSON.stringify({ endCue })).endCue, endCue);
   assert.equal(parseSettings(JSON.stringify({ endCue: 'dots' })).endCue, 'dots');
-  assert.equal(parseSettings(JSON.stringify({ endCue: 'fireworks' })).endCue, 'done');
+  assert.equal(parseSettings(JSON.stringify({ endCue: 'fireworks' })).endCue, 'both');
 });
 
 test('the spotlight defaults to darken only, and a first-version pick falls back to it', () => {

@@ -226,7 +226,7 @@ function Footer({ nav, loop, clock, start }: { nav: CardNav; loop: SharedValue<n
   const t = useNavTint();
   const c = usePalette();
   const last = nav.step + 1 >= nav.count;
-  const done = last && nav.cue === 'done';
+  const done = last && (nav.cue === 'done' || nav.cue === 'both');
   const single = nav.count === 1;
   return (
     <View style={styles.footer} pointerEvents="box-none">
@@ -234,10 +234,10 @@ function Footer({ nav, loop, clock, start }: { nav: CardNav; loop: SharedValue<n
         <FooterItem clock={clock} start={start}>
           <View style={styles.status}>
             <LoopLine loop={loop} />
-            {!single && nav.cue === 'dots' ? (
-              <View style={styles.dots}>
+            {!single && (nav.cue === 'dots' || nav.cue === 'both') ? (
+              <View style={styles.dots} testID="dt-step-dots">
                 {Array.from({ length: nav.count }, (_, i) => (
-                  <View key={i} style={[styles.dot, i <= nav.step ? t.dotOn : t.dot, i === nav.step && styles.dotNow]} />
+                  <StepDot key={i} reached={i <= nav.step} current={i === nav.step} />
                 ))}
               </View>
             ) : null}
@@ -268,6 +268,19 @@ function Footer({ nav, loop, clock, start }: { nav: CardNav; loop: SharedValue<n
       </View>}
     </View>
   );
+}
+
+function StepDot({ reached, current }: { reached: boolean; current: boolean }) {
+  const c = usePalette();
+  const color = alpha(c.text, reached ? 0.75 : 0.22);
+  const fill = useSharedValue(color);
+  const scale = useSharedValue(current ? 1.3 : 1);
+  useEffect(() => {
+    fill.set(withTiming(color, { duration: 180 }));
+    scale.set(withTiming(current ? 1.3 : 1, { duration: 180 }));
+  }, [color, current, fill, scale]);
+  const look = useAnimatedStyle(() => ({ backgroundColor: fill.value, transform: [{ scale: scale.value }] }));
+  return <Animated.View style={[styles.dot, look]} />;
 }
 
 /** Same gentle rise and settle as Siri text; reversing the clock also reverses the exit. */
@@ -315,7 +328,7 @@ function NavButton(p: {
         <Animated.View style={[styles.navIcon, arrowStyle]}>
           <Ionicons name={p.icon === 'chevron-back' ? 'chevron-back' : 'chevron-forward'} size={16} color={alpha(c.text, 0.85)} />
         </Animated.View>
-        <Animated.View style={[styles.navIcon, checkStyle]}>
+        <Animated.View testID="dt-nav-check" style={[styles.navIcon, checkStyle]}>
           <Ionicons name="checkmark" size={16} color={c.onTell} />
         </Animated.View>
       </Animated.View>
@@ -324,8 +337,6 @@ function NavButton(p: {
 }
 
 const useNavTint = themed((c) => ({
-  dot: { backgroundColor: alpha(c.text, 0.22) },
-  dotOn: { backgroundColor: alpha(c.text, 0.75) },
   count: { color: alpha(c.textDim, 0.85) },
 }));
 
@@ -374,6 +385,5 @@ const styles = StyleSheet.create({
   navIcon: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   dots: { flexDirection: 'row', gap: 5 },
   dot: { width: 5, height: 5, borderRadius: 2.5 },
-  dotNow: { transform: [{ scale: 1.3 }] },
   count: { fontSize: 12, fontWeight: '600', fontVariant: ['tabular-nums'] },
 });

@@ -52,10 +52,9 @@ async function run(browser: Browser, layout: Layout) {
       : { viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true },
   );
   const page = await context.newPage();
-  await page.addInitScript((l) => {
+  await page.addInitScript(() => {
     localStorage.clear();
-    // The phone tries the "Text" end cue (the faint "Tap to …" line); desktop keeps the default (a check button).
-    if (l === 'phone') localStorage.setItem('double-take:dev-settings:v1', JSON.stringify({ endCue: 'text' }));
+    // Both layouts exercise the default Both end cue (suppressed for one annotation).
     // Every frame: each <video>'s currentTime.
     const w = window as unknown as { __samples: Sample[]; __sampling: boolean };
     w.__samples = [];
@@ -65,7 +64,7 @@ async function run(browser: Browser, layout: Layout) {
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
-  }, layout);
+  });
   await page.goto(`${BASE_URL}/#app`);
   await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
   await page.waitForTimeout(2500);
@@ -91,6 +90,7 @@ async function run(browser: Browser, layout: Layout) {
   });
   const finish = await page.evaluate(() => document.querySelectorAll('[aria-label="Finish the walkthrough"]').length);
   check(layout + ': single annotation has no navigation arrows', await page.getByTestId('dt-card').getByRole('button').count() === 1, {});
+  check(layout + ': single annotation has no dots or check', await page.getByTestId('dt-card').getByTestId('dt-step-dots').count() === 0 && await page.getByTestId('dt-card').getByTestId('dt-nav-check').count() === 0, {});
   if (layout === 'desktop') {
     // A single annotation uses a finish prompt regardless of the end-cue setting.
     check('desktop: the card carries no labels and offers a finish button', finish >= 2 && /Click to finish/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {

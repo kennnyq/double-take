@@ -61,9 +61,10 @@ registerDevSection({
       { label: 'Fade', value: 'fade', note: 'It fades out with the clip’s chrome and back on exit; its space stays, so nothing moves.' },
     ]),
     settingChoice(s, 'endCue', 'Last step', [
+      { label: 'Both', value: 'both', note: 'Step dots plus a check on the final forward button. Single annotations use the finish prompt.' },
       { label: 'Check', value: 'done', note: 'On the last tell, the forward button turns into a check.' },
-      { label: 'Dots', value: 'dots', note: 'Step dots between the arrows; the last one fills on the last tell.' },
-      { label: 'Count', value: 'count', note: '“2 / 3” between the arrows.' },
+      { label: 'Dots', value: 'dots', note: 'Step dots beside the arrows; the last one fills on the last tell.' },
+      { label: 'Count', value: 'count', note: '“2 / 3” beside the arrows.' },
       { label: 'Text', value: 'text', note: 'Only the faint “Tap to finish” line.' },
     ]),
     settingSwitch(s, 'markDrafts', 'Mark model drafts', 'Reviewers: adds “AI draft” under unreviewed tells. Never shown by default.'),

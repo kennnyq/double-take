@@ -103,6 +103,12 @@ try {
     const settled = result.samples.at(-1);
     assert.ok(Math.abs(restoredHeight - (settled.bottom - settled.top)) < 1, 'reversal restores the visible text height: ' + restoredHeight + ' vs ' + (settled.bottom - settled.top));
     await card.getByRole('button', { name: 'Next tell', exact: true }).click();
+    await card.getByText('Third', { exact: true }).filter({ visible: true }).waitFor();
+    await page.waitForTimeout(900);
+    assert.equal(await card.getByTestId('dt-step-dots').locator(':scope > *').count(), 3, 'Both keeps all three step dots');
+    const finish = card.getByRole('button', { name: 'Finish the walkthrough', exact: true });
+    assert.equal(await finish.getByTestId('dt-nav-check').evaluate(el => getComputedStyle(el).opacity), '1', 'final forward arrow becomes a check');
+    await card.getByRole('button', { name: 'Previous tell' }).click();
     await page.waitForTimeout(100);
     await page.getByRole('button', { name: 'Close the walkthrough' }).click();
     await card.waitFor({ state: 'detached' });

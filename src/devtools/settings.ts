@@ -20,10 +20,10 @@ export { SPOTLIGHT_EFFECTS, SPOTLIGHT_PADDINGS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRE
 
 /**
  * How the double take shows that the next tap ends it: the forward button
- * turns into a check (done), step dots fill up (dots), a step count (count),
+ * turns into a check (done), step dots fill up (dots), both together (both), a step count (count),
  * or only the faint "Tap to finish" line (text).
  */
-export const END_CUES = ['done', 'dots', 'count', 'text'] as const;
+export const END_CUES = ['both', 'done', 'dots', 'count', 'text'] as const;
 export type EndCue = (typeof END_CUES)[number];
 
 /** The phone's tab bar while the double take is open: stays as it is, or fades out with the clip's chrome. */
@@ -78,9 +78,9 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightEffect: 'darken',
   spotlightStrength: 2,
   spotlightShape: 'feather',
-  spotlightPadding: 'normal',
+  spotlightPadding: 'roomy',
   markDrafts: false,
-  endCue: 'done',
+  endCue: 'both',
   textReveal: 'siri',
   tabBarInDoubleTake: 'stay',
 });
