@@ -2,7 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FRESH,
+  HINT_TIMEOUT_MS,
+  LOOPS,
   MAX_TRIES_PER_SESSION,
+  STEP_MS,
   NEW_SESSION,
   OPENS_TO_LEARN,
   demoCaption,
@@ -10,6 +13,8 @@ import {
   endHint,
   enterClip,
   hintFor,
+  hintTimeout,
+  loopMs,
   parseProgress,
   recordOpen,
   startHint,
@@ -117,7 +122,16 @@ test('stored progress parses defensively', () => {
 test('the demo follows the gesture setting', () => {
   assert.deepEqual(demoSteps('hold'), ['hold']);
   assert.deepEqual(demoSteps('doubleTap'), ['doubleTap']);
-  assert.deepEqual(demoSteps('both'), ['doubleTap', 'hold']);
+  // Both walks through the two in turn: hold (Space), then double tap (double-click).
+  assert.deepEqual(demoSteps('both'), ['hold', 'doubleTap']);
+});
+
+test('a hint plays its whole walk-through twice before it goes', () => {
+  const both = demoSteps('both');
+  assert.equal(loopMs(both), STEP_MS.hold + STEP_MS.doubleTap);
+  assert.equal(hintTimeout(both), LOOPS * loopMs(both));
+  assert.ok(hintTimeout(['doubleTap']) >= HINT_TIMEOUT_MS, 'never shorter than the floor');
+  for (const st of Object.values(STEP_MS)) assert.ok(st <= 3000, 'each step stays short');
 });
 
 test('captions are a word or two, worded for the input', () => {

@@ -13,8 +13,10 @@
 export const OPENS_TO_LEARN = 2;
 /** A clip must stay on screen this long before a hint fades in, ms. */
 export const SHOW_DELAY_MS = 1400;
-/** A hint fades out by itself after this long on screen, ms (a couple of loops). */
-export const HINT_TIMEOUT_MS = 7000;
+/** A hint stays at least this long on screen before it fades out by itself, ms. */
+export const HINT_TIMEOUT_MS = 6000;
+/** How many times a hint plays through before it fades out by itself. */
+export const LOOPS = 2;
 /** A session gives up on the double take hint after it started on this many clips without being seen through. */
 export const MAX_TRIES_PER_SESSION = 3;
 
@@ -124,9 +126,23 @@ export function parseProgress(raw: string | null | undefined): HintProgress {
 /** What the gesture demo plays, in order, for the viewer's setting. */
 export type DemoStep = 'doubleTap' | 'hold';
 
+/** Both: hold first (Space on desktop), then double tap (double-click). */
 export function demoSteps(mode: 'hold' | 'doubleTap' | 'both'): DemoStep[] {
-  if (mode === 'both') return ['doubleTap', 'hold'];
+  if (mode === 'both') return ['hold', 'doubleTap'];
   return [mode];
+}
+
+/** One pass of each demo, ms: short, so the whole walk-through stays brief. */
+export const STEP_MS: Readonly<Record<DemoStep | 'swipe', number>> = Object.freeze({ hold: 2600, doubleTap: 2000, swipe: 2100 });
+
+/** One pass through every step, ms. */
+export function loopMs(steps: readonly (DemoStep | 'swipe')[]): number {
+  return steps.reduce((n, st) => n + STEP_MS[st], 0);
+}
+
+/** How long a hint stays before fading out by itself: LOOPS full passes, at least HINT_TIMEOUT_MS. */
+export function hintTimeout(steps: readonly (DemoStep | 'swipe')[]): number {
+  return Math.max(HINT_TIMEOUT_MS, LOOPS * loopMs(steps));
 }
 
 /** The hint's only words. `mouse`: a fine pointer; `spaceKey`: the layout opens it with Space (desktop feed). */
