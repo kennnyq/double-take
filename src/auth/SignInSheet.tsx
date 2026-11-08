@@ -218,7 +218,8 @@ function SignInBody({ reason }: { reason: string | null }) {
         </Pressable>
       </View>
       {signUp && <Text style={styles.hint}>{PASSWORD_MIN}+ characters with letters and numbers. There’s no password reset yet, so keep it somewhere safe.</Text>}
-      {error && (
+      {/* The username hint already says "taken"; don't repeat it. */}
+      {error && error !== nameHint && (
         <Text style={styles.error} role="alert">
           {error}
         </Text>
