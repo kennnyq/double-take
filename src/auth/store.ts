@@ -1,6 +1,7 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { ME } from '@/social/me';
+import { forgetGuestChoice, GUEST_ME, useGuestChosen } from './guest';
 import { isMember } from './member';
 import { supabase } from './supabase';
 import { usernameFromEmail } from './username';
@@ -8,7 +9,8 @@ import { usernameFromEmail } from './username';
 /**
  * - local: no Supabase configured; actions stay in memory and nothing is gated
  * - loading: reading the stored session
- * - guest: signed out; can watch, not act
+ * - guest: signed out. Watches only, unless they chose "Continue as guest"
+ *   (`guest.ts`): then they act too, saved on this device only
  * - member: signed in
  */
 export type AuthStatus = 'local' | 'loading' | 'guest' | 'member';
@@ -91,7 +93,9 @@ export function startAuth() {
   });
 }
 
+/** Sign out; a guest choice is forgotten too, so it's back to sign in or guest. */
 export async function signOut() {
+  forgetGuestChoice();
   if (!supabase) return;
   const { error } = await supabase.auth.signOut({ scope: 'local' });
   if (error) {
@@ -119,11 +123,14 @@ export function AuthBoot() {
 
 /**
  * The handle and name to show for "you": the member's profile, a stand-in
- * while it loads, or the local mock when no Supabase is configured.
+ * while it loads, a guest placeholder, or the local mock when no Supabase is
+ * configured.
  */
 export function useMe(): { handle: string; name: string } {
   const { status, profile, session } = useAuth();
+  const guest = useGuestChosen();
   if (status === 'local') return { handle: ME.handle, name: ME.name };
+  if (status === 'guest' && guest) return { ...GUEST_ME };
   if (profile) return { handle: profile.handle, name: profile.displayName ?? profile.handle };
   const local = usernameFromEmail(session?.user.email) ?? session?.user.email?.split('@')[0] ?? 'you';
   return { handle: local, name: local };
