@@ -71,7 +71,8 @@
     "e2e:overlay": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/overlay-on-top.ts",
     "e2e:icons": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/icons-on-top.ts",
     "e2e:hint": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/gesture-hint.ts",
-    "e2e:game": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/timed-guess.ts"
+    "e2e:game": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/timed-guess.ts",
+    "e2e:lab": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/game-lab.ts"
   },
   "private": true
 }
