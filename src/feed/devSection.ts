@@ -57,6 +57,10 @@ registerDevSection({
       { label: 'Lines', value: 'lines', note: 'The same, a line at a time (Apple’s first demo).' },
       { label: 'Letters', value: 'letters', note: 'The same, a letter at a time (Apple’s final demo). Heaviest.' },
     ]),
+    settingChoice(s, 'tabBarInDoubleTake', 'Tab bar during double take', [
+      { label: 'Stay', value: 'stay', note: 'The phone’s tab bar stays as it is.' },
+      { label: 'Fade', value: 'fade', note: 'It fades out with the clip’s chrome and back on exit; its space stays, so nothing moves.' },
+    ]),
     settingChoice(s, 'endCue', 'Last step', [
       { label: 'Check', value: 'done', note: 'On the last tell, the forward button turns into a check.' },
       { label: 'Dots', value: 'dots', note: 'Step dots between the arrows; the last one fills on the last tell.' },

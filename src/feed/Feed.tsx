@@ -44,6 +44,8 @@ interface FeedProps {
   sheetProgress: Animated.Value;
   /** Open on this clip instead of the first (web: the landing's launch). Read once, at mount. */
   startAt?: number;
+  /** Told when the double take opens and closes (the screen may fade its tab bar with the chrome). */
+  onInspectChange?: (on: boolean) => void;
   ref?: React.Ref<FeedHandle>;
 }
 
@@ -63,7 +65,7 @@ export interface FeedHandle {
  * recycled for the item entering the window, so the next clip is already
  * buffered when you swipe and memory stays flat no matter how far you scroll.
  */
-export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedProps) {
+export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChange, ref }: FeedProps) {
   // Empty until the first page arrives (remote clips, then placeholders).
   const [all, setAll] = useState<Clip[]>([]);
   // The feed mode (Settings) may keep only AI or only real clips. A filtered
@@ -85,6 +87,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const [scrub, setScrub] = useState(false);
   // The double take is open: the top bar fades out with the clip's own chrome.
   const [inspecting, setInspecting] = useState(false);
+  useEffect(() => onInspectChange?.(inspecting), [inspecting, onInspectChange]);
   // A finger is dragging along the progress bar: the feed holds still meanwhile.
   const [barDrag, setBarDrag] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');

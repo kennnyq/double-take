@@ -1,7 +1,10 @@
 import { Pressable, StyleSheet, View } from 'react-native';
+import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
+import { ownLayer } from '@/feed/layer';
+import { useFadeProgress } from '@/feed/motion';
 
 export type TabId = 'home' | 'create' | 'you' | 'settings';
 
@@ -46,12 +49,20 @@ const stripBottom = (bottomInset: number) => Math.max(bottomInset - 8, 8);
 /** Total height of the tab bar strip for a given bottom safe-area inset. */
 export const tabBarHeight = (bottomInset: number) => STRIP_TOP + PILL_H + stripBottom(bottomInset);
 
-/** Floating pill tab bar on a black strip. */
-export function TabBar({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }) {
+/**
+ * Floating pill tab bar on a black strip.
+ *
+ * `faded`: the pill fades out (with the double take's chrome, at its pace) and
+ * takes no touches until it's back. The strip keeps its place, so nothing
+ * above it moves.
+ */
+export function TabBar({ tab, onTab, faded = false }: { tab: TabId; onTab: (t: TabId) => void; faded?: boolean }) {
   const insets = useSafeAreaInsets();
+  const shown = useFadeProgress(!faded, faded ? 180 : 320);
+  const fade = useAnimatedStyle(() => ({ opacity: shown.value }));
   return (
-    <View style={[styles.strip, { paddingBottom: stripBottom(insets.bottom) }]}>
-      <View style={styles.pill}>
+    <View style={[styles.strip, { paddingBottom: stripBottom(insets.bottom) }]} pointerEvents={faded ? 'none' : 'auto'} testID="tab-bar">
+      <Reanimated.View style={[styles.pill, ownLayer, fade]}>
         {TABS.map((t) => {
           const on = t.id === tab;
           return (
@@ -70,7 +81,7 @@ export function TabBar({ tab, onTab }: { tab: TabId; onTab: (t: TabId) => void }
             </Pressable>
           );
         })}
-      </View>
+      </Reanimated.View>
     </View>
   );
 }

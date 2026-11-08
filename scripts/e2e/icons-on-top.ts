@@ -9,6 +9,9 @@
  * overlay painted below the video and only showed over transparent letterbox
  * bands (see also e2e:overlay).
  *
+ * Also the phone's tab bar during a double take, for both dev options (stay,
+ * fade), and that fading it doesn't move the video.
+ *
  *   npm run e2e:icons                                   (dev server on 8081)
  *   BASE_URL=http://localhost:8089 npm run e2e:icons
  */
@@ -96,6 +99,58 @@ async function main() {
     check('phone: the paused clip shows its play icon, and the sound button shows', icon === 'painted' && sound === 'painted', { icon, sound });
     await context.close();
   }
+
+  // Phone: the tab bar during a double take, both dev options. Stay (default):
+  // it stays seen. Fade: it fades out, takes no touches, and comes back on
+  // exit. Either way its strip keeps its place, so the video's inset doesn't move.
+  const stages: Record<string, string | null> = {};
+  for (const mode of ['stay', 'fade'] as const) {
+    const context = await browser.newContext({ viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
+    await page.addInitScript((m) => {
+      localStorage.clear();
+      localStorage.setItem('double-take:dev-settings:v1', JSON.stringify({ tabBarInDoubleTake: m }));
+    }, mode);
+    await page.goto(`${BASE_URL}/#app`);
+    await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
+    await page.waitForTimeout(2500);
+    const strip = () => page.evaluate(() => JSON.stringify(document.querySelector('[data-testid="tab-bar"]')?.getBoundingClientRect() ?? null));
+    const before = await strip();
+    for (const b of await page.$$('[aria-label^="Double take"]')) {
+      const r = await b.boundingBox();
+      if (r && r.y > 0 && r.y < 932) {
+        await b.click();
+        break;
+      }
+    }
+    await page.waitForTimeout(1500);
+    const during = await painted(page, '[data-testid="tab-bar"] [aria-label="Home"]');
+    const look = await page.evaluate(() => {
+      const bar = document.querySelector('[data-testid="tab-bar"]') as HTMLElement;
+      const v = [...document.querySelectorAll('video')].find((x) => {
+        const r = x.getBoundingClientRect();
+        return r.top >= -5 && r.top < 200 && r.height > 200;
+      });
+      return { events: getComputedStyle(bar).pointerEvents, video: v ? JSON.stringify(v.getBoundingClientRect()) : null };
+    });
+    stages[mode] = look.video;
+    const inPlace = (await strip()) === before;
+    if (mode === 'stay') {
+      check('phone, tab bar "stay": it stays seen and usable during a double take', during === 'painted' && look.events !== 'none' && inPlace, { during, look, inPlace });
+    } else {
+      check('phone, tab bar "fade": it fades out during a double take and takes no touches; its strip stays put', during === 'hidden' && look.events === 'none' && inPlace, {
+        during,
+        look,
+        inPlace,
+      });
+    }
+    await page.click('[aria-label="Close the walkthrough"]', { timeout: 3000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const after = await painted(page, '[data-testid="tab-bar"] [aria-label="Home"]');
+    check(`phone, tab bar "${mode}": it's seen again after the double take`, after === 'painted', { after });
+    await context.close();
+  }
+  check('phone: the double take insets the video the same with the tab bar fading or staying', stages.stay != null && stages.stay === stages.fade, stages);
 
   await browser.close();
   if (failures.length) {

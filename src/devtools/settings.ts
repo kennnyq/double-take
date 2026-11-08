@@ -26,6 +26,10 @@ export { SPOTLIGHT_EFFECTS, SPOTLIGHT_PADDINGS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRE
 export const END_CUES = ['done', 'dots', 'count', 'text'] as const;
 export type EndCue = (typeof END_CUES)[number];
 
+/** The phone's tab bar while the double take is open: stays as it is, or fades out with the clip's chrome. */
+export const TAB_BAR_MODES = ['stay', 'fade'] as const;
+export type TabBarMode = (typeof TAB_BAR_MODES)[number];
+
 /** How long a press must last to count as a hold, in ms. */
 export const HOLD_DELAYS = [250, 350, 500] as const;
 export type HoldDelay = (typeof HOLD_DELAYS)[number];
@@ -61,6 +65,8 @@ export interface DevSettings {
   endCue: EndCue;
   /** How the double take card's text comes in: Apple's text transition by words (default), lines or letters. */
   textReveal: RevealVariant;
+  /** The phone's tab bar during the double take: stays (default) or fades out with the chrome. */
+  tabBarInDoubleTake: TabBarMode;
 }
 
 export type DevSettingKey = keyof DevSettings;
@@ -76,6 +82,7 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   markDrafts: false,
   endCue: 'done',
   textReveal: 'words',
+  tabBarInDoubleTake: 'stay',
 });
 
 export const STORAGE_KEY = 'double-take:dev-settings:v1';
@@ -105,6 +112,7 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     markDrafts: typeof o.markDrafts === 'boolean' ? o.markDrafts : d.markDrafts,
     endCue: oneOf(END_CUES, o.endCue, d.endCue),
     textReveal: oneOf(REVEAL_VARIANTS, o.textReveal, d.textReveal),
+    tabBarInDoubleTake: oneOf(TAB_BAR_MODES, o.tabBarInDoubleTake, d.tabBarInDoubleTake),
   };
 }
 

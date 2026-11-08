@@ -41,6 +41,9 @@ test('the text reveal defaults to the word wave, and reads the others', () => {
   assert.equal(DEFAULT_SETTINGS.textReveal, 'words');
   assert.equal(parseSettings(JSON.stringify({ textReveal: 'lines' })).textReveal, 'lines');
   assert.equal(parseSettings(JSON.stringify({ textReveal: 'typewriter' })).textReveal, 'words');
+  assert.equal(DEFAULT_SETTINGS.tabBarInDoubleTake, 'stay');
+  assert.equal(parseSettings(JSON.stringify({ tabBarInDoubleTake: 'fade' })).tabBarInDoubleTake, 'fade');
+  assert.equal(parseSettings(JSON.stringify({ tabBarInDoubleTake: 'slide' })).tabBarInDoubleTake, 'stay');
 });
 
 test('the end cue defaults to the check, and reads the others', () => {
