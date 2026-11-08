@@ -65,10 +65,20 @@ export function Landing({
     if (started.current || !root) return;
     started.current = true;
     // Pressed before the feed loaded: launch once it has, and its tiles have their clips.
-    void latest.current.ready.then(nextPaint).then(() => {
-      const { v, fullSrc, onLaunch, onDone } = latest.current;
-      return launch(root, v, from, { mountApp: onLaunch, done: onDone, fullSrc });
-    });
+    void latest.current.ready
+      .then(nextPaint)
+      .then(() => {
+        const { v, fullSrc, onLaunch, onDone } = latest.current;
+        return launch(root, v, from, { mountApp: onLaunch, done: onDone, fullSrc });
+      })
+      .catch((err: unknown) => {
+        // Whatever goes wrong in the animation, the visitor still gets the app,
+        // never a blank page.
+        console.error('landing launch', err);
+        const { onLaunch, onDone } = latest.current;
+        onLaunch(Number(from?.closest<HTMLElement>('[data-tile]')?.dataset.clip) || 0);
+        onDone();
+      });
   }, []);
   const press = useCallback((e: MouseEvent<HTMLElement>) => go(e.currentTarget), [go]);
   const pressTile = useCallback(
