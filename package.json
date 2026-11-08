@@ -44,6 +44,7 @@
   "scripts": {
     "start": "expo start",
     "start:tailnet": "bash scripts/serve-tailnet.sh",
+    "dev:auth": "bash scripts/dev-auth.sh",
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",

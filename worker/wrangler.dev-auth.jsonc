@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Local only: the same Worker without the media assets, so the dev-only /dev/*
+  // test-account routes run in any checkout (no build/ needed). Never deployed.
+  // Reads worker/.dev.vars: DEV_AUTH=1, SUPABASE_URL, SUPABASE_SECRET_KEY.
+  // Run it with `npm run dev:auth` from the repo root (forwards the tailnet port too).
+  "name": "double-take-dev-auth",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-01",
+  "vars": { "STORAGE": "assets" }
+}

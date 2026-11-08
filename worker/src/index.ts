@@ -4,10 +4,12 @@
  *   GET  /health            liveness, plus which storage backend is active
  *   GET  /feed[?name=demo]  feed JSON with signed media URLs (needs `Authorization: Bearer <DEMO_PASSCODE>`)
  *   GET  /m/<key>?exp&sig   media bytes, with HTTP Range support (HEAD works too)
+ *   POST /dev/*             dev-only test accounts (src/devAuth.ts); 404 unless DEV_AUTH is set
  *
  * Every request runs through this Worker first (`run_worker_first`), so media is
  * only reachable with a valid signature, whichever storage backend holds it.
  */
+import { devAuthEnabled, handleDevAuth } from './devAuth.ts';
 import { isServableKey, safeEqual, signFeed, verify, type FeedClip } from './lib.ts';
 import { storageFor, type Meta } from './storage.ts';
 
@@ -30,6 +32,11 @@ const error = (status: number, message: string) => json({ error: message }, stat
 export default {
   async fetch(request, env): Promise<Response> {
     const url = new URL(request.url);
+    // Dev-only routes: absent (404) unless worker/.dev.vars turns them on.
+    if (url.pathname.startsWith('/dev/')) {
+      if (!devAuthEnabled(env)) return error(404, 'not found');
+      return (await handleDevAuth(request, env)) ?? error(404, 'not found');
+    }
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     if (request.method !== 'GET' && request.method !== 'HEAD') return error(405, 'method not allowed');
 
