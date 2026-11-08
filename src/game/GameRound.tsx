@@ -8,8 +8,7 @@ import { signals } from '@/engagement/store';
 import type { FeedMode, StageRect } from '@/feed/mode';
 import { revealHow } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
-import { CATEGORY_INFO, type SkillCategory } from '@/skills/categories';
-import { SKILL_ICONS } from '@/skills/insights';
+import type { SkillCategory } from '@/skills/categories';
 import { clipMeta, loadMetas } from '@/skills/loadMeta';
 import { difficultyOf } from '@/skills/state';
 import { skillStore } from '@/skills/store';
@@ -26,6 +25,7 @@ import { safeClip } from './leaks';
 import { GameIntro } from './GameIntro';
 import { gameIntro, useGameIntroSeen } from './intro';
 import { MarkStamp } from './MarkStamp';
+import { ReviewPill, ScorePill } from './Pills';
 import { Ripple } from './Ripple';
 import { lerp, useEased } from './motion';
 import { media, takeLoading } from './media';
@@ -608,7 +608,6 @@ function TimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
 function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
   const ui = useContext(RoundContext)!;
   const frame = useFrame();
-  const tint = useTint();
   const c = usePalette();
   const score = scoreRound(ui.s.guesses);
   // The ✓ / ✕ eases in after an answer and away again.
@@ -620,7 +619,7 @@ function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
     const t = setTimeout(() => setOff(showing.key), RESULT_MS);
     return () => clearTimeout(t);
   }, [showing]);
-  const result = useEased(showing && off !== showing.key ? 1 : 0, 240);
+  const result = showing && off !== showing.key ? (showing.correct ? 'right' : 'wrong') : null;
   // The double take of a clip looked back at has the stage: the HUD steps aside.
   const hud = useEased(ui.inspecting ? 0 : 1, 240);
   const reviewOn = useEased(ui.review && !ui.inspecting ? 1 : 0, 240);
@@ -637,38 +636,11 @@ function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
       <GameIntro on={ui.intro} desktop={frame.desktop} />
       {lastReview && (
         <Animated.View style={[styles.reviewRow, { top: top + ROW_Y + ROW_H + 10, opacity: reviewOn, transform: [{ translateY: lerp(reviewOn, [0, 1], [-6, 0]) }] }]} pointerEvents="none">
-          <View
-            style={[styles.reviewPill, tint.pill]}
-            testID="review-truth"
-            accessibilityLabel={`It was ${lastReview.truth === 'ai' ? 'AI' : 'real'}; you were ${lastReview.correct ? 'right' : 'wrong'}`}
-          >
-            <Text style={[styles.reviewText, tint.text]}>{lastReview.truth === 'ai' ? 'AI' : 'Real'}</Text>
-            <Ionicons name={lastReview.correct ? 'checkmark' : 'close'} size={14} color={lastReview.correct ? c.correct : c.incorrect} />
-          </View>
+          <ReviewPill truth={lastReview.truth} correct={lastReview.correct} />
         </Animated.View>
       )}
       <Animated.View style={[styles.scoreRow, { top: top + ROW_Y, opacity: hud }]} pointerEvents="none">
-        <View style={[styles.scorePill, tint.pill]} accessibilityLabel={`Score ${score}, ${ui.s.guesses.length} judged`} testID="game-score-live">
-          <Text style={[styles.scoreText, tint.text]}>{score}</Text>
-          <View style={styles.judged}>
-            <Ionicons name="layers-outline" size={13} color={c.textDim} />
-            <Text style={[styles.judgedText, tint.dim]}>{ui.s.guesses.length}</Text>
-          </View>
-          <Animated.View
-            style={[
-              styles.result,
-              { backgroundColor: showing?.correct ? c.correct : c.incorrect, opacity: result, transform: [{ scale: lerp(result, [0, 1], [0.6, 1]) }] },
-            ]}
-            accessibilityLabel={showing ? (showing.correct ? 'Right' : 'Wrong') : undefined}
-          >
-            <Ionicons name={showing?.correct ? 'checkmark' : 'close'} size={14} color={c.onAccent} />
-          </Animated.View>
-          {ui.focus && (
-            <View style={styles.judged} accessibilityLabel={`Practising ${CATEGORY_INFO[ui.focus].label}`}>
-              <Ionicons name={SKILL_ICONS[ui.focus] as React.ComponentProps<typeof Ionicons>['name']} size={13} color={c.textDim} />
-            </View>
-          )}
-        </View>
+        <ScorePill score={score} judged={ui.s.guesses.length} result={result} focus={ui.focus} />
       </Animated.View>
       {__DEV__ && ui.showTruth && ui.truth && (
         <View style={[styles.truth, { top: top + ROW_Y + ROW_H + 8 }]} pointerEvents="none">
@@ -750,14 +722,7 @@ const styles = StyleSheet.create({
   pressed: { opacity: 0.7 },
   big: { fontSize: 56, fontWeight: '900', letterSpacing: 1 },
   reviewRow: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
-  reviewPill: { height: 28, borderRadius: 14, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  reviewText: { fontSize: 13, fontWeight: '800' },
   scoreRow: { position: 'absolute', left: 0, right: 0, height: ROW_H, alignItems: 'center', justifyContent: 'center' },
-  scorePill: { height: 34, borderRadius: 17, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  scoreText: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] },
-  judged: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  judgedText: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
-  result: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   truth: { position: 'absolute', left: 14, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.5)' },
   truthText: { fontSize: 12, fontWeight: '700' },
 });
@@ -765,7 +730,6 @@ const styles = StyleSheet.create({
 const useTint = themed((c) => ({
   root: { backgroundColor: c.bg },
   card: { backgroundColor: c.surface },
-  pill: { backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: StyleSheet.hairlineWidth, borderColor: c.accentSoft },
   primary: { backgroundColor: c.accent },
   primaryText: { color: c.onAccent },
   text: { color: c.text },
