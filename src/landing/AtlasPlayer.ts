@@ -597,10 +597,11 @@ export class AtlasPlayer {
    * A board for `tiles`, all of which move with `container` (or are it). Its
    * canvas goes underneath them, so whatever sits on a tile stays on top.
    */
-  addBoard(container: HTMLElement, tiles: HTMLElement[]): Board | null {
+  addBoard(container: HTMLElement, tiles: HTMLElement[], ownSize?: { w: number; h: number }): Board | null {
     const own = tiles.length === 1 && tiles[0] === container;
-    const box = own
-      ? { w: container.offsetWidth, h: container.offsetHeight, tiles: [{ x: 0, y: 0, w: container.offsetWidth, h: container.offsetHeight }] }
+    const size = own ? ownSize ?? { w: container.offsetWidth, h: container.offsetHeight } : null;
+    const box = size
+      ? { ...size, tiles: [{ x: 0, y: 0, ...size }] }
       : measureFlat(container, tiles);
     const placed: PlacedTile[] = tiles.map((t, i) => ({ cell: Number(t.dataset.cell), ...box.tiles[i] }));
     const plan = planBoard(this.atlas, box.w, box.h, placed);
@@ -799,7 +800,13 @@ export class AtlasPlayer {
       detach: (tile: HTMLElement) => {
         const at = on(tile);
         if (!at) return;
-        const own = this.addBoard(tile, [tile]);
+        // The strip already measured this tile. Reuse that size so each exit
+        // does not force layout while the preceding cards are animating.
+        const draw = at.b.plan.draws[at.i];
+        const own = this.addBoard(tile, [tile], {
+          w: Math.round(draw.dw / at.b.plan.scale),
+          h: Math.round(draw.dh / at.b.plan.scale),
+        });
         const swipe = at.b.swipes[at.i];
         if (own && swipe) {
           own.swipes[0] = swipe;
