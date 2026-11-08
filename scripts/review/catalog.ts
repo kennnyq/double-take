@@ -16,6 +16,8 @@ export function clipId(url: string): string {
   if (m) return `x-${m[1]}`;
   m = url.match(/(?:youtube\.com\/(?:watch\?v=|shorts\/)|youtu\.be\/)([\w-]{11})/);
   if (m) return `yt-${m[1]}`;
+  m = url.match(/reddit\.com\/r\/\w+\/comments\/(\w+)/);
+  if (m) return `rd-${m[1]}`;
   return 'u-' + createHash('sha256').update(url).digest('hex').slice(0, 16);
 }
 
@@ -34,6 +36,29 @@ export interface Membership {
   name: string;
   /** Position in that feed or file. */
   index: number;
+}
+
+/** A subreddit thread's verdict (pick_reddit.py / consensus.py). */
+export interface Consensus {
+  verdict: 'ai' | 'real' | 'unsure';
+  confidence: number;
+  ai: number;
+  real: number;
+  voters: number;
+  flair?: string | null;
+  flairVerdict?: string | null;
+  evidence: { stance?: string | null; score: number; text: string; permalink?: string | null; mod?: boolean }[];
+  tells: { tell: string; count: number }[];
+}
+
+export interface Thread {
+  sub?: string;
+  url?: string;
+  title?: string;
+  flair?: string | null;
+  score?: number;
+  comments?: number;
+  created?: number;
 }
 
 export interface Note {
@@ -73,6 +98,9 @@ export interface Item {
   section?: string;
   evidence?: string;
   note?: Note;
+  /** Reddit rows: the thread and its scored consensus. */
+  consensus?: Consensus;
+  thread?: Thread;
   media?: {
     video: string;
     poster: string;
@@ -147,6 +175,8 @@ export class Catalog {
     it.section ??= str(r.section);
     it.evidence ??= str(r.evidence);
     if (!it.note && r.note && typeof r.note === 'object') it.note = r.note as Note;
+    if (!it.consensus && r.consensus && typeof r.consensus === 'object') it.consensus = r.consensus as Consensus;
+    if (!it.thread && r.thread && typeof r.thread === 'object') it.thread = r.thread as Thread;
   }
 
   /**
@@ -207,7 +237,7 @@ export class Catalog {
     for (const it of all) it.partners = [];
     for (const it of all) if (it.pairOf) this.items.get(it.pairOf)?.partners.push(it.key);
     for (const it of all) {
-      it.date ??= it.note?.createdAtMillis;
+      it.date ??= it.note?.createdAtMillis ?? (it.thread?.created ? it.thread.created * 1000 : undefined);
       it.kind = kindOf(it.label, it.tier);
     }
     return all;

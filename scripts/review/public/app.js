@@ -94,6 +94,12 @@
     { id: 'kind', title: 'AI / real', values: (it) => [KIND[it.kind]], order: Object.values(KIND) },
     { id: 'in', title: 'Feed / batch', values: (it) => it.in.map(memberName) },
     { id: 'label', title: 'Label / tier', values: (it) => [labelTier(it)] },
+    {
+      id: 'consensus',
+      title: 'Consensus',
+      values: (it) =>
+        it.consensus ? [`${it.consensus.verdict} ${it.consensus.confidence >= 0.9 ? '≥90%' : it.consensus.confidence >= 0.75 ? '75–90%' : '<75%'}`] : ['no thread'],
+    },
     { id: 'tells', title: 'Tells', values: (it) => [tellsBucket(it)], order: ['has tells', 'no tells', 'not built'] },
     { id: 'platform', title: 'Source', values: (it) => [it.platform || '?'] },
     { id: 'tag', title: 'Tags', values: (it) => (tagsOf(it.key).length ? tagsOf(it.key) : ['(no tags)']) },
@@ -140,7 +146,7 @@
     }
     if (S.q) {
       const st = S.states[it.key];
-      const hay = [it.key, it.url, it.author, it.title, it.evidence, it.note?.text, it.label, it.tier, st?.note, ...(st?.tags || [])]
+      const hay = [it.key, it.url, it.author, it.title, it.evidence, it.note?.text, it.thread?.title, ...(it.consensus?.evidence || []).map((e) => e.text), it.label, it.tier, st?.note, ...(st?.tags || [])]
         .join(' ')
         .toLowerCase();
       for (const w of S.q.toLowerCase().split(/\s+/).filter(Boolean)) if (!hay.includes(w)) return false;
@@ -216,6 +222,23 @@
   }
 
   // ---------- rendering ----------
+  /** A subreddit thread's verdict: who said what, weighted by votes, and the tells they cite. */
+  function consensusHtml(it) {
+    const c = it.consensus;
+    const t = it.thread || {};
+    const pct = Math.round((c.confidence || 0) * 100);
+    const name = c.verdict === 'ai' ? 'AI' : c.verdict === 'real' ? 'Real' : 'Unsure';
+    const share = c.ai + c.real ? Math.round((100 * c.ai) / (c.ai + c.real)) : 50;
+    return `<div><h4>Consensus ${t.url ? `<a href="${esc(t.url)}" target="_blank" rel="noopener">↗ r/${esc(t.sub || '')}</a>` : ''}</h4>
+      <div class="consensus ${esc(c.verdict)}"><b>${name}</b> · ${pct}% confident · ${c.voters} vote${c.voters === 1 ? '' : 's'}${c.flair ? ` · flair “${esc(c.flair)}”` : ''}
+        <div class="bar" title="AI weight ${c.ai} vs real ${c.real}"><span style="width:${share}%"></span></div>
+        <div class="hist">AI ${c.ai} · real ${c.real}${t.score != null ? ` · thread +${t.score}, ${t.comments ?? 0} comments` : ''}</div></div>
+      ${(c.evidence || [])
+        .map((e) => `<div class="quote">${esc(e.text)}<div class="hist">${e.mod ? 'mod · ' : ''}${esc(e.stance || '')} · +${e.score}${e.permalink ? ` · <a href="${esc(e.permalink)}" target="_blank" rel="noopener">comment ↗</a>` : ''}</div></div>`)
+        .join('')}
+      ${c.tells?.length ? `<div class="hist">Tells cited: ${c.tells.map((x) => `${esc(x.tell)} ×${x.count}`).join(', ')}</div>` : ''}</div>`;
+  }
+
   function renderProgress() {
     const count = (keys) => {
       const c = { keep: 0, discard: 0, 'needs-work': 0 };
@@ -418,7 +441,7 @@
         ${kv('Duplicates?', dups ? [...dups].map((k) => `<a href="#" data-goto="${esc(k)}">${esc(k)}</a>`).join(', ') : '')}
         ${kv('Title', esc(it.title))}
       </dl></div>
-      ${it.evidence ? `<div><h4>Evidence</h4><div class="quote">${esc(it.evidence)}</div></div>` : ''}
+      ${it.consensus ? consensusHtml(it) : it.evidence ? `<div><h4>Evidence</h4><div class="quote">${esc(it.evidence)}</div></div>` : ''}
       ${
         it.note?.text && it.note.text !== it.evidence
           ? `<div><h4>Community Note ${it.note.url ? `<a href="${esc(it.note.url)}" target="_blank" rel="noopener">↗</a>` : ''} ${esc(it.note.status || '')}</h4><div class="quote">${esc(it.note.text)}</div></div>`

@@ -10,6 +10,7 @@ test('clipId keys clips like build_media.py', () => {
   assert.equal(clipId('https://youtu.be/abcdefghijk'), 'yt-abcdefghijk');
   // Python: "u-" + hashlib.sha256(url.encode()).hexdigest()[:16]
   assert.equal(clipId('https://www.youtube.com/live/qt5p-_tE8d0'), 'u-77eaae1a026057b6');
+  assert.equal(clipId('https://www.reddit.com/r/isthisAI/comments/1abc2d/goat_on_a_cliff/'), 'rd-1abc2d');
 });
 
 test('snowflakeTime dates X posts', () => {
@@ -23,6 +24,31 @@ test('kindOf reads labels and tiers', () => {
   assert.equal(kindOf(undefined, 'real-agency'), 'real');
   assert.equal(kindOf('not-ai-cgi', 'not-ai-cgi'), 'cgi');
   assert.equal(kindOf('likely_partial', undefined), 'unknown');
+  assert.equal(kindOf('real', 'real-consensus'), 'real');
+});
+
+test('Reddit batch rows carry their thread and consensus, and date from the thread', () => {
+  const cat = new Catalog();
+  const consensus = {
+    verdict: 'real',
+    confidence: 0.9,
+    ai: 1,
+    real: 19,
+    voters: 6,
+    flair: 'Not AI',
+    evidence: [{ stance: 'real', score: 400, text: 'Posted in 2018' }],
+    tells: [],
+  };
+  const url = 'https://www.reddit.com/r/isthisAI/comments/1abc2d/goat/';
+  cat.addBatch('reddit-2026-11-07', [
+    { url, label: 'real', tier: 'real-consensus', evidence: 'r/isthisAI consensus: real', consensus, thread: { sub: 'isthisAI', url, created: 1767225600 } },
+  ]);
+  const [it] = cat.list();
+  assert.equal(it.key, 'rd-1abc2d');
+  assert.equal(it.kind, 'real');
+  assert.equal(it.consensus?.voters, 6);
+  assert.equal(it.thread?.sub, 'isthisAI');
+  assert.equal(new Date(it.date!).toISOString().slice(0, 10), '2026-01-01');
 });
 
 const clip = (id: string, extra: object = {}) => ({

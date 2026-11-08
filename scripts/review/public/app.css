@@ -221,3 +221,11 @@ dialog h2 { margin: 0 0 10px; font-size: 16px; }
     background: var(--panel); border-top: 1px solid var(--line);
   }
 }
+
+/* Subreddit consensus (Reddit batches) */
+.consensus { font-size: 13px; line-height: 1.5; margin-bottom: 6px; }
+.consensus.ai b { color: #b8860b; }
+.consensus.real b { color: #2e8b57; }
+.consensus .bar { height: 6px; border-radius: 3px; background: #2e8b57; overflow: hidden; margin: 4px 0; }
+.consensus .bar span { display: block; height: 100%; background: #e0b000; }
+.consensus + .quote, .quote + .quote { margin-top: 6px; }
