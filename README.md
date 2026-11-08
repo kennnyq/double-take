@@ -117,7 +117,7 @@ After the launch the address gets `#app`, so a reload stays in the app, and Back
   - Sign-in and sign-up are rate limited per IP by Supabase Auth.
   - Leaked-password checks (HaveIBeenPwned) need the Pro plan; turn them on when moving to Pro.
   - Add a captcha (Turnstile) on sign-up and sign-in before launch.
-- **No password reset yet:** with no real email there's nothing to send a reset link to, and the sheet says so. Later: let members add an optional recovery email (needs a custom SMTP sender such as Resend, since the built-in one only reaches the project's team), then offer "Forgot password".
+- **No password reset yet:** with no real email there's nothing to send a reset link to. Later: let members add an optional recovery email (needs a custom SMTP sender such as Resend, since the built-in one only reaches the project's team), then offer "Forgot password".
 - **App env** (`.env.local`, public by design): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and for dev builds `EXPO_PUBLIC_DEV_AUTH_URL` (web keeps its port and swaps in the page's host).
 - **Worker dev env** (`worker/.dev.vars`, never in production): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DEV_AUTH=1`.
 - **Test accounts:** `npm run dev:auth` (add `-- --port <n>` for another port) serves the Worker's `/dev/*` routes. Dev builds then sign in as `alice`, `bob`, `carol` or a fresh throwaway in one tap (from the sign-in sheet or the wrench → Accounts tab). They have no passwords, so none sit in the repo for accounts that live in the shared project: the route mints a one-time token with the secret key instead. The tab also wipes a test account's data and simulates token expiry. Without `DEV_AUTH` (as in production) every `/dev/*` path is a 404.
