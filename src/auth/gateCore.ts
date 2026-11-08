@@ -11,6 +11,8 @@ export interface GateSnapshot {
   /** Why sign-in opened, e.g. "Sign in to like this Take". */
   reason: string | null;
   hasPending: boolean;
+  /** Only an account will do (e.g. uploading): sign-in leaves out "Continue as guest". */
+  membersOnly: boolean;
 }
 
 export interface Gate {
@@ -20,9 +22,9 @@ export interface Gate {
    * Run `action` now if `canAct`, else hold it and open sign-in.
    * Returns whether it ran.
    */
-  request: (canAct: boolean, reason: string, action: () => void) => boolean;
-  /** Open sign-in with nothing pending (a "Log in" button). */
-  openSignIn: (reason?: string) => void;
+  request: (canAct: boolean, reason: string, action: () => void, membersOnly?: boolean) => boolean;
+  /** Open sign-in with nothing pending (a "Log in" button); `membersOnly` leaves out the guest option. */
+  openSignIn: (reason?: string, membersOnly?: boolean) => void;
   /** Close sign-in and drop any pending action. */
   dismiss: () => void;
   /** Call when the user can act (member, state loaded): runs the pending action once and closes. */
@@ -31,11 +33,11 @@ export interface Gate {
 
 export function createGate(): Gate {
   let pending: (() => void) | null = null;
-  let snap: GateSnapshot = { open: false, reason: null, hasPending: false };
+  let snap: GateSnapshot = { open: false, reason: null, hasPending: false, membersOnly: false };
   const listeners = new Set<() => void>();
-  const set = (open: boolean, reason: string | null) => {
-    const next = { open, reason, hasPending: pending !== null };
-    if (next.open === snap.open && next.reason === snap.reason && next.hasPending === snap.hasPending) return;
+  const set = (open: boolean, reason: string | null, membersOnly = false) => {
+    const next = { open, reason, hasPending: pending !== null, membersOnly };
+    if (next.open === snap.open && next.reason === snap.reason && next.hasPending === snap.hasPending && next.membersOnly === snap.membersOnly) return;
     snap = next;
     listeners.forEach((l) => l());
   };
@@ -48,18 +50,18 @@ export function createGate(): Gate {
         listeners.delete(l);
       };
     },
-    request(canAct, reason, action) {
+    request(canAct, reason, action, membersOnly) {
       if (canAct) {
         action();
         return true;
       }
       pending = action;
-      set(true, reason);
+      set(true, reason, !!membersOnly);
       return false;
     },
-    openSignIn(reason) {
+    openSignIn(reason, membersOnly) {
       pending = null;
-      set(true, reason ?? null);
+      set(true, reason ?? null, !!membersOnly);
     },
     dismiss() {
       pending = null;

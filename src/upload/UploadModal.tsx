@@ -10,6 +10,8 @@ import { uploadId } from '../investigation/upload-id';
 import { acceptUpload, sendOrRecover, uploadRoute } from '../investigation/upload-flow';
 import { getJob, mediaUrl, retryAnalysis, upload, uploadLink, type ClientJob } from '../investigation/client';
 import { uuid } from '../lib/uuid';
+import { canUpload, requireMember } from '../auth/gate';
+import { useAuth } from '../auth/store';
 import { ownLayer } from '../feed/layer';
 import { usePalette } from '../ui/theme';
 import { EvidencePlayer, type EvidencePlayerHandle } from '../components/investigation/EvidencePlayer';
@@ -50,6 +52,7 @@ const RADIUS_COMPACT = 24;
 /** Desktop: the header's corner caps; wider than any radius the card takes. */
 const CAP = 30;
 const MAX_UPLOAD = 100 * 1024 * 1024;
+const SIGN_IN_REASON = 'Sign in to check a video';
 
 function normalizeLink(text: string): string | undefined {
   const t = text.trim();
@@ -72,7 +75,7 @@ function pickProblem(asset: DocumentPicker.DocumentPickerAsset): string | undefi
 
 const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.round(s % 60)).padStart(2, '0')}`;
 
-export function UploadModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose: () => void; /** Opens Create again (after signing in). */ onOpen?: () => void }) {
   const s = useTint();
   const c = usePalette();
   const { width, height } = useWindowDimensions();
@@ -110,6 +113,14 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
   const shownSelection = useLatched(selection, 420);
   /** Frees the last file preview's object URL (in event handlers, so Strict Mode's effect replays can't revoke a live one). */
   const releasePreview = useRef<() => void>(() => {});
+  // Starting a check needs a real account (not a guest). Saved checks (?check=) stay open to anyone.
+  const allowed = canUpload(useAuth().status);
+  // Sign-in is its own sheet: the card steps aside for it (one modal at a time, which iOS needs)
+  // and comes back at the pick step once they've signed in.
+  const askSignIn = useCallback(() => {
+    onClose();
+    setTimeout(() => requireMember(SIGN_IN_REASON, () => onOpen?.()), 320);
+  }, [onClose, onOpen]);
 
   const jobFailed = job?.state === 'error';
   const complete = job?.state === 'complete' && !!job.result;
@@ -239,12 +250,14 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
 
   function check() {
     if (!selection || locked.current) return;
+    if (!allowed) return askSignIn();
     const id = uploadId(uuid, (bytes) => Crypto.getRandomValues(bytes));
     const chosen = selection;
     void perform({ id, send: () => (chosen.kind === 'file' ? upload(id, chosen.asset) : uploadLink(id, chosen.url)) });
   }
 
   function takeFile(asset: DocumentPicker.DocumentPickerAsset) {
+    if (!allowed) return askSignIn();
     const problem = pickProblem(asset);
     if (problem) {
       setPickError(problem);
@@ -261,6 +274,7 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   function takeLink() {
+    if (!allowed) return askSignIn();
     const url = normalizeLink(link);
     if (!url) {
       setPickError('Paste a full link to a public video.');
@@ -272,6 +286,7 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
   }
 
   async function choose() {
+    if (!allowed) return askSignIn();
     try {
       const picked = await DocumentPicker.getDocumentAsync({ type: ['video/mp4', 'video/quicktime'], copyToCacheDirectory: true, base64: false });
       if (!picked.canceled) takeFile(picked.assets[0]);
@@ -335,7 +350,7 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
   );
   const right = (
     <View style={{ width: 96, height: HEADER }}>
-      <Swap on={phase === 'pick' && linkReady} style={{ alignItems: 'flex-end' }}>
+      <Swap on={phase === 'pick' && linkReady && allowed} style={{ alignItems: 'flex-end' }}>
         <HeaderAction label="Next" onPress={takeLink} />
       </Swap>
       <Swap on={phase === 'preview'} style={{ alignItems: 'flex-end' }}>
@@ -407,6 +422,8 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
       compactScale={desktop ? Math.min(1, COMPACT / S) : 1}
       media={previewUri ? <ClipPreview uri={previewUri} paused={complete} onDuration={setClipLength} onFail={markPreviewFailed} /> : null}
       pick={
+        <View style={{ flex: 1 }}>
+          <Swap on={allowed} style={{ alignItems: 'stretch', justifyContent: 'flex-start' }}>
         <DropZone onFile={takeFile} onOver={setOver}>
           <PickStep
             desktop={desktop}
@@ -422,6 +439,16 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
             error={pickError}
           />
         </DropZone>
+          </Swap>
+          {/* Guests and signed-out viewers: the same card asks for an account first. */}
+          <Swap on={!allowed}>
+            <View style={{ alignItems: 'center', gap: 16, padding: 28 }}>
+              <Ionicons name="person-circle-outline" size={64} color={c.text} />
+              <Text style={s.big}>{SIGN_IN_REASON}</Text>
+              <Button label="Sign in" onPress={askSignIn} />
+            </View>
+          </Swap>
+        </View>
       }
       preview={
         shownSelection && (

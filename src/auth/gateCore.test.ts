@@ -10,7 +10,7 @@ test('members act at once and sign-in stays closed', () => {
     true,
   );
   assert.equal(n, 1);
-  assert.deepEqual(g.getSnapshot(), { open: false, reason: null, hasPending: false });
+  assert.deepEqual(g.getSnapshot(), { open: false, reason: null, hasPending: false, membersOnly: false });
 });
 
 test('a guest action waits for sign-in, then runs exactly once', () => {
@@ -23,7 +23,7 @@ test('a guest action waits for sign-in, then runs exactly once', () => {
     false,
   );
   assert.equal(n, 0);
-  assert.deepEqual(g.getSnapshot(), { open: true, reason: 'Sign in to like this Take', hasPending: true });
+  assert.deepEqual(g.getSnapshot(), { open: true, reason: 'Sign in to like this Take', hasPending: true, membersOnly: false });
   g.ready();
   assert.equal(n, 1);
   assert.equal(g.getSnapshot().open, false);
@@ -49,7 +49,25 @@ test('dismissing drops the pending action; a newer request replaces an older one
 test('a plain log-in has nothing to replay', () => {
   const g = createGate();
   g.openSignIn();
-  assert.deepEqual(g.getSnapshot(), { open: true, reason: null, hasPending: false });
+  assert.deepEqual(g.getSnapshot(), { open: true, reason: null, hasPending: false, membersOnly: false });
   g.ready();
   assert.equal(g.getSnapshot().open, false);
+});
+
+test('a members-only request holds its action until sign-in', () => {
+  const g = createGate();
+  const ran: string[] = [];
+  g.request(false, 'Sign in to check a video', () => ran.push('upload'), true);
+  assert.deepEqual(g.getSnapshot(), { open: true, reason: 'Sign in to check a video', hasPending: true, membersOnly: true });
+  g.ready();
+  assert.deepEqual(ran, ['upload']);
+});
+
+test('a members-only sign-in says so, and a later plain one does not', () => {
+  const g = createGate();
+  g.openSignIn('Sign in to check a video', true);
+  assert.deepEqual(g.getSnapshot(), { open: true, reason: 'Sign in to check a video', hasPending: false, membersOnly: true });
+  g.dismiss();
+  g.openSignIn();
+  assert.equal(g.getSnapshot().membersOnly, false);
 });

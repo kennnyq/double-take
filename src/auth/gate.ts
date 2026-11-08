@@ -24,7 +24,17 @@ export function requireAccount(reason: string, action: () => void): boolean {
   return authGate.request(canAct(), reason, action);
 }
 
-export const openSignIn = (reason?: string) => authGate.openSignIn(reason);
+export const openSignIn = (reason?: string, membersOnly?: boolean) => authGate.openSignIn(reason, membersOnly);
+
+/** Uploading needs a real account: members (or local mode, with no accounts at all), never guests. */
+export function canUpload(status: ReturnType<typeof authStore.getState>['status']): boolean {
+  return status === 'member' || status === 'local';
+}
+
+/** Like `requireAccount`, but only an account will do: sign-in leaves out "Continue as guest". */
+export function requireMember(reason: string, action: () => void): boolean {
+  return authGate.request(canUpload(authStore.getState().status), reason, action, true);
+}
 export const closeSignIn = () => authGate.dismiss();
 
 /** Sign out of an account, back to the choice: sign in, or continue as a guest. */

@@ -55,7 +55,7 @@ export default function Home() {
               <DevSettings desktop={desktop} onShowLanding={showLanding} hidden={uploadOpen} />
               {/* Opened by the auth gate when a guest tries to act, or by a log-in button. */}
               <SignInSheet />
-              <UploadModal open={uploadOpen} onClose={closeUpload} />
+              <UploadModal open={uploadOpen} onClose={closeUpload} onOpen={openUpload} />
             </>
           )}
         </WithLanding>

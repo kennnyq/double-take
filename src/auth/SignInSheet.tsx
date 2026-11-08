@@ -38,7 +38,7 @@ import { themed, usePalette } from '@/ui/theme';
  * sign-in the gate runs whatever the guest was trying to do.
  */
 export function SignInSheet() {
-  const { open, reason } = useGate();
+  const { open, reason, membersOnly } = useGate();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const tint = useTint();
@@ -79,7 +79,7 @@ export function SignInSheet() {
             </Pressable>
           </View>
           {/* Mounted while open, so every opening starts fresh. */}
-          {open && <SignInBody key="body" reason={reason} />}
+          {open && <SignInBody key="body" reason={reason} membersOnly={membersOnly} />}
         </View>
       </KeyboardAvoidingView>
     </Modal>
@@ -88,7 +88,7 @@ export function SignInSheet() {
 
 type Mode = 'signIn' | 'signUp';
 
-function SignInBody({ reason }: { reason: string | null }) {
+function SignInBody({ reason, membersOnly }: { reason: string | null; membersOnly: boolean }) {
   const c = usePalette();
   const tint = useTint();
   // Already a guest (opened to sign in and save across devices): no guest option.
@@ -242,7 +242,7 @@ function SignInBody({ reason }: { reason: string | null }) {
       >
         {busy ? <ActivityIndicator color={c.onAccent} /> : <Text style={[styles.primaryText, tint.primaryText]}>{signUp ? 'Create account' : 'Sign in'}</Text>}
       </Pressable>
-      {!guest && (
+      {!guest && !membersOnly && (
         <Pressable
           onPress={continueAsGuest}
           disabled={busy}
