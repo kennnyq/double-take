@@ -25,7 +25,8 @@ partners were all discarded goes.
 CANDIDATES.jsonl rows need at least `url`; `label`, `evidence`, `views`, `likes`,
 `uploader` and `source` are carried into the feed when present, and so are the
 comparison fields `tier` (how we know a real clip is real), `pairOf` (the AI clip
-id it compares with) and `how`. `download` fetches media from another URL than
+id it compares with) and `how`. The demo feed drops `pairOf`: every clip stands alone
+there, and pairs only matter in a pair feed (compare, which isn't shipped). `download` fetches media from another URL than
 `url`, the clip's identity (a Reddit thread whose video is on v.redd.it); `title`
 and `uploader` then stand in for what that URL can't say. `section` ("MM:SS-MM:SS") cuts a long source,
 such as a livestream, down to that stretch before anything else.
@@ -382,6 +383,10 @@ def main() -> None:
                 print(f"dup  {d['id']}: {d['why']}{extra}; kept {g['keep']}", file=sys.stderr)
     # Never list a clip without its media (a kept row whose files were removed, say).
     feed = with_media(feed, args.out)
+    # In demo every clip stands alone: pairs only matter in a pair feed such as compare.
+    if args.feed == "demo":
+        for c in feed:
+            c.pop("pairOf", None)
     # Tiles too, so --merge also makes them for clips built before tiles existed.
     with ThreadPoolExecutor(args.jobs) as ex:
         list(ex.map(lambda c: attach_tile(c, args.out), feed))

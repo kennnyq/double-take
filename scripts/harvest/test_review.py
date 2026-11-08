@@ -44,6 +44,28 @@ class Fold(unittest.TestCase):
             with open(os.path.join(d, "feeds", "demo.json")) as f:
                 self.assertEqual(json.load(f)["clips"], [])
 
+    def test_demo_rows_stand_alone(self):
+        # A kept demo row carrying pairOf comes out of a rebuild without it.
+        with tempfile.TemporaryDirectory() as d:
+            base = "media/yt-aaaaaaaaaaa/v1"
+            os.makedirs(os.path.join(d, base))
+            for name in ("720.mp4", "poster.jpg", "tile.mp4"):
+                open(os.path.join(d, base, name), "w").close()
+            os.makedirs(os.path.join(d, "feeds"))
+            row = {"id": "yt-aaaaaaaaaaa", "video": f"{base}/720.mp4", "poster": f"{base}/poster.jpg", "sha256": "s",
+                   "label": "real", "tier": "real-prior", "pairOf": "x-1", "width": 720, "height": 1280, "duration": 5}
+            with open(os.path.join(d, "feeds", "demo.json"), "w") as f:
+                json.dump({"version": 1, "clips": [row]}, f)
+            empty = os.path.join(d, "none.jsonl")
+            open(empty, "w").close()
+            r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "build_media.py"), empty, "--out", d,
+                                "--merge", "--no-dedupe"], capture_output=True, text=True, timeout=60)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            with open(os.path.join(d, "feeds", "demo.json")) as f:
+                [out] = json.load(f)["clips"]
+        self.assertNotIn("pairOf", out)
+        self.assertEqual((out["label"], out["tier"]), ("real", "real-prior"))
+
     def test_discarded_and_missing_log(self):
         self.assertEqual(review.discarded(os.path.join(FIX, "decisions.jsonl")), {"yt-abcdefghijk"})
         self.assertEqual(review.discarded(os.path.join(FIX, "nope.jsonl")), set())
