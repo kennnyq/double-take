@@ -283,7 +283,9 @@ function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted
   };
   Object.assign(layer.style, start);
   f.append(layer);
-  root.append(f);
+  // Inside the hero, under its words (landing.css): the button stays in front
+  // of the one that grows until it has gone, rather than the two swapping.
+  (root.querySelector('.lt-hero') ?? root).append(f);
   // Moved in the same task, the video keeps playing.
   layer.append(small);
   if (board) layer.append(board);
