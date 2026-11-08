@@ -19,7 +19,7 @@ import { BASE_URL, findChrome } from './browser.ts';
 const GAME_DEV_KEY = 'double-take:game-dev:v1';
 
 type Guess = { clipId: string; guess: 'ai' | 'real'; truth: 'ai' | 'real'; correct: boolean };
-type Snapshot = { phase: string; index: number; shown: number; busy: boolean; remainingMs: number; guesses: Guess[]; endReason: string | null; deck: { id: string; truth: string }[] };
+type Snapshot = { phase: string; index: number; shown: number; busy: boolean; remainingMs: number; deadline: number | null; guesses: Guess[]; endReason: string | null; deck: { id: string; truth: string }[] };
 
 const failures: string[] = [];
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -202,10 +202,33 @@ async function run(browser: Browser, layout: Layout) {
   const afterMark = await game(page);
   check(`${layout === 'desktop' ? 'double click' : 'double tap'} marks AI`, afterMark?.guesses[0]?.guess === 'ai', afterMark?.guesses);
 
-  // Skip.
+  // Skip, watching the timer every frame: moving between clips must not move it or change its time.
+  const before = await game(page);
+  await page.evaluate(() => {
+    const w = window as unknown as { __timer: { x: number; y: number; deadline: number | null }[]; __timerOn: boolean };
+    w.__timer = [];
+    w.__timerOn = true;
+    const tick = () => {
+      const r = document.querySelector('[data-testid="game-timer"]')?.getBoundingClientRect();
+      const g = (window as unknown as { __dtGame?: { deadline: number | null } }).__dtGame;
+      if (r) w.__timer.push({ x: r.left, y: r.top, deadline: g?.deadline ?? null });
+      if (w.__timerOn) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
   if (layout === 'desktop') await page.mouse.wheel(0, 240);
   else await swipeUp(page);
   await waitFor(page, 'the skip advances', (s) => s.guesses.length === 2 && !s.busy);
+  await page.waitForTimeout(600);
+  const frames = await page.evaluate(() => {
+    const w = window as unknown as { __timer: { x: number; y: number; deadline: number | null }[]; __timerOn: boolean };
+    w.__timerOn = false;
+    return w.__timer;
+  });
+  const drift = frames.length ? Math.max(...frames.map((f) => Math.hypot(f.x - frames[0].x, f.y - frames[0].y))) : -1;
+  const deadlines = new Set(frames.map((f) => f.deadline).concat(before?.deadline ?? null));
+  check('moving between clips leaves the timer where it is', frames.length > 10 && drift <= 1, { frames: frames.length, drift });
+  check('moving between clips leaves the round’s time alone', deadlines.size === 1, [...deadlines]);
   const afterSkip = await game(page);
   check(`${layout === 'desktop' ? 'wheel' : 'swipe up'} skips (counts as real)`, afterSkip?.guesses[1]?.guess === 'real', afterSkip?.guesses);
 

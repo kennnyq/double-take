@@ -504,24 +504,31 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   }, [commentsOpen, active, wrapW]);
   const activeClip = clips[active] as Clip | undefined;
 
-  // A mode's overlay sits over the active card: measured once the feed has come to rest there.
+  // A mode's overlay sits over the card where it rests. Every slide's card rests
+  // in the same place, so it's measured as the card's offset in its slide plus
+  // the feed's offset in the wrap: the same mid-scroll as at rest, so the
+  // overlay never follows a card that's still moving into place.
   const [stage, setStage] = useState<StageRect | null>(null);
   const hasOverlay = !!mode?.overlay;
   useEffect(() => {
     if (!hasOverlay) return;
     const measure = () => {
       const wrap = wrapRef.current?.getBoundingClientRect();
-      const el = feedRef.current?.querySelector<HTMLElement>('.slide[aria-current="true"] .stage.card')?.getBoundingClientRect();
-      if (!wrap || !el || !el.width) return;
+      const feedBox = feedRef.current?.getBoundingClientRect();
+      const slide = feedRef.current?.querySelector<HTMLElement>('.slide');
+      const el = slide?.querySelector<HTMLElement>('.stage.card')?.getBoundingClientRect();
+      const slideBox = slide?.getBoundingClientRect();
+      if (!wrap || !feedBox || !el || !slideBox || !el.width) return;
       setStage((s) => {
-        const next = { x: el.left - wrap.left, y: el.top - wrap.top, w: el.width, h: el.height };
+        const next = { x: el.left - wrap.left, y: el.top - slideBox.top + (feedBox.top - wrap.top), w: el.width, h: el.height };
         return s && Math.abs(s.x - next.x) < 1 && Math.abs(s.y - next.y) < 1 && s.w === next.w && s.h === next.h ? s : next;
       });
     };
-    const t = window.setTimeout(measure, 450);
     measure();
+    // Once more after the first layout settles (fonts, the info column).
+    const t = window.setTimeout(measure, 450);
     return () => window.clearTimeout(t);
-  }, [hasOverlay, active, card, wrapW, feedH]);
+  }, [hasOverlay, card, wrapW, feedH, clips.length]);
   const panel = commentsOpen && activeClip ? panelLayout(wrapW, card.w, actionsW) : null;
 
   return (
