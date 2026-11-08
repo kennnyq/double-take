@@ -62,6 +62,8 @@ export interface DevSettings {
   spotlightPadding: SpotlightPadding;
   /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
   markDrafts: boolean;
+  /** Judges and demos: name the models under each step of the result's "How we checked". Off: no model names. */
+  showModels: boolean;
   endCue: EndCue;
   /** How the double take card's text comes in: Siri's answer card (default) or WWDC24's text transition. */
   textReveal: RevealVariant;
@@ -80,6 +82,7 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightShape: 'feather',
   spotlightPadding: 'roomy',
   markDrafts: false,
+  showModels: false,
   endCue: 'both',
   textReveal: 'siri',
   tabBarInDoubleTake: 'stay',
@@ -110,6 +113,7 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     spotlightShape: oneOf(SPOTLIGHT_SHAPES, o.spotlightShape, d.spotlightShape),
     spotlightPadding: oneOf(SPOTLIGHT_PADDINGS, o.spotlightPadding, d.spotlightPadding),
     markDrafts: typeof o.markDrafts === 'boolean' ? o.markDrafts : d.markDrafts,
+    showModels: typeof o.showModels === 'boolean' ? o.showModels : d.showModels,
     endCue: oneOf(END_CUES, o.endCue, d.endCue),
     textReveal: oneOf(REVEAL_VARIANTS, o.textReveal, d.textReveal),
     tabBarInDoubleTake: oneOf(TAB_BAR_MODES, o.tabBarInDoubleTake, d.tabBarInDoubleTake),

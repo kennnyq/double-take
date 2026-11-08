@@ -222,6 +222,29 @@ export function VerdictHeadline({ verdict }: { verdict: OverallVerdict }) {
   );
 }
 
+/**
+ * With "How we checked" in place of the per-part rows, what's still useful from
+ * them: what would help settle each part, as a compact footer.
+ */
+export function WouldHelp({ inspection }: { inspection?: Inspection }) {
+  const s = useTint();
+  const items = (inspection?.components ?? []).filter((n) => n.missing.length > 0);
+  if (!items.length) return null;
+  return (
+    <View style={{ gap: 10 }}>
+      <Text style={s.heading}>What would help</Text>
+      <View style={[s.findings, { paddingVertical: 4 }]}>
+        {items.map((n, i) => (
+          <View key={n.component} style={[s.finding, { paddingVertical: 10, gap: 2 }, i > 0 && s.findingRule]}>
+            <Text style={s.overline}>{COMPONENT[n.component]}</Text>
+            <Text style={s.body}>{n.missing.join(' ')}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 const SIGNAL_ICON: Record<Inspection['signals'][number]['kind'], keyof typeof Ionicons.glyphMap> = { metadata: 'document-text-outline', provenance: 'finger-print-outline', source: 'link-outline' };
 
 /** What the check could tell about the file itself: its format, embedded credentials, where it came from. */

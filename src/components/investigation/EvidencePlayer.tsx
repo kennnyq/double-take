@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useImperativeHandle, useRef, useState, type ReactNode, type Ref } from 'react';
 import { Animated as NativeAnimated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -41,7 +41,14 @@ type Step = Pick<InvestigationEvidence, 'id' | 'summary' | 'component'> & { tell
  * `children` (e.g. the findings) scroll under them; otherwise everything
  * stacks and the parent scrolls.
  */
-export function EvidencePlayer({ uri, width, height, duration, preview = false, evidence, maxStageHeight, pinned = false, lead, children }: {
+export interface EvidencePlayerHandle {
+  /** Fast-forwards or rewinds to `t` (an eased scrub, never a jump), then plays. */
+  seekTo: (t: number) => void;
+  /** Opens an evidence moment's card and spotlight, as its row does. */
+  show: (evidenceId: string) => void;
+}
+
+export function EvidencePlayer({ uri, width, height, duration, preview = false, evidence, maxStageHeight, pinned = false, lead, children, ref }: {
   uri: string; width: number; height: number; duration: number; preview?: boolean; evidence: InvestigationEvidence[];
   /** Fit the video inside a box this tall (e.g. a modal card). */
   maxStageHeight?: number;
@@ -49,6 +56,7 @@ export function EvidencePlayer({ uri, width, height, duration, preview = false, 
   /** Shown before the moments (e.g. the verdict on a phone), `children` after them. */
   lead?: ReactNode;
   children?: ReactNode;
+  ref?: Ref<EvidencePlayerHandle>;
 }) {
   const styles = useTint();
   const c = usePalette();
@@ -96,6 +104,17 @@ export function EvidencePlayer({ uri, width, height, duration, preview = false, 
     if (card) setLeaving(true); else setCard(item);
     cancel.current = scrub(player, item.tell.t0, () => setSeeking(false));
   }
+  useImperativeHandle(ref, () => ({
+    show: (evidenceId: string) => {
+      const item = moments.find(m => m.id === evidenceId);
+      if (item) inspect(item);
+    },
+    seekTo: (t: number) => {
+      endWalkthrough();
+      setSeeking(true);
+      cancel.current = scrub(player, Math.max(0, Math.min(t, (player.duration || duration) - 0.05)), () => setSeeking(false));
+    },
+  }));
   function endWalkthrough() {
     cancel.current?.(); setSeeking(false); setActive(undefined); pending.current = undefined;
     if (card) setLeaving(true);

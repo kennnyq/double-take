@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Keyboard, Modal, Platform, Pressable, ScrollView, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Animated, { interpolate, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -12,12 +12,13 @@ import { getJob, mediaUrl, retryAnalysis, upload, uploadLink, type ClientJob } f
 import { uuid } from '../lib/uuid';
 import { ownLayer } from '../feed/layer';
 import { usePalette } from '../ui/theme';
-import { EvidencePlayer } from '../components/investigation/EvidencePlayer';
+import { EvidencePlayer, type EvidencePlayerHandle } from '../components/investigation/EvidencePlayer';
+import { HowWeChecked, stepLinks, type StepLink } from './Trace';
 import { Processing } from '../components/investigation/Processing';
 import { DropZone } from './DropZone';
 import { ClipPreview, previewSource } from './ClipPreview';
 import { EASE_IN_OUT, EASE_OUT, useEased, useLatched, usePresence } from './motion';
-import { Assessments, Button, FileNotes, VerdictHeadline, ErrorNote, HeaderAction, IconButton, Reveal, StepLayer, Swap, useTint } from './parts';
+import { Assessments, Button, FileNotes, WouldHelp, VerdictHeadline, ErrorNote, HeaderAction, IconButton, Reveal, StepLayer, Swap, useTint } from './parts';
 
 /*
  * Create → check a video, laid out like a post composer: one card (a
@@ -94,6 +95,9 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
   /** A reload's ?check= couldn't be found yet. */
   const [recoverError, setRecoverError] = useState('');
   const [confirm, setConfirm] = useState(false);
+  const player = useRef<EvidencePlayerHandle>(null);
+  // A step's link opens its evidence card and spotlight, or scrubs to the moment it looked at.
+  const follow = useCallback((l: StepLink) => (l.evidenceId ? player.current?.show(l.evidenceId) : player.current?.seekTo(l.t0)), []);
   const [over, setOver] = useState(false);
   const [clipLength, setClipLength] = useState<number>();
   const [previewFailed, setPreviewFailed] = useState(false);
@@ -346,14 +350,27 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
   const inspection = resultJob?.result?.inspection;
   const hasMoments = !!resultJob?.result && (resultJob.result.mode === 'fixture' || resultJob.result.evidence.some((e) => e.tell));
   const overall = resultJob?.result?.verdict;
-  // With an overall call it leads; the per-part rows follow as details. Old checks keep the plain layout.
+  const trace = resultJob?.result?.investigation;
+  const links = useMemo(() => stepLinks(resultJob?.result), [resultJob]);
+  // With an overall call it leads. Under it, "How we checked" when the result has the run; older
+  // checks keep their per-part rows.
   const verdict = resultJob?.result ? (
     <>
       {overall && <VerdictHeadline verdict={overall} />}
-      <Assessments components={resultJob.result.components} fixture={resultJob.result.mode === 'fixture'} inspection={inspection} title={overall ? 'Details' : undefined} />
+      {trace ? (
+        <HowWeChecked trace={trace} links={links} verdict={overall} onLink={follow} />
+      ) : (
+        <Assessments components={resultJob.result.components} fixture={resultJob.result.mode === 'fixture'} inspection={inspection} title={overall ? 'Details' : undefined} />
+      )}
     </>
   ) : null;
-  const fileNotes = inspection ? <FileNotes signals={inspection.signals} /> : null;
+  // What's still useful from the per-part rows the timeline replaces, then the file notes.
+  const fileNotes = (
+    <>
+      {trace && <WouldHelp inspection={inspection} />}
+      {inspection && <FileNotes signals={inspection.signals} />}
+    </>
+  );
   const another = <Button label="Check another video" onPress={startOver} wide />;
   // The video stays pinned at the top while the evidence moments (and on phones the findings) scroll under it.
   const result = resultJob?.result ? (
@@ -367,6 +384,7 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
       preview={resultJob.result.mode === 'fixture'}
       evidence={resultJob.result.evidence}
       lead={desktop ? null : verdict}
+      ref={player}
       maxStageHeight={desktop ? (hasMoments ? S * 0.6 : S - 64) : bodyH * 0.36}
     >
       {!desktop && (
