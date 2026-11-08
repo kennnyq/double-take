@@ -128,7 +128,7 @@ function Card({
       {player && (
         <VideoView
           player={player}
-          style={StyleSheet.absoluteFill}
+          style={styles.video}
           contentFit={fit}
           nativeControls={false}
           playsInline
@@ -157,4 +157,6 @@ function runOps(player: VideoPlayer, ops: PlayerOp[], plan: PlayerPlan, onBlocke
 const styles = StyleSheet.create({
   root: { overflow: 'hidden', backgroundColor: '#000' },
   card: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', backgroundColor: '#000' },
+  // Sized outright: a browser's <video> keeps its own size under left/right/top/bottom alone.
+  video: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
 });
