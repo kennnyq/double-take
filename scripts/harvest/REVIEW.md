@@ -5,9 +5,22 @@ The review site is a dev tool for triaging every clip we have (live AI clips, re
 ## Run it
 
 ```bash
-npm run review                          # http://0.0.0.0:8090 (reachable over the tailnet)
-npm run review -- --port 8091 --host 127.0.0.1
+npm run review                                   # http://0.0.0.0:8090 (reachable over the tailnet)
+REVIEW_PORT=8088 npm run review                  # another port
 ```
+
+On kenny-wsl, with the harvest worker's local Worker and its vetted decisions:
+
+```bash
+R=~/.t3/worktrees/double-take/feat-real-clips
+REVIEW_PORT=8088 REVIEW_LOCAL_DEV_VARS=$R/worker/.dev.vars \
+  REVIEW_ALSO_DECISIONS=$R/scripts/harvest/review/decisions.jsonl npm run review
+```
+
+- `REVIEW_LOCAL_DEV_VARS` reads the local Worker's `DEMO_PASSCODE` from that checkout. It's never printed or sent to the browser.
+- `REVIEW_ALSO_DECISIONS` folds another checkout's log in **read-only**. Both copies live at the same repo path and merge as a union (below), so this shows the state the merged file will have.
+
+**Where decisions go:** your decisions are appended to the decisions file **of the checkout that runs the server**, `scripts/harvest/review/decisions.jsonl`, and nowhere else. Commit that file from that checkout.
 
 It's a small Node server (`scripts/review/`). It isn't part of the app: Metro never bundles `scripts/`, nothing deploys it, and it refuses to start with `NODE_ENV=production`. It has no login, so only run it on a private network such as the tailnet.
 
@@ -22,40 +35,63 @@ All of these are merged into one list, with one item per clip key (`build_media.
 | batches | every `scripts/harvest/*.jsonl` (`spot_test`, `batch-*`, `real-*`) | none |
 | notes | `scripts/annotate/notes.jsonl`, attached to X clips | none |
 
-- A feed that doesn't exist (such as `compare`, which isn't shipped) or a Worker that's down shows as ✕ in the sidebar. Neither is fatal.
+- A feed that doesn't exist (such as `compare`, which isn't shipped) or a Worker that's down shows as ✕ in the queue sheet. Neither is fatal.
 - Media comes from the first source that has the clip, prod before local.
 - The local Worker's signed URLs are rewritten to the host the browser used, so they also play on a phone over the tailnet.
 - Batch rows that were never built show as "Not built yet", with their evidence and source link.
 - To change the sources or feeds, set `REVIEW_SOURCES=prod,local`, `REVIEW_FEEDS=demo,compare`, `REVIEW_LOCAL_URL` or `REVIEW_PROD_URL`.
 
-### Organising the list
+### The reviewer
 
-- **Group by:** feed or batch, status, AI vs real, label/tier, tells (has tells / no tells / not built), source platform, author, tag, pair, or duplicate hint.
-- **Filters:** the sidebar has the same facets, with counts. Values within a facet are OR'd, and facets are AND'd. Search matches the key, author, title, evidence, note, tags and your feedback.
-- **Sort:** feed order, newest, oldest, shortest, longest, or recently reviewed.
-- The URL keeps the current view, so a link reopens the same filters and clip.
-- **Pairs:** opening any clip in an AI↔real pair (`pairOf`, from the first real batch) shows the AI clip next to its real partners. Pairs aren't a goal any more and `compare` isn't shipped; the view is kept for those older clips.
-- **Duplicate hints:** the site flags clips with the same file hash, the same evidence text, or a near-identical poster (a 64-bit difference hash). Clips in one pair are exempt, because they share a note on purpose.
-- Deciding a clip doesn't drop it from the current list, so the next/previous order stays stable. Press **R** to re-apply the filters.
+One clip at a time, shown on a phone-shaped stage the way the app shows it.
+
+- **The app's own presentation:** the double take runs on the app's own modules: spotlight geometry and masks, info-card placement, eased scrubbing, step order, slow-motion replay windows and the palette.
+  - The server serves those files type-stripped under `/app/` (`scripts/review/appModules.ts`), so the reviewer can't drift from the app.
+  - `appModules.test.ts` fails if one of them starts importing something the browser can't load.
+- **Annotation runs:** the switcher under the stage picks a run (`shipped` is the feed's own tells; `claude`, `nemotron-dense`… are the alternatives). The double take, the card text and the drawer follow the selected run.
+- **Timeline:**
+  - Each run has a lane, with every tell drawn over its window, so all runs' output can be compared at a glance.
+  - Hover a marker to see its label.
+  - Click a marker to open that tell in the double take; it scrubs there.
+  - Click the track to ease to that time, or drag to scrub directly.
+- **Outlines (B):** every run's boxes over the video while they apply. The selected run is solid and labelled; the others are dashed.
+- **Evidence drawer (E):** author and stats, label/tier, sources, the Community Note, the subreddit consensus, the batch evidence, each run's model and date, unplaced claims, any earlier decision, and, for the older clips from the first real batch, the AI↔real partner (pairs aren't a goal any more, and `compare` isn't shipped).
+- **Decisions:** Keep or Drop, with an optional note. A note on its own saves when the field loses focus.
+  - Deciding moves on to the next clip.
+  - **U** undoes, step by step.
+  - The note field only ever holds your own note. Another reviewer's note stays in the drawer and is never overwritten by yours.
+- **Queue (F):**
+  - Unreviewed (the default: no keep or drop yet), Kept, Dropped or All.
+  - Worker-vetted or not: a live decision `by: worker-vetted`, or the `worker-vetted` tag.
+  - With or without tells.
+  - Any one feed or batch.
+  - Optionally clips that were never built.
+  - Clips with tells come first, then feed and batch order.
+  - The filter is remembered, and the URL holds the current clip.
+- **Motion:** only moving between clips cuts. Everything else is continuous:
+  - the video position always scrubs;
+  - the spotlight eases between areas;
+  - cards, the drawer and sheets fade and slide.
+- **Phone:** the same layout stacks. Swipe up or down on the stage for the next or previous clip, tap to play or pause (or for the next step), and double-tap for the double take.
 
 ### Keys
 
 | Key | Action |
 | --- | --- |
-| `J` `K` / arrows | next / previous clip |
-| `Enter` `O` | open the clip; `Esc` goes back |
-| `1` `2` `3` | keep / discard / needs work (press the same key again to clear; `0` also clears) |
-| `T` | tag palette (then press the tag's number) |
-| `N` | note (`Ctrl+Enter` or `Esc` saves) |
-| `Space` | play / pause |
-| `,` `.` | seek 1 s back / forward |
-| `B` | tell boxes |
-| `M` | mute |
+| `J` `K` / `↓` `↑` | next / previous clip |
+| `←` `→` | previous / next annotation (opens the double take) |
+| `Space` | play / pause; the next step during a double take |
+| `D` / `Enter` | double take on / off |
+| `1`–`9`, `V` | pick / cycle the annotation run |
+| `B` | outline every run's boxes |
+| `A` / `X` | keep / drop (again to clear) |
+| `N` | note |
 | `U` | undo |
-| `/` | search |
-| `?` | help |
-
-The quick tags live in `scripts/harvest/review/tags.json`. You can also edit them under ⚙ in the site.
+| `E` | evidence drawer |
+| `F` | queue filters |
+| `M` | sound |
+| `Esc` | close / leave the double take |
+| `?` | shortcuts |
 
 ## The decisions file
 
