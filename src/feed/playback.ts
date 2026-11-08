@@ -42,3 +42,47 @@ export function planFor(isActive: boolean, s: PlaybackState, slowRate: number): 
 export function audibleSlots(plans: PlayerPlan[]): number[] {
   return plans.flatMap((p, s) => (p.play && !p.muted ? [s] : []));
 }
+
+/** What a player reports now, as far as applying a plan needs. */
+export interface PlayerNow {
+  muted: boolean;
+  rate: number;
+}
+
+export type PlayerOp = 'pause' | 'mute' | 'unmute' | 'rate' | 'play';
+
+/**
+ * The calls that bring a player to its plan, in order. Only what differs is
+ * written, because on iOS every write has side effects: expo-video sets
+ * `AVPlayer.rate` when `playbackRate` is set, which starts playback, and each
+ * mute or play-state change makes it reconfigure the app's audio session.
+ *
+ * - Stopping pauses first, then mutes, and never touches the rate (that would
+ *   start the player again).
+ * - Starting mutes or unmutes first, so nothing is heard at the old setting,
+ *   then sets the rate (if it changed) and plays.
+ */
+export function opsFor(now: PlayerNow, plan: PlayerPlan): PlayerOp[] {
+  const ops: PlayerOp[] = [];
+  if (!plan.play) {
+    ops.push('pause');
+    if (plan.muted && !now.muted) ops.push('mute');
+    return ops;
+  }
+  if (plan.muted !== now.muted) ops.push(plan.muted ? 'mute' : 'unmute');
+  if (plan.rate !== now.rate) ops.push('rate');
+  ops.push('play');
+  return ops;
+}
+
+/**
+ * Corrections for a player whose native state moved on its own: sound or
+ * playback the plan doesn't allow. Only ever stops or mutes, so reacting to
+ * the player's own events can't start anything or loop.
+ */
+export function guardOps(now: { muted: boolean; playing: boolean }, plan: PlayerPlan): PlayerOp[] {
+  const ops: PlayerOp[] = [];
+  if (now.playing && !plan.play) ops.push('pause');
+  if (!now.muted && plan.muted) ops.push('mute');
+  return ops;
+}

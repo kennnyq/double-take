@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { BOOST_RATE, IDLE, audibleSlots, planFor, type PlaybackState } from './playback.ts';
+import { BOOST_RATE, IDLE, audibleSlots, guardOps, opsFor, planFor, type PlaybackState } from './playback.ts';
 
 const SLOW = 0.35;
 const base: PlaybackState = { live: true, muted: false, paused: false, boost: false, slowmo: false };
@@ -50,4 +50,30 @@ test('the walkthrough replays slowly and muted, then sound comes back', () => {
   const after = planFor(true, base, SLOW);
   assert.equal(after.muted, false);
   assert.equal(after.rate, 1);
+});
+
+test('stopping a player pauses it first and never sets the rate (which plays on iOS)', () => {
+  assert.deepEqual(opsFor({ muted: false, rate: 2 }, IDLE), ['pause', 'mute']);
+  assert.deepEqual(opsFor({ muted: true, rate: 1 }, IDLE), ['pause']);
+  const paused = planFor(true, { ...base, paused: true }, SLOW);
+  assert.ok(!opsFor({ muted: false, rate: 2 }, paused).includes('rate'));
+});
+
+test('starting a player sets sound before speed, and only what changed', () => {
+  const plan = planFor(true, { ...base, boost: true }, SLOW);
+  assert.deepEqual(opsFor({ muted: true, rate: 1 }, plan), ['unmute', 'rate', 'play']);
+  assert.deepEqual(opsFor({ muted: false, rate: 2 }, plan), ['play']);
+});
+
+test('pressing mute on the playing clip only mutes it', () => {
+  const plan = planFor(true, { ...base, muted: true }, SLOW);
+  assert.deepEqual(opsFor({ muted: false, rate: 1 }, plan), ['mute', 'play']);
+});
+
+test('the guard stops or mutes a player that drifted, and never starts one', () => {
+  assert.deepEqual(guardOps({ muted: false, playing: true }, IDLE), ['pause', 'mute']);
+  const mutedPlan = planFor(true, { ...base, muted: true }, SLOW);
+  assert.deepEqual(guardOps({ muted: false, playing: true }, mutedPlan), ['mute']);
+  assert.deepEqual(guardOps({ muted: true, playing: false }, planFor(true, base, SLOW)), []);
+  assert.deepEqual(guardOps({ muted: false, playing: true }, planFor(true, base, SLOW)), []);
 });

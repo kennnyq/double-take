@@ -26,7 +26,7 @@ import { useSocial } from '@/social/store';
 import { appSettings, useAppSettings } from '@/settings/store';
 import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf } from './feedMode';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
-import { IDLE, planFor, type PlaybackState, type PlayerPlan } from './playback';
+import { IDLE, guardOps, opsFor, planFor, type PlaybackState, type PlayerOp, type PlayerPlan } from './playback';
 import { shrinkGeometry } from './shrink';
 import { playWeb } from './playWeb';
 import { ClipItem } from './ClipItem';
@@ -97,20 +97,17 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const p2 = useVideoPlayer(null, setup);
   const players = useMemo(() => [p0, p1, p2], [p0, p1, p2]);
 
-  // Browsers refuse to start a video with sound outside a user gesture (iOS
-  // Safari always does for a <video> it hasn't played from a tap). Rather than
-  // leave the clip stopped and silent under an unmuted icon, fall back to
+  // Only what differs is written (see `opsFor`): on iOS, setting the rate
+  // starts a player, and every play or mute change reconfigures the audio
+  // session, so rewriting all three players on each change (a mute press, a
+  // neighbour finishing loading) started and stopped paused ones mid-playback.
+  //
+  // Web: browsers refuse to start a video with sound outside a user gesture
+  // (iOS Safari always does for a <video> it hasn't played from a tap). Rather
+  // than leave the clip stopped and silent under an unmuted icon, fall back to
   // muted playback; the sound button then unmutes it inside its tap.
   const applyPlan = useCallback((player: VideoPlayer, plan: PlayerPlan) => {
-    player.muted = plan.muted;
-    player.playbackRate = plan.rate;
-    if (!plan.play) player.pause();
-    else if (Platform.OS !== 'web') player.play();
-    else
-      playWeb(player, () => {
-        player.muted = true;
-        setMuted(true);
-      });
+    runOps(player, opsFor({ muted: player.muted, rate: player.playbackRate }, plan), plan, () => setMuted(true));
   }, []);
 
   const slotIndex = useMemo(() => poolWindow(active, clips.length), [active, clips.length]);
@@ -157,9 +154,18 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
     });
   }, [slotIndex, players, clips, applyPlan]);
 
+  // What the players were last told, for handlers and native events (read
+  // through refs so the handlers stay stable: the walkthrough treats a new
+  // `setSlowmo` as leaving the clip). Updated by the effect below as it
+  // applies them, so an event never sees a newer pool with older orders.
+  const playback = useRef<PlaybackState>({ live: false, muted, paused, boost, slowmo });
+  const pool = useRef({ slotIndex, active, loaded });
+
   // Apply play/pause/mute/rate to every player whenever anything relevant changes.
   useEffect(() => {
     const state = { live: focused && appActive, muted, paused, boost, slowmo };
+    playback.current = state;
+    pool.current = { slotIndex, active, loaded };
     slotIndex.forEach((idx, s) => {
       applyPlan(players[s], planFor(idx === active && loaded[s] === idx, state, REPLAY_RATE));
     });
@@ -362,16 +368,6 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   // Web: apply a change to the active player inside the tap that made it.
   // Safari only lets a video start, or unmute, during a user gesture; done
   // later from an effect, unmuting pauses the clip instead.
-  const playback = useRef<PlaybackState>({ live: false, muted, paused, boost, slowmo });
-  useEffect(() => {
-    playback.current = { live: focused && appActive, muted, paused, boost, slowmo };
-  }, [focused, appActive, muted, paused, boost, slowmo]);
-  // Read through a ref so the handlers stay stable: the walkthrough treats a
-  // new `setSlowmo` as leaving the clip.
-  const pool = useRef({ slotIndex, active, loaded });
-  useEffect(() => {
-    pool.current = { slotIndex, active, loaded };
-  }, [slotIndex, active, loaded]);
   const applyNow = useCallback(
     (change: Partial<PlaybackState>) => {
       // Kept current so a second change in the same tap builds on this one.
@@ -392,6 +388,31 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
     },
     [applyNow],
   );
+
+  // iOS can change a player on its own (KVO echoes of an earlier mute, the
+  // loop restarting, an audio session change). Whenever a player reports it
+  // started or was unmuted against what it was told, stop or mute it again.
+  // Native only: the web player reports `playing` after a source change even
+  // while its <video> stays paused.
+  const guard = useCallback(
+    (s: number) => {
+      if (Platform.OS === 'web') return;
+      const { slotIndex: slots, active: at, loaded: held } = pool.current;
+      const player = players[s];
+      const plan = planFor(slots[s] === at && held[s] === at, playback.current, REPLAY_RATE);
+      const ops = guardOps({ muted: player.muted, playing: player.playing }, plan);
+      if (!ops.length) return;
+      if (__DEV__) console.log(`[audio] corrected slot ${s}: ${ops.join(', ')}`);
+      runOps(player, ops, plan, () => {});
+    },
+    [players],
+  );
+  useEventListener(p0, 'playingChange', () => guard(0));
+  useEventListener(p1, 'playingChange', () => guard(1));
+  useEventListener(p2, 'playingChange', () => guard(2));
+  useEventListener(p0, 'mutedChange', () => guard(0));
+  useEventListener(p1, 'mutedChange', () => guard(1));
+  useEventListener(p2, 'mutedChange', () => guard(2));
 
   const changePaused = useCallback(
     (next: boolean) => {
@@ -492,6 +513,21 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
       <TopBar muted={muted} onToggleMute={toggleMute} opacity={chrome} hidden={sheetOpen} />
     </View>
   );
+}
+
+/** Applies `opsFor`/`guardOps` calls to an expo-video player. */
+function runOps(player: VideoPlayer, ops: PlayerOp[], plan: PlayerPlan, onBlocked: () => void): void {
+  for (const op of ops) {
+    if (op === 'pause') player.pause();
+    else if (op === 'mute' || op === 'unmute') player.muted = op === 'mute';
+    else if (op === 'rate') player.playbackRate = plan.rate;
+    else if (Platform.OS !== 'web') player.play();
+    else
+      playWeb(player, () => {
+        player.muted = true;
+        onBlocked();
+      });
+  }
 }
 
 /** Quiet time after the last scroll event before a browser's swipe counts as settled. */
