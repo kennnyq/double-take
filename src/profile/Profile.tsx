@@ -93,17 +93,21 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
       <View style={styles.headRow}>
         <View style={styles.avatarWrap}>
           <Avatar name={me.handle} size={86} />
-          <Pressable
-            onPress={() => setNoteOpen(true)}
-            hitSlop={6}
-            style={({ pressed }) => [styles.note, pressed && { opacity: 0.7 }]}
-            accessibilityRole="button"
-            accessibilityLabel={note ? `Note: ${note}. Edit` : 'Add a note'}
-          >
-            <Text style={[styles.noteText, note !== null && styles.noteTextSet]} numberOfLines={2}>
-              {note ?? 'Note…'}
-            </Text>
-          </Pressable>
+          {/* The note sits centred above the avatar, overlapping its top a little (like Instagram's). */}
+          <View style={styles.noteSlot} pointerEvents="box-none">
+            <Pressable
+              onPress={() => setNoteOpen(true)}
+              hitSlop={6}
+              style={({ pressed }) => [styles.note, pressed && { opacity: 0.7 }]}
+              accessibilityRole="button"
+              accessibilityLabel={note ? `Note: ${note}. Edit` : 'Add a note'}
+            >
+              <Text style={[styles.noteText, note !== null && styles.noteTextSet]} numberOfLines={2}>
+                {note ?? 'Note…'}
+              </Text>
+            </Pressable>
+            <View style={styles.noteTail} pointerEvents="none" />
+          </View>
         </View>
         <View style={styles.headInfo}>
           <Text style={styles.name}>{me.name}</Text>
@@ -297,13 +301,14 @@ const styles = StyleSheet.create({
   list: { flex: 1 },
   listContent: { paddingBottom: 24 },
   column: { gap: GAP, marginBottom: GAP },
-  headRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 22, gap: 20 },
-  avatarWrap: { width: 92, alignItems: 'center' },
+  headRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, gap: 20 },
+  // Room above the avatar for the note bubble, so it's never cut off by the top bar.
+  avatarWrap: { width: 104, alignItems: 'center', paddingTop: 30 },
+  noteSlot: { position: 'absolute', top: 0, left: 0, right: 0, alignItems: 'center' },
   note: {
-    position: 'absolute',
-    top: -20,
-    left: -6,
-    maxWidth: 96,
+    maxWidth: 104,
+    minHeight: 28,
+    justifyContent: 'center',
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 14,
@@ -311,7 +316,9 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.12)',
   },
-  noteText: { color: '#a8a8a8', fontSize: 12 },
+  // The bubble's tail, a small dot just under it.
+  noteTail: { width: 7, height: 7, borderRadius: 4, marginTop: 2, backgroundColor: '#2a2a2a' },
+  noteText: { color: '#a8a8a8', fontSize: 12, textAlign: 'center' },
   noteTextSet: { color: '#fff' },
   headInfo: { flex: 1, gap: 8 },
   name: { color: '#fff', fontSize: 16, fontWeight: '600' },
