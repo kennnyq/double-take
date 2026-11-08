@@ -19,8 +19,13 @@ export const DEV_TOOLS =
 
 // ---- the panel's open state, so a clip's badge can open it on a tab ---------
 
-export const DEV_TABS = ['interaction', 'model', 'panel'] as const;
-export type DevTab = (typeof DEV_TABS)[number];
+const ALL_TABS = ['interaction', 'model', 'accounts', 'panel'] as const;
+export type DevTab = (typeof ALL_TABS)[number];
+/**
+ * The panel's tabs. Accounts (test sign-ins through the Worker's dev routes) is
+ * for dev builds only, not production web opened with `?dev`.
+ */
+export const DEV_TABS: readonly DevTab[] = __DEV__ ? ALL_TABS : ALL_TABS.filter((t) => t !== 'accounts');
 
 interface PanelState {
   open: boolean;

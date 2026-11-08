@@ -28,6 +28,11 @@ export function useLoadedFor(): string | null {
   return useSyncExternalStore(subscribe, () => loadedFor, () => loadedFor);
 }
 
+let reload: (() => void) | null = null;
+
+/** Load the current account's saved state again (e.g. after a dev wipe). */
+export const reloadSocial = () => reload?.();
+
 const who = (s: AuthState) => (s.status === 'member' ? s.session!.user.id : s.status === 'guest' ? 'guest' : null);
 
 /**
@@ -78,8 +83,15 @@ export function SocialSync() {
       current = target;
       load(target);
     };
+    reload = () => {
+      if (current) load(current);
+    };
     onAuth();
-    return authStore.subscribe(onAuth);
+    const unsubscribe = authStore.subscribe(onAuth);
+    return () => {
+      reload = null;
+      unsubscribe();
+    };
   }, [store]);
 
   return null;

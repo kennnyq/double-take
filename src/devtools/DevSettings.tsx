@@ -3,6 +3,7 @@ import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, useW
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { loadInitialClips } from '@/data/feed';
+import { AccountsTab } from './AccountsTab';
 import {
   DEFAULT_SETTINGS,
   HOLD_DELAYS,
@@ -47,6 +48,7 @@ interface Group {
 const TAB_META: Record<DevTab, { label: string; icon: IconName }> = {
   interaction: { label: 'Interaction', icon: 'hand-left-outline' },
   model: { label: 'Model', icon: 'hardware-chip-outline' },
+  accounts: { label: 'Accounts', icon: 'people-outline' },
   panel: { label: 'Menu', icon: 'options-outline' },
 };
 
@@ -54,6 +56,7 @@ const TAB_META: Record<DevTab, { label: string; icon: IconName }> = {
 const TAB_KEYS: Record<DevTab, DevSettingKey[]> = {
   interaction: ['revealGesture', 'holdMs', 'gestureHint'],
   model: ['pipeline', 'pipelineBadge'],
+  accounts: [],
   panel: ['launcher'],
 };
 
@@ -75,6 +78,8 @@ function usePipelines(): Record<string, number> {
 }
 
 function groupsFor(tab: DevTab, s: Settings, pipelines: Record<string, number>, desktop: boolean): Group[] {
+  // The Accounts tab renders its own live view (AccountsTab).
+  if (tab === 'accounts') return [];
   if (tab === 'interaction') {
     const hold = desktop ? 'Click and hold' : 'Hold';
     const twice = desktop ? 'Double-click' : 'Double tap';
@@ -275,6 +280,7 @@ function Panel({ tab, settings: s, desktop, style }: { tab: DevTab; settings: Se
       <TabBar tab={tab} settings={s} />
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
+        {tab === 'accounts' && <AccountsTab />}
         {groups.map((g) => (
           <View key={g.title} style={styles.group}>
             <Text style={styles.groupTitle}>{g.title}</Text>
