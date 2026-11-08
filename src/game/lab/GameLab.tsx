@@ -13,7 +13,8 @@ import { FrameContext, stageSize, useFrame, useGameScreen, type FrameSize } from
 import { Countdown } from '../hud/Countdown';
 import { Hud, hudAnchor, useTimeFraction } from '../hud/Hud';
 import { useEased } from '../motion';
-import { loadPlayableClips } from '../playable';
+import { media, takeLoading } from '../media';
+import { loadDealableClips } from '../playable';
 import { Results } from '../results/Results';
 import { createRound, remaining, roundReducer, type RoundState } from '../round';
 import { fakeRound } from './fake';
@@ -21,6 +22,9 @@ import { BOTS, RankerSim, SimChip, SkillsSim, TASTES, WEAKNESS, type SkillSimPar
 
 import type { SkillCategory } from '@/skills/categories';
 import { SKILL_PRIOR, freshSkills, recordAnswer, updateSkill } from '@/skills/skill';
+
+/** The previews show at most this many clips (the results gallery is the most). */
+const LAB_SHOWN = 24;
 
 /** The lab's tabs: one per element of the round, then the simulations. */
 const LAB_VIEWS = [...GAME_ELEMENTS, 'skills', 'ranker'] as const;
@@ -70,9 +74,15 @@ export function GameLab() {
 
   useEffect(() => {
     let live = true;
-    loadPlayableClips()
+    void loadDealableClips()
       .then((ok) => (ok.length ? ok : loadInitialClips()))
-      .then((all) => live && setClips(all.filter((x) => !x.aspect || x.aspect < 1).concat(all.filter((x) => x.aspect && x.aspect >= 1))));
+      .then(async (all) => {
+        const ordered = all.filter((x) => !x.aspect || x.aspect < 1).concat(all.filter((x) => x.aspect && x.aspect >= 1));
+        // Only the clips the previews show are checked (a black tile would hide the design); the simulations need no media.
+        const queue = ordered.map((clip) => ({ clip }));
+        const shown = await takeLoading(media, queue, LAB_SHOWN);
+        if (live) setClips([...shown, ...queue].map((d) => d.clip));
+      });
     return () => {
       live = false;
     };

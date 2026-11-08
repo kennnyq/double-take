@@ -52,6 +52,12 @@ export interface RoundState {
   timed: boolean;
   /** When play started, on the caller's clock (an untimed guess's `at` counts from here). */
   startedAt: number | null;
+  /**
+   * More clips may still be dealt (`DEAL`): clips are checked just before
+   * they're dealt, so a timed round only ends on its deck once it's told
+   * nothing more is coming.
+   */
+  more: boolean;
 }
 
 export type RoundEvent =
@@ -64,12 +70,13 @@ export type RoundEvent =
   | { type: 'RESUME'; now: number }
   | { type: 'TICK'; now: number }
   | { type: 'QUIT'; now: number }
-  /** More clips for the untimed game's deck. */
-  | { type: 'DEAL'; cards: readonly Card[] };
+  /** More clips for the deck; `more: false` once no more will come. */
+  | { type: 'DEAL'; now: number; cards: readonly Card[]; more?: boolean };
 
-export function createRound(deck: readonly Card[], durationMs: number = GAME.roundMs, timed = true): RoundState {
+export function createRound(deck: readonly Card[], durationMs: number = GAME.roundMs, timed = true, more = false): RoundState {
   return {
     timed,
+    more,
     startedAt: null,
     phase: 'ready',
     deck,
@@ -120,14 +127,15 @@ function judge(s: RoundState, guess: Verdict, now: number, index: number | undef
   // The clip on screen when time ran out isn't judged.
   if (left <= 0) return end(s, 'time', 0);
   const card = s.deck[s.index];
-  if (!card) return end(s, 'deck', left);
+  if (!card) return s.more ? s : end(s, 'deck', left);
   const g: Guess = { clipId: card.id, guess, truth: card.truth, correct: guess === card.truth, at: s.durationMs - left };
   const next: RoundState = { ...s, guesses: [...s.guesses, g], index: s.index + 1 };
-  return next.index >= s.deck.length ? end(next, 'deck', left) : next;
+  // Out of clips: over, unless more are on their way.
+  return next.index >= s.deck.length && !s.more ? end(next, 'deck', left) : next;
 }
 
 function go(s: RoundState, now: number): RoundState {
-  if (s.deck.length === 0) return end(s, 'deck', s.remainingMs);
+  if (s.deck.length === 0 && !s.more) return end(s, 'deck', s.remainingMs);
   return { ...s, phase: 'playing', deadline: now + s.remainingMs, countdownEnd: null, startedAt: s.startedAt ?? now };
 }
 
@@ -166,8 +174,12 @@ export function roundReducer(s: RoundState, e: RoundEvent): RoundState {
     case 'QUIT':
       if (s.phase === 'over') return s;
       return end(s, 'quit', s.timed ? remaining(s, e.now) : 0);
-    case 'DEAL':
-      if (s.phase === 'over' || !e.cards.length) return s;
-      return { ...s, deck: [...s.deck, ...e.cards] };
+    case 'DEAL': {
+      if (s.phase === 'over') return s;
+      const next = { ...s, deck: e.cards.length ? [...s.deck, ...e.cards] : s.deck, more: e.more ?? s.more };
+      // A timed round that judged every clip it had, and hears none are coming, is over.
+      if (next.timed && !next.more && next.index >= next.deck.length && (next.phase === 'playing' || next.phase === 'paused')) return end(next, 'deck', remaining(next, e.now));
+      return next;
+    }
   }
 }

@@ -22,7 +22,8 @@ import { Hud, ROW_H, ROW_Y, hudAnchor, useTimeFraction } from './hud/Hud';
 import { safeClip } from './leaks';
 import { MarkStamp } from './MarkStamp';
 import { lerp, useEased } from './motion';
-import { loadPlayableClips } from './playable';
+import { media, takeLoading } from './media';
+import { loadDealableClips } from './playable';
 import { ResolveText } from './ResolveText';
 import { createRound, remaining, roundReducer, type Phase, type RoundState } from './round';
 import { RoundFeed, type RoundFeedHandle } from './RoundFeed';
@@ -41,17 +42,20 @@ type Dealt = { clip: Clip; truth: 'ai' | 'real' };
 type Point = { x: number; y: number };
 type Designs = ReturnType<typeof useGameDev>['designs'];
 
-/** The untimed game deals this many clips at a time, and deals more once this few are left. */
+/** Clips checked and dealt ahead of the one on screen (see `takeLoading`). */
+const AHEAD = 4;
+/** The untimed game takes this many clips into its queue at a time. */
 const BATCH = 20;
-const DEAL_AHEAD = 5;
 
 /**
- * Deals clips whose media loads: near the player's skill when adaptive dealing
- * is on (Dev settings), else an even shuffle; clips in `avoid` (the last rounds,
- * or this game so far) come last.
+ * The order to deal clips in, unchecked: near the player's skill when
+ * adaptive dealing is on (Dev settings), else an even shuffle; clips in
+ * `avoid` (the last rounds, or this game so far) come last, and clips this
+ * session found don't load are left out. Their media is checked only as
+ * they're about to be dealt.
  */
 async function deal(avoid: Iterable<string>, cap?: number): Promise<Dealt[]> {
-  const clips = await loadPlayableClips();
+  const clips = (await loadDealableClips()).filter((c) => media.known(c) !== false);
   const recent = [...recentClipKeys(gameHistory.getSnapshot()), ...avoid];
   if (gameDev.getSnapshot().adaptive) {
     // Near the player's skill: each clip's categories and difficulty first.
@@ -63,10 +67,14 @@ async function deal(avoid: Iterable<string>, cap?: number): Promise<Dealt[]> {
     });
     return buildAdaptiveDeck(sources, { skills: state.skills, recent, cap });
   }
-  const dealt = buildDeck(clips, { recent, cap });
-  // Warm the metadata the answers will need.
-  loadMetas(dealt.map((d) => d.clip));
-  return dealt;
+  return buildDeck(clips, { recent, cap });
+}
+
+/** The next `want` clips of `queue` that load; their metadata warmed for the answers. */
+async function takeDealt(queue: Dealt[], want: number): Promise<Dealt[]> {
+  const out = await takeLoading(media, queue, want);
+  void loadMetas(out.map((d) => d.clip));
+  return out;
 }
 
 /**
@@ -75,18 +83,22 @@ async function deal(avoid: Iterable<string>, cap?: number): Promise<Dealt[]> {
  * clock, clip after clip, every answer going to Your skills.
  */
 export function GameRound({ timed = true }: { timed?: boolean }) {
-  const [deck, setDeck] = useState<Dealt[] | null>(null);
+  const [start, setStart] = useState<{ deck: Dealt[]; queue: Dealt[] } | null>(null);
   const dev = useGameDev();
   const c = usePalette();
   useEffect(() => {
     let live = true;
-    void deal([], timed ? undefined : BATCH).then((d) => live && setDeck(timed ? d : relabel(d, 0)));
+    void deal([], timed ? undefined : BATCH).then(async (order) => {
+      const queue = timed ? order : relabel(order, 0);
+      const deck = await takeDealt(queue, AHEAD);
+      if (live) setStart({ deck, queue });
+    });
     return () => {
       live = false;
     };
   }, [timed]);
-  if (!deck) return <View style={[styles.root, { backgroundColor: c.bg }]} />;
-  return <Round deck={deck} timed={timed} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
+  if (!start) return <View style={[styles.root, { backgroundColor: c.bg }]} />;
+  return <Round deck={start.deck} queue={start.queue} timed={timed} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
 }
 
 /** The untimed game can deal a clip again later: each deal's clips get ids of their own (the feed keys its pages by id). */
@@ -122,8 +134,23 @@ const RoundContext = createContext<RoundUi | null>(null);
  * round's state and draws the overlay: the clock, the countdown, the veil and
  * the round's buttons.
  */
-function Round({ deck, timed, durationMs, showTruth, designs }: { deck: Dealt[]; timed: boolean; durationMs: number; showTruth: boolean; designs: Designs }) {
-  // The untimed game's deck grows as it's dealt.
+function Round({
+  deck,
+  queue: firstQueue,
+  timed,
+  durationMs,
+  showTruth,
+  designs,
+}: {
+  deck: Dealt[];
+  /** The clips still to deal, in order, unchecked. */
+  queue: Dealt[];
+  timed: boolean;
+  durationMs: number;
+  showTruth: boolean;
+  designs: Designs;
+}) {
+  // The deck grows as clips are checked and dealt.
   const [dealt, setDealt] = useState(deck);
   const clips = useMemo(() => dealt.map((d) => d.clip), [dealt]);
   const [s, dispatch] = useReducer(roundReducer, null, () =>
@@ -131,6 +158,7 @@ function Round({ deck, timed, durationMs, showTruth, designs }: { deck: Dealt[];
       deck.map((d) => ({ id: d.clip.id, truth: d.truth })),
       durationMs,
       timed,
+      true,
     ),
   );
   const tint = useTint();
@@ -139,19 +167,36 @@ function Round({ deck, timed, durationMs, showTruth, designs }: { deck: Dealt[];
   useEffect(() => {
     if (!timed) dispatch({ type: 'START', now: now() });
   }, [timed]);
+
+  // ---- dealing: a few checked clips ahead of the one on screen ----------------------
+  // Each clip's media is checked just before it's dealt. The untimed game takes
+  // more clips into its queue as it runs low; the timed round deals from its
+  // own and tells the round when nothing more is coming.
+  const queue = useRef(firstQueue);
   const dealing = useRef(false);
   const batches = useRef(1);
+  const exhausted = useRef(false);
+  const over = s.phase === 'over';
   useEffect(() => {
-    if (timed || dealing.current || s.index < dealt.length - DEAL_AHEAD) return;
+    const want = AHEAD - (dealt.length - s.index);
+    if (dealing.current || over || want <= 0) return;
     dealing.current = true;
-    void deal(dealt.map((d) => clipKey(d.clip)), BATCH).then((more) => {
-      const next = relabel(more, batches.current++);
+    void (async () => {
+      const next: Dealt[] = [];
+      const seen = () => [...dealt, ...queue.current].map((d) => clipKey(d.clip));
+      for (;;) {
+        next.push(...(await takeDealt(queue.current, want - next.length)));
+        if (next.length >= want || timed || exhausted.current) break;
+        const more = await deal(seen(), BATCH);
+        if (!more.length) exhausted.current = true;
+        queue.current.push(...relabel(more, batches.current++));
+      }
       dealing.current = false;
-      if (!next.length) return;
-      setDealt((d) => [...d, ...next]);
-      dispatch({ type: 'DEAL', cards: next.map((d) => ({ id: d.clip.id, truth: d.truth })) });
-    });
-  }, [timed, s.index, dealt]);
+      const left = queue.current.length > 0 || !timed;
+      if (next.length) setDealt((d) => [...d, ...next]);
+      if (next.length || !left) dispatch({ type: 'DEAL', now: now(), cards: next.map((d) => ({ id: d.clip.id, truth: d.truth })), more: left });
+    })();
+  }, [timed, s.index, dealt, over]);
   const recorded = useRef(0);
   const [last, setLast] = useState<RoundUi['last']>(null);
   useEffect(() => {

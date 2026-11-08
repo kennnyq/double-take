@@ -2,8 +2,10 @@
  * Which clips' media actually loads. The feed's index can list clips whose
  * files aren't in storage (the local Worker lists 82 clips but serves media
  * for 49; the rest answer 404), and such a clip plays as a black card. The
- * round only deals clips that pass this check. Pure over an injectable
- * `fetch`, so it runs under `node --test`.
+ * round only deals clips that pass this check, and checks them lazily, just
+ * before they're dealt (see `takeLoading`), so a game costs a few requests
+ * rather than one per clip of the feed. Pure over an injectable `fetch`, so
+ * it runs under `node --test`.
  */
 
 export interface MediaSource {
@@ -43,24 +45,33 @@ export async function reachable(url: string, fetchFn: Fetch, timeoutMs = 6000): 
 export interface MediaChecker {
   /** Whether both the clip's video and its poster load. Each clip is checked once per session. */
   loads(clip: MediaSource): Promise<boolean>;
+  /** What a finished check found for the clip, or undefined while it's unchecked or still checking. */
+  known(clip: MediaSource): boolean | undefined;
   /** The clips that load, in their order; at most `concurrency` checks at once. */
   filter<T extends MediaSource>(clips: readonly T[], concurrency?: number): Promise<T[]>;
 }
 
 export function createMediaChecker(fetchFn: Fetch): MediaChecker {
   const cache = new Map<string, Promise<boolean>>();
+  const settled = new Map<string, boolean>();
+  const keyOf = (clip: MediaSource) => clip.sourceId ?? clip.id;
   const loads = (clip: MediaSource) => {
-    const key = clip.sourceId ?? clip.id;
+    const key = keyOf(clip);
     let p = cache.get(key);
     if (!p) {
       const urls = [sourceUrl(clip.video), sourceUrl(clip.poster)].filter((u): u is string => u !== null);
-      p = Promise.all(urls.map((u) => reachable(u, fetchFn))).then((oks) => oks.every(Boolean));
+      p = Promise.all(urls.map((u) => reachable(u, fetchFn))).then((oks) => {
+        const ok = oks.every(Boolean);
+        settled.set(key, ok);
+        return ok;
+      });
       cache.set(key, p);
     }
     return p;
   };
   return {
     loads,
+    known: (clip) => settled.get(keyOf(clip)),
     async filter(clips, concurrency = 8) {
       const ok: boolean[] = new Array(clips.length).fill(false);
       let next = 0;
@@ -74,6 +85,21 @@ export function createMediaChecker(fetchFn: Fetch): MediaChecker {
       return clips.filter((_, i) => ok[i]);
     },
   };
+}
+
+/**
+ * Takes up to `want` clips that load from the front of `queue` (which it
+ * consumes), checking a few at a time and only as many as it needs: clips that
+ * fail are dropped, clips not reached stay queued and unchecked.
+ */
+export async function takeLoading<T extends { clip: MediaSource }>(checker: MediaChecker, queue: T[], want: number): Promise<T[]> {
+  const out: T[] = [];
+  while (out.length < want && queue.length) {
+    const batch = queue.splice(0, want - out.length);
+    const oks = await Promise.all(batch.map((d) => checker.loads(d.clip)));
+    out.push(...batch.filter((_, i) => oks[i]));
+  }
+  return out;
 }
 
 /** The app's checker, on the platform's fetch. */

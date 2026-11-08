@@ -1,15 +1,15 @@
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
-import { media } from './media';
 
-let playable: Promise<Clip[]> | null = null;
+let dealable: Promise<Clip[]> | null = null;
 
 /**
- * The feed's clips that can be dealt: a verdict, and media that actually
- * loads (checked once per session; see `media.ts`). Clips that fail are left
- * out of every round, so a round never shows a black card.
+ * The feed's clips that can be dealt: those with an answer. Their media isn't
+ * checked here: a round checks each clip just before it deals it (see
+ * `takeLoading` in `media.ts`), so a round never shows a black card and a game
+ * costs a few requests rather than one per clip of the feed.
  */
-export function loadPlayableClips(): Promise<Clip[]> {
-  playable ??= loadInitialClips().then((clips) => media.filter(clips.filter((c) => c.verdict)));
-  return playable;
+export function loadDealableClips(): Promise<Clip[]> {
+  dealable ??= loadInitialClips().then((clips) => clips.filter((c) => c.verdict));
+  return dealable;
 }

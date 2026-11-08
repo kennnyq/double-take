@@ -153,7 +153,7 @@ test('untimed: straight into play, judged at its own pace, the deck growing as i
     ],
   );
   assert.equal(roundReducer(s, { type: 'MARK_AI', now: 6000 }), s, 'nothing to judge until more are dealt');
-  s = roundReducer(s, { type: 'DEAL', cards: deck.slice(2) });
+  s = roundReducer(s, { type: 'DEAL', now: 6500, cards: deck.slice(2) });
   assert.equal(s.deck.length, 4);
   s = roundReducer(s, { type: 'MARK_AI', now: 7000 });
   assert.equal(s.guesses.length, 3);
@@ -162,5 +162,30 @@ test('untimed: straight into play, judged at its own pace, the deck growing as i
 
 test('a timed round deals once: DEAL only grows a deck while not over', () => {
   const over = roundReducer(playing(), { type: 'QUIT', now: 2000 });
-  assert.equal(roundReducer(over, { type: 'DEAL', cards: deck }), over);
+  assert.equal(roundReducer(over, { type: 'DEAL', now: 2000, cards: deck }), over);
+});
+
+test('a timed round whose clips are still being checked waits for them, then ends on its deck once told none are coming', () => {
+  const start = (d: readonly Card[]) => run(createRound(d, 60_000, true, true), { type: 'START', now: 1000 - GAME.countdownMs }, { type: 'GO', now: 1000 });
+  let s = start(deck.slice(0, 1));
+  s = roundReducer(s, { type: 'MARK_AI', now: 2000 });
+  assert.equal(s.phase, 'playing', 'out of checked clips, but more are coming');
+  assert.equal(roundReducer(s, { type: 'SKIP', now: 2100 }), s, 'nothing to judge until they come');
+  s = roundReducer(s, { type: 'DEAL', now: 2500, cards: deck.slice(1, 2) });
+  s = roundReducer(s, { type: 'SKIP', now: 3000 });
+  assert.equal(s.guesses.length, 2);
+  assert.equal(s.phase, 'playing');
+  s = roundReducer(s, { type: 'DEAL', now: 4000, cards: [], more: false });
+  assert.equal(s.phase, 'over');
+  assert.equal(s.endReason, 'deck');
+  assert.equal(s.remainingMs, 57_000);
+  // Told while clips are left: it plays on, and ends on its last one.
+  let t = start(deck.slice(0, 2));
+  t = roundReducer(t, { type: 'DEAL', now: 1500, cards: [], more: false });
+  t = run(t, { type: 'MARK_AI', now: 2000 }, { type: 'SKIP', now: 2500 });
+  assert.equal(t.endReason, 'deck');
+  // Nothing checked out at all, and none coming: over at once.
+  const empty = run(createRound([], 60_000, true, true), { type: 'START', now: 0 }, { type: 'GO', now: GAME.countdownMs });
+  assert.equal(empty.phase, 'playing');
+  assert.equal(roundReducer(empty, { type: 'DEAL', now: 5000, cards: [], more: false }).phase, 'over');
 });
