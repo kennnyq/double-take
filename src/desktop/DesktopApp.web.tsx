@@ -69,6 +69,11 @@ export function DesktopApp({
     return () => window.removeEventListener('keydown', onKey);
   }, [sheetOpen, closeSheet]);
 
+  // Create, from the rail or the profile's +.
+  const openCreate = useCallback(() => {
+    requireAccount('Sign in to post Takes', () => setTab('create'));
+  }, []);
+
   const nav = useMemo<AppNav>(
     () => ({
       openProfile: (t) => {
@@ -84,8 +89,9 @@ export function DesktopApp({
         setSheetOpen(true);
       },
       closeSheet,
+      openCreate,
     }),
-    [closeSheet],
+    [closeSheet, openCreate],
   );
 
   const sheetProps = { open: sheetOpen, progress: sheetProgress, onRequestClose: closeSheet, onClosed: onSheetClosed };
@@ -102,7 +108,7 @@ export function DesktopApp({
               <button
                 key={id}
                 className={`rail-item ${tab === id ? 'active' : ''}`}
-                onClick={() => (id === 'create' ? requireAccount('Sign in to post Takes', () => setTab(id)) : setTab(id))}
+                onClick={() => (id === 'create' ? openCreate() : setTab(id))}
                 aria-label={label}
                 aria-current={tab === id ? 'page' : undefined}
                 data-tip={label}

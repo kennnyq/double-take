@@ -95,8 +95,10 @@ function Screen({ startAt }: { startAt?: number }) {
         setSheetOpen(true);
       },
       closeSheet,
+      // The same as tapping the Create tab.
+      openCreate: () => showTab('create'),
     }),
-    [closeSheet],
+    [closeSheet, showTab],
   );
 
   const sheetProps = { open: sheetOpen, progress: sheetProgress, onRequestClose: closeSheet, onClosed: onSheetClosed };
