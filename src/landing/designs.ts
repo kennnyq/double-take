@@ -122,6 +122,7 @@ export const LANDING_TRIALS = {
 
   // ---- Launch ------------------------------------------------------------
   motion: trial(LAUNCH, 'Gallery on press', 'motion', [
+    { value: 'coast', label: 'Coasts to a slow stop' },
     { value: 'decelerate', label: 'Slows to a stop' },
     { value: 'freeze', label: 'Stops at once' },
     { value: 'flow', label: 'Keeps moving' },

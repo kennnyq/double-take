@@ -1,6 +1,7 @@
 import { playerFor } from './AtlasPlayer';
 import type { LandingValues } from './designs';
 import { sendHandoff } from './handoff';
+import { slowdown } from './slowdown';
 
 /**
  * The launch: the gallery stops, its clips leave one by one until one is
@@ -327,12 +328,12 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     el.getAnimations({ subtree: true }),
   );
   if (v.motion === 'freeze') moving.forEach((a) => a.pause());
-  if (v.motion === 'decelerate') {
+  const stop = slowdown(v.motion, Number(v.pace));
+  if (stop) {
     const t0 = performance.now();
     const slow = () => {
-      const t = Math.min(1, (performance.now() - t0) / 650);
-      const rate = (1 - t) ** 2;
-      moving.forEach((a) => (t >= 1 ? a.pause() : a.updatePlaybackRate(rate)));
+      const t = Math.min(1, (performance.now() - t0) / stop.ms);
+      moving.forEach((a) => (t >= 1 ? a.pause() : a.updatePlaybackRate(stop.rate(t))));
       if (t < 1 && alive()) requestAnimationFrame(slow);
     };
     requestAnimationFrame(slow);
