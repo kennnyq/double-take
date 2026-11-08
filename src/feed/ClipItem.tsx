@@ -1,5 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
-import { Animated, Image, Pressable, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
+import { Animated, Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
+import Reanimated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
 import { VideoView, type VideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -14,6 +15,8 @@ import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/g
 import { useAppSettings } from '@/settings/store';
 import type { FeedHandlers } from './Feed';
 import { TellOverlay, type TellOverlayHandle } from './TellOverlay';
+import { useFadeProgress, useModeProgress } from './motion';
+import { displayCornerRadius, inspectInset } from './shrink';
 import { fitFor } from './tells';
 import { VerdictBadge } from './VerdictBadge';
 
@@ -56,7 +59,14 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
   const [inspectOn, setInspectOn] = useState(false);
   const inspecting = inspectOn && p.isActive;
-  const onInspect = useCallback((on: boolean) => setInspectOn(on), []);
+  const setFeedInspecting = h.setInspecting;
+  const onInspect = useCallback(
+    (on: boolean) => {
+      setInspectOn(on);
+      setFeedInspecting(on);
+    },
+    [setFeedInspecting],
+  );
   // A tap still waiting out the double-tap window must not act on the next clip.
   useEffect(() => {
     if (!p.isActive) taps.cancel();
@@ -116,30 +126,74 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const cardTop = wide ? Math.max(14, insets.top + 8) : 0;
   const stageH = wide ? height - cardTop - 14 : height;
   const stageW = wide ? Math.round((stageH * 9) / 16) : width;
+  // The walkthrough's Close button row: under the status bar once the video has inset.
+  const walkthroughTop = wide ? 12 : Math.max(12, insets.top - 2);
   // Landscape and square clips are shown whole over a blurred fill. So is any
   // clip during the walkthrough, so no highlighted region is cropped off screen.
-  const fit = inspecting ? 'contain' : fitFor(clip.aspect);
+  const baseFit = fitFor(clip.aspect);
+  const fit = inspecting ? 'contain' : baseFit;
+  // A portrait clip of known shape is drawn contained and scaled up to fill the
+  // stage, so the walkthrough can zoom it out to the whole frame continuously
+  // (rather than cutting from cover to contain).
+  const zoomOut = baseFit === 'cover' && clip.aspect !== undefined;
+  const coverScale = zoomOut ? Math.max(clip.aspect! / (stageW / stageH), stageW / stageH / clip.aspect!) : 1;
+  const videoFit = zoomOut ? 'contain' : baseFit;
+
+  // The double take: the video insets like a card, its corners concentric with
+  // the display's, and the clip's chrome fades out. All of it springs back on exit.
+  const mode = useModeProgress(inspecting);
+  const chromeOut = useFadeProgress(!inspecting, inspecting ? 180 : 320);
+  const screen = useWindowDimensions();
+  const inset = inspectInset(stageW, stageH, displayCornerRadius(screen.width, screen.height, Platform.OS));
+  const stageMotion = useAnimatedStyle(() =>
+    wide
+      ? { borderRadius: 14 }
+      : {
+          borderRadius: interpolate(mode.value, [0, 1], [0, inset.radius]),
+          transform: [
+            { translateY: interpolate(mode.value, [0, 1], [0, inset.dy]) },
+            { scale: interpolate(mode.value, [0, 1], [1, inset.scale]) },
+          ],
+        },
+  );
+  const zoomMotion = useAnimatedStyle(() => ({
+    transform: [{ scale: interpolate(mode.value, [0, 1], [coverScale, 1]) }],
+  }));
+  const fillMotion = useAnimatedStyle(() => ({ opacity: zoomOut ? Math.min(1, Math.max(0, mode.value)) : 1 }));
+  const chromeMotion = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
+  const verdictMotion = useAnimatedStyle(() => ({ opacity: 1 - chromeOut.value }));
 
   const stage = (
-    <View style={[styles.stage, { width: stageW, height: stageH }, wide && styles.card]}>
-      <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={fit === 'contain' ? 40 : 0} />
-      {fit === 'contain' && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="contain" />}
-      {p.player && (
-        <VideoView
-          player={p.player}
-          style={StyleSheet.absoluteFill}
-          contentFit={fit}
-          nativeControls={false}
-          playsInline
-          allowsVideoFrameAnalysis={false}
-        />
+    <Reanimated.View style={[styles.stage, { width: stageW, height: stageH }, stageMotion]}>
+      {zoomOut ? (
+        p.isActive && (
+          <Reanimated.View style={[StyleSheet.absoluteFill, fillMotion]} pointerEvents="none">
+            <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={40} />
+          </Reanimated.View>
+        )
+      ) : (
+        <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={baseFit === 'contain' ? 40 : 0} />
       )}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.6)']}
-        locations={[0, 0.5, 1]}
-        style={styles.shade}
-        pointerEvents="none"
-      />
+      <Reanimated.View style={[StyleSheet.absoluteFill, zoomOut && zoomMotion]} pointerEvents="none">
+        {videoFit === 'contain' && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="contain" />}
+        {p.player && (
+          <VideoView
+            player={p.player}
+            style={StyleSheet.absoluteFill}
+            contentFit={videoFit}
+            nativeControls={false}
+            playsInline
+            allowsVideoFrameAnalysis={false}
+          />
+        )}
+      </Reanimated.View>
+      <Reanimated.View style={[styles.shade, chromeMotion]} pointerEvents="none">
+        <LinearGradient
+          colors={['transparent', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.6)']}
+          locations={[0, 0.5, 1]}
+          style={StyleSheet.absoluteFill}
+        />
+      </Reanimated.View>
       <Pressable
         style={StyleSheet.absoluteFill}
         onPress={onPress}
@@ -177,19 +231,20 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           stageH={stageH}
           aspect={clip.aspect ?? 9 / 16}
           fit={fit}
-          top={wide ? 12 : insets.top + 54}
+          top={walkthroughTop}
           paused={p.paused}
           onPause={h.pause}
           onPlay={h.play}
           onSlowmo={h.setSlowmo}
+          onScrub={h.setScrub}
           onInspect={onInspect}
         />
       )}
       {/* The reveal shows the verdict along with the reasoning, in every feed mode. */}
-      {inspecting && clip.verdict && (
-        <View style={[styles.revealVerdict, { top: (wide ? 12 : insets.top + 54) + 3 }]} pointerEvents="none">
+      {p.isActive && clip.verdict && (
+        <Reanimated.View style={[styles.revealVerdict, { top: walkthroughTop + 3 }, verdictMotion]} pointerEvents="none">
           <VerdictBadge verdict={clip.verdict} />
-        </View>
+        </Reanimated.View>
       )}
       {p.boost && (
         <View style={styles.boostWrap} pointerEvents="none">
@@ -200,8 +255,11 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         </View>
       )}
 
-      {!inspecting && (
-        <Animated.View style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]} pointerEvents="box-none">
+      <Animated.View
+        style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]}
+        pointerEvents={inspecting ? 'none' : 'box-none'}
+      >
+        <Reanimated.View style={[styles.metaInner, chromeMotion]} pointerEvents="box-none">
           {p.label && (
             <View style={styles.labelRow} pointerEvents="none">
               <VerdictBadge verdict={p.label} />
@@ -232,12 +290,16 @@ export const ClipItem = memo(function ClipItem(p: Props) {
               {clip.audio}
             </Text>
           </View>
-        </Animated.View>
+        </Reanimated.View>
+      </Animated.View>
+
+      {!wide && (
+        <Reanimated.View style={[styles.railWrap, chromeMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
+          <Rail {...p} onReveal={onReveal} revealing={inspecting} />
+        </Reanimated.View>
       )}
 
-      {!wide && !inspecting && <Rail {...p} onReveal={onReveal} revealing={inspecting} />}
-
-      <View style={styles.progressTrack} pointerEvents="none">
+      <Reanimated.View style={[styles.progressTrack, chromeMotion]} pointerEvents="none">
         <Animated.View
           style={[
             styles.progressFill,
@@ -251,8 +313,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
             },
           ]}
         />
-      </View>
-    </View>
+      </Reanimated.View>
+    </Reanimated.View>
   );
 
   return (
@@ -423,7 +485,6 @@ const textShadow = {
 const styles = StyleSheet.create({
   page: { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   stage: { overflow: 'hidden', backgroundColor: '#111' },
-  card: { borderRadius: 14 },
   wideRow: { flexDirection: 'row', alignItems: 'flex-end' },
   wideRail: { marginLeft: 14, marginBottom: 18 },
   shade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%' },
@@ -452,7 +513,9 @@ const styles = StyleSheet.create({
   },
   boostText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   burst: { position: 'absolute' },
-  meta: { position: 'absolute', left: 12, right: 80, bottom: 16, gap: 8 },
+  meta: { position: 'absolute', left: 12, right: 80, bottom: 16 },
+  metaInner: { gap: 8 },
+  railWrap: { ...StyleSheet.absoluteFill },
   metaWide: { right: 16 },
   labelRow: { flexDirection: 'row' },
   revealVerdict: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },

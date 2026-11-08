@@ -1,6 +1,8 @@
 import { Animated, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
+import { useFadeProgress } from './motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -24,24 +26,31 @@ export function TopBar({
   onToggleMute,
   opacity,
   hidden,
+  faded,
 }: {
   muted: boolean;
   onToggleMute: () => void;
   /** Fades out while a sheet is up (native-driven). */
   opacity?: Animated.AnimatedInterpolation<number>;
   hidden?: boolean;
+  /** Fades out while the double take is open. */
+  faded?: boolean;
 }) {
   const insets = useSafeAreaInsets();
+  const fade = useFadeProgress(!faded);
+  const fadeStyle = useAnimatedStyle(() => ({ opacity: fade.value }));
   return (
     <Animated.View
       style={[styles.bar, { paddingTop: insets.top + 2 }, opacity && { opacity }]}
-      pointerEvents={hidden ? 'none' : 'box-none'}
+      pointerEvents={hidden || faded ? 'none' : 'box-none'}
     >
-      <IconButton
-        name={muted ? 'volume-mute-outline' : 'volume-high-outline'}
-        onPress={onToggleMute}
-        label={muted ? 'Unmute' : 'Mute'}
-      />
+      <Reanimated.View style={fadeStyle}>
+        <IconButton
+          name={muted ? 'volume-mute-outline' : 'volume-high-outline'}
+          onPress={onToggleMute}
+          label={muted ? 'Unmute' : 'Mute'}
+        />
+      </Reanimated.View>
     </Animated.View>
   );
 }
