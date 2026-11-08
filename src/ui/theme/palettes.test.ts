@@ -67,6 +67,11 @@ for (const id of PALETTE_IDS) {
   });
 }
 
+test('right and wrong results differ in hue for normal vision; the ✓/✕ carries them for everyone', () => {
+  const p = PALETTES[DEFAULT_PALETTE];
+  assert.ok(difference(p.correct, p.incorrect, 'normal') >= DISTINCT);
+});
+
 test('the default is not a legacy palette', () => {
   assert.ok(!LEGACY_PALETTES.includes(DEFAULT_PALETTE));
 });

@@ -54,6 +54,9 @@ export interface Palette {
   like: string;
   repost: string;
   danger: string;
+  /** Results: a right guess and a wrong one (always with a ✓ or ✕ too, never colour alone). */
+  correct: string;
+  incorrect: string;
 }
 
 /** Shared by every palette: social colours people expect to mean the same thing everywhere. */
@@ -61,6 +64,8 @@ const SOCIAL = {
   like: '#ff3040',
   repost: '#3ccf91',
   danger: '#ff6961',
+  correct: '#30d158',
+  incorrect: '#ff453a',
 } as const;
 
 const GLASS = {

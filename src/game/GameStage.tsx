@@ -6,7 +6,11 @@ import { IDLE, opsFor, planFor, type PlayerOp, type PlayerPlan } from '@/feed/pl
 import { playWeb } from '@/feed/playWeb';
 import { POOL_SIZE, poolWindow } from '@/feed/pool';
 import { fitFor } from '@/feed/tells';
-import { useEased } from './motion';
+import type { DesignId } from './designs';
+import { MarkStamp } from './MarkStamp';
+import { lerp, useEased, type AnimNum } from './motion';
+
+export type TransitionDesign = DesignId<'transition'>;
 
 interface Props {
   clips: readonly Clip[];
@@ -14,6 +18,10 @@ interface Props {
   index: number;
   /** The pager's position in pages (fractional while sliding); cards sit at `(i − pos) · height`. */
   pos: Animated.Value;
+  /** How the clip on screen leaves: 0 up (a skip), 1 off to the side (a mark). */
+  dir: Animated.Value;
+  design: TransitionDesign;
+  stamps?: readonly Stamp[];
   width: number;
   height: number;
   /** The clip on screen may play. */
@@ -32,7 +40,7 @@ interface Props {
  * the next one, preloaded, so a slide never waits on the network. A card
  * shows its poster until its player holds the clip.
  */
-export function GameStage({ clips, index, pos, width, height, live, muted, onMutedByBrowser }: Props) {
+export function GameStage({ clips, index, pos, dir, design, stamps, width, height, live, muted, onMutedByBrowser }: Props) {
   const setup = (p: VideoPlayer) => {
     p.loop = true;
     p.muted = true;
@@ -98,11 +106,50 @@ export function GameStage({ clips, index, pos, width, height, live, muted, onMut
             height={height}
             idx={idx}
             pos={pos}
+            dir={dir}
+            design={design}
+            stamps={stamps?.filter((st) => st.idx === idx)}
           />
         );
       })}
     </View>
   );
+}
+
+/** An "AI" mark left on a clip: where the double tap landed, in the stage. */
+export interface Stamp {
+  key: number;
+  idx: number;
+  x: number;
+  y: number;
+}
+
+/**
+ * Where a card sits for its distance from the pager (`p = idx − pos`: 0 on
+ * screen, −1 gone, +1 next), in each transition design. Every design moves
+ * the leaving card fully off (or out of) the stage by p = −1, so a card
+ * waiting there never shows.
+ */
+function cardMotion(design: TransitionDesign, p: AnimNum, dir: Animated.Value, w: number, h: number) {
+  if (design === 'slide') return { transform: [{ translateY: Animated.multiply(p, h) }] };
+  // How much of the leave is sideways: 0 for a skip (up), 1 for a mark (off to the side).
+  const side = Animated.multiply(lerp(p, [-1, 0], [1, 0]), dir);
+  if (design === 'stack') {
+    return {
+      transform: [
+        // Leaving: up for a skip; off to the right, a little up, for a mark. Next: waits underneath.
+        { translateY: Animated.add(lerp(p, [-1, 0], [-h * 1.05, 0]), lerp(side, [0, 1], [0, h * 0.8])) },
+        { translateX: lerp(side, [0, 1], [0, w * 1.25]) },
+        { rotate: lerp(side, [0, 1], ['0deg', '16deg']) },
+        { scale: lerp(p, [0, 1], [1, 0.9]) },
+      ],
+    };
+  }
+  // Dissolve: the leaving card fades as it grows a little; the next settles from slightly larger.
+  return {
+    opacity: lerp(p, [-1, -0.05, 0], [0, 0.9, 1]),
+    transform: [{ scale: lerp(p, [-1, 0, 1], [1.08, 1, 1.05]) }],
+  };
 }
 
 function Card({
@@ -112,6 +159,9 @@ function Card({
   height,
   idx,
   pos,
+  dir,
+  design,
+  stamps,
 }: {
   clip: Clip;
   player: VideoPlayer | null;
@@ -119,12 +169,18 @@ function Card({
   height: number;
   idx: number;
   pos: Animated.Value;
+  dir: Animated.Value;
+  design: TransitionDesign;
+  stamps?: readonly Stamp[];
 }) {
   const fit = fitFor(clip.aspect);
   const videoIn = useEased(player ? 1 : 0, 220);
-  const translateY = useMemo(() => Animated.multiply(Animated.subtract(idx, pos), height), [idx, pos, height]);
+  const p = useMemo(() => Animated.subtract(idx, pos), [idx, pos]);
+  const motion = useMemo(() => cardMotion(design, p, dir, width, height), [design, p, dir, width, height]);
+  // The card waiting underneath dims a little until it's on top (stack and dissolve).
+  const shade = useMemo(() => lerp(p, [0, 1], [0, design === 'slide' ? 0 : 0.45]), [p, design]);
   return (
-    <Animated.View style={[styles.card, { width, height, transform: [{ translateY }] }]}>
+    <Animated.View style={[styles.card, { width, height, zIndex: 1000 - idx }, motion]}>
       <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={fit === 'contain' ? 40 : 0} />
       {fit === 'contain' && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="contain" />}
       {/* The poster stays underneath until the video has eased in over it: never a black card. */}
@@ -140,6 +196,8 @@ function Card({
           />
         )}
       </Animated.View>
+      <Animated.View style={[StyleSheet.absoluteFill, styles.shade, { opacity: shade }]} />
+      {stamps?.map((st) => <MarkStamp key={st.key} x={st.x} y={st.y} />)}
     </Animated.View>
   );
 }
@@ -164,4 +222,5 @@ const styles = StyleSheet.create({
   card: { position: 'absolute', left: 0, top: 0, overflow: 'hidden', backgroundColor: '#000' },
   // Sized outright: a browser's <video> keeps its own size under left/right/top/bottom alone.
   video: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
+  shade: { backgroundColor: '#000' },
 });

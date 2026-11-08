@@ -2,20 +2,23 @@ import { useSyncExternalStore } from 'react';
 import { devStorage } from '@/devtools/storage';
 import { DEV_TOOLS } from '@/devtools/store';
 import { GAME } from './config';
+import { DEFAULT_DESIGNS, parseDesigns, type GameDesigns } from './designs';
 
 /**
- * Dev-only knobs for the timed round (Dev settings → Game): a shorter round to
- * try the end quickly, and a corner label with each clip's truth. Production
- * builds always play the full round with no label.
+ * Dev-only knobs for the timed round (Dev settings → Game, and the game lab):
+ * a shorter round to try the end quickly, a corner label with each clip's
+ * truth, and which design each element of the round uses. Production builds
+ * always play the full round, with no label and the default designs.
  */
 export interface GameDev {
   roundMs: number;
   showTruth: boolean;
+  designs: GameDesigns;
 }
 
 export const ROUND_LENGTHS = [60_000, 20_000, 8_000] as const;
 const KEY = 'double-take:game-dev:v1';
-const DEFAULTS: GameDev = { roundMs: GAME.roundMs, showTruth: false };
+const DEFAULTS: GameDev = { roundMs: GAME.roundMs, showTruth: false, designs: DEFAULT_DESIGNS };
 
 function read(): GameDev {
   if (!DEV_TOOLS) return DEFAULTS;
@@ -24,6 +27,7 @@ function read(): GameDev {
     return {
       roundMs: ROUND_LENGTHS.includes(o?.roundMs as (typeof ROUND_LENGTHS)[number]) ? o!.roundMs! : DEFAULTS.roundMs,
       showTruth: o?.showTruth === true,
+      designs: parseDesigns(o?.designs),
     };
   } catch {
     return DEFAULTS;
@@ -56,4 +60,13 @@ export const gameDev = {
 
 export function useGameDev(): GameDev {
   return useSyncExternalStore(gameDev.subscribe, gameDev.getSnapshot, gameDev.getSnapshot);
+}
+
+/** The design each element of the round uses (the defaults in production). */
+export function useGameDesigns(): GameDesigns {
+  return useGameDev().designs;
+}
+
+export function setGameDesign(patch: Partial<GameDesigns>) {
+  gameDev.set({ designs: { ...gameDev.getSnapshot().designs, ...patch } });
 }

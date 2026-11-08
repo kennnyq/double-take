@@ -1,43 +1,42 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
-import { Animated, AppState, Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, AppState, Image, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
 import { WheelGestureDetector, normalizeWheelDelta } from '@/desktop/wheelGesture';
 import { themed, usePalette } from '@/ui/theme';
 import { GAME } from './config';
-import { Countdown } from './Countdown';
 import { buildDeck, clipKey } from './deck';
 import { useGameDev } from './devOptions';
-import { GameStage } from './GameStage';
+import { stageSize, useFrame } from './frame';
+import { GameStage, type Stamp } from './GameStage';
 import { recentClipKeys } from './history';
-import { loadPlayableClips } from './playable';
-import { MarkStamp } from './MarkStamp';
-import { useEased } from './motion';
+import { Countdown } from './hud/Countdown';
+import { BUTTONS_W, Hud, ROW_H, ROW_Y, hudAnchor, useTimeFraction } from './hud/Hud';
+import { lerp, useEased } from './motion';
 import { Pager, slideTo, type Point } from './Pager';
-import { createRound, remaining, roundReducer } from './round';
+import { loadPlayableClips } from './playable';
+import { ResolveText } from './ResolveText';
+import { createRound, remaining, roundReducer, type Phase } from './round';
 import { roundStats } from './score';
 import { gameHistory, setFinishedRound } from './store';
-import { TimerBar } from './TimerBar';
 
 const now = () => performance.now();
 /** How often the clock checks the deadline and refreshes the readout. */
 const TICK_MS = 100;
 /** After time is up, the veil shows this long before the results. */
-const END_HOLD_MS = 1100;
+const END_HOLD_MS = 1300;
+/** The countdown flying into the timer (and back out on a resume). */
+const MORPH_MS = 560;
 
-/** Same test as Home's for the desktop layout. */
-function useDesktop() {
-  const { width, height } = useWindowDimensions();
-  return Platform.OS === 'web' && width >= 760 && height >= 480;
-}
+type Dealt = { clip: Clip; truth: 'ai' | 'real' };
 
-/** The `/game` screen: deals a deck, then plays one round. */
+/** The `/game` screen: deals a deck of clips whose media loads, then plays one round. */
 export function GameRound() {
-  const [deck, setDeck] = useState<{ clip: Clip; truth: 'ai' | 'real' }[] | null>(null);
+  const [deck, setDeck] = useState<Dealt[] | null>(null);
   const dev = useGameDev();
+  const c = usePalette();
   useEffect(() => {
     let live = true;
     loadPlayableClips().then((clips) => {
@@ -49,11 +48,11 @@ export function GameRound() {
       live = false;
     };
   }, []);
-  if (!deck) return <View style={styles.root} />;
-  return <Round deck={deck} durationMs={dev.roundMs} showTruth={dev.showTruth} />;
+  if (!deck) return <View style={[styles.root, { backgroundColor: c.bg }]} />;
+  return <Round deck={deck} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
 }
 
-function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai' | 'real' }[]; durationMs: number; showTruth: boolean }) {
+function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durationMs: number; showTruth: boolean; designs: ReturnType<typeof useGameDev>['designs'] }) {
   // TODO(feat/gesture-hint): call useBlockHints() from '@/onboarding/store' here once it lands on main.
   const clips = useMemo(() => deck.map((d) => d.clip), [deck]);
   const [s, dispatch] = useReducer(roundReducer, null, () =>
@@ -62,15 +61,11 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
       durationMs,
     ),
   );
-  const desktop = useDesktop();
-  const insets = useSafeAreaInsets();
-  const { width: winW, height: winH } = useWindowDimensions();
-  const c = usePalette();
+  const frame = useFrame();
+  const { width: stageW, height: stageH, marginTop } = stageSize(frame);
+  const top = frame.desktop ? 0 : frame.top;
   const tint = useTint();
-
-  // Phones: full screen. Desktop: a centred 9:16 column.
-  const stageH = desktop ? winH - 48 : winH;
-  const stageW = desktop ? Math.min(winW - 48, Math.round((stageH * 9) / 16)) : winW;
+  const c = usePalette();
 
   // ---- the clock ---------------------------------------------------------------
   const [clock, setClock] = useState(0);
@@ -94,16 +89,18 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
   }, []);
 
   // ---- the pager ---------------------------------------------------------------
-  // `shown`: the clip the pager is on or sliding to. The round's own index moves
-  // at once on a decision; `shown` follows when the slide starts.
+  // `shown`: the clip the pager is on or moving to. The round's own index moves
+  // at once on a decision; `shown` follows when the move starts.
   const [shown, setShown] = useState(0);
   const [pos] = useState(() => new Animated.Value(0));
+  // How the clip leaves: 0 up (skip), 1 to the side (mark). Set before each move.
+  const [dir] = useState(() => new Animated.Value(0));
   const [busy, setBusy] = useState(false);
-  const [stamps, setStamps] = useState<{ key: number; idx: number; x: number; y: number }[]>([]);
+  const [stamps, setStamps] = useState<Stamp[]>([]);
   const advanceTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(advanceTimer.current), []);
 
-  const slideOn = useCallback(
+  const moveOn = useCallback(
     (from: number, velocity = 0) => {
       const next = from + 1;
       if (next >= clips.length) {
@@ -113,11 +110,12 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
       setShown(next);
       slideTo(pos, next, velocity, () => {
         setBusy(false);
-        // Stamps on cards that have left are off screen now.
+        // The card that left is off the stage in every design: point the next leave up again.
+        dir.setValue(0);
         setStamps((st) => st.filter((x) => x.idx >= next - 1));
       });
     },
-    [clips.length, pos],
+    [clips.length, pos, dir],
   );
 
   const playing = s.phase === 'playing';
@@ -130,9 +128,10 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
       setBusy(true);
       if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
       setStamps((st) => [...st, { key: shown, idx: shown, x: at.x, y: at.y }]);
-      advanceTimer.current = setTimeout(() => slideOn(shown), GAME.markAdvanceMs);
+      dir.setValue(1);
+      advanceTimer.current = setTimeout(() => moveOn(shown), GAME.markAdvanceMs);
     },
-    [canAct, shown, slideOn],
+    [canAct, shown, moveOn, dir],
   );
 
   const skip = useCallback(
@@ -140,10 +139,10 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
       if (!canAct) return false;
       dispatch({ type: 'SKIP', now: now(), index: shown });
       setBusy(true);
-      slideOn(shown, velocity);
+      moveOn(shown, velocity);
       return true;
     },
-    [canAct, shown, slideOn],
+    [canAct, shown, moveOn],
   );
 
   // ---- pausing and quitting -----------------------------------------------------
@@ -163,8 +162,8 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
     else router.replace('/');
   }, []);
 
-  // ---- desktop keys and wheel ------------------------------------------------------
-  const phaseRef = useRef(s.phase);
+  // ---- keys and wheel (browsers) ------------------------------------------------------
+  const phaseRef = useRef<Phase>(s.phase);
   useEffect(() => {
     phaseRef.current = s.phase;
   }, [s.phase]);
@@ -182,7 +181,7 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
         e.preventDefault();
       } else if (k === 'a' || k === 'A') {
         e.preventDefault();
-        markAI({ x: stageW / 2 - 46, y: stageH / 2 - 26 });
+        markAI({ x: stageW / 2, y: stageH / 2 });
       } else if (k === 'ArrowDown' || k === 'j' || k === 'J') {
         e.preventDefault();
         skip(0);
@@ -196,9 +195,11 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onWheel = (e: WheelEvent) => {
+      // The rail and the rest of the page keep their own wheel.
+      if (e.target instanceof Element && e.target.closest('.rail, [data-own-wheel]')) return;
       e.preventDefault();
-      const dir = wheel.push(normalizeWheelDelta(e.deltaY, e.deltaMode, stageH), e.timeStamp);
-      if (dir === 1) skip(0);
+      const d = wheel.push(normalizeWheelDelta(e.deltaY, e.deltaMode, stageH), e.timeStamp);
+      if (d === 1) skip(0);
     };
     window.addEventListener('wheel', onWheel, { passive: false });
     return () => window.removeEventListener('wheel', onWheel);
@@ -251,38 +252,45 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
       guesses: s.guesses,
       deck: s.deck,
       endReason: s.endReason,
+      designs,
     };
-  }, [s, shown, busy]);
+  }, [s, shown, busy, designs]);
 
   // ---- what shows ------------------------------------------------------------------
-  const veilOn = s.phase !== 'playing';
-  const veil = useEased(veilOn ? 1 : 0);
-  const chrome = useEased(s.phase === 'ready' || s.phase === 'over' ? 0 : 1);
+  // The countdown holds its last end time while it flies into the timer.
+  const [cdEnd, setCdEnd] = useState<number | null>(null);
+  if (s.countdownEnd !== null && s.countdownEnd !== cdEnd) setCdEnd(s.countdownEnd);
+
+  const hudOn = s.phase === 'playing' || s.phase === 'paused' || s.phase === 'over';
+  const morph = useEased(hudOn ? 1 : 0, MORPH_MS);
+  const countdownShown = useEased(s.phase === 'ready' ? 0 : 1);
+  const veil = useEased(s.phase === 'playing' ? 0 : 1);
   const readyCard = useEased(s.phase === 'ready' ? 1 : 0);
   const pausedCard = useEased(s.phase === 'paused' ? 1 : 0);
-  const overCard = useEased(s.phase === 'over' && s.endReason !== 'quit' ? 1 : 0);
-  const countdownOpacity = useEased(s.phase === 'countdown' ? 1 : 0, 220);
-  // The readout follows the clock's ticks; the bar runs on its own from the deadline.
+  const frac = useTimeFraction(s.remainingMs, s.phase === 'playing' ? s.deadline : null, s.durationMs);
+  // The readout follows the clock's ticks; the timer's fill runs on its own from the deadline.
   const displayMs = Math.min(s.remainingMs, remaining(s, clock));
+  const anchor = hudAnchor(designs.hud, stageW, top);
   const current = clips[shown];
   const truth = deck[shown]?.truth;
+  const desktop = frame.desktop;
 
   return (
     <View style={[styles.root, tint.root]}>
-      <View style={[styles.stage, { width: stageW, height: stageH, marginTop: desktop ? 24 : 0 }, desktop && styles.stageCard]}>
+      <View style={[styles.stage, { width: stageW, height: stageH, marginTop }, desktop && styles.stageCard]}>
         <GameStage
           clips={clips}
           index={shown}
           pos={pos}
+          dir={dir}
+          design={designs.transition}
+          stamps={stamps}
           width={stageW}
           height={stageH}
           live={playing}
           muted={muted}
           onMutedByBrowser={onMutedByBrowser}
         />
-        {stamps.map((st) => (
-          <MarkStamp key={st.key} x={st.x} y={st.y} idx={st.idx} pos={pos} height={stageH} />
-        ))}
         <Pager index={shown} pos={pos} height={stageH} enabled={canAct} onDoubleTap={markAI} onSwipe={skip} />
 
         {/* The veil: dims and blurs the waiting clip; fades out at Go. */}
@@ -291,22 +299,33 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
           <View style={[StyleSheet.absoluteFill, styles.dim]} />
         </Animated.View>
 
-        {/* Top: the clock, sound and quit. */}
-        <Animated.View style={[styles.top, { paddingTop: (desktop ? 0 : insets.top) + 10, opacity: chrome }]} pointerEvents="box-none">
-          <View style={styles.topRow} pointerEvents="box-none">
-            <View style={styles.timer}>
-              <TimerBar
-                remainingMs={s.remainingMs}
-                deadline={s.phase === 'playing' ? s.deadline : null}
-                durationMs={s.durationMs}
-                displayMs={displayMs}
-                judged={s.guesses.length}
-              />
-            </View>
-            <IconButton icon={muted ? 'volume-mute' : 'volume-high'} label={muted ? 'Unmute' : 'Mute'} onPress={() => setMuted((m) => !m)} />
-            <IconButton icon="close" label="Quit round" onPress={askQuit} />
-          </View>
-        </Animated.View>
+        {/* The timer grows out of where the countdown lands. */}
+        <Hud
+          design={designs.hud}
+          frac={frac}
+          durationMs={s.durationMs}
+          displayMs={displayMs}
+          judged={s.guesses.length}
+          width={stageW}
+          top={top}
+          appear={morph}
+        />
+        <Countdown
+          design={designs.countdown}
+          endAt={cdEnd}
+          totalMs={GAME.countdownMs}
+          width={stageW}
+          height={stageH}
+          anchor={anchor}
+          morph={morph}
+          shown={countdownShown}
+        />
+
+        {/* The round's buttons: always there. */}
+        <View style={[styles.buttons, { top: top + ROW_Y, width: BUTTONS_W }]} pointerEvents="box-none">
+          <IconButton icon={muted ? 'volume-mute' : 'volume-high'} label={muted ? 'Unmute' : 'Mute'} onPress={() => setMuted((m) => !m)} />
+          <IconButton icon="close" label="Quit round" onPress={s.phase === 'ready' ? quit : askQuit} />
+        </View>
 
         {/* Ready: how to play, and Start. */}
         <Fade value={readyCard} on={s.phase === 'ready'}>
@@ -316,16 +335,8 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
             <Pressable onPress={start} style={({ pressed }) => [styles.primary, tint.primary, pressed && styles.pressed]} accessibilityRole="button">
               <Text style={[styles.primaryText, tint.primaryText]}>Start</Text>
             </Pressable>
-            <Pressable onPress={quit} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">
-              <Text style={[styles.secondaryText, tint.dim]}>Back</Text>
-            </Pressable>
           </View>
         </Fade>
-
-        {/* 3-2-1 */}
-        <Animated.View style={[styles.center, { opacity: countdownOpacity }]} pointerEvents="none">
-          {s.phase === 'countdown' && s.countdownEnd !== null && <Countdown endAt={s.countdownEnd} totalMs={GAME.countdownMs} />}
-        </Animated.View>
 
         {/* Paused (the app went to the background, or ✕). */}
         <Fade value={pausedCard} on={s.phase === 'paused'}>
@@ -340,13 +351,15 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
           </View>
         </Fade>
 
-        {/* Time's up. */}
-        <Fade value={overCard} on={false}>
-          <Text style={[styles.big, tint.text]}>{s.endReason === 'deck' ? 'Done' : 'Time'}</Text>
-        </Fade>
+        {/* Time's up: resolves like the double take's text. */}
+        <View style={styles.center} pointerEvents="none">
+          <ResolveText on={s.phase === 'over' && s.endReason !== 'quit'} style={[styles.big, tint.text]}>
+            {s.endReason === 'deck' ? 'Done' : 'Time'}
+          </ResolveText>
+        </View>
 
         {__DEV__ && showTruth && truth && (
-          <View style={[styles.truth, { top: (desktop ? 0 : insets.top) + 44 }]} pointerEvents="none">
+          <View style={[styles.truth, { top: top + ROW_Y + ROW_H + 8 }]} pointerEvents="none">
             <Text style={[styles.truthText, { color: c.textDim }]}>dev: {truth}</Text>
           </View>
         )}
@@ -355,11 +368,11 @@ function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai
   );
 }
 
-/** A centred layer that fades with `value`; it takes touches only while `on`. */
+/** A centred layer that eases in and out with `value`; it takes touches only while `on`. */
 function Fade({ value, on, children }: { value: Animated.Value; on: boolean; children: React.ReactNode }) {
   return (
     <Animated.View
-      style={[styles.center, { opacity: value, transform: [{ scale: value.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}
+      style={[styles.center, { opacity: value, transform: [{ translateY: lerp(value, [0, 1], [12, 0]) }, { scale: lerp(value, [0, 1], [0.97, 1]) }] }]}
       pointerEvents={on ? 'box-none' : 'none'}
     >
       {children}
@@ -393,13 +406,11 @@ function IconButton({ icon, label, onPress }: { icon: React.ComponentProps<typeo
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, alignItems: 'center', backgroundColor: '#000' },
+  root: { flex: 1, alignItems: 'center' },
   stage: { overflow: 'hidden', backgroundColor: '#000' },
   stageCard: { borderRadius: 18 },
   dim: { backgroundColor: 'rgba(0,0,0,0.55)' },
-  top: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 14 },
-  topRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  timer: { flex: 1, paddingRight: 4 },
+  buttons: { position: 'absolute', right: 0, height: ROW_H, paddingRight: 14, flexDirection: 'row', justifyContent: 'flex-end', gap: 6 },
   iconButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },
   center: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: { width: '100%', maxWidth: 320, borderRadius: 20, padding: 20, gap: 12 },
@@ -424,4 +435,3 @@ const useTint = themed((c) => ({
   text: { color: c.text },
   dim: { color: c.textDim },
 }));
-

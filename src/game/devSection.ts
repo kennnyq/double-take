@@ -2,7 +2,8 @@ import { router } from 'expo-router';
 import { registerDevSection, registerDevTab } from '@/devtools/api';
 import type { DevRow } from '@/devtools/registry';
 import { DEV_TOOLS, closeDevSettings } from '@/devtools/store';
-import { ROUND_LENGTHS, gameDev } from './devOptions';
+import { GAME_DESIGNS, GAME_ELEMENTS } from './designs';
+import { ROUND_LENGTHS, gameDev, setGameDesign } from './devOptions';
 import { gameHistory } from './store';
 
 /*
@@ -50,8 +51,44 @@ function rows(): DevRow[] {
   ];
 }
 
+/** One choice row per element of the round, as the game lab picks them. */
+function designRows(): DevRow[] {
+  const s = gameDev.getSnapshot();
+  return GAME_ELEMENTS.map((e) => {
+    const info = GAME_DESIGNS[e];
+    return {
+      kind: 'choice',
+      id: `design-${e}`,
+      label: info.label,
+      items: info.options.map((o) => ({ label: o.label, value: o.id, note: o.note })),
+      value: s.designs[e],
+      defaultValue: info.default,
+      onSelect: (v) => setGameDesign({ [e]: v } as Partial<typeof s.designs>),
+    } satisfies DevRow;
+  });
+}
+
 function register() {
   registerDevSection({ id: 'game/round', tab: 'game', title: 'Timed guessing', rows: rows(), keywords: 'game round timer score play' });
+  registerDevSection({
+    id: 'game/designs',
+    tab: 'game',
+    title: 'Designs',
+    note: 'Each part of the round on trial. The game lab shows them side by side with fake states.',
+    order: 10,
+    rows: [
+      ...designRows(),
+      {
+        kind: 'action',
+        label: 'Open the game lab',
+        run: () => {
+          closeDevSettings();
+          router.push('/dev/game-lab');
+        },
+      },
+    ],
+    keywords: 'design countdown timer transition reveal results expand lab',
+  });
 }
 
 if (DEV_TOOLS) {
