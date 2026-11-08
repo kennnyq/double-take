@@ -40,7 +40,7 @@ export interface DemoMedia {
   /** The walkthrough's clip. */
   walk: DemoClip;
   /** Other portrait clips, for the feed before it and the other sections. */
-  others: { video: string; poster?: string; author: string; caption: string; verdict?: 'ai' | 'real' }[];
+  others: { video: string; poster?: string; author: string; caption: string; verdict?: 'ai' | 'real'; evidence?: string }[];
 }
 
 const PORTRAIT = 9 / 16;
@@ -117,8 +117,8 @@ export function loadDemo(): Promise<DemoMedia> {
     }
     const others = tall
       .filter((c) => c !== used)
-      .slice(0, 8)
-      .map((c) => ({ video: mediaUri(c.video) ?? '', poster: mediaUri(c.poster), author: c.author, caption: c.caption, verdict: c.verdict }));
+      .slice(0, 12)
+      .map((c) => ({ video: mediaUri(c.video) ?? '', poster: mediaUri(c.poster), author: c.author, caption: c.caption, verdict: c.verdict, evidence: c.verdictEvidence }));
     return { walk, others };
   })();
   return pending;

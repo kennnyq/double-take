@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode, type RefObject } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { Bookmark, Eye, Heart, MessageCircle, Music2, Repeat2, Send } from 'lucide-react';
 
 /**
@@ -102,4 +102,30 @@ export function Clip({
       disablePictureInPicture
     />
   );
+}
+
+/** The size the screens are drawn at (an iPhone's points); `Canvas` scales it to the phone. */
+export const CANVAS_W = 393;
+export const CANVAS_H = 852;
+
+/** A screen drawn at CANVAS_W × CANVAS_H points, scaled to the phone (set once per size, not per frame). */
+export function Canvas({ k, children }: { k: number; children: ReactNode }) {
+  return (
+    <div className="ft-canvas" style={{ transform: `scale(${k})` }}>
+      {children}
+    </div>
+  );
+}
+
+/** Keeps a latch of whether a scene has been on screen, and whether it is now (for its videos). */
+export function useShown() {
+  const on = useRef(false);
+  const [state, setState] = useState({ on: false, seen: false });
+  const update = (presence: number) => {
+    const now = presence > 0.001;
+    if (now === on.current) return;
+    on.current = now;
+    setState((s) => ({ on: now, seen: s.seen || now }));
+  };
+  return [state, update] as const;
 }

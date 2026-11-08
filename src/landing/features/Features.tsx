@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type RefObject } from 'react';
+import { BatteryFull, Signal, Wifi } from 'lucide-react';
 import { loadDemo, type DemoMedia } from './demo';
 import { SECTION_WORDS } from './content';
 import type { FeatureValues } from './designs';
@@ -312,6 +313,14 @@ export function Features({ rootRef, values: v }: { rootRef: RefObject<HTMLElemen
                     const Scene = SCENES[id];
                     return <Scene key={id} />;
                   })}
+                  <div className="ft-status" aria-hidden>
+                    <span>9:41</span>
+                    <span>
+                      <Signal size={13} strokeWidth={2.6} />
+                      <Wifi size={13} strokeWidth={2.6} />
+                      <BatteryFull size={17} strokeWidth={2} />
+                    </span>
+                  </div>
                   {v.device !== 'bare' && <div className="ft-island" />}
                 </div>
               </div>

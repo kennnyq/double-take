@@ -133,3 +133,14 @@ export function stepsAt(p: number, n: number, a: number, b: number): { index: nu
   const index = Math.floor(x);
   return { index, s: x - index };
 }
+
+/**
+ * A two-digit counter's wheels at a continuous value (an odometer): where the
+ * ones wheel is (0..10, 10 being the 0 after 9) and the tens wheel, which
+ * turns only while the ones wheel rolls from 9 to 0.
+ */
+export function wheels(value: number): { tens: number; ones: number } {
+  const v = Math.max(0, value);
+  const ones = v - 10 * Math.floor(v / 10);
+  return { tens: Math.floor(v / 10) + Math.max(0, ones - 9), ones };
+}
