@@ -101,8 +101,9 @@ export const DRAFT_SCHEMA = {
           bbox_2d: { type: ['array', 'null'], items: { type: 'integer' }, minItems: 4, maxItems: 4 },
           visible: { type: 'string', enum: ['yes', 'no', 'unsure'] },
           confidence: { type: 'string', enum: ['low', 'medium', 'high'] },
+          card_side: { type: 'string', enum: ['top', 'bottom'] },
         },
-        required: ['claim_id', 'category', 'label', 'explanation', 'frame', 'after_frame', 't0', 't1', 'bbox_2d', 'visible', 'confidence'],
+        required: ['claim_id', 'category', 'label', 'explanation', 'frame', 'after_frame', 't0', 't1', 'bbox_2d', 'visible', 'confidence', 'card_side'],
       },
     },
   },
@@ -119,6 +120,7 @@ Rules:
 - t0/t1: seconds where the artifact is visible, using the frame times. Null if unknown.
 - label: at most 8 words naming what is wrong, in the claim's terms, e.g. "Dresser vanishes behind her", "Fingernail disappears". Never describe what merely looks fine; if you can't see the problem, set visible "no".
 - explanation: one or two plain sentences telling a viewer what to look at.
+- card_side: "top" or "bottom", the half of that frame with less going on (fewer people, objects or captions), where a small caption card would hide the least. The app puts the explanation there when the tell has no box.
 - claim_id: the claim you checked. Only add a tell with claim_id null if it is unmistakable, and use confidence "low".
 - Ignore burned-in captions and on-screen text unless a claim is about them.`;
 
@@ -145,6 +147,7 @@ interface RawTell {
   bbox_2d?: unknown;
   visible?: unknown;
   confidence?: unknown;
+  card_side?: unknown;
 }
 
 /** Accept the current schema plus the shapes earlier prompts produced (`events`, bare arrays). */
@@ -337,6 +340,7 @@ export function validateDraft(reply: unknown, ctx: DraftContext): DraftResult {
       rank: CONF_RANK[confidence] + (box ? 3 : 0) + (claim ? 6 : 0),
     };
     if (tell.seenInFrames === undefined) delete tell.seenInFrames;
+    if (r.card_side === 'top' || r.card_side === 'bottom') tell.placement = r.card_side;
     const detail =
       visible === 'no'
         ? `The ${src?.kind === 'comment' ? 'comment' : 'Community Note'} points to this moment; the model couldn't find it in the frames.`

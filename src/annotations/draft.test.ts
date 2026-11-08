@@ -172,6 +172,15 @@ test('prompt and schema are what the model is asked for', () => {
   assert.match(p, /c1: dresser disappears \(note says ~7s\)/);
   assert.deepEqual(DRAFT_SCHEMA.required, ['tells']);
   assert.ok(DRAFT_SCHEMA.properties.tells.items.required.includes('bbox_2d'));
+  assert.ok(DRAFT_SCHEMA.properties.tells.items.required.includes('card_side'));
+});
+
+test('card_side becomes the tell placement; anything else is dropped', () => {
+  const [top] = run([tell({ card_side: 'top' })], { claims: [CLAIMS[0]] }).tells;
+  assert.equal(top.placement, 'top');
+  assert.deepEqual(readTell(JSON.parse(JSON.stringify(top))), top);
+  const [none] = run([tell({ card_side: 'middle' })], { claims: [CLAIMS[0]] }).tells;
+  assert.equal(none.placement, undefined);
 });
 
 test('after_frame becomes a before/after moment; bad ones are ignored with a note', () => {
