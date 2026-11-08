@@ -90,6 +90,7 @@ export function Results({ done }: { done: FinishedRound }) {
             clips={done.clips}
             columns={columns}
             width={contentW}
+            onOpen={(clipId) => router.push({ pathname: '/game/review/[clipId]', params: { clipId } })}
           />
         </View>
 
