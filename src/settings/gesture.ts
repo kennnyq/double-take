@@ -36,6 +36,78 @@ export interface Tap {
   y: number;
 }
 
+/** How long after a tap a second one still makes a double tap, on every layout. */
+export const DOUBLE_TAP_MS = 250;
+
+/**
+ * Whether a single tap (play/pause) waits out DOUBLE_TAP_MS first: only when
+ * a double tap would open this clip's double take, so opening it never pauses
+ * the clip on the way. Otherwise a tap acts at once (Hold mode, or clips
+ * where a double tap likes, which resumes anyway).
+ */
+export function singleTapWaits(mode: RevealGesture, hasTells: boolean): boolean {
+  return hasTells && revealsWith('doubleTap', mode);
+}
+
+export interface Timers {
+  set: (fn: () => void, ms: number) => unknown;
+  clear: (handle: unknown) => void;
+}
+
+const realTimers: Timers = {
+  set: (fn, ms) => setTimeout(fn, ms),
+  clear: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
+};
+
+export interface TapHandlers {
+  /** Hold the single tap's action for DOUBLE_TAP_MS (see `singleTapWaits`). */
+  wait: boolean;
+  onSingle: () => void;
+  /** `firstRan`: the first tap's action already ran (it didn't wait). */
+  onDouble: (firstRan: boolean) => void;
+}
+
+/**
+ * Tells single taps from double taps. A single tap acts at once, or after
+ * DOUBLE_TAP_MS when it `wait`s, and a second tap in time cancels it. Call
+ * `cancel` when the clip stops being the active one, so a waiting tap can't
+ * act on the next clip.
+ */
+export function createTapRecognizer(timers: Timers = realTimers) {
+  let last: Tap | null = null;
+  let pending: unknown = null;
+  const clearPending = () => {
+    if (pending !== null) timers.clear(pending);
+    pending = null;
+  };
+  return {
+    tap(tap: Tap, h: TapHandlers) {
+      if (isDoubleTap(last, tap, DOUBLE_TAP_MS)) {
+        const firstRan = pending === null;
+        clearPending();
+        last = null;
+        h.onDouble(firstRan);
+        return;
+      }
+      clearPending();
+      last = tap;
+      if (!h.wait) {
+        h.onSingle();
+        return;
+      }
+      pending = timers.set(() => {
+        pending = null;
+        h.onSingle();
+      }, DOUBLE_TAP_MS);
+    },
+    /** Forget the last tap and drop a waiting single tap (a hold, or the clip moved on). */
+    cancel() {
+      clearPending();
+      last = null;
+    },
+  };
+}
+
 /**
  * A second tap close in time and place to the first makes a double tap. Where
  * the press has no position (React Native Web can leave `locationX` unset),

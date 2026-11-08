@@ -9,7 +9,7 @@ import { baseReposts } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
 import { useDevSettings } from '@/devtools/store';
-import { gestureAction, isDoubleTap, type Tap } from '@/settings/gesture';
+import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
 import type { FeedHandlers } from './Feed';
 import { TellOverlay, type TellOverlayHandle } from './TellOverlay';
@@ -42,12 +42,10 @@ interface Props {
   h: FeedHandlers;
 }
 
-const DOUBLE_TAP_MS = 280;
-
 export const ClipItem = memo(function ClipItem(p: Props) {
   const { clip, width, height, wide, h } = p;
   const [bursts, setBursts] = useState<{ id: number; x: number; y: number; tilt: string }[]>([]);
-  const lastTap = useRef<Tap | null>(null);
+  const [taps] = useState(createTapRecognizer);
   const longPressed = useRef(false);
   const tells = useRef<TellOverlayHandle>(null);
   const { revealGesture } = useAppSettings();
@@ -58,37 +56,46 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const [inspectOn, setInspectOn] = useState(false);
   const inspecting = inspectOn && p.isActive;
   const onInspect = useCallback((on: boolean) => setInspectOn(on), []);
+  // A tap still waiting out the double-tap window must not act on the next clip.
+  useEffect(() => {
+    if (!p.isActive) taps.cancel();
+    return () => taps.cancel();
+  }, [p.isActive, taps]);
 
-  // Tap toggles pause immediately (no waiting to rule out a double tap); a
-  // second tap within DOUBLE_TAP_MS likes (or opens the double take, per the
-  // viewer's gesture setting) and always leaves the clip playing, whether the first tap
-  // paused it or resumed it.
+  // A tap plays/pauses; a second tap within DOUBLE_TAP_MS likes or opens the
+  // double take (per the viewer's gesture setting). When it would open the
+  // double take, the first tap waits out the window, so opening never pauses
+  // the clip first; otherwise the tap acts at once and a like resumes playback.
   const onPress = (e: GestureResponderEvent) => {
     if (!p.isActive) return;
     const { locationX: x, locationY: y } = e.nativeEvent;
-    const tap = { t: Date.now(), x, y };
-    if (isDoubleTap(lastTap.current, tap, DOUBLE_TAP_MS)) {
-      lastTap.current = null;
-      h.play();
-      if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: true }) === 'reveal') {
-        tells.current?.open();
-        return;
-      }
-      // A guest's like opens sign-in instead: no heart.
-      if (!h.like(clip)) return;
-      const tilt = `${Math.round(Math.random() * 30 - 15)}deg`;
-      setBursts((b) => [...b, { id: tap.t, x, y, tilt }]);
-      return;
-    }
-    lastTap.current = tap;
-    h.togglePause();
+    const t = Date.now();
+    taps.tap(
+      { t, x, y },
+      {
+        wait: singleTapWaits(revealGesture, hasTells),
+        onSingle: () => h.togglePause(),
+        onDouble: (firstRan) => {
+          if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: true }) === 'reveal') {
+            tells.current?.open(); // plays the clip itself
+            return;
+          }
+          // Like, and never leave the first tap's pause behind.
+          if (firstRan) h.play();
+          // A guest's like opens sign-in instead: no heart.
+          if (!h.like(clip)) return;
+          const tilt = `${Math.round(Math.random() * 30 - 15)}deg`;
+          setBursts((b) => [...b, { id: t, x, y, tilt }]);
+        },
+      },
+    );
   };
 
   // Holding plays at 2x until released, or opens the double take (which stays
   // open after release: it's a tap-through walkthrough).
   const onLongPress = () => {
     if (!p.isActive) return;
-    lastTap.current = null;
+    taps.cancel();
     const action = gestureAction('hold', revealGesture, { hasTells, canBoost: true });
     if (action === 'reveal') {
       tells.current?.open();

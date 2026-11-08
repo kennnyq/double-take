@@ -40,7 +40,7 @@ import { useSocialActions } from '@/social/actions';
 import { baseReposts, clipKey } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { useAppNav } from '@/social/nav';
-import { gestureAction, isDoubleTap, spaceWaitsForHold, type Tap } from '@/settings/gesture';
+import { createTapRecognizer, gestureAction, singleTapWaits, spaceWaitsForHold } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
 import type { RevealGesture } from '@/settings/settings';
 import { useSocial } from '@/social/store';
@@ -578,18 +578,22 @@ interface Burst {
   r: number;
 }
 
-const DOUBLE_TAP_MS = 300;
-
 const Slide = memo(function Slide(p: SlideProps) {
   const { clip, isActive, h } = p;
   const [bursts, setBursts] = useState<Burst[]>([]);
-  const gesture = useRef({ x: 0, y: 0, moved: false, held: false, timer: 0, last: null as Tap | null });
+  const gesture = useRef({ x: 0, y: 0, moved: false, held: false, timer: 0 });
+  const [clicks] = useState(createTapRecognizer);
   const { reveal: tells, revealGesture, holdMs } = h;
   const hasTells = !!clip.tellsUrl && isActive;
   const poster = mediaUri(clip.poster);
 
   const cancelHold = () => window.clearTimeout(gesture.current.timer);
   useEffect(() => cancelHold, []);
+  // A click still waiting out the double-click window must not act on the next clip.
+  useEffect(() => {
+    if (!isActive) clicks.cancel();
+    return () => clicks.cancel();
+  }, [isActive, clicks]);
 
   const onPointerDown = (e: RPointerEvent<HTMLDivElement>) => {
     if (e.button !== 0) return;
@@ -603,7 +607,7 @@ const Slide = memo(function Slide(p: SlideProps) {
     if (isActive && gestureAction('hold', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
       g.timer = window.setTimeout(() => {
         g.held = true;
-        g.last = null;
+        clicks.cancel();
         tells.current?.open();
       }, holdMs);
     }
@@ -623,24 +627,26 @@ const Slide = memo(function Slide(p: SlideProps) {
     if (g.held || g.moved || !isActive) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const tap = { t: performance.now(), x: e.clientX - rect.left, y: e.clientY - rect.top };
-    if (isDoubleTap(g.last, tap, DOUBLE_TAP_MS)) {
-      g.last = null;
-      // Double click: like with a heart burst, or the double take. Always resume
-      // (never toggle), so the first click's pause can't leave the clip paused.
-      h.play();
-      if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
-        tells.current?.open();
-        return;
-      }
-      // A guest's like opens sign-in instead: no heart.
-      if (!h.like(clip)) return;
-      const b = { id: tap.t, x: tap.x, y: tap.y, r: Math.round(Math.random() * 30 - 15) };
-      setBursts((bs) => [...bs, b]);
-      window.setTimeout(() => setBursts((bs) => bs.filter((o) => o.id !== b.id)), 900);
-      return;
-    }
-    g.last = tap;
-    h.togglePause();
+    // A double click likes or opens the double take. When it would open the
+    // double take, the first click waits out DOUBLE_TAP_MS so opening never
+    // pauses the clip first; otherwise the click acts at once.
+    clicks.tap(tap, {
+      wait: singleTapWaits(revealGesture, hasTells),
+      onSingle: () => h.togglePause(),
+      onDouble: (firstRan) => {
+        if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
+          tells.current?.open(); // plays the clip itself
+          return;
+        }
+        // Like, and never leave the first click's pause behind.
+        if (firstRan) h.play();
+        // A guest's like opens sign-in instead: no heart.
+        if (!h.like(clip)) return;
+        const b = { id: tap.t, x: tap.x, y: tap.y, r: Math.round(Math.random() * 30 - 15) };
+        setBursts((bs) => [...bs, b]);
+        window.setTimeout(() => setBursts((bs) => bs.filter((o) => o.id !== b.id)), 900);
+      },
+    });
   };
 
   const info = (
