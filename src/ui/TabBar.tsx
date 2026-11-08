@@ -77,6 +77,8 @@ export function TabBar({ tab, onTab, faded = false }: { tab: TabId; onTab: (t: T
               accessibilityRole="tab"
               accessibilityLabel={t.label}
               accessibilityState={{ selected: on }}
+              // Browsers: React Native Web doesn't carry `selected` over for tabs.
+              aria-selected={on}
               style={({ pressed }) => [styles.tab, on && styles.tabOn, pressed && { opacity: 0.7 }]}
             >
               <Ionicons name={on ? t.iconActive : t.icon} size={t.id === 'create' ? 28 : 25} color="#f1f1f1" />
