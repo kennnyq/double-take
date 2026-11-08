@@ -11,7 +11,7 @@ import { NATIVE, lerp } from '@/game/motion';
 import { loadDealableClips } from '@/game/playable';
 import { ResolveText } from '@/game/ResolveText';
 import { themed, usePalette } from '@/ui/theme';
-import { CATEGORY_INFO, SKILL_CATEGORIES, type SkillCategory } from './categories';
+import { CATEGORY_INFO, type SkillCategory } from './categories';
 import { SKILL_ICONS, SKILL_TIPS, milestones, weakestSkill } from './insights';
 import { toScore, type Belief } from './skill';
 import type { SkillState } from './state';
@@ -44,21 +44,19 @@ export function SkillsView({ demo, animate }: { demo?: SkillsDemo; animate?: str
 /** The player's own skills, from this device. */
 function LiveSkills() {
   const state = useSkillState();
-  const { categories, coverage } = useScorableCategories();
+  const { categories } = useScorableCategories();
   const clips = useClipsByKey();
-  return <SkillsBody state={state} categories={categories} coverage={coverage} clips={clips} live />;
+  return <SkillsBody state={state} categories={categories} clips={clips} live />;
 }
 
 function SkillsBody({
   state,
   categories,
-  coverage,
   clips,
   live = false,
 }: {
   state: SkillState;
   categories: readonly SkillCategory[];
-  coverage?: Record<SkillCategory, number>;
   /** The feed's clips by key, for posters of clips you missed (none: no posters). */
   clips?: Map<string, Clip>;
   /** The player's own: the buttons go somewhere. */
@@ -68,7 +66,6 @@ function SkillsBody({
   const tint = useTint();
   const c = usePalette();
   const width = Math.min(frame.width, 560) - 32;
-  const unscored = coverage ? SKILL_CATEGORIES.filter((k) => !categories.includes(k) && coverage[k] > 0) : [];
   const general = toScore(state.overall);
   const weakest = weakestSkill(state.skills, categories, state.overall);
   const reached = milestones(state.stats);
@@ -137,8 +134,8 @@ function SkillsBody({
         </Animated.View>
 
         <Text style={[styles.note, tint.dim]}>
-          {state.answers} answers{state.rounds ? ` · ${state.rounds} timed rounds` : ''}
-          {unscored.length ? ` · not enough clips yet: ${unscored.map((k) => CATEGORY_INFO[k].label).join(', ')}` : ''}
+          {count(state.answers, 'answer')}
+          {state.rounds ? ` · ${count(state.rounds, 'timed round')}` : ''}
         </Text>
       </View>
     </ScrollView>
@@ -171,6 +168,11 @@ function SkillRow({ k, skill: s, t, missed, last }: { k: SkillCategory; skill: B
       ) : null}
     </View>
   );
+}
+
+/** "1 answer", "2 answers". */
+function count(n: number, word: string): string {
+  return `${n} ${word}${n === 1 ? '' : 's'}`;
 }
 
 /** The general score on a ring: the score drawn round from the top, its likely range a faint arc behind it. */
