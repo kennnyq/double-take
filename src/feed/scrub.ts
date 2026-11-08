@@ -78,26 +78,31 @@ export interface Scrubbable {
 const LOOSE = { toleranceBefore: 0.08, toleranceAfter: 0.08 };
 const EXACT = { toleranceBefore: 0, toleranceAfter: 0 };
 
+/** Loose, fast seeks for many seeks in a row (a scrub, a drag on the progress bar); exact otherwise. */
+export function setScrubMode(player: Scrubbable, on: boolean): void {
+  try {
+    player.seekTolerance = on ? LOOSE : EXACT;
+    player.scrubbingModeOptions = { scrubbingModeEnabled: on };
+  } catch {
+    // Older players without these: plain seeks.
+  }
+}
+
 /**
  * Run a scrub on a (paused) player. Returns a cancel function; `onDone` runs
- * once the player has been sent to `plan.to` (not when cancelled).
+ * once the player has been sent to `plan.to` (not when cancelled). `onStep`
+ * hears every seek (e.g. to move a progress bar along).
  */
-export function runScrub(player: Scrubbable, plan: ScrubPlan, onDone: () => void): () => void {
+export function runScrub(player: Scrubbable, plan: ScrubPlan, onDone: () => void, onStep?: (t: number) => void): () => void {
   let raf = 0;
   let cancelled = false;
   let start = -1;
   let lastSeek = -Infinity;
-  const setMode = (on: boolean) => {
-    try {
-      player.seekTolerance = on ? LOOSE : EXACT;
-      player.scrubbingModeOptions = { scrubbingModeEnabled: on };
-    } catch {
-      // Older players without these: plain seeks.
-    }
-  };
+  const setMode = (on: boolean) => setScrubMode(player, on);
   const finish = () => {
     setMode(false);
     player.currentTime = plan.to;
+    onStep?.(plan.to);
     onDone();
   };
   if (plan.ms <= 0) {
@@ -116,7 +121,9 @@ export function runScrub(player: Scrubbable, plan: ScrubPlan, onDone: () => void
     }
     if (now - lastSeek >= plan.stepMs - 4) {
       lastSeek = now;
-      player.currentTime = scrubTimeAt(plan, elapsed);
+      const t = scrubTimeAt(plan, elapsed);
+      player.currentTime = t;
+      onStep?.(t);
     }
     raf = requestAnimationFrame(frame);
   };
@@ -126,5 +133,41 @@ export function runScrub(player: Scrubbable, plan: ScrubPlan, onDone: () => void
     cancelled = true;
     cancelAnimationFrame(raf);
     setMode(false);
+  };
+}
+
+/**
+ * Fast-forward or rewind a playing clip to `to` (a tap on the progress bar, an
+ * arrow key): holds it still through `hold` (paused, silent), scrubs, then
+ * lets it play on. Returns a cancel function, which also lets it play on.
+ */
+export function easedSeek(
+  player: Scrubbable,
+  to: number,
+  hold: (on: boolean) => void,
+  onStep?: (t: number) => void,
+): () => void {
+  const plan = planScrub(player.currentTime, to);
+  if (plan.ms <= 0) {
+    player.currentTime = to;
+    onStep?.(to);
+    return () => {};
+  }
+  let done = false;
+  hold(true);
+  const cancel = runScrub(
+    player,
+    plan,
+    () => {
+      done = true;
+      hold(false);
+    },
+    onStep,
+  );
+  return () => {
+    if (done) return;
+    done = true;
+    cancel();
+    hold(false);
   };
 }
