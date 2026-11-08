@@ -294,12 +294,15 @@ export const Gallery = memo(function Gallery({
   design,
   speed,
   reels,
+  turn,
   tier,
 }: {
   design: LandingValues['gallery'];
   speed: Speed;
   /** Whether tiles swipe to their next clip as their clip ends, like scrolling reels. */
   reels: LandingValues['reels'];
+  /** How a tile's next clip comes in (auto: a swipe, a crossfade on the lighter tier). */
+  turn: LandingValues['turn'];
   /** How much to ask of the device (tier.ts). */
   tier: Tier;
 }) {
@@ -307,7 +310,7 @@ export const Gallery = memo(function Gallery({
   const { w, h } = useBox(ref);
   const Layout = GALLERIES[design];
   useTilePlayback(ref, `${design}:${w}x${h}`);
-  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off', tier);
+  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off', tier, turn === 'auto' ? undefined : turn);
   return (
     <div className="lt-gallery" data-gallery={design} ref={ref}>
       {w > 0 && <Layout w={w} h={h} speed={SPEED[speed]} />}

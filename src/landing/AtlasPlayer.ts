@@ -1,6 +1,6 @@
 import { atlasMode, cellRect, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
 import { streamLoop } from './atlasStream';
-import { chooseNext, handover, loopAt, snap, SWIPE_MS, swipeSlices, type Neighbour } from './reels';
+import { chooseNext, FADE_MS, handover, loopAt, snap, soft, SWIPE_MS, swipeSlices, type Neighbour, type Turn } from './reels';
 import { spreadCells, stripLoops, stripSequence, type Spot } from './spread';
 import { PHONE_SWIPES, type Tier } from './tier';
 
@@ -155,6 +155,9 @@ export class AtlasPlayer {
   private noHandover = new Map<string, number>();
   /** The lighter tier caps swipes (tier.ts). */
   private tier: Tier = 'full';
+  /** How tiles turn to their next clip, and how long that takes (ms). */
+  private turn: Turn = 'slide';
+  private turnMs = SWIPE_MS;
   private lastSwipeFrame = 0;
   /** Swipes stop for the launch. */
   private held = false;
@@ -330,10 +333,18 @@ export class AtlasPlayer {
       };
       const swipe = b.swipes[i];
       if (swipe) {
-        const t = (now - swipe.start) / SWIPE_MS;
+        const t = (now - swipe.start) / this.turnMs;
         if (t < 1) {
-          for (const x of swipeSlices(snap(t), d, at(swipe.from), at(swipe.to)))
-            ctx.drawImage(src, x.sx, x.sy, x.sw, x.sh, x.dx, x.dy, x.dw, x.dh);
+          if (this.turn === 'fade') {
+            const from = at(swipe.from);
+            const to = at(swipe.to);
+            ctx.drawImage(src, from.sx, from.sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
+            ctx.globalAlpha = soft(t);
+            ctx.drawImage(src, to.sx, to.sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
+            ctx.globalAlpha = 1;
+          } else
+            for (const x of swipeSlices(snap(t), d, at(swipe.from), at(swipe.to)))
+              ctx.drawImage(src, x.sx, x.sy, x.sw, x.sh, x.dx, x.dy, x.dw, x.dh);
           if (only && corners) this.cornersOf(b, d);
           continue;
         }
@@ -366,8 +377,11 @@ export class AtlasPlayer {
   }
 
   /** Whether tiles swipe as their clips end (false: they loop), and which feed clip each cell holds. */
-  setReels(on: boolean, clipOfCell: Map<number, number>, tier: Tier = 'full') {
+  setReels(on: boolean, clipOfCell: Map<number, number>, tier: Tier = 'full', turn?: Turn) {
     this.tier = tier;
+    // A swipe on the full tier; a soft crossfade on the lighter one (it read as flashy and jittery on phones).
+    this.turn = turn ?? (tier === 'phone' ? 'fade' : 'slide');
+    this.turnMs = this.turn === 'fade' ? FADE_MS : SWIPE_MS;
     this.reels = on && this.mode === 'play' && !!this.atlas.phases;
     this.clipOfCell = clipOfCell;
     this.held = false;
@@ -383,7 +397,7 @@ export class AtlasPlayer {
     const phases = this.atlas.phases;
     if (!this.reels || this.held || document.hidden || !phases) return;
     const { loop, lead } = this.atlas;
-    const span = handover(loop, lead);
+    const span = handover(loop, lead, 2, this.turnMs);
     const wallAt = (at: number) => shows + (at - t) * 1000;
     this.busy = this.busy.filter((b) => b > t - 1);
     // Tiles due to hand over: every copy of each (a strip holds each twice).
@@ -394,7 +408,7 @@ export class AtlasPlayer {
         if (el.hasAttribute('data-hero-tile') || b.hidden[i]) return;
         const key = b.keys[i];
         const swipe = b.swipes[i];
-        if (swipe && wallAt(t) < swipe.start + SWIPE_MS) return;
+        if (swipe && wallAt(t) < swipe.start + this.turnMs) return;
         const cell = b.cells[i];
         const into = loopAt(t, phases[cell], loop);
         if (into < span.from || into > span.until) return;
@@ -408,7 +422,7 @@ export class AtlasPlayer {
     let room = Infinity;
     if (this.tier === 'phone') {
       let busy = 0;
-      for (const b of this.visible) for (const sw of b.swipes) if (sw && sw.start + SWIPE_MS > shows) busy++;
+      for (const b of this.visible) for (const sw of b.swipes) if (sw && sw.start + this.turnMs > shows) busy++;
       room = PHONE_SWIPES.concurrent - busy;
       if (room <= 0) return;
     }

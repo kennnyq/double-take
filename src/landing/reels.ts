@@ -13,6 +13,18 @@ import { likeness } from './spread.ts';
  * stop, and takes the best of them right as it starts: no stall, no skip.
  */
 
+/** How a tile turns to its next clip: a reel's swipe, or (lighter on phones) a soft crossfade. */
+export type Turn = 'slide' | 'fade';
+
+/** How long a crossfade takes, ms. */
+export const FADE_MS = 560;
+
+/** smoothstep: eases in and out, for the crossfade. */
+export function soft(t: number): number {
+  const x = Math.min(1, Math.max(0, t));
+  return x * x * (3 - 2 * x);
+}
+
 /** How long a swipe takes, ms: a reel's snap. */
 export const SWIPE_MS = 420;
 
@@ -83,8 +95,8 @@ export function nextStart(t: number, phase: number, loop: number): number {
  * moment a swipe can start is a swipe's length before that; it looks `window`
  * seconds ahead of that for a clip to take.
  */
-export function handover(loop: number, lead: number, window = 2): { from: number; until: number } {
-  const until = loop - lead - SWIPE_MS / 1000;
+export function handover(loop: number, lead: number, window = 2, ms = SWIPE_MS): { from: number; until: number } {
+  const until = loop - lead - ms / 1000;
   return { from: Math.max(0, until - window), until };
 }
 

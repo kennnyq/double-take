@@ -56,6 +56,11 @@ export const LANDING_TRIALS = {
     { value: 'end', label: 'As each clip ends' },
     { value: 'off', label: 'Never (clips loop)' },
   ]),
+  turn: trial(LOOK, 'Next clip comes in by', 'turn', [
+    { value: 'auto', label: 'Swipe; a crossfade on phones' },
+    { value: 'slide', label: 'Swiping up' },
+    { value: 'fade', label: 'Crossfading' },
+  ]),
   scan: trial(LOOK, 'On the tiles', 'scan', [
     { value: 'brackets', label: 'Tell boxes flicker on' },
     { value: 'labels', label: '“Real?” “AI?” chips' },
@@ -216,6 +221,7 @@ const BASE: LandingValues = {
   dim: '55',
   speed: 'medium',
   reels: 'end',
+  turn: 'auto',
   scan: 'brackets',
   copy: 'second',
   type: 'grotesk',

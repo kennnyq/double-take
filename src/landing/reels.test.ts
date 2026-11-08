@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CLASH, chooseNext, handover, loopAt, nextStart, NUDGE_FRAMES, snap, SWIPE_MS, swipeSlices } from './reels.ts';
+import { CLASH, chooseNext, FADE_MS, handover, loopAt, nextStart, NUDGE_FRAMES, snap, soft, SWIPE_MS, swipeSlices } from './reels.ts';
 
 test('snap: continuous, quick to leave, soft to settle, never overshooting', () => {
   assert.equal(snap(0), 0);
@@ -52,6 +52,14 @@ test('loopAt and nextStart follow a cell round its loop from its phase', () => {
   // Anywhere on the timeline, nextStart lands on the loop's start.
   const at = loopAt(nextStart(31.3, 4.4, 7), 4.4, 7);
   assert.ok(Math.min(at, 7 - at) < 1e-9);
+});
+
+test('soft: the crossfade eases in and out, continuously', () => {
+  assert.equal(soft(0), 0);
+  assert.equal(soft(1), 1);
+  assert.equal(soft(0.5), 0.5);
+  assert.ok(soft(0.05) < 0.01 && 1 - soft(0.95) < 0.01);
+  assert.equal(handover(7, 0.53, 2, FADE_MS).until, 7 - 0.53 - FADE_MS / 1000);
 });
 
 test('handover: gone before the closing dissolve, looking a while ahead', () => {
