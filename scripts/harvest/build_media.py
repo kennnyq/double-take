@@ -2,12 +2,18 @@
 
 Usage:
     python3 -I scripts/harvest/build_media.py CANDIDATES.jsonl [--out build] [--max-duration 90] [--merge]
-        [--feed demo]
+        [--feed demo] [--exclude-discarded [--decisions DECISIONS.jsonl]]
 
 --merge keeps the existing feed and only downloads candidates it doesn't have yet,
 so adding clips never drops one whose source link has since died.
 --feed NAME writes feeds/NAME.json (default demo); the Worker serves it at
 /feed?name=NAME. Media is shared: a clip already built for another feed is reused.
+--exclude-discarded leaves out every clip the review site marked discard
+(scripts/harvest/review/decisions.jsonl, or --decisions PATH; see REVIEW.md), from
+the new candidates and, with --merge, from the kept feed too. In a pair feed
+(--feed other than demo, e.g. compare) a discarded clip also takes its pair with
+it: real clips paired with a discarded AI clip go, and an AI clip whose real
+partners were all discarded goes.
 
 CANDIDATES.jsonl rows need at least `url`; `label`, `evidence`, `views`, `likes`,
 `uploader` and `source` are carried into the feed when present, and so are the
@@ -256,6 +262,20 @@ def reuse(row: dict, cand: dict) -> dict:
     return out
 
 
+def drop_discarded(rows: list[dict], gone: set[str], pairs: bool = False) -> list[dict]:
+    """Rows (candidates or feed rows) without the clips the review discarded. With
+    `pairs`, a pair feed: rows paired with a discarded clip go too, and so does a
+    clip that was paired with but has no partner left."""
+    rid = lambda r: r["id"] if "id" in r else clip_id(r["url"])  # noqa: E731
+    out = [r for r in rows if rid(r) not in gone]
+    if pairs:
+        out = [r for r in out if r.get("pairOf") not in gone]
+        had = {r["pairOf"] for r in rows if r.get("pairOf")}
+        has = {r["pairOf"] for r in out if r.get("pairOf")}
+        out = [r for r in out if rid(r) not in had or rid(r) in has]
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("candidates")
@@ -264,6 +284,8 @@ def main() -> None:
     ap.add_argument("--jobs", type=int, default=3)
     ap.add_argument("--merge", action="store_true", help="keep the existing feed; only add new clips")
     ap.add_argument("--feed", default="demo", help="feed name: writes feeds/NAME.json (default demo)")
+    ap.add_argument("--exclude-discarded", action="store_true", help="leave out clips the review marked discard")
+    ap.add_argument("--decisions", help="the review's decisions file (default: review/decisions.jsonl)")
     args = ap.parse_args()
     if not re.fullmatch(r"[\w-]+", args.feed):
         ap.error("--feed takes letters, digits, _ and - (the Worker's rule)")
@@ -280,6 +302,18 @@ def main() -> None:
         have = {c["id"] for c in existing}
         uniq = [c for c in uniq if clip_id(c["url"]) not in have]
         print(f"merge: {len(existing)} clips kept, {len(uniq)} new to build", file=sys.stderr)
+    if args.exclude_discarded:
+        sys.path.insert(0, HERE)  # -I leaves the script's folder off the path
+        import review
+        gone = review.discarded(args.decisions or review.DECISIONS)
+        pairs = args.feed != "demo"
+        # Prune over the whole feed, so a pair spanning kept and new rows is judged as one.
+        kept = drop_discarded(existing + uniq, gone, pairs)
+        ids = {id(r) for r in kept}
+        dropped = len(existing) + len(uniq) - len(kept)
+        existing = [r for r in existing if id(r) in ids]
+        uniq = [r for r in uniq if id(r) in ids]
+        print(f"review: {dropped} row(s) left out ({len(gone)} discarded clip(s))", file=sys.stderr)
     elsewhere = built_elsewhere(args.out, args.feed)
 
     def build_or_reuse(c: dict) -> dict | None:

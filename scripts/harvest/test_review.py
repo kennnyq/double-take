@@ -1,0 +1,117 @@
+"""Offline tests for the review decisions (review.py) and build_media's
+--exclude-discarded pruning.
+
+    python3 -I scripts/harvest/test_review.py      (also run by `npm test`)
+"""
+import json
+import os
+import subprocess
+import sys
+import tempfile
+import unittest
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import review  # noqa: E402
+from build_media import clip_id, drop_discarded  # noqa: E402
+
+FIX = os.path.join(HERE, "..", "review", "fixtures")
+
+
+class Fold(unittest.TestCase):
+    def test_matches_the_review_site(self):
+        # The same fixture scripts/review/decisions.test.ts folds.
+        with open(os.path.join(FIX, "expected.json")) as f:
+            expected = json.load(f)["states"]
+        self.assertEqual(review.load(os.path.join(FIX, "decisions.jsonl")), expected)
+
+    def test_discarded_and_missing_log(self):
+        self.assertEqual(review.discarded(os.path.join(FIX, "decisions.jsonl")), {"yt-abcdefghijk"})
+        self.assertEqual(review.discarded(os.path.join(FIX, "nope.jsonl")), set())
+
+    def test_undo_brings_a_clip_back(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "decisions.jsonl")
+            with open(p, "w") as f:
+                f.write(json.dumps({"v": 1, "id": "a", "at": "1", "by": "k", "key": "x-1", "set": {"status": "discard"}}) + "\n")
+            self.assertEqual(review.discarded(p), {"x-1"})
+            with open(p, "a") as f:
+                f.write(json.dumps({"v": 1, "id": "b", "at": "2", "by": "k", "key": "x-1", "undo": "a"}) + "\n")
+            self.assertEqual(review.discarded(p), set())
+
+
+AI = {"url": "https://x.com/i/status/1", "label": "confirmed"}
+AI2 = {"url": "https://x.com/i/status/2", "label": "confirmed"}
+REAL_A = {"url": "https://www.youtube.com/watch?v=aaaaaaaaaaa", "label": "real", "tier": "real-prior", "pairOf": "x-1"}
+REAL_B = {"url": "https://www.youtube.com/watch?v=bbbbbbbbbbb", "label": "real", "tier": "real-agency", "pairOf": "x-1"}
+REAL_C = {"url": "https://www.youtube.com/watch?v=ccccccccccc", "label": "real", "tier": "real-verified", "pairOf": "x-2"}
+ROWS = [AI, REAL_A, REAL_B, AI2, REAL_C]
+ids = lambda rows: [r["id"] if "id" in r else clip_id(r["url"]) for r in rows]  # noqa: E731
+
+
+class Exclude(unittest.TestCase):
+    def test_nothing_discarded_keeps_everything(self):
+        self.assertEqual(drop_discarded(ROWS, set(), pairs=True), ROWS)
+
+    def test_demo_drops_only_the_discarded_clip(self):
+        self.assertEqual(ids(drop_discarded(ROWS, {"x-1", "yt-ccccccccccc"})),
+                         ["yt-aaaaaaaaaaa", "yt-bbbbbbbbbbb", "x-2"])
+
+    def test_compare_drops_a_discarded_real_clip_from_its_pair(self):
+        self.assertEqual(ids(drop_discarded(ROWS, {"yt-aaaaaaaaaaa"}, pairs=True)),
+                         ["x-1", "yt-bbbbbbbbbbb", "x-2", "yt-ccccccccccc"])
+
+    def test_compare_drops_an_ai_clip_whose_real_partners_are_all_gone(self):
+        self.assertEqual(ids(drop_discarded(ROWS, {"yt-ccccccccccc"}, pairs=True)),
+                         ["x-1", "yt-aaaaaaaaaaa", "yt-bbbbbbbbbbb"])
+
+    def test_compare_drops_the_real_partners_of_a_discarded_ai_clip(self):
+        self.assertEqual(ids(drop_discarded(ROWS, {"x-1"}, pairs=True)), ["x-2", "yt-ccccccccccc"])
+
+    def test_feed_rows_are_keyed_by_id(self):
+        feed = [{"id": "x-1", "video": "v"}, {"id": "yt-aaaaaaaaaaa", "pairOf": "x-1"}]
+        self.assertEqual(ids(drop_discarded(feed, {"yt-aaaaaaaaaaa"}, pairs=True)), [])
+
+
+class BuildCli(unittest.TestCase):
+    """build_media.py --merge on a ready-built feed (no downloads), with and without the flag."""
+
+    def run_build(self, out: str, *flags: str) -> list[str]:
+        cands = os.path.join(out, "cands.jsonl")
+        with open(cands, "w") as f:
+            f.write(json.dumps({"url": "https://x.com/i/status/9100000000000000001"}) + "\n")
+        r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "build_media.py"), cands, "--out", out,
+                            "--merge", "--feed", "compare", *flags], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr)
+        with open(os.path.join(out, "feeds", "compare.json")) as f:
+            return [c["id"] for c in json.load(f)["clips"]]
+
+    def test_only_the_flag_excludes(self):
+        ai, real = "x-9100000000000000001", "yt-test0000001"
+        with tempfile.TemporaryDirectory() as out:
+            rows = []
+            for cid, extra in ((ai, {}), (real, {"pairOf": ai})):
+                media = f"media/{cid}/v1"
+                os.makedirs(os.path.join(out, media))
+                for name in ("720.mp4", "tile.mp4", "poster.jpg"):
+                    open(os.path.join(out, media, name), "w").close()
+                rows.append({"id": cid, "video": f"{media}/720.mp4", "poster": f"{media}/poster.jpg",
+                             "sha256": cid, **extra})
+            os.makedirs(os.path.join(out, "feeds"))
+
+            def reset():
+                with open(os.path.join(out, "feeds", "compare.json"), "w") as f:
+                    json.dump({"version": 1, "clips": rows}, f)
+
+            decisions = os.path.join(out, "decisions.jsonl")
+            with open(decisions, "w") as f:
+                f.write(json.dumps({"v": 1, "id": "a", "at": "1", "by": "k", "key": real, "set": {"status": "discard"}}) + "\n")
+            reset()
+            self.assertEqual(self.run_build(out, "--decisions", decisions), [ai, real])
+            reset()
+            # The real clip goes, and its AI clip, now without a partner, goes with it.
+            self.assertEqual(self.run_build(out, "--exclude-discarded", "--decisions", decisions), [])
+
+
+if __name__ == "__main__":
+    unittest.main()
