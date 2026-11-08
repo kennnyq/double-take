@@ -84,7 +84,11 @@ async function run(browser: Browser, layout: Layout) {
   // Long enough for the scrub and a few slow-mo loops.
   await page.waitForTimeout(9000);
   // The card: only the reason, and no labels.
-  const card = await page.evaluate(() => document.body.innerText);
+  // The newest card's own text (the page holds other clips' captions too).
+  const card = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll('[data-testid="dt-card"]')] as HTMLElement[];
+    return cards.length ? cards[cards.length - 1].innerText : '';
+  });
   const finish = await page.evaluate(() => document.querySelectorAll('[aria-label="Finish the walkthrough"]').length);
   if (layout === 'desktop') {
     // Default end cue: this one-tell clip's card ends with a "finish" (check) button.
