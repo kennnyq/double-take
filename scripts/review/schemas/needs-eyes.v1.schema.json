@@ -1,0 +1,143 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "DoubleTake needs-eyes queue v1",
+  "type": "object",
+  "required": [
+    "version",
+    "generatedAt",
+    "automaticResultsContinue",
+    "feedbackJournalSha256",
+    "candidatesExamined",
+    "openCount",
+    "rejectedRequests",
+    "items"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "automaticResultsContinue": {
+      "const": true
+    },
+    "feedbackJournalSha256": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "candidatesExamined": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "openCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "rejectedRequests": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "rank",
+          "status",
+          "clipId",
+          "reason",
+          "question",
+          "whyHumanHelps",
+          "evidenceRefs",
+          "attemptedChecks"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "rank": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "status": {
+            "const": "open"
+          },
+          "clipId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "sourceClipId": {
+            "type": "string",
+            "minLength": 1
+          },
+          "candidateRevision": {
+            "type": "string",
+            "minLength": 1
+          },
+          "reason": {
+            "enum": [
+              "conflicting_evidence",
+              "unresolved_localization",
+              "ambiguous_observation"
+            ]
+          },
+          "question": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "whyHumanHelps": {
+            "type": "string",
+            "minLength": 1
+          },
+          "evidenceRefs": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "attemptedChecks": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "reviewUrl": {
+            "type": "string",
+            "pattern": "^https?://"
+          },
+          "timeRange": {
+            "type": "object",
+            "required": [
+              "t0",
+              "t1"
+            ],
+            "properties": {
+              "t0": {
+                "type": "number",
+                "minimum": 0
+              },
+              "t1": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

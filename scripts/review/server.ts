@@ -24,6 +24,11 @@
  *
  * Decisions: one committed log, scripts/harvest/review/decisions.jsonl, which this
  * server appends to (in its own checkout) and build_media.py reads. Optionally,
+ * Needs your eyes: REVIEW_NEEDS_EYES=<path> (default: the hill climb's
+ * build/hill/needs-eyes.v1.json) is the hill climb's ranked queue of clips where a
+ * reviewer would help, validated against its schema (REVIEW_NEEDS_EYES_SCHEMA) and
+ * re-read whenever it changes; /api/needs-eyes serves it, the page polls it.
+ *
  * REVIEW_ALSO_DECISIONS=<path>[,<path>] folds other checkouts' logs in read-only, to see
  * decisions that aren't merged yet.
  *
@@ -37,6 +42,7 @@ import { parseArgs } from 'node:util';
 import { Catalog, batchFiles, batchName, readJsonl, rehost, type Item } from './catalog.ts';
 import { MergedLog, checkPatch, fold, vettedKeys, type Patch } from './decisions.ts';
 import { appFile, readModule } from './appModules.ts';
+import { DEFAULT_NEEDS_EYES, NeedsEyesFile } from './needsEyes.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const HARVEST = join(ROOT, 'scripts', 'harvest');
@@ -109,6 +115,7 @@ const log = new MergedLog(
     .filter(Boolean)
     .map((x) => resolve(x)),
 );
+const needsEyes = new NeedsEyesFile(process.env.REVIEW_NEEDS_EYES || DEFAULT_NEEDS_EYES, process.env.REVIEW_NEEDS_EYES_SCHEMA);
 
 interface FeedStatus {
   source: string;
@@ -223,6 +230,7 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     return send(res, 200, await catalog(url.searchParams.has('refresh'), host));
   }
   if (req.method === 'GET' && p === '/api/decisions') return send(res, 200, decisionsBody());
+  if (req.method === 'GET' && p === '/api/needs-eyes') return send(res, 200, needsEyes.read());
   if (req.method === 'GET' && p === '/api/tags') return send(res, 200, { tags: readTags() });
 
   if (req.method === 'PUT' && p === '/api/tags') {
