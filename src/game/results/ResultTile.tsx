@@ -114,7 +114,7 @@ export const ResultTile = forwardRef<TileHandle, Props>(function ResultTile({ en
     <Animated.View style={[{ width, height, opacity: hidden ? 0 : 1 }, outer]}>
       {/* The right/wrong cue behind or around the tile. */}
       {grid === 'glow' && judged && (
-        <Animated.View pointerEvents="none" style={[styles.glow, { opacity: lerp(cue, [0, 1], [0, 0.9]) }, glowStyle(color)]} />
+        <Animated.View pointerEvents="none" style={[styles.glow, { opacity: lerp(cue, [0, 1], [0, GLOW_OPACITY]) }, glowStyle(color)]} />
       )}
       <Pressable
         ref={ref}
@@ -171,8 +171,10 @@ export function TruthChip({ truth }: { truth: Verdict }) {
   );
 }
 
+/** The right/wrong glow: a soft, close halo, noticeable without lighting up the grid. */
+const GLOW_OPACITY = 0.45;
 function glowStyle(color: string): object {
-  return Platform.OS === 'web' ? { boxShadow: `0 0 18px 5px ${color}` } : { boxShadow: `0px 0px 16px 4px ${color}` };
+  return Platform.OS === 'web' ? { boxShadow: `0 0 9px 0px ${color}` } : { boxShadow: `0px 0px 8px 0px ${color}` };
 }
 
 const styles = StyleSheet.create({
