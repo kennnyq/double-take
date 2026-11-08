@@ -77,3 +77,14 @@ test('the guard stops or mutes a player that drifted, and never starts one', () 
   assert.deepEqual(guardOps({ muted: true, playing: false }, planFor(true, base, SLOW)), []);
   assert.deepEqual(guardOps({ muted: false, playing: true }, planFor(true, base, SLOW)), []);
 });
+
+test('a scrub holds the active clip paused and silent, whatever else is asked', () => {
+  for (const s of [base, { ...base, slowmo: true }, { ...base, boost: true }]) {
+    const plan = planFor(true, { ...s, scrub: true }, SLOW);
+    assert.equal(plan.play, false);
+    assert.equal(plan.muted, true);
+    // Stopping never touches the rate (on iOS that would start the player).
+    assert.deepEqual(opsFor({ muted: false, rate: 1 }, plan), ['pause', 'mute']);
+  }
+  assert.deepEqual(planFor(false, { ...base, scrub: true }, SLOW), IDLE);
+});

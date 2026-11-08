@@ -12,6 +12,8 @@ export interface PlaybackState {
   boost: boolean;
   /** The tells walkthrough replays a stretch slowly, without sound. */
   slowmo: boolean;
+  /** The double take is scrubbing (fast-forwarding or rewinding) by seeking: held paused and silent. */
+  scrub?: boolean;
 }
 
 export interface PlayerPlan {
@@ -31,6 +33,8 @@ export const IDLE: PlayerPlan = { play: false, muted: true, rate: 1 };
  */
 export function planFor(isActive: boolean, s: PlaybackState, slowRate: number): PlayerPlan {
   if (!isActive || !s.live) return IDLE;
+  // Seeks drive the picture while scrubbing; playing at the same time fights them.
+  if (s.scrub) return { play: false, muted: true, rate: s.slowmo ? slowRate : 1 };
   return {
     play: !s.paused,
     muted: s.muted || s.slowmo,
