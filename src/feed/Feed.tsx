@@ -80,6 +80,10 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const [boost, setBoost] = useState(false);
   // The tells walkthrough loops a stretch in slow motion, muted.
   const [slowmo, setSlowmo] = useState(false);
+  // The double take scrubs between tells by seeking; the player holds still meanwhile.
+  const [scrub, setScrub] = useState(false);
+  // The double take is open: the top bar fades out with the clip's own chrome.
+  const [inspecting, setInspecting] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const listRef = useRef<FlatList<Clip>>(null);
   const activeRef = useRef(active);
@@ -166,12 +170,12 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   // through refs so the handlers stay stable: the walkthrough treats a new
   // `setSlowmo` as leaving the clip). Updated by the effect below as it
   // applies them, so an event never sees a newer pool with older orders.
-  const playback = useRef<PlaybackState>({ live: false, muted, paused, boost, slowmo });
+  const playback = useRef<PlaybackState>({ live: false, muted, paused, boost, slowmo, scrub });
   const pool = useRef({ slotIndex, active, loaded });
 
   // Apply play/pause/mute/rate to every player whenever anything relevant changes.
   useEffect(() => {
-    const state = { live: focused && appActive, muted, paused, boost, slowmo };
+    const state = { live: focused && appActive, muted, paused, boost, slowmo, scrub };
     playback.current = state;
     pool.current = { slotIndex, active, loaded };
     slotIndex.forEach((idx, s) => {
@@ -186,7 +190,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
       });
     }, 450);
     return () => clearTimeout(t);
-  }, [slotIndex, loaded, active, focused, appActive, muted, paused, boost, slowmo, players, applyPlan]);
+  }, [slotIndex, loaded, active, focused, appActive, muted, paused, boost, slowmo, scrub, players, applyPlan]);
 
   useEffect(() => {
     let live = true;
@@ -400,6 +404,13 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
     },
     [applyNow],
   );
+  const setScrubNow = useCallback(
+    (on: boolean) => {
+      applyNow({ scrub: on });
+      setScrub(on);
+    },
+    [applyNow],
+  );
 
   // Dev: an `[audio]` line in the Metro log whenever any player's state
   // changes, flagging doubled audio, sound while muted and off-screen playback.
@@ -485,8 +496,10 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
         setBoost(on);
       },
       setSlowmo: setSlowmoNow,
+      setScrub: setScrubNow,
+      setInspecting,
     }),
-    [actions, nav, changePaused, paused, applyNow, setSlowmoNow],
+    [actions, nav, changePaused, paused, applyNow, setSlowmoNow, setScrubNow],
   );
 
   const renderItem = ({ item, index }: { item: Clip; index: number }) => {
@@ -550,7 +563,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
         />
       )}
       {filter && all.length > 0 && clips.length === 0 && <FeedEmpty verdict={filter} />}
-      <TopBar muted={muted} onToggleMute={toggleMute} opacity={chrome} hidden={sheetOpen} />
+      <TopBar muted={muted} onToggleMute={toggleMute} opacity={chrome} hidden={sheetOpen} faded={inspecting} />
     </View>
   );
 }
@@ -599,4 +612,8 @@ export type FeedHandlers = {
   setBoost: (on: boolean) => void;
   /** Slow-motion, muted playback for the tells walkthrough's replays. */
   setSlowmo: (on: boolean) => void;
+  /** The walkthrough is scrubbing to a tell: hold the player paused and silent. */
+  setScrub: (on: boolean) => void;
+  /** The walkthrough opened or closed on the active clip (fades the top bar). */
+  setInspecting: (on: boolean) => void;
 };

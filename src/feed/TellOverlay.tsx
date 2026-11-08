@@ -1,16 +1,22 @@
 import { useEffect, useImperativeHandle, useRef, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Platform, Pressable, StyleSheet } from 'react-native';
+import Animated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import type { VideoPlayer } from 'expo-video';
 import { useEventListener } from 'expo';
 import * as Haptics from 'expo-haptics';
 import { Ionicons } from '@expo/vector-icons';
 import { readTellsFile, type UnplacedClaim } from '@/annotations/format';
-import { boxShownAt, replayWindow, stepCopy, walkthroughSteps, type Replay } from '@/annotations/walkthrough';
+import { replayWindow, stepCopy, walkthroughSteps, type Replay } from '@/annotations/walkthrough';
 import type { TellsVariant } from '@/data/clips';
 import { variantIndex } from '@/devtools/settings';
-import { DEV_TOOLS, useDevSettings } from '@/devtools/store';
-import { themed, usePalette } from '@/ui/theme';
-import { boxOnStage, cardPlacement, videoRect, type Box, type Fit, type Tell } from './tells';
+import { useDevSettings } from '@/devtools/store';
+import './devSection';
+import { cardSpot, emptierSide, estimateCardHeight, type CardSpot } from './card';
+import { InfoCard } from './InfoCard';
+import { planScrub, runScrub } from './scrub';
+import { Spotlight } from './Spotlight';
+import { grow, holeFor, type Rect } from './spotlight';
+import { boxOnStage, videoRect, type Fit, type Tell } from './tells';
 
 /** Lets the clip's Double take button and gestures (a user setting) open and close the walkthrough. */
 export interface TellOverlayHandle {
@@ -28,13 +34,15 @@ interface Props {
   aspect: number;
   /** How the video is fitted right now (the walkthrough asks for `contain`). */
   fit: Fit;
-  /** Distance of the Close chip from the top of the stage. */
+  /** Distance of the Close button from the top of the stage. */
   top: number;
   paused: boolean;
   onPause: () => void;
   onPlay: () => void;
   /** Slow-motion, muted playback for the replay loops. */
   onSlowmo: (on: boolean) => void;
+  /** A scrub (fast-forward or rewind) is driving the player: hold it paused and muted meanwhile. */
+  onScrub: (on: boolean) => void;
   /** The walkthrough started or ended: the clip shows the whole frame and hides its chrome meanwhile. */
   onInspect: (on: boolean) => void;
 }
@@ -43,6 +51,15 @@ interface Loaded {
   steps: Tell[];
   /** Claims with no place on the video; shown on a closing card. */
   unplaced: UnplacedClaim[];
+}
+
+interface Card {
+  key: number;
+  spot: CardSpot;
+  text: string;
+  hint?: string;
+  loop: boolean;
+  leaving: boolean;
 }
 
 const EMPTY: Loaded = { steps: [], unplaced: [] };
@@ -58,12 +75,17 @@ async function loadTells(url: string): Promise<Loaded> {
   }
 }
 
-/** Seeking is a property write on the player; kept out of the component body. */
-function seekTo(player: VideoPlayer, seconds: number) {
+/** The loop restart: the one place the walkthrough sets the time directly. */
+function restartLoop(player: VideoPlayer, seconds: number) {
   player.currentTime = seconds;
+  if (__DEV__ && Platform.OS === 'web' && typeof window !== 'undefined') {
+    // For the browser check (scripts/e2e/double-take-flow.ts): jumps are only allowed here.
+    const w = window as unknown as { __dtLoopRestarts?: number[] };
+    (w.__dtLoopRestarts ??= []).push(performance.now());
+  }
 }
 
-/** How often the player reports time: finer during the walkthrough, so short boxes don't get skipped. */
+/** How often the player reports time: finer during the walkthrough, so the loop line moves smoothly. */
 function setTick(player: VideoPlayer, seconds: number) {
   player.timeUpdateEventInterval = seconds;
 }
@@ -76,39 +98,52 @@ const OPEN_SETTLE_MS = 350;
 /** Taps on the left edge go back a step, like stories. */
 const BACK_ZONE = 0.28;
 
+/** How long "No tells found" stays up. */
+const EMPTY_MS = 1600;
+
+let cardKeys = 0;
+
 /**
  * The double take: a tap-through walkthrough of the clip's tells, started by
  * holding or double-tapping the video (see `TellOverlayHandle`).
  *
- * Each step loops a short stretch around the tell in slow motion (a paused
- * frame hides motion artifacts), outlines the spot and gives the reason. Tap
- * to go on, tap the left edge to go back, hold to pause. Automatic drafts are
- * marked as such. Mounted only for the active clip, so every visit starts closed.
+ * Each step fast-forwards (or rewinds) to its tell, then loops a short stretch
+ * around it in slow motion: the spotlight darkens and/or blurs everything but
+ * the tell's area, and a small card floats next to it with the reason and a
+ * faint line for the loop's progress. Tap to go on, tap the left edge to go
+ * back, hold to pause. Nothing jumps: the video scrubs between tells, the
+ * spotlight eases between areas and cards morph in and out. The loop restart
+ * is the only jump. Mounted only for the active clip, so every visit starts closed.
  */
 export function TellOverlay({ ref, ...p }: Props) {
   const settings = useDevSettings();
-  const c = usePalette();
-  const tint = useTint();
   // One pipeline ("model") for every clip, picked in the dev settings; main if this clip lacks it.
   const variant = variantIndex(p.variants, settings.pipeline);
   const [step, setStep] = useState<number | null>(null); // null: closed, -1: nothing to show
   const [cache, setCache] = useState<Record<string, Loaded>>({});
+  const [cards, setCards] = useState<Card[]>([]);
+  const [scrubbing, setScrubbing] = useState(false);
   const [now, setNow] = useState(0);
   const replay = useRef<Replay | null>(null);
+  const cancelScrub = useRef<() => void>(() => {});
   const held = useRef(false);
   // When the walkthrough opened: the tail of the gesture that opened it (the
   // second tap's click on web) must not land on the tap zones and skip a step.
   const settling = useRef(false);
-  const { player, onInspect, onSlowmo } = p;
+  const loop = useSharedValue(0);
+  const shown = useSharedValue(0);
+  const { player, onInspect, onSlowmo, onScrub } = p;
 
   // Leaving the clip unmounts us; make sure the clip goes back to normal.
   useEffect(
     () => () => {
+      cancelScrub.current();
+      onScrub(false);
       onInspect(false);
       onSlowmo(false);
       if (player) setTick(player, TICK_FEED);
     },
-    [onInspect, onSlowmo, player],
+    [onInspect, onSlowmo, onScrub, player],
   );
 
   const url = p.variants[variant]?.url;
@@ -117,22 +152,90 @@ export function TellOverlay({ ref, ...p }: Props) {
   const unplaced = data?.unplaced ?? [];
   const count = steps.length + (unplaced.length ? 1 : 0);
 
+  // ---- geometry -------------------------------------------------------------
+  const frame = videoRect(p.stageW, p.stageH, p.aspect, p.fit);
+  const areaOf = (t: Tell | undefined): Rect | null => (t?.box ? boxOnStage(t.box, frame, p.stageW, p.stageH) : null);
+  const safeTop = p.top + 46;
+  const safeBottom = 20;
+
+  const spotFor = (d: Loaded, i: number, text: string): CardSpot => {
+    const tell = d.steps[i];
+    const area = areaOf(tell);
+    // Keep the card clear of the spotlight's soft edge too.
+    const hole = area ? grow(holeFor(area, settings.spotlightShape), holeFor(area, settings.spotlightShape).feather / 2) : null;
+    const others = d.steps.map(areaOf).filter((r): r is Rect => !!r);
+    const placement = tell?.placement ?? emptierSide(frame, p.stageH, others);
+    const width = Math.min(320, p.stageW - 24);
+    return cardSpot({
+      hole,
+      placement,
+      stageW: p.stageW,
+      stageH: p.stageH,
+      cardH: estimateCardHeight(text, width),
+      safeTop,
+      safeBottom,
+    });
+  };
+
+  const showCard = (card: Omit<Card, 'key' | 'leaving'>) =>
+    setCards((cs) => [...cs.map((c) => ({ ...c, leaving: true })), { ...card, key: ++cardKeys, leaving: false }]);
+  const leaveCards = () => setCards((cs) => (cs.some((c) => !c.leaving) ? cs.map((c) => ({ ...c, leaving: true })) : cs));
+  const dropCard = (key: number) => setCards((cs) => cs.filter((c) => c.key !== key));
+
+  const cardFor = (d: Loaded, i: number) => {
+    const n = d.steps.length + (d.unplaced.length ? 1 : 0);
+    const last = i + 1 >= n;
+    const tap = `Tap to ${last ? 'finish' : 'continue'}`;
+    const tell = d.steps[i];
+    if (tell) {
+      const c = stepCopy(tell, i, n);
+      const text = tell.detail ?? tell.label;
+      // Model drafts nobody checked stay marked, quietly, in the hint line.
+      const hint = c.unverified ? `${c.doubtful ? 'Unsure AI draft' : 'AI draft'} · ${tap}` : tap;
+      return { spot: spotFor(d, i, text), text, hint, loop: true };
+    }
+    const text = d.unplaced
+      .slice(0, 3)
+      .map((u) => `“${u.quote}”`)
+      .join('\n');
+    return { spot: spotFor(d, i, text), text, hint: `Not shown on screen · ${tap}`, loop: false };
+  };
+
+  // ---- steps ----------------------------------------------------------------
   const goTo = (i: number, d: Loaded) => {
+    cancelScrub.current();
+    leaveCards();
     setStep(i);
     const tell = d.steps[i];
-    if (tell && player) {
-      const r = replayWindow(tell, player.duration);
-      replay.current = r;
-      seekTo(player, r.from);
-      setNow(r.from);
-      setTick(player, TICK_WALKTHROUGH);
-      onSlowmo(true);
-    } else {
-      replay.current = null;
-      onSlowmo(false);
-    }
-    p.onPlay();
     Haptics.selectionAsync().catch(() => {});
+    if (!tell || !player) {
+      // The closing "Also noted" card: plain playback under it.
+      replay.current = null;
+      setScrubbing(false);
+      onSlowmo(false);
+      onScrub(false);
+      p.onPlay();
+      showCard(cardFor(d, i));
+      return;
+    }
+    const r = replayWindow(tell, player.duration);
+    // No looping while the scrub runs; it fast-forwards or rewinds to the loop's start.
+    replay.current = null;
+    setTick(player, TICK_WALKTHROUGH);
+    setScrubbing(true);
+    onScrub(true);
+    loop.value = withTiming(0, { duration: 200 });
+    const card = cardFor(d, i);
+    cancelScrub.current = runScrub(player, planScrub(player.currentTime, r.from), () => {
+      cancelScrub.current = () => {};
+      replay.current = r;
+      setNow(r.from);
+      setScrubbing(false);
+      onSlowmo(true);
+      onScrub(false);
+      p.onPlay();
+      showCard(card);
+    });
   };
 
   const open = async () => {
@@ -144,20 +247,32 @@ export function TellOverlay({ ref, ...p }: Props) {
       setCache((c) => ({ ...c, [u]: d }));
     }
     if (!d.steps.length && !d.unplaced.length) {
-      setStep(-1); // "No tells found", for a moment
-      setTimeout(() => setStep((s) => (s === -1 ? null : s)), 1600);
+      setStep(-1);
+      showCard({ spot: cardSpot({ hole: null, placement: 'top', stageW: p.stageW, stageH: p.stageH, cardH: 60, safeTop: p.top, safeBottom }), text: 'No tells found for this clip', loop: false });
+      setTimeout(() => {
+        leaveCards();
+        setStep((s) => (s === -1 ? null : s));
+      }, EMPTY_MS);
       return;
     }
     onInspect(true);
+    shown.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
     settling.current = true;
     setTimeout(() => (settling.current = false), OPEN_SETTLE_MS);
     goTo(0, d);
   };
 
   function close() {
-    setStep(null);
+    cancelScrub.current();
+    cancelScrub.current = () => {};
     replay.current = null;
+    leaveCards();
+    setStep(null);
+    setScrubbing(false);
+    shown.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
     if (player) setTick(player, TICK_FEED);
+    // Playback carries on from wherever the loop is: no jump back.
+    onScrub(false);
     onSlowmo(false);
     onInspect(false);
     p.onPlay();
@@ -168,7 +283,7 @@ export function TellOverlay({ ref, ...p }: Props) {
   });
 
   const next = () => {
-    if (!data || step === null || settling.current) return;
+    if (!data || step === null || step < 0 || settling.current) return;
     if (step + 1 < count) goTo(step + 1, data);
     else close();
   };
@@ -176,11 +291,21 @@ export function TellOverlay({ ref, ...p }: Props) {
     if (data && step !== null && step > 0 && !settling.current) goTo(step - 1, data);
   };
 
-  // Keep the replay inside its loop (the clip's own loop can also wrap it to 0).
+  // Keep the replay inside its loop; the loop line follows it (and restarts with it).
   const onTime = (time: number) => {
     setNow(time);
     const r = replay.current;
-    if (r && player && (time >= r.to || time < r.from - 0.3)) seekTo(player, r.from);
+    if (!r || !player) return;
+    // The clip's own loop can also wrap it to 0.
+    if (time >= r.to || time < r.from - 0.3) {
+      restartLoop(player, r.from);
+      loop.value = 0;
+      return;
+    }
+    const len = Math.max(0.1, r.to - r.from);
+    const frac = Math.min(1, Math.max(0, (time - r.from) / len));
+    const ahead = Math.min(1, frac + (TICK_WALKTHROUGH * (player.playbackRate || 0.35)) / len);
+    loop.value = withTiming(ahead, { duration: TICK_WALKTHROUGH * 1000, easing: Easing.linear });
   };
 
   const holdToPause = {
@@ -202,44 +327,40 @@ export function TellOverlay({ ref, ...p }: Props) {
   useEffect(() => {
     openRef.current = open;
   });
-  useImperativeHandle(
-    ref,
-    () => ({ open: () => void openRef.current(), close: () => closeRef.current() }),
-    [],
-  );
+  useImperativeHandle(ref, () => ({ open: () => void openRef.current(), close: () => closeRef.current() }), []);
 
   // A new pick in the dev settings ends a walkthrough of the old pipeline's tells.
   const shownUrl = useRef(url);
   useEffect(() => {
     if (shownUrl.current === url) return;
     shownUrl.current = url;
-    if (step !== null) closeRef.current();
+    if (step !== null && step >= 0) closeRef.current();
   }, [url, step]);
 
   const inStep = step !== null && step >= 0;
   const current = inStep && step < steps.length ? steps[step] : undefined;
-  const onSummary = inStep && step === steps.length && unplaced.length > 0;
-  const frame = videoRect(p.stageW, p.stageH, p.aspect, p.fit);
-  const rect = current?.box && boxShownAt(current, now) ? boxOnStage(current.box, frame, p.stageW, p.stageH) : null;
-  // Card placement follows the box's spot even while the box is hidden, so the card doesn't jump each loop.
-  const spot = current?.box ? boxOnStage(current.box, frame, p.stageW, p.stageH) : null;
-  const cardH = 150;
-  const placement = cardPlacement(spot, p.stageH, cardH, p.top + 44);
-  const cardStyle = placement === 'top' ? { top: p.top + 44 } : { bottom: 16 };
   const last = inStep && step + 1 >= count;
-  // Dev builds: which model's tells these are, and whether this clip fell back to main.
-  const shown = p.variants[variant]?.name;
-  const devSource = !DEV_TOOLS ? '' : ` · ${shown}${shown !== settings.pipeline ? ` (no ${settings.pipeline})` : ''}`;
+  // The spotlight follows the step's area, during the scrub too (it eases there
+  // while the video runs to it). A box pinned to a camera shot means nothing
+  // across a cut, so it lets go outside that shot.
+  const inShot = !current?.shot || scrubbing || (now >= current.shot.t0 - 0.05 && now <= current.shot.t1 + 0.05);
+  const area = inShot ? areaOf(current) : null;
+
+  const closeStyle = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ scale: 0.85 + 0.15 * shown.value }] }));
 
   return (
     <>
       {player && inStep && <PlayerClock player={player} onTime={onTime} />}
+      <Spotlight
+        area={area}
+        stageW={p.stageW}
+        stageH={p.stageH}
+        mode={settings.spotlight}
+        strength={settings.spotlightStrength}
+        shape={settings.spotlightShape}
+      />
       {inStep && (
         <>
-          <View style={StyleSheet.absoluteFill} pointerEvents="none">
-            {rect && <Spotlight rect={rect} stageW={p.stageW} stageH={p.stageH} />}
-            {rect && <View style={[styles.box, tint.box, { left: rect.x, top: rect.y, width: rect.w, height: rect.h }]} />}
-          </View>
           {/* Two tap zones, like stories: the left edge goes back, the rest goes on. Hold either to pause. */}
           <Pressable
             style={[StyleSheet.absoluteFill, step > 0 && { left: p.stageW * BACK_ZONE }]}
@@ -258,93 +379,34 @@ export function TellOverlay({ ref, ...p }: Props) {
               accessibilityLabel="Previous tell"
             />
           )}
-          {current && (
-            <Callout
-              index={step}
-              count={count}
-              title={current.label}
-              body={current.detail}
-              tag={tagFor(current, step, count)}
-              hint={`Slow-mo replay · tap to ${last ? 'finish' : 'continue'}${devSource}`}
-              style={cardStyle}
-            />
-          )}
-          {onSummary && (
-            <Callout
-              index={step}
-              count={count}
-              title="Also noted"
-              lines={unplaced.slice(0, 3).map((u) => u.quote)}
-              tag="AI draft"
-              hint={`Not shown on screen · tap to finish${devSource}`}
-              style={{ bottom: 16 }}
-            />
-          )}
         </>
       )}
-
-      {step !== null ? (
+      {cards.map((c) => (
+        <InfoCard
+          key={c.key}
+          spot={c.spot}
+          text={c.text}
+          hint={c.hint}
+          loop={c.loop ? loop : null}
+          leaving={c.leaving}
+          onGone={() => dropCard(c.key)}
+        />
+      ))}
+      <Animated.View style={[styles.closeWrap, { top: p.top }, closeStyle]} pointerEvents={inStep ? 'box-none' : 'none'}>
         <Pressable
           onPress={close}
-          disabled={step === -1}
-          style={({ pressed }) => [styles.pill, styles.pillLeft, { top: p.top }, tint.pillOn, pressed && styles.pressed]}
-          hitSlop={8}
+          disabled={!inStep}
+          style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+          hitSlop={10}
           accessibilityRole="button"
-          accessibilityLabel={step === -1 ? 'No tells found' : 'Close the walkthrough'}
+          accessibilityLabel={inStep ? 'Close the walkthrough' : undefined}
+          accessibilityElementsHidden={!inStep}
         >
-          <Ionicons name={step === -1 ? 'eye-off-outline' : 'close'} size={15} color={c.onTell} />
-          <Text style={[styles.pillText, tint.pillTextOn]}>{step === -1 ? 'No tells found' : 'Close'}</Text>
+          <Ionicons name="close" size={18} color="rgba(255,255,255,0.9)" />
         </Pressable>
-      ) : null}
+      </Animated.View>
     </>
   );
-}
-
-/** The reason for one step, attached to the walkthrough rather than to buttons. */
-function Callout(props: {
-  index: number;
-  count: number;
-  title: string;
-  body?: string;
-  lines?: string[];
-  /** Small status at the top right, e.g. "AI draft". */
-  tag?: string;
-  hint: string;
-  style: object;
-}) {
-  const tint = useTint();
-  return (
-    <View style={[styles.card, props.style]} pointerEvents="none" accessibilityLiveRegion="polite">
-      <View style={styles.cardHead}>
-        <View style={styles.progress}>
-          {Array.from({ length: props.count }, (_, i) => (
-            <View key={i} style={[styles.seg, i <= props.index && tint.segOn]} />
-          ))}
-        </View>
-        {props.tag ? <Text style={styles.tag}>{props.tag}</Text> : null}
-      </View>
-      <Text style={styles.title} numberOfLines={2}>
-        {props.title}
-      </Text>
-      {props.body ? (
-        <Text style={styles.body} numberOfLines={3}>
-          {props.body}
-        </Text>
-      ) : null}
-      {props.lines?.map((l, i) => (
-        <Text key={i} style={styles.body} numberOfLines={2}>
-          • {l}
-        </Text>
-      ))}
-      <Text style={styles.hint}>{props.hint}</Text>
-    </View>
-  );
-}
-
-function tagFor(t: Tell, i: number, n: number): string | undefined {
-  const c = stepCopy(t, i, n);
-  if (!c.unverified) return undefined;
-  return c.doubtful ? 'AI draft · unsure' : 'AI draft';
 }
 
 /** Reports playback time; a component so the listener only exists while there's a player. */
@@ -353,65 +415,17 @@ function PlayerClock({ player, onTime }: { player: VideoPlayer; onTime: (t: numb
   return null;
 }
 
-/** Darkens everything but the box. */
-function Spotlight({ rect: r, stageW, stageH }: { rect: Box; stageW: number; stageH: number }) {
-  return (
-    <>
-      <View style={[styles.scrim, { left: 0, top: 0, width: stageW, height: r.y }]} />
-      <View style={[styles.scrim, { left: 0, top: r.y + r.h, width: stageW, height: stageH - r.y - r.h }]} />
-      <View style={[styles.scrim, { left: 0, top: r.y, width: r.x, height: r.h }]} />
-      <View style={[styles.scrim, { left: r.x + r.w, top: r.y, width: stageW - r.x - r.w, height: r.h }]} />
-    </>
-  );
-}
-
-
 const styles = StyleSheet.create({
-  // Each pill sets only its own side: on web, `left: undefined` doesn't cancel a `left` set earlier.
-  pill: {
-    position: 'absolute',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
+  closeWrap: { position: 'absolute', left: 12 },
+  close: {
+    width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(20,20,22,0.55)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.35)',
+    borderColor: 'rgba(255,255,255,0.18)',
   },
-  pillLeft: { left: 12 },
-  pressed: { opacity: 0.7 },
-  pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  scrim: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.4)' },
-  box: {
-    position: 'absolute',
-    borderWidth: 2.5,
-    borderRadius: 8,
-  },
-  card: {
-    position: 'absolute',
-    left: 12,
-    right: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    gap: 5,
-    borderRadius: 16,
-    backgroundColor: 'rgba(16,16,18,0.88)',
-  },
-  cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
-  progress: { flex: 1, flexDirection: 'row', gap: 4 },
-  seg: { flex: 1, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
-  tag: { color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '600' },
-  title: { color: '#fff', fontSize: 17, fontWeight: '700' },
-  body: { color: 'rgba(255,255,255,0.88)', fontSize: 14, lineHeight: 19 },
-  hint: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 },
+  pressed: { opacity: 0.6 },
 });
-
-const useTint = themed((c) => ({
-  pillOn: { backgroundColor: c.tell, borderColor: c.tell },
-  pillTextOn: { color: c.onTell },
-  // A thin dark ring inside and out keeps a light outline visible on bright footage.
-  box: { borderColor: c.tell, boxShadow: '0 0 0 1px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.45)' },
-  segOn: { backgroundColor: c.tell },
-}));
