@@ -19,6 +19,9 @@
  * Each serves feeds demo and compare; a missing feed or Worker is shown, not fatal.
  * Overrides: REVIEW_SOURCES=prod,local  REVIEW_FEEDS=demo,compare
  *            REVIEW_PROD_URL / REVIEW_PROD_PASSCODE  REVIEW_LOCAL_URL / REVIEW_LOCAL_PASSCODE
+ *
+ * /app/<path> serves the app's pure double take modules type-stripped (appModules.ts),
+ * so the page presents clips exactly the way the app does.
  */
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -26,6 +29,7 @@ import { extname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Catalog, batchFiles, batchName, readJsonl, rehost, type Item } from './catalog.ts';
 import { DecisionLog, checkPatch, fold, type Patch } from './decisions.ts';
+import { appFile, readModule } from './appModules.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
 const HARVEST = join(ROOT, 'scripts', 'harvest');
@@ -234,6 +238,17 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     }
     const state = log.states().get(key) ?? null;
     return send(res, 200, { event, state });
+  }
+
+  if (req.method === 'GET' && p.startsWith('/app/')) {
+    const file = appFile(ROOT, decodeURIComponent(p.slice(5)));
+    if (!file) return send(res, 404, { error: 'not found' });
+    if (file.kind === 'png') {
+      res.writeHead(200, { 'content-type': 'image/png', 'cache-control': 'max-age=3600' });
+      return res.end(readFileSync(file.path));
+    }
+    res.writeHead(200, { 'content-type': 'text/javascript; charset=utf-8', 'cache-control': 'no-cache' });
+    return res.end(readModule(file.path));
   }
 
   if (req.method === 'GET') {
