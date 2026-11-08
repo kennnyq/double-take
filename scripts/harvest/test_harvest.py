@@ -312,5 +312,94 @@ class RedditRows(unittest.TestCase):
                 self.assertTrue(r["evidence"].startswith(f"r/{r['thread']['sub']} consensus"), where)
 
 
+def _scene(n: int, seed: int) -> list[int]:
+    import random
+    r = random.Random(seed)
+    return [r.getrandbits(64) for _ in range(n)]
+
+
+class Dedupe(unittest.TestCase):
+    SCENE = _scene(40, 7)
+
+    @staticmethod
+    def noisy(hashes, flips=3, seed=1):
+        import random
+        r = random.Random(seed)
+        out = []
+        for h in hashes:
+            for _ in range(flips):
+                h ^= 1 << r.randrange(64)
+            out.append(h)
+        return out
+
+    def clip(self, cid, **kw):
+        return {"id": cid, "video": f"media/{cid}/v1/720.mp4", "width": 720, "height": 1280, "duration": 10,
+                "tells": None, "sha256": cid, "source": {"url": f"https://x.com/i/status/{cid}"}, **kw}
+
+    def test_same_footage_lines_up_even_when_trimmed_and_reencoded(self):
+        import dedupe
+        a = self.SCENE[:20]
+        b = self.noisy(self.SCENE[3:18], seed=2)  # trimmed both ends, re-encoded
+        short, long_ = dedupe.share(a, b)
+        self.assertGreaterEqual(short, 0.9)
+        self.assertGreaterEqual(long_, 0.6)
+
+    def test_lookalike_frames_out_of_order_dont_add_up(self):
+        import dedupe
+        a = self.SCENE[:20]
+        b = list(reversed(self.SCENE[:20]))[::3]  # same frames, shuffled order
+        self.assertLess(dedupe.share(a, b)[0], dedupe.MIN_SHARE)
+        rnd = __import__("random").Random(3)
+        self.assertLess(dedupe.share(a, [rnd.getrandbits(64) for _ in range(20)])[0], 0.2)
+
+    def test_groups_keep_the_better_annotated_copy_and_repoint_pairs(self):
+        import dedupe
+        clips = [self.clip("x-1"), self.clip("x-2", tells="t.json", tellsAlt={"claude": "c.json"}),
+                 self.clip("x-3"), self.clip("yt-4", pairOf="x-1", label="real")]
+        frames = {"x-1": self.SCENE[:12], "x-2": self.noisy(self.SCENE[:12]), "x-3": self.SCENE[20:32],
+                  "yt-4": self.SCENE[30:40]}
+        groups = dedupe.find_duplicates(clips, frames)
+        self.assertEqual(groups, [{"keep": "x-2", "drop": [{"id": "x-1", "why": "same footage", "share": 1.0}]}])
+        dedupe.load_frames = lambda c, root, cache=None: frames  # no ffmpeg needed here
+        try:
+            kept, _ = dedupe.dedupe(clips, "build")
+        finally:
+            import importlib
+            importlib.reload(dedupe)
+        self.assertEqual([c["id"] for c in kept], ["x-2", "x-3", "yt-4"])
+        self.assertEqual(kept[2]["pairOf"], "x-2")
+
+    def test_exact_matches_need_no_frames(self):
+        import dedupe
+        clips = [self.clip("x-1"), self.clip("x-2", sha256="x-1"), self.clip("x-3", source={"url": "https://x.com/i/status/x-1"})]
+        groups = dedupe.find_duplicates(clips, {})
+        self.assertEqual(groups[0]["keep"], "x-1")
+        self.assertEqual(sorted((d["id"], d["why"]) for d in groups[0]["drop"]),
+                         [("x-2", "same file"), ("x-3", "same source URL")])
+
+    def test_a_clip_inside_a_compilation_is_an_overlap_not_a_drop(self):
+        import dedupe
+        rnd = __import__("random").Random(9)
+        comp = [rnd.getrandbits(64) for _ in range(30)] + self.SCENE[:8] + [rnd.getrandbits(64) for _ in range(30)]
+        clips = [self.clip("x-1"), self.clip("x-2")]
+        overlaps = []
+        self.assertEqual(dedupe.find_duplicates(clips, {"x-1": comp, "x-2": self.SCENE[:8]}, overlaps), [])
+        self.assertEqual((overlaps[0]["a"], overlaps[0]["b"], overlaps[0]["short"]), ("x-1", "x-2", 1.0))
+
+    def test_dhash_survives_a_reencode_at_another_size(self):
+        import shutil, subprocess, tempfile
+        import dedupe
+        if not shutil.which("ffmpeg"):
+            self.skipTest("no ffmpeg")
+        with tempfile.TemporaryDirectory() as d:
+            a, b = os.path.join(d, "a.mp4"), os.path.join(d, "b.mp4")
+            subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i", "testsrc2=size=720x1280:rate=30:duration=6",
+                            "-pix_fmt", "yuv420p", a], check=True)
+            subprocess.run(["ffmpeg", "-v", "error", "-i", a, "-vf", "scale=360:640", "-crf", "35", b], check=True)
+            ha, hb = dedupe.dhash_frames(a), dedupe.dhash_frames(b)
+            self.assertGreaterEqual(len(ha), 5)
+            self.assertGreaterEqual(dedupe.share(ha, hb)[0], 0.9)
+
+
 if __name__ == "__main__":
     unittest.main()
