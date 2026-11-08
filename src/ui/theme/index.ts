@@ -8,7 +8,7 @@ export { DEFAULT_PALETTE, LEGACY_PALETTES, PALETTES, PALETTE_IDS, type Palette, 
 
 /**
  * The live palette. Builds ship `DEFAULT_PALETTE`; where the dev tools show
- * (dev builds, web with `?dev`), Dev settings → Colors can switch it at runtime,
+ * (dev builds), Dev settings → Colors can switch it at runtime,
  * and the pick is kept on the device.
  */
 const STORAGE_KEY = 'double-take:palette:v1';
