@@ -11,8 +11,8 @@
 
 /** Opening a double take this many times teaches the gesture; the hint never comes back after. */
 export const OPENS_TO_LEARN = 2;
-/** A clip must stay on screen this long before a hint fades in, ms. */
-export const SHOW_DELAY_MS = 1400;
+/** A settled, playing clip shows its hint after this long, ms (also counted from the landing's hand-off). */
+export const SHOW_DELAY_MS = 600;
 /** A hint stays at least this long on screen before it fades out by itself, ms. */
 export const HINT_TIMEOUT_MS = 6000;
 /** How many times a hint plays through before it fades out by itself. */

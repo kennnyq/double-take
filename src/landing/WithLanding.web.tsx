@@ -3,6 +3,7 @@ import { RotateCcw } from 'lucide-react';
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { mediaUri } from '@/desktop/media';
+import { useBlockHints } from '@/onboarding/store';
 import { galleryPicks, parseAtlas, type Atlas } from './atlas';
 import { DEFAULT_LANDING_PRESET, LANDING_PRESETS, LANDING_STORAGE_PREFIX, LANDING_TRIALS } from './designs';
 import { Landing } from './Landing';
@@ -59,6 +60,8 @@ export function WithLanding({
   const [startAt, setStartAt] = useState<number | undefined>();
   const [landingKey, setLandingKey] = useState(0);
   const trials = useTrials(LANDING_TRIALS, LANDING_PRESETS, LANDING_STORAGE_PREFIX, DEFAULT_LANDING_PRESET);
+  // The feed's first-run hint waits until the launch has handed over to it.
+  useBlockHints(stage !== 'app');
 
   // The same request the feed makes (shared), so the gallery and the feed agree on indices.
   const [ready] = useState(() => loadInitialClips());
