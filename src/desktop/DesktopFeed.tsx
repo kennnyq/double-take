@@ -251,7 +251,8 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   }, [safePlay]);
 
   // Space = play/pause, or held = the double take (then each press goes on to
-  // its next step); M = mute (arrows, Page keys and
+  // its next step); ←/→ = 5 s back/on (in a double take: previous/next step);
+  // M = mute (up/down arrows, Page keys and
   // J/K live in the scroller). When holding Space opens the active clip's double
   // take, a quick press plays/pauses on release, so a hold never pauses first;
   // otherwise Space plays/pauses on press, as always. Listening in the capture
@@ -300,9 +301,16 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
         }
       } else if ((e.key === 'm' || e.key === 'M') && !e.repeat && (owner === 'feed' || owner === 'control')) {
         toggleMute();
-      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && owner === 'feed' && !inspectingRef.current) {
-        // Back or on a few seconds, as an eased scrub (repeats while held).
+      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && owner === 'feed') {
         e.preventDefault();
+        // During a double take: the previous or next tell (one per press).
+        if (inspectingRef.current) {
+          if (e.repeat) return;
+          if (e.key === 'ArrowLeft') reveal.current?.back();
+          else reveal.current?.next();
+          return;
+        }
+        // Otherwise back or on a few seconds, as an eased scrub (repeats while held).
         const s = slotIndexRef.current.indexOf(activeRef.current);
         const player = s >= 0 ? players[s] : null;
         if (!player?.duration) return;
@@ -511,7 +519,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
         {slotIndex.map((idx, s) => (
           <div key={s} className="pool-slot" style={{ ['--i' as string]: Math.max(idx, 0) }} hidden={idx < 0}>
             <div className="slide-grid">
-              <div className="stage">
+              <div className={`stage ${idx === active && inspecting ? 'inset' : ''}`}>
                 <video
                   ref={(el) => {
                     videos.current[s] = el;
@@ -732,11 +740,10 @@ const Slide = memo(function Slide(p: SlideProps) {
     <section className="slide" aria-roledescription="video" aria-current={isActive}>
       <div className="slide-grid">
         <aside className="d-info">{info}</aside>
-        <div className="stage card">
+        <div className={`stage card ${p.inspecting ? 'inset' : ''}`}>
           {p.zoom ? (
             <>
               {/* The blurred fill shows only once the walkthrough has zoomed out. */}
-              {isActive && <img className={`poster blurred fades ${p.inspecting ? '' : 'faded'}`} src={poster} alt="" draggable={false} />}
               <img
                 className="poster contained"
                 src={poster}
@@ -747,7 +754,8 @@ const Slide = memo(function Slide(p: SlideProps) {
             </>
           ) : p.fit === 'contain' ? (
             <>
-              <img className="poster blurred" src={poster} alt="" draggable={false} />
+              {/* Faded out in the walkthrough: plain dark bands, no blur. */}
+              <img className={`poster blurred fades ${p.inspecting ? 'faded' : ''}`} src={poster} alt="" draggable={false} />
               <img className="poster contained" src={poster} alt="" draggable={false} />
             </>
           ) : (

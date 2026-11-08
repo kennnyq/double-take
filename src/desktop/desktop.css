@@ -886,3 +886,19 @@
 .desk .mute-btn {
   z-index: 4;
 }
+
+/* The double take: the card insets (both the slide's stage and the pooled
+   video's, so they stay together), its corners round more, and a faint ring
+   marks the new mode. The card's dark bands stay plain (no blurred fill). */
+.desk .stage {
+  transition:
+    transform 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
+    border-radius 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
+    box-shadow 0.55s ease;
+  will-change: transform;
+}
+.desk .stage.inset {
+  transform: scale(0.9);
+  border-radius: 22px;
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dt-text) 14%, transparent);
+}
