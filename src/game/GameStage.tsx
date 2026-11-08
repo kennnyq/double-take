@@ -91,7 +91,7 @@ export function GameStage({ clips, index, pos, dir, design, stamps, width, heigh
   }, [slots, loaded, index, live, muted, players, apply]);
 
   return (
-    <View style={[styles.root, { width, height }]} pointerEvents="none">
+    <View style={[styles.root, { width, height }]} pointerEvents="none" testID="game-stage">
       {slots.map((idx, s) => {
         if (idx < 0) return null;
         const clip = clips[idx];

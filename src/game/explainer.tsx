@@ -6,7 +6,6 @@ import type { Clip } from '@/data/clips';
 import { verdictWhy } from '@/data/remote';
 import { VerdictBadge } from '@/feed/VerdictBadge';
 import { themed, usePalette } from '@/ui/theme';
-import { missLabel } from './MissGallery';
 import type { Guess } from './round';
 
 /**
@@ -18,6 +17,8 @@ import type { Guess } from './round';
 export interface ExplainerProps {
   clip: Clip;
   guess: Guess;
+  /** What the viewer did against what it was, e.g. "You skipped · AI". */
+  label: string;
   /** The replay's player, already holding the clip: the walkthrough pauses, scrubs and slows it. */
   player: VideoPlayer;
   /** Space the explainer must leave clear at the top (the review's controls). */
@@ -28,7 +29,7 @@ export interface ExplainerProps {
 export type MissExplainer = ComponentType<ExplainerProps>;
 
 /** For now: the verdict, the line that backs it, and the source. */
-export function PlainExplainer({ clip, guess, bottom }: ExplainerProps) {
+export function PlainExplainer({ clip, guess, label, bottom }: ExplainerProps) {
   const c = usePalette();
   const tint = useTint();
   const why = verdictWhy(clip);
@@ -38,7 +39,7 @@ export function PlainExplainer({ clip, guess, bottom }: ExplainerProps) {
       <View style={[styles.card, tint.card]} testID="miss-explanation">
         <View style={styles.head}>
           <VerdictBadge verdict={truth} />
-          <Text style={[styles.you, tint.dim]}>{missLabel(guess)}</Text>
+          <Text style={[styles.you, tint.dim]}>{label}</Text>
         </View>
         <Text style={[styles.title, tint.text]}>{truth === 'ai' ? 'Why it was AI' : 'Why it was real'}</Text>
         {why ? <Text style={[styles.body, tint.text]}>{why}</Text> : null}

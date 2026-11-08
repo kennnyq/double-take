@@ -18,6 +18,8 @@ export interface FinishedRound {
   round: RoundState;
   stats: RoundStats;
   newBest: boolean;
+  /** The best score on this device after this round. */
+  best: number;
   /** The deck's clips by id, for posters and replays. */
   clips: ReadonlyMap<string, Clip>;
 }

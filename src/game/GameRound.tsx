@@ -230,7 +230,7 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
       },
       clips.map(clipKey),
     );
-    setFinishedRound({ round: s, stats, newBest, clips: new Map(clips.map((cl) => [cl.id, cl])) });
+    setFinishedRound({ round: s, stats, newBest, best: gameHistory.getSnapshot().best, clips: new Map(clips.map((cl) => [cl.id, cl])) });
   }, [s, clips]);
   const toResults = s.phase === 'over' && s.endReason !== 'quit';
   useEffect(() => {

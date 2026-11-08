@@ -27,7 +27,7 @@ const BAR_READOUT = 44;
 const BAR_COUNT = 34;
 const PILL_W = 124;
 const PILL_H = 34;
-const RING = 38;
+const RING = 46;
 
 export function hudAnchor(design: HudDesign, width: number, top: number): Anchor {
   const cy = top + ROW_Y + ROW_H / 2;
@@ -141,9 +141,9 @@ export function Hud({ design, frac, durationMs, displayMs, judged, width, top, a
       testID="game-timer"
     >
       <View style={[styles.ringBg, { width: RING, height: RING, borderRadius: RING / 2 }]}>
-        <ProgressRing progress={frac} size={RING} stroke={3} color={c.text} track="rgba(255,255,255,0.18)" />
+        <ProgressRing progress={frac} size={RING} stroke={4} color={c.text} track="rgba(255,255,255,0.18)" />
         <Animated.View style={[StyleSheet.absoluteFill, { opacity: warnOpacity }]}>
-          <ProgressRing progress={frac} size={RING} stroke={3} color={c.danger} track="transparent" />
+          <ProgressRing progress={frac} size={RING} stroke={4} color={c.danger} track="transparent" />
         </Animated.View>
         <Text style={[styles.ringText, tint.text]}>{Math.max(0, Math.ceil(displayMs / 1000))}</Text>
       </View>
@@ -172,7 +172,7 @@ const styles = StyleSheet.create({
   pillCount: { position: 'absolute', right: 10 },
   ringRow: { position: 'absolute', flexDirection: 'row', alignItems: 'center', gap: 8 },
   ringBg: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.35)' },
-  ringText: { position: 'absolute', fontSize: 14, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  ringText: { position: 'absolute', fontSize: 16, fontWeight: '800', fontVariant: ['tabular-nums'] },
 });
 
 const useTint = themed((c) => ({
