@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, type TextStyle } from 'react-native';
+import { useRef, useState } from 'react';
+import { StyleSheet, Text, View, type LayoutChangeEvent, type TextStyle } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
-import { REVEAL_UNIT, revealFrame, revealLetters, revealMetrics, revealSchedule, revealWords, unitDelays, type RevealMetrics, type RevealVariant } from './reveal';
+import { linesFromTops, revealFrame, revealMetrics, revealPlan, revealWords, type RevealMetrics, type RevealUnit, type RevealVariant } from './reveal';
 
 export interface RevealTextProps {
   text: string;
@@ -12,54 +12,65 @@ export interface RevealTextProps {
   clock: SharedValue<number>;
   /** Called once the reveal's length is known, in ms. */
   onReady: (totalMs: number) => void;
-  /** How it comes in (dev settings → Double take → Text); word by word by default. */
+  /** How it comes in (dev settings → Double take → Text); Siri's way by default. */
   variant?: RevealVariant;
 }
 
+type Plan = { units: RevealUnit[]; hint: RevealUnit };
+
 /**
- * The card's text, coming in the way Apple's TextRenderer transition does
- * (see reveal.ts): unit after unit in reading order, each fading in from
- * faint while it drops from just above into place, a touch past it and back.
+ * The card's text, coming in the way Siri's answer card does (see reveal.ts):
+ * line after line rising from below on a gentle spring, the gaps between
+ * them closing up, the words fading in in reading order.
  *
- * iOS and Android: one small animated view per unit, transform and opacity
- * only, on the UI thread. Apple's blur is about a pixel at this size and a
- * view can't blur cheaply, so it's left out here. The "lines" variant learns
- * the line breaks once (`onTextLayout`) and animates a view per line.
+ * iOS and Android: one small animated view per word, transform and opacity
+ * only, on the UI thread. The words' lines and places along them come from
+ * their first layout; nothing shows until then.
  */
-export function RevealText(p: RevealTextProps) {
-  const unit = REVEAL_UNIT[p.variant ?? 'words'];
-  const m = revealMetrics(StyleSheet.flatten(p.textStyle));
-  const hm = revealMetrics(StyleSheet.flatten(p.hintStyle));
-  return unit === 'line' ? <Lines {...p} m={m} hm={hm} /> : <Words {...p} m={m} hm={hm} letters={unit === 'letter'} />;
-}
-
-type Inner = RevealTextProps & { m: RevealMetrics; hm: RevealMetrics };
-
-function Words({ text, hint, textStyle, hintStyle, clock, onReady, m, hm, letters }: Inner & { letters: boolean }) {
+export function RevealText({ text, hint, textStyle, hintStyle, clock, onReady, variant = 'siri' }: RevealTextProps) {
+  const m = revealMetrics(StyleSheet.flatten(textStyle));
+  const hm = revealMetrics(StyleSheet.flatten(hintStyle));
   const words = revealWords(text);
-  // Letter units, grouped by word so lines still break between words.
-  const groups = letters ? words.map(revealLetters) : words.map((w) => [w]);
-  // Each group's first unit's index.
-  const firsts = groups.map((_, i) => groups.slice(0, i).reduce((a, g) => a + g.length, 0));
-  const n = groups.reduce((a, g) => a + g.length, 0);
-  const delays = unitDelays(n);
-  const { hint: hintDelay, total } = revealSchedule(n);
-  useEffect(() => onReady(total), [onReady, total]);
+  const [plan, setPlan] = useState<Plan | null>(null);
+  // Each word's frame as it's laid out, and the text's width.
+  const frames = useRef<({ x: number; y: number; w: number } | undefined)[]>([]);
+  const width = useRef(0);
+  const planned = useRef(false);
+
+  // Once, when every word and the text's width are known.
+  const tryPlan = () => {
+    if (planned.current || !width.current || frames.current.filter(Boolean).length < words.length) return;
+    const fs = frames.current.slice(0, words.length) as { x: number; y: number; w: number }[];
+    const lines = linesFromTops(fs.map((f) => f.y));
+    const xs = fs.map((f) => (f.x + f.w / 2) / width.current);
+    const p = revealPlan(variant, lines, xs);
+    planned.current = true;
+    setPlan({ units: p.units, hint: p.hint });
+    onReady(p.total);
+  };
+  const onWord = (i: number) => (e: LayoutChangeEvent) => {
+    const { x, y, width: w } = e.nativeEvent.layout;
+    frames.current[i] = { x, y, w };
+    tryPlan();
+  };
+
   return (
     <View>
-      <View style={styles.words}>
-        {groups.map((g, i) => (
-          <View key={i} style={styles.word}>
-            {g.map((u, j) => (
-              <Unit key={j} clock={clock} delay={delays[firsts[i] + j]} m={m}>
-                <Text style={textStyle}>{u}</Text>
-              </Unit>
-            ))}
-          </View>
+      <View
+        style={styles.words}
+        onLayout={(e) => {
+          width.current = e.nativeEvent.layout.width;
+          tryPlan();
+        }}
+      >
+        {words.map((w, i) => (
+          <Unit key={i} clock={clock} unit={plan?.units[i]} m={m} variant={variant} onLayout={onWord(i)}>
+            <Text style={textStyle}>{w}</Text>
+          </Unit>
         ))}
       </View>
       {hint ? (
-        <Unit clock={clock} delay={hintDelay} m={hm}>
+        <Unit clock={clock} unit={plan?.hint} m={hm} variant={variant}>
           <Text style={hintStyle}>{hint}</Text>
         </Unit>
       ) : null}
@@ -67,53 +78,35 @@ function Words({ text, hint, textStyle, hintStyle, clock, onReady, m, hm, letter
   );
 }
 
-function Lines({ text, hint, textStyle, hintStyle, clock, onReady, m, hm }: Inner) {
-  const [lines, setLines] = useState<string[] | null>(null);
-  const delays = unitDelays(lines?.length ?? 0);
-  const { hint: hintDelay } = revealSchedule(lines?.length ?? 0);
-  return (
-    <View>
-      {/* Measures the line breaks; never seen. */}
-      <Text
-        style={[...textStyle, styles.measure]}
-        onTextLayout={(e) => {
-          if (lines) return;
-          const ls = e.nativeEvent.lines.map((l) => l.text.replace(/\s+$/, '')).filter(Boolean);
-          setLines(ls);
-          onReady(revealSchedule(ls.length).total);
-        }}
-        accessibilityElementsHidden
-        importantForAccessibility="no-hide-descendants"
-      >
-        {text}
-      </Text>
-      {lines?.map((l, i) => (
-        <Unit key={i} clock={clock} delay={delays[i]} m={m}>
-          <Text style={textStyle} numberOfLines={1}>
-            {l}
-          </Text>
-        </Unit>
-      ))}
-      {lines && hint ? (
-        <Unit clock={clock} delay={hintDelay} m={hm}>
-          <Text style={hintStyle}>{hint}</Text>
-        </Unit>
-      ) : null}
-    </View>
-  );
-}
-
-function Unit({ clock, delay, m, children }: { clock: SharedValue<number>; delay: number; m: RevealMetrics; children: React.ReactNode }) {
+function Unit({
+  clock,
+  unit,
+  m,
+  variant,
+  onLayout,
+  children,
+}: {
+  clock: SharedValue<number>;
+  /** Unknown until the words are laid out: hidden meanwhile. */
+  unit: RevealUnit | undefined;
+  m: RevealMetrics;
+  variant: RevealVariant;
+  onLayout?: (e: LayoutChangeEvent) => void;
+  children: React.ReactNode;
+}) {
   const look = useAnimatedStyle(() => {
-    const f = revealFrame(clock.value, delay, m);
+    if (!unit) return { opacity: 0, transform: [{ translateY: 0 }] };
+    const f = revealFrame(variant, clock.value, unit, m);
     return { opacity: f.opacity, transform: [{ translateY: f.translateY }] };
   });
-  return <Animated.View style={look}>{children}</Animated.View>;
+  return (
+    <Animated.View style={look} onLayout={onLayout}>
+      {children}
+    </Animated.View>
+  );
 }
 
 const styles = StyleSheet.create({
   // A word's space: about a quarter of the type size.
   words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 4 },
-  word: { flexDirection: 'row' },
-  measure: { position: 'absolute', left: 0, right: 0, top: 0, opacity: 0 },
 });

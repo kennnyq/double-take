@@ -53,9 +53,8 @@ registerDevSection({
       { label: 'Roomy', value: 'roomy', note: 'Plenty of context around the box.' },
     ]),
     settingChoice(s, 'textReveal', 'Text', [
-      { label: 'Words', value: 'words', note: 'Apple’s WWDC24 text transition, word by word: each drops into place from just above as it fades in; 0.9 s in all.' },
-      { label: 'Lines', value: 'lines', note: 'The same, a line at a time (Apple’s first demo).' },
-      { label: 'Letters', value: 'letters', note: 'The same, a letter at a time (Apple’s final demo). Heaviest.' },
+      { label: 'Siri', value: 'siri', note: 'Siri’s answer card: lines rise from below, their gaps closing up, the words fading in in reading order.' },
+      { label: 'WWDC', value: 'wwdc', note: 'WWDC24’s text transition: each word drops into place from just above out of a slight blur.' },
     ]),
     settingChoice(s, 'tabBarInDoubleTake', 'Tab bar during double take', [
       { label: 'Stay', value: 'stay', note: 'The phone’s tab bar stays as it is.' },

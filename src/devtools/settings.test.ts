@@ -38,9 +38,9 @@ test('parseSettings reads the double take spotlight settings', () => {
 });
 
 test('the text reveal defaults to the word wave, and reads the others', () => {
-  assert.equal(DEFAULT_SETTINGS.textReveal, 'words');
-  assert.equal(parseSettings(JSON.stringify({ textReveal: 'lines' })).textReveal, 'lines');
-  assert.equal(parseSettings(JSON.stringify({ textReveal: 'typewriter' })).textReveal, 'words');
+  assert.equal(DEFAULT_SETTINGS.textReveal, 'siri');
+  assert.equal(parseSettings(JSON.stringify({ textReveal: 'wwdc' })).textReveal, 'wwdc');
+  assert.equal(parseSettings(JSON.stringify({ textReveal: 'typewriter' })).textReveal, 'siri');
   assert.equal(DEFAULT_SETTINGS.tabBarInDoubleTake, 'stay');
   assert.equal(parseSettings(JSON.stringify({ tabBarInDoubleTake: 'fade' })).tabBarInDoubleTake, 'fade');
   assert.equal(parseSettings(JSON.stringify({ tabBarInDoubleTake: 'slide' })).tabBarInDoubleTake, 'stay');

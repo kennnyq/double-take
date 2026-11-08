@@ -63,7 +63,7 @@ export interface DevSettings {
   /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
   markDrafts: boolean;
   endCue: EndCue;
-  /** How the double take card's text comes in: Apple's text transition by words (default), lines or letters. */
+  /** How the double take card's text comes in: Siri's answer card (default) or WWDC24's text transition. */
   textReveal: RevealVariant;
   /** The phone's tab bar during the double take: stays (default) or fades out with the chrome. */
   tabBarInDoubleTake: TabBarMode;
@@ -81,7 +81,7 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightPadding: 'normal',
   markDrafts: false,
   endCue: 'done',
-  textReveal: 'words',
+  textReveal: 'siri',
   tabBarInDoubleTake: 'stay',
 });
 

@@ -31,7 +31,7 @@ interface Props {
   blur?: boolean;
   /** Back and forward buttons along the bottom (walkthrough steps). */
   nav?: CardNav;
-  /** How the text comes in (dev settings → Double take → Text); word by word by default. */
+  /** How the text comes in (dev settings → Double take → Text); Siri's way by default. */
   revealVariant?: RevealVariant;
   /** Set to play the exit; `onGone` follows once it's done. */
   leaving: boolean;
@@ -62,9 +62,9 @@ const FOOTER_FADE_MS = 300;
  * from its side of the subject (rising from below when it sits under it,
  * dropping from above when over it) and leaves the same way, faster.
  *
- * The text comes in the way Apple's WWDC24 text transition does: word by word
- * in reading order, each word fading in while it drops from just above into
- * place (see reveal.ts). It starts while the card is still settling, and
+ * The text comes in the way Siri's answer card does: line after line rising
+ * from below, the gaps between them closing up, the words fading in in reading
+ * order (see reveal.ts). It starts while the card is still settling, and
  * leaves in reverse. One timeline drives it
  * on the UI thread (see RevealText and reveal.ts).
  *
