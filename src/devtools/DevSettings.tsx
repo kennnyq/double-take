@@ -179,13 +179,14 @@ function Panel({ tabs, tab, desktop, maxBody }: { tabs: ResolvedTab[]; tab: stri
   const [pageW, setPageW] = useState(0);
   const index = Math.max(0, tabs.findIndex((t) => t.id === tab));
   const current = tabs[index];
-  // Tabs slide; the panel mounts afresh on each opening, already on its tab.
-  const tabPos = useEased(index);
+  // Navigation cuts: another tab (or the search) shows at once, highlight and all.
+  const tabPos = useEased(index, { jump: true });
   const searching = query.trim().length > 0;
-  // The body eases to fit the tab's content, up to the room there is; then it scrolls.
+  // The body fits the view's content, up to the room there is; then it scrolls. It
+  // snaps to a new view's height, and eases as a view's own content changes.
   const [contentH, setContentH] = useState<Record<string, number>>({});
   const fit = searching ? contentH[SEARCH] : current && contentH[current.id];
-  const bodyH = useEased(fit ? Math.min(maxBody, fit) : maxBody, { native: false });
+  const bodyH = useEased(fit ? Math.min(maxBody, fit) : maxBody, { native: false, cutOn: searching ? SEARCH : current?.id });
   const measure = (id: string) => (_w: number, h: number) =>
     setContentH((m) => (m[id] === h ? m : { ...m, [id]: h }));
 

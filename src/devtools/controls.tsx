@@ -7,25 +7,37 @@ import { choiceDisplay, rowChanged, stepValue, type DevChoiceItem, type DevChoic
 /** The native driver where it can run (not web), for transforms and opacity. */
 export const NATIVE = Platform.OS !== 'web';
 
+/** How long after a cut (`cutOn` changing) the value keeps snapping, while the new view lays out. */
+const CUT_SETTLE_MS = 300;
+
 /**
  * A value that eases to `target` whenever it changes, from wherever it is, so
  * a new target mid-move turns it around smoothly. `jump` sets it at once
- * (e.g. while hidden); so does the first target.
+ * (e.g. while hidden); so does the first target. When `cutOn` changes (a
+ * navigation, such as another tab) it snaps instead, as do the changes that
+ * follow right after while the new view measures itself.
  */
-export function useEased(target: number | null, { native = NATIVE, jump = false, ms = DEV_EASE_MS } = {}) {
+export function useEased(
+  target: number | null,
+  { native = NATIVE, jump = false, ms = DEV_EASE_MS, cutOn }: { native?: boolean; jump?: boolean; ms?: number; cutOn?: string | number } = {},
+) {
   const [v] = useState(() => new Animated.Value(target ?? 0));
   const placed = useRef(target !== null);
+  const cut = useRef({ key: cutOn, at: -Infinity });
   useEffect(() => {
     if (target === null) return;
-    if (!placed.current || jump) {
+    const now = Date.now();
+    if (cut.current.key !== cutOn) cut.current = { key: cutOn, at: now };
+    if (!placed.current || jump || now - cut.current.at < CUT_SETTLE_MS) {
       placed.current = true;
+      v.stopAnimation();
       v.setValue(target);
       return;
     }
     const a = Animated.timing(v, { toValue: target, duration: ms, easing: Easing.out(Easing.cubic), useNativeDriver: native });
     a.start();
     return () => a.stop();
-  }, [target, jump, ms, native, v]);
+  }, [target, jump, ms, native, v, cutOn]);
   return v;
 }
 
