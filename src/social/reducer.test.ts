@@ -98,3 +98,33 @@ test('remote clips are keyed by source id, so a moved clip keeps its state', () 
   assert.equal(isPersistable(clip(4)), false);
   assert.equal(isPersistable(remote), true);
 });
+
+test('hydrate replaces the state; reset clears it; stats merge', () => {
+  const loaded = { ...initialSocialState, followed: ['lumen.lab'], stats: { 'x-1': { likes: 2, reposts: 0, comments: 0 } } };
+  let s = socialReducer(socialReducer(initialSocialState, { type: 'follow', author: 'other' }), { type: 'hydrate', state: loaded });
+  assert.equal(s, loaded);
+  s = socialReducer(s, { type: 'stats', stats: { 'x-2': { likes: 1, reposts: 1, comments: 1 } } });
+  assert.deepEqual(Object.keys(s.stats).sort(), ['x-1', 'x-2']);
+  assert.equal(socialReducer(s, { type: 'reset' }), initialSocialState);
+});
+
+test('a failed write rolls back with the inverse action', () => {
+  const remote = { ...clip(1), sourceId: 'x-1' } as Clip;
+  // Optimistic like, then the save fails: toggling back with the old value undoes it.
+  let s = socialReducer(initialSocialState, { type: 'toggle', kind: 'liked', clip: remote, on: true, at: 1 });
+  s = socialReducer(s, { type: 'toggle', kind: 'liked', clip: remote, on: false, at: 2 });
+  assert.deepEqual(s.liked, []);
+  // A failed comment is removed, along with any reply to it.
+  const c = (id: string, parentId: string | null = null) => ({ id, clipId: 'x-1', text: 'hi', parentId, createdAt: 0 });
+  s = socialReducer(s, { type: 'comment', comment: c('a') });
+  s = socialReducer(s, { type: 'comment', comment: c('b', 'a') });
+  s = socialReducer(s, { type: 'comment', comment: c('z') });
+  s = socialReducer(s, { type: 'uncomment', clipId: 'x-1', id: 'a' });
+  assert.deepEqual(
+    s.comments['x-1'].map((x) => x.id),
+    ['z'],
+  );
+  s = socialReducer(s, { type: 'uncomment', clipId: 'x-1', id: 'z' });
+  assert.equal(s.comments['x-1'], undefined);
+  assert.equal(socialReducer(s, { type: 'uncomment', clipId: 'x-1', id: 'nope' }), s);
+});

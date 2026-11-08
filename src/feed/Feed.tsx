@@ -499,6 +499,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
         sent={sent.has(clipKey(item))}
         followed={followed.has(item.author)}
         myComments={social.comments[clipKey(item)]?.length ?? 0}
+        others={social.stats[clipKey(item)]}
         label={autoLabel(item, feedMode)}
         progress={progress}
         chrome={chrome}
@@ -578,7 +579,8 @@ export type FeedHandlers = {
   togglePause: () => void;
   play: () => void;
   pause: () => void;
-  like: (clip: Clip) => void;
+  /** Returns false when it didn't run (a guest is asked to sign in). */
+  like: (clip: Clip) => boolean;
   toggleLike: (clip: Clip) => void;
   toggleSave: (clip: Clip) => void;
   toggleRepost: (clip: Clip) => void;

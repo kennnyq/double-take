@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { formatCount, type Clip, type Verdict } from '@/data/clips';
 import { baseReposts } from '@/social/clipRefs';
+import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
 import { gestureAction, isDoubleTap, type Tap } from '@/devtools/gesture';
 import { useDevSettings } from '@/devtools/store';
@@ -30,6 +31,8 @@ interface Props {
   followed: boolean;
   /** How many comments you've added (shown on top of the clip's count). */
   myComments: number;
+  /** Other members' likes, reposts and comments (on top of the clip's own counts). */
+  others?: ClipCounts;
   /** The verdict shown on the clip without a reveal (Auto label mode), or null. */
   label: Verdict | null;
   progress: Animated.Value;
@@ -69,7 +72,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         tells.current?.open();
         return;
       }
-      h.like(clip);
+      // A guest's like opens sign-in instead: no heart.
+      if (!h.like(clip)) return;
       const tilt = `${Math.round(Math.random() * 30 - 15)}deg`;
       setBursts((b) => [...b, { id: tap.t, x, y, tilt }]);
       return;
@@ -260,21 +264,21 @@ function Rail(p: Props) {
       <RailButton
         icon={p.liked ? 'heart' : 'heart-outline'}
         color={p.liked ? '#ff3040' : '#fff'}
-        label={formatCount(clip.likes + (p.liked ? 1 : 0))}
+        label={formatCount(clip.likes + (p.others?.likes ?? 0) + (p.liked ? 1 : 0))}
         a11y={p.liked ? 'Unlike' : 'Like'}
         onPress={() => h.toggleLike(clip)}
         pop={p.liked}
       />
       <RailButton
         icon="chatbox-ellipses-outline"
-        label={formatCount(clip.comments + p.myComments)}
+        label={formatCount(clip.comments + (p.others?.comments ?? 0) + p.myComments)}
         a11y="Comments"
         onPress={() => h.openComments(clip)}
       />
       <RailButton
         icon="repeat"
         color={p.reposted ? REPOST_TINT : '#fff'}
-        label={formatCount(baseReposts(clip) + (p.reposted ? 1 : 0))}
+        label={formatCount(baseReposts(clip) + (p.others?.reposts ?? 0) + (p.reposted ? 1 : 0))}
         a11y={p.reposted ? 'Undo repost' : 'Repost'}
         onPress={() => h.toggleRepost(clip)}
       />

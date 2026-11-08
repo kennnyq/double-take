@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/ui/Avatar';
+import { canAct, openSignIn } from '@/auth/gate';
 import { ME } from '@/social/me';
 
 const EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
@@ -52,6 +53,12 @@ export function Composer({ value, onChange, onPost, placeholder, replyingTo, onC
             ref={inputRef}
             value={value}
             onChangeText={onChange}
+            onFocus={() => {
+              // Guests get sign-in instead of the keyboard.
+              if (canAct()) return;
+              (inputRef as React.RefObject<TextInputInstance | null> | undefined)?.current?.blur();
+              openSignIn('Sign in to comment');
+            }}
             placeholder={placeholder}
             placeholderTextColor="#8e8e8e"
             style={styles.input}

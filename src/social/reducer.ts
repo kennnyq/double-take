@@ -29,6 +29,13 @@ export interface MyComment {
   createdAt: number;
 }
 
+/** Other people's likes, reposts and comments on a clip (from the public counts). */
+export interface ClipCounts {
+  likes: number;
+  reposts: number;
+  comments: number;
+}
+
 export interface SocialState {
   liked: ClipEntry[];
   saved: ClipEntry[];
@@ -40,6 +47,8 @@ export interface SocialState {
   comments: Record<string, MyComment[]>;
   /** Comment ids (stand-in or yours) you've liked. */
   likedComments: Record<string, true>;
+  /** Other people's counts per clip key; yours come from the lists above. */
+  stats: Record<string, ClipCounts>;
 }
 
 export type SocialAction =
@@ -48,7 +57,15 @@ export type SocialAction =
   | { type: 'sent'; clip: Clip; at: number }
   | { type: 'follow'; author: string; on?: boolean }
   | { type: 'comment'; comment: MyComment }
-  | { type: 'likeComment'; id: string; on?: boolean };
+  | { type: 'likeComment'; id: string; on?: boolean }
+  /** Rolls back a comment that failed to save. */
+  | { type: 'uncomment'; clipId: string; id: string }
+  /** Replaces everything with the signed-in user's saved state. */
+  | { type: 'hydrate'; state: SocialState }
+  /** Back to an empty guest state (sign-out). */
+  | { type: 'reset' }
+  /** Merges in fresh public counts. */
+  | { type: 'stats'; stats: Record<string, ClipCounts> };
 
 export const initialSocialState: SocialState = {
   liked: [],
@@ -58,6 +75,7 @@ export const initialSocialState: SocialState = {
   followed: [],
   comments: {},
   likedComments: {},
+  stats: {},
 };
 
 export const hasClip = (list: ClipEntry[], id: string) => list.some((e) => e.id === id);
@@ -104,5 +122,20 @@ export function socialReducer(state: SocialState, action: SocialAction): SocialS
       else delete likedComments[action.id];
       return { ...state, likedComments };
     }
+    case 'uncomment': {
+      const list = state.comments[action.clipId];
+      if (!list?.some((c) => c.id === action.id)) return state;
+      const rest = list.filter((c) => c.id !== action.id && c.parentId !== action.id);
+      const comments = { ...state.comments };
+      if (rest.length) comments[action.clipId] = rest;
+      else delete comments[action.clipId];
+      return { ...state, comments };
+    }
+    case 'hydrate':
+      return action.state;
+    case 'reset':
+      return initialSocialState;
+    case 'stats':
+      return { ...state, stats: { ...state.stats, ...action.stats } };
   }
 }

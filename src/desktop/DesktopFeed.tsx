@@ -37,6 +37,7 @@ import { receiveHandoff } from '@/landing/handoff';
 import { fitFor, type Fit } from '@/feed/tells';
 import { useSocialActions } from '@/social/actions';
 import { baseReposts, clipKey } from '@/social/clipRefs';
+import type { ClipCounts } from '@/social/reducer';
 import { useAppNav } from '@/social/nav';
 import { useAppSettings } from '@/settings/store';
 import { useSocial } from '@/social/store';
@@ -331,6 +332,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             sent={sent.has(clipKey(clip))}
             followed={followed.has(clip.author)}
             myComments={social.comments[clipKey(clip)]?.length ?? 0}
+            others={social.stats[clipKey(clip)]}
             label={autoLabel(clip, feedMode)}
             inspecting={i === active && inspecting}
             fit={fitOf(i)}
@@ -397,7 +399,8 @@ interface SlideHandlers {
   togglePause: () => void;
   play: () => void;
   pause: () => void;
-  like: (clip: Clip) => void;
+  /** Returns false when it didn't run (a guest is asked to sign in). */
+  like: (clip: Clip) => boolean;
   toggleLike: (clip: Clip) => void;
   toggleSave: (clip: Clip) => void;
   toggleRepost: (clip: Clip) => void;
@@ -421,6 +424,8 @@ interface SlideProps {
   sent: boolean;
   followed: boolean;
   myComments: number;
+  /** Other members' likes, reposts and comments (on top of the clip's own counts). */
+  others?: ClipCounts;
   /** The verdict shown without a reveal (Auto label mode), or null. */
   label: Verdict | null;
   inspecting: boolean;
@@ -493,7 +498,8 @@ const Slide = memo(function Slide(p: SlideProps) {
         tells.current?.open();
         return;
       }
-      h.like(clip);
+      // A guest's like opens sign-in instead: no heart.
+      if (!h.like(clip)) return;
       const b = { id: tap.t, x: tap.x, y: tap.y, r: Math.round(Math.random() * 30 - 15) };
       setBursts((bs) => [...bs, b]);
       window.setTimeout(() => setBursts((bs) => bs.filter((o) => o.id !== b.id)), 900);
@@ -532,9 +538,9 @@ const Slide = memo(function Slide(p: SlideProps) {
     </div>
   );
 
-  const likes = formatCount(clip.likes + (p.liked ? 1 : 0));
-  const comments = formatCount(clip.comments + p.myComments);
-  const reposts = formatCount(baseReposts(clip) + (p.reposted ? 1 : 0));
+  const likes = formatCount(clip.likes + (p.others?.likes ?? 0) + (p.liked ? 1 : 0));
+  const comments = formatCount(clip.comments + (p.others?.comments ?? 0) + p.myComments);
+  const reposts = formatCount(baseReposts(clip) + (p.others?.reposts ?? 0) + (p.reposted ? 1 : 0));
   const shares = formatCount(clip.shares + (p.sent ? 1 : 0));
 
   return (

@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useIsFocused } from 'expo-router';
+import { SignInSheet } from '@/auth/SignInSheet';
 import { AuthBoot } from '@/auth/store';
 import type { Clip } from '@/data/clips';
 import { CommentsSheet } from '@/comments/CommentsSheet';
@@ -14,6 +15,7 @@ import { ShareSheet } from '@/share/ShareSheet';
 import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
 import { SocialProvider } from '@/social/store';
+import { SocialSync } from '@/social/SocialSync';
 import { Placeholder } from '@/ui/Placeholder';
 import { TABS, TabBar, type TabId } from '@/ui/TabBar';
 import { ToastProvider } from '@/ui/Toast';
@@ -25,6 +27,7 @@ export default function Home() {
   return (
     <SocialProvider>
       <AuthBoot />
+      <SocialSync />
       <ToastProvider>
         {/* Web shows a landing page first; the apps open on the feed. */}
         <WithLanding>
@@ -33,6 +36,8 @@ export default function Home() {
               {desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} /> : <Screen startAt={startAt} />}
               {/* Dev builds (and web with ?dev): a launcher for the tabbed dev settings. */}
               <DevSettings desktop={desktop} />
+              {/* Opened by the auth gate when a guest tries to act, or by a log-in button. */}
+              <SignInSheet />
             </>
           )}
         </WithLanding>
