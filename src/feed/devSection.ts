@@ -52,6 +52,12 @@ registerDevSection({
       { label: 'Normal', value: 'normal', note: 'A comfortable margin around the box; the card keeps clear of it.' },
       { label: 'Roomy', value: 'roomy', note: 'Plenty of context around the box.' },
     ]),
+    settingChoice(s, 'endCue', 'Last step', [
+      { label: 'Check', value: 'done', note: 'On the last tell, the forward button turns into a check.' },
+      { label: 'Dots', value: 'dots', note: 'Step dots between the arrows; the last one fills on the last tell.' },
+      { label: 'Count', value: 'count', note: '“2 / 3” between the arrows.' },
+      { label: 'Text', value: 'text', note: 'Only the faint “Tap to finish” line.' },
+    ]),
     settingSwitch(s, 'markDrafts', 'Mark model drafts', 'Reviewers: adds “AI draft” under unreviewed tells. Never shown by default.'),
   ],
 });

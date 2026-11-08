@@ -16,6 +16,7 @@ import './devSection';
 import { cardSpot, emptierSide, estimateCardHeight, type CardSpot } from './card';
 import { useGlass } from './glass';
 import { InfoCard } from './InfoCard';
+import { SeekBadge, seekBadgeFor, type SeekBadgeState } from './SeekBadge';
 import { ownLayer } from './layer';
 import { planScrub, runScrub, safeSeek } from './scrub';
 import { Spotlight } from './Spotlight';
@@ -29,6 +30,8 @@ export interface TellOverlayHandle {
   close: () => void;
   /** Go on to the next step, as a tap does (desktop: Space). False when the walkthrough isn't showing a step. */
   next: () => boolean;
+  /** Back to the previous step (desktop: ←). */
+  back: () => void;
 }
 
 /** What the spotlight shows, for a clip that draws part of it with the video (native cheap blur). */
@@ -77,6 +80,8 @@ interface Card {
   text: string;
   hint?: string;
   loop: boolean;
+  /** The walkthrough step it belongs to, for its back and forward buttons (none for "No tells found"). */
+  step?: { index: number; count: number };
   leaving: boolean;
 }
 
@@ -152,6 +157,8 @@ export function TellOverlay({ ref, ...p }: Props) {
   const [cache, setCache] = useState<Record<string, Loaded>>({});
   const [cards, setCards] = useState<Card[]>([]);
   const [scrubbing, setScrubbing] = useState(false);
+  // A DVD-style fast-forward / rewind mark while a long scrub runs.
+  const [seekBadge, setSeekBadge] = useState<SeekBadgeState | null>(null);
   // Only whether the loop is inside the tell's camera shot re-renders us; the
   // time itself (every 100 ms) stays in a ref.
   const [inShotNow, setInShotNow] = useState(true);
@@ -220,23 +227,27 @@ export function TellOverlay({ ref, ...p }: Props) {
   const cardFor = (d: Loaded, i: number) => {
     const n = d.steps.length + (d.unplaced.length ? 1 : 0);
     const last = i + 1 >= n;
-    // Only the reason, and a faint way on. Reviewers can mark model drafts (dev settings, off by default).
-    const tap = `${pointerVerb()} to ${last ? 'finish' : 'continue'}`;
+    // Only the reason, and the buttons. The faint "Tap to continue / finish" line
+    // is one of the dev settings' end cues; reviewers can mark model drafts (off by default).
+    const tap = settings.endCue === 'text' ? `${pointerVerb()} to ${last ? 'finish' : 'continue'}` : '';
+    const step = { index: i, count: n };
     const tell = d.steps[i];
     if (tell) {
       const text = tell.detail ?? tell.label;
-      const hint = settings.markDrafts && stepCopy(tell, i, n).unverified ? `AI draft · ${tap}` : tap;
-      return { spot: spotFor(d, i, text), text, hint, loop: true };
+      const draft = settings.markDrafts && stepCopy(tell, i, n).unverified;
+      const hint = [draft ? 'AI draft' : '', tap].filter(Boolean).join(' · ') || undefined;
+      return { spot: spotFor(d, i, text), text, hint, loop: true, step };
     }
     const text = d.unplaced
       .slice(0, 3)
       .map((u) => `“${u.quote}”`)
       .join('\n');
-    return { spot: spotFor(d, i, text), text, hint: tap, loop: false };
+    return { spot: spotFor(d, i, text), text, hint: tap || undefined, loop: false, step };
   };
 
   // ---- steps ----------------------------------------------------------------
   const stopScrub = () => {
+    setSeekBadge(null);
     cancelScrub.current();
     cancelScrub.current = () => {};
     if (scrubbing) devMark('scrubEnd');
@@ -273,7 +284,9 @@ export function TellOverlay({ ref, ...p }: Props) {
     // (A temporary crash check can go straight there instead.)
     const plan = settings.dbgScrub ? planScrub(player.currentTime, r.from) : { from: r.from, to: r.from, ms: 0, stepMs: 33 };
     if (!settings.dbgScrub) safeSeek(player, r.from);
+    setSeekBadge(seekBadgeFor(plan.to - plan.from, plan.ms));
     cancelScrub.current = runScrub(player, plan, () => {
+      setSeekBadge(null);
       cancelScrub.current = () => {};
       devMark('scrubEnd');
       replay.current = r;
@@ -345,6 +358,10 @@ export function TellOverlay({ ref, ...p }: Props) {
   const back = () => {
     if (data && step !== null && step > 0 && !settling.current) goTo(step - 1, data);
   };
+  const backRef = useRef(back);
+  useEffect(() => {
+    backRef.current = back;
+  });
 
   // Keep the replay inside its loop; the loop line follows it (and restarts with it).
   const onTime = (time: number) => {
@@ -388,7 +405,7 @@ export function TellOverlay({ ref, ...p }: Props) {
   });
   useImperativeHandle(
     ref,
-    () => ({ open: () => void openRef.current(), close: () => closeRef.current(), next: () => nextRef.current() }),
+    () => ({ open: () => void openRef.current(), close: () => closeRef.current(), next: () => nextRef.current(), back: () => backRef.current() }),
     [],
   );
 
@@ -467,10 +484,16 @@ export function TellOverlay({ ref, ...p }: Props) {
           loop={c.loop ? loop : null}
           blur={settings.spotlightEffect === 'fullBlur'}
           plainText={!settings.dbgLineText}
+          nav={
+            c.step
+              ? { step: c.step.index, count: c.step.count, cue: settings.endCue, onBack: () => backRef.current(), onNext: () => nextRef.current() }
+              : undefined
+          }
           leaving={c.leaving}
           onGone={() => dropCard(c.key)}
         />
       ))}
+      <SeekBadge state={seekBadge} top={p.top} />
       <Animated.View style={[styles.closeWrap, ownLayer, { top: p.top }, closeStyle]} pointerEvents={inStep ? 'box-none' : 'none'}>
         <Pressable
           onPress={close}

@@ -37,6 +37,12 @@ test('parseSettings reads the double take spotlight settings', () => {
   assert.equal(bad.markDrafts, false);
 });
 
+test('the end cue defaults to the check, and reads the others', () => {
+  assert.equal(DEFAULT_SETTINGS.endCue, 'done');
+  assert.equal(parseSettings(JSON.stringify({ endCue: 'dots' })).endCue, 'dots');
+  assert.equal(parseSettings(JSON.stringify({ endCue: 'fireworks' })).endCue, 'done');
+});
+
 test('the spotlight defaults to darken only, and a first-version pick falls back to it', () => {
   assert.equal(DEFAULT_SETTINGS.spotlightEffect, 'darken');
   assert.equal(parseSettings(JSON.stringify({ spotlight: 'both' })).spotlightEffect, 'darken');

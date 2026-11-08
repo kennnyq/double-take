@@ -17,6 +17,14 @@ import {
 
 export { SPOTLIGHT_EFFECTS, SPOTLIGHT_PADDINGS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRENGTHS };
 
+/**
+ * How the double take shows that the next tap ends it: the forward button
+ * turns into a check (done), step dots fill up (dots), a step count (count),
+ * or only the faint "Tap to finish" line (text).
+ */
+export const END_CUES = ['done', 'dots', 'count', 'text'] as const;
+export type EndCue = (typeof END_CUES)[number];
+
 /** How long a press must last to count as a hold, in ms. */
 export const HOLD_DELAYS = [250, 350, 500] as const;
 export type HoldDelay = (typeof HOLD_DELAYS)[number];
@@ -49,6 +57,7 @@ export interface DevSettings {
   spotlightPadding: SpotlightPadding;
   /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
   markDrafts: boolean;
+  endCue: EndCue;
   /**
    * Temporary, to find what closes Expo Go on entering the double take: turn
    * pieces off one at a time. All on by default.
@@ -69,6 +78,7 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightShape: 'feather',
   spotlightPadding: 'normal',
   markDrafts: false,
+  endCue: 'done',
   dbgCornerCaps: true,
   dbgLineText: true,
   dbgScrub: true,
@@ -99,6 +109,7 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     spotlightShape: oneOf(SPOTLIGHT_SHAPES, o.spotlightShape, d.spotlightShape),
     spotlightPadding: oneOf(SPOTLIGHT_PADDINGS, o.spotlightPadding, d.spotlightPadding),
     markDrafts: typeof o.markDrafts === 'boolean' ? o.markDrafts : d.markDrafts,
+    endCue: oneOf(END_CUES, o.endCue, d.endCue),
     dbgCornerCaps: typeof o.dbgCornerCaps === 'boolean' ? o.dbgCornerCaps : d.dbgCornerCaps,
     dbgLineText: typeof o.dbgLineText === 'boolean' ? o.dbgLineText : d.dbgLineText,
     dbgScrub: typeof o.dbgScrub === 'boolean' ? o.dbgScrub : d.dbgScrub,
