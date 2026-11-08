@@ -84,6 +84,8 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const [scrub, setScrub] = useState(false);
   // The double take is open: the top bar fades out with the clip's own chrome.
   const [inspecting, setInspecting] = useState(false);
+  // A finger is dragging along the progress bar: the feed holds still meanwhile.
+  const [barDrag, setBarDrag] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');
   const listRef = useRef<FlatList<Clip>>(null);
   const activeRef = useRef(active);
@@ -498,6 +500,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
       setSlowmo: setSlowmoNow,
       setScrub: setScrubNow,
       setInspecting,
+      setBarDrag,
     }),
     [actions, nav, changePaused, paused, applyNow, setSlowmoNow, setScrubNow],
   );
@@ -558,7 +561,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
           maxToRenderPerBatch={3}
           windowSize={5}
           removeClippedSubviews
-          scrollEnabled={!sheetOpen}
+          scrollEnabled={!sheetOpen && !barDrag}
           onContentSizeChange={onContentSizeChange}
         />
       )}
@@ -616,4 +619,6 @@ export type FeedHandlers = {
   setScrub: (on: boolean) => void;
   /** The walkthrough opened or closed on the active clip (fades the top bar). */
   setInspecting: (on: boolean) => void;
+  /** A drag along the progress bar started or ended (the feed doesn't scroll meanwhile). */
+  setBarDrag: (on: boolean) => void;
 };

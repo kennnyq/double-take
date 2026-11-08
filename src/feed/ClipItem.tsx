@@ -15,6 +15,7 @@ import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/g
 import { useAppSettings } from '@/settings/store';
 import type { FeedHandlers } from './Feed';
 import { BlurredStill, CornerCaps, useCheapClip } from './InspectStage';
+import { Scrubber } from './Scrubber';
 import { ownLayer } from './layer';
 import { paddingPx, spotlightStrength } from './spotlight';
 import { useSpotlightMotion } from './spotlightMotion';
@@ -324,19 +325,15 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         </Reanimated.View>
       )}
 
-      <Reanimated.View style={[styles.progressTrack, ownLayer, chromeMotion]} pointerEvents="none">
-        <Animated.View
-          style={[
-            styles.progressFill,
-            {
-              width: stageW,
-              transform: [
-                { translateX: -stageW / 2 },
-                { scaleX: p.isActive ? p.progress : 0 },
-                { translateX: stageW / 2 },
-              ],
-            },
-          ]}
+      {/* The progress bar fades with the rest of the chrome during a double take (its card has its own loop line). */}
+      <Reanimated.View style={[styles.scrubWrap, ownLayer, chromeMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
+        <Scrubber
+          player={p.isActive ? p.player : null}
+          progress={p.isActive ? p.progress : IDLE_PROGRESS}
+          width={stageW}
+          enabled={p.isActive && !inspecting}
+          onHold={h.setScrub}
+          onDrag={h.setBarDrag}
         />
       </Reanimated.View>
       {roundWithCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
@@ -508,6 +505,9 @@ const textShadow = {
   textShadowRadius: 2,
 };
 
+/** The bar of a clip that isn't playing: empty. */
+const IDLE_PROGRESS = new Animated.Value(0);
+
 const styles = StyleSheet.create({
   page: { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   stage: { overflow: 'hidden', backgroundColor: '#111' },
@@ -571,14 +571,5 @@ const styles = StyleSheet.create({
   railLabel: { color: '#fff', fontSize: 12, fontWeight: '500', textAlign: 'center', ...textShadow },
   railLabelCompact: { fontSize: 11, letterSpacing: -0.2 },
   soundThumb: { width: 36, height: 36, borderRadius: 8, borderWidth: 2, borderColor: '#fff', marginTop: 4 },
-  progressTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    height: 2,
-    backgroundColor: 'rgba(255,255,255,0.28)',
-    overflow: 'hidden',
-  },
-  progressFill: { height: 2, backgroundColor: '#fff' },
+  scrubWrap: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 28 },
 });
