@@ -10,7 +10,7 @@ interface Press {
 }
 
 /** Space's two distinct presses share the pointer double-tap window.
- * A held key never counts its auto-repeats as taps or advances before release.
+ * A held key never counts its auto-repeats as taps or toggles playback before release when gestures are enabled.
  */
 export function createSpaceRecognizer(
   timers: Timers = { set: (fn, ms) => setTimeout(fn, ms), clear: (id) => clearTimeout(id as ReturnType<typeof setTimeout>) },

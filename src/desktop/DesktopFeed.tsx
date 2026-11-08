@@ -252,7 +252,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     }
   }, [safePlay]);
 
-  // Space advances; hold or a second press can open the walkthrough.
+  // Space plays/pauses; hold or a second press can open the walkthrough.
   // Pointer and keyboard share DOUBLE_TAP_MS. Editable fields and controls
   // reached with Tab retain their native keyboard behavior.
   const space = useRef({ down: false });
@@ -293,7 +293,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
           mode: revealGesture,
           hasTells: !!reveal.current,
           holdMs,
-          onSingle: next,
+          onSingle: togglePause,
           onReveal: () => reveal.current?.open(),
         });
       } else if ((e.key === 'm' || e.key === 'M') && !e.repeat && (owner === 'feed' || owner === 'control')) {
@@ -340,7 +340,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       window.removeEventListener('blur', blur);
       window.removeEventListener('focusin', onFocus);
     };
-  }, [visible, scrollEnabled, active, inspecting, next, toggleMute, revealGesture, holdMs, focus, players]);
+  }, [visible, scrollEnabled, active, inspecting, togglePause, toggleMute, revealGesture, holdMs, focus, players]);
 
   // ---- feed mode switch ------------------------------------------------------
   // Stay on the same clip, or the nearest one after it.

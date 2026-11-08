@@ -28,7 +28,7 @@ export type KeyOwner =
   | 'dialog'
   /** A control reached with the keyboard: Space and Enter activate it. */
   | 'control'
-  /** The feed: Space advances, or opens the double take when held/double-tapped; M mutes. */
+  /** The feed: Space plays/pauses, or opens the double take when held/double-tapped; M mutes. */
   | 'feed';
 
 const TEXT_FIELDS = /^(INPUT|TEXTAREA|SELECT)$/;

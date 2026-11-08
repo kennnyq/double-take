@@ -1,7 +1,7 @@
 /**
  * Browser check for the desktop feed's Space key, with real (trusted) key
  * events in Chromium: held Space opens the double take, a quick press
- * advances the clip (or, during a double take, goes on to its next step), and
+ * plays/pauses the clip (or, during a double take, goes on to its next step), and
  * none of it depends on what was clicked last. It caught the
  * bug where a clicked button (e.g. Unmute) kept focus and took Space.
  *
@@ -109,13 +109,17 @@ async function main() {
   );
   await closeWalkthrough(page);
 
-  // Standalone Space advances once after the shared double-tap window.
+  // Standalone Space toggles playback after the shared double-tap window,
+  // with the existing pause visual, and never changes clips.
   const beforeSingle = await state(page);
   await page.keyboard.press(' ');
   await page.waitForTimeout(600);
-  check('a quick Space advances one clip', (await state(page)).clip === beforeSingle.clip + 1, await state(page));
-  await page.keyboard.press('ArrowUp');
+  const paused = await state(page);
+  check('a quick Space pauses the current clip', paused.paused && paused.clip === beforeSingle.clip && !paused.open, paused);
+  await page.keyboard.press(' ');
   await page.waitForTimeout(600);
+  const playing = await state(page);
+  check('a second isolated Space resumes the same clip', !playing.paused && playing.clip === beforeSingle.clip && !playing.open, playing);
 
   await holdOpens(page, 'after clicking Unmute (the reported bug)', () => page.click(`${ACTIVE} .mute-btn`));
   await holdOpens(page, 'after clicking the video twice', async () => {
@@ -171,10 +175,10 @@ async function main() {
     await p.waitForTimeout(700);
     await p.keyboard.press(' ');
     await p.waitForTimeout(80);
-    if (mode !== 'hold') check(mode + ': first Space does not advance early', (await state(p)).clip === 0, await state(p));
+    if (mode !== 'hold') check(mode + ': first Space neither pauses nor advances early', (await state(p)).clip === 0 && !(await state(p)).paused, await state(p));
     await p.keyboard.press(' ');
     await p.waitForTimeout(1400);
-    check(mode + ': double Space obeys the setting', mode === 'hold' ? !(await state(p)).open : (await state(p)).open && (await state(p)).clip === 0, await state(p));
+    check(mode + ': double Space obeys the setting', mode === 'hold' ? !(await state(p)).open : (await state(p)).open && (await state(p)).clip === 0 && !(await state(p)).paused, await state(p));
     await closeWalkthrough(p);
     // Test input/textarea/contenteditable, covering link fields, comments and notes.
     for (const tag of ['input', 'textarea', 'div']) {

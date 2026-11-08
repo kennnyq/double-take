@@ -21,42 +21,42 @@ function setup(mode: RevealGesture = 'both', hasTells = true) {
     }
     now = end;
   };
-  const press = { mode, hasTells, holdMs: 400, onSingle: () => log.push('advance'), onReveal: () => log.push('reveal') };
+  const press = { mode, hasTells, holdMs: 400, onSingle: () => log.push('toggle'), onReveal: () => log.push('reveal') };
   return { r, log, advance, down: () => r.down(press), tap: () => { r.down(press); r.up(); } };
 }
 
 for (const mode of ['doubleTap', 'both'] as const) {
-  test(mode + ': first press waits; second press reveals without advancing', () => {
+  test(mode + ': first press waits; second press reveals without toggling playback', () => {
     const s = setup(mode); s.tap(); s.advance(100);
     assert.deepEqual(s.log, []);
     s.down(); s.r.up(); s.advance(1000);
     assert.deepEqual(s.log, ['reveal']);
   });
-  test(mode + ': a single tap advances at the shared deadline, not later', () => {
+  test(mode + ': a single tap toggles playback at the shared deadline, not later', () => {
     const s = setup(mode); s.down(); s.advance(100); s.r.up();
     s.advance(DOUBLE_TAP_MS - 101); assert.deepEqual(s.log, []);
-    s.advance(1); assert.deepEqual(s.log, ['advance']);
+    s.advance(1); assert.deepEqual(s.log, ['toggle']);
   });
 }
 test('Hold mode does not reserve a double-tap window', () => {
-  const s = setup('hold'); s.tap(); assert.deepEqual(s.log, ['advance']);
-  s.advance(100); s.tap(); assert.deepEqual(s.log, ['advance', 'advance']);
+  const s = setup('hold'); s.tap(); assert.deepEqual(s.log, ['toggle']);
+  s.advance(100); s.tap(); assert.deepEqual(s.log, ['toggle', 'toggle']);
 });
-test('held Space and auto-repeats reveal only once, never advance', () => {
+test('held Space and auto-repeats reveal only once, never toggle playback', () => {
   for (const mode of ['hold', 'both'] as const) {
     const s = setup(mode); s.down();
     for (let i = 0; i < 12; i++) { s.advance(50); s.down(); }
     s.r.up(); s.advance(1000); assert.deepEqual(s.log, ['reveal']);
   }
 });
-test('Double tap mode does not reveal on hold, and advances once on release', () => {
+test('Double tap mode does not reveal on hold, and toggles playback once on release', () => {
   const s = setup('doubleTap'); s.down(); s.advance(800); s.down();
-  assert.deepEqual(s.log, []); s.r.up(); assert.deepEqual(s.log, ['advance']);
+  assert.deepEqual(s.log, []); s.r.up(); assert.deepEqual(s.log, ['toggle']);
 });
-test('clips without annotations advance immediately in all modes', () => {
+test('clips without annotations toggle playback immediately in all modes', () => {
   for (const mode of ['hold', 'doubleTap', 'both'] as const) {
-    const s = setup(mode, false); s.down(); assert.deepEqual(s.log, ['advance']);
-    s.advance(1000); s.down(); s.r.up(); assert.deepEqual(s.log, ['advance']);
+    const s = setup(mode, false); s.down(); assert.deepEqual(s.log, ['toggle']);
+    s.advance(1000); s.down(); s.r.up(); assert.deepEqual(s.log, ['toggle']);
   }
 });
 test('cancelling on navigation, typing, blur or settings changes discards pending actions', () => {
@@ -65,7 +65,7 @@ test('cancelling on navigation, typing, blur or settings changes discards pendin
   s.down(); s.advance(100); s.r.cancel(); s.advance(1000); s.r.up();
   assert.deepEqual(s.log, []);
 });
-test('taps at the window boundary are separate advances', () => {
+test('taps at the window boundary are separate playback toggles', () => {
   const s = setup(); s.tap(); s.advance(DOUBLE_TAP_MS); s.tap(); s.advance(DOUBLE_TAP_MS);
-  assert.deepEqual(s.log, ['advance', 'advance']);
+  assert.deepEqual(s.log, ['toggle', 'toggle']);
 });
