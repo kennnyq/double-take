@@ -2,18 +2,24 @@
 
 Usage:
     python3 -I scripts/harvest/build_media.py CANDIDATES.jsonl [--out build] [--max-duration 90] [--merge]
+        [--feed demo]
 
 --merge keeps the existing feed and only downloads candidates it doesn't have yet,
 so adding clips never drops one whose source link has since died.
+--feed NAME writes feeds/NAME.json (default demo); the Worker serves it at
+/feed?name=NAME. Media is shared: a clip already built for another feed is reused.
 
 CANDIDATES.jsonl rows need at least `url`; `label`, `evidence`, `views`, `likes`,
-`uploader` and `source` are carried into the feed when present.
+`uploader` and `source` are carried into the feed when present, and so are the
+comparison fields `tier` (how we know a real clip is real), `pairOf` (the AI clip
+id it compares with) and `how`. `section` ("MM:SS-MM:SS") cuts a long source,
+such as a livestream, down to that stretch before anything else.
 
 Output mirrors the R2 bucket layout:
     archive/{sha256}/original.<ext>, info.json, candidate.json   private, never served
     media/{clipId}/v1/720.mp4, poster.jpg, tells.<hash>.json    immutable, served
     media/{clipId}/v1/tile.mp4                                  small silent copy for the web landing's gallery
-    feeds/demo.json                                             the feed
+    feeds/<name>.json                                           the feed (demo by default)
 """
 import argparse
 import hashlib
@@ -31,6 +37,8 @@ TELLS_DIR = os.path.join(HERE, "tells")
 # Alternative pipelines' tells (dev-build comparison), one folder per variant.
 VARIANTS_DIR = os.path.join(HERE, "..", "annotate", "variants")
 VERSION = "v1"
+# Carried from a candidate row into its feed row when present.
+COMPARE_FIELDS = ("tier", "pairOf", "how")
 
 
 def clip_id(url: str) -> str:
@@ -57,13 +65,16 @@ def probe(path: str) -> dict:
          "stream=width,height:format=duration", "-of", "json", path],
         capture_output=True, text=True, check=True).stdout
     d = json.loads(out)
+    if not d.get("streams"):
+        raise RuntimeError(f"no video stream in {os.path.basename(path)}")
     s = d["streams"][0]
     return {"width": s["width"], "height": s["height"], "duration": round(float(d["format"]["duration"]), 2)}
 
 
-def download(url: str, tmp: str) -> tuple[str, dict]:
+def fetch(url: str, tmp: str, section: str | None) -> tuple[str, dict]:
+    cut = ["--download-sections", f"*{section}", "--force-keyframes-at-cuts"] if section else []
     subprocess.run(
-        ["yt-dlp", "-q", "--no-warnings", "--no-playlist", "--write-info-json",
+        ["yt-dlp", "-q", "--no-warnings", "--no-playlist", "--write-info-json", *cut,
          "-f", "bv*[height<=1080]+ba/b[height<=1080]/b", "--merge-output-format", "mp4",
          "-o", os.path.join(tmp, "original.%(ext)s"), url],
         check=True, capture_output=True, text=True, timeout=600)
@@ -73,6 +84,27 @@ def download(url: str, tmp: str) -> tuple[str, dict]:
     with open(os.path.join(tmp, "original.info.json")) as f:
         info = json.load(f)
     return os.path.join(tmp, media[0]), info
+
+
+def download(url: str, tmp: str, section: str | None = None) -> tuple[str, dict]:
+    """Download a post's video, cut to `section` ("MM:SS-MM:SS") when given. yt-dlp
+    cuts YouTube streams itself, but its cut of X's CDN comes back empty; then the
+    whole post is downloaded and cut here."""
+    src, info = fetch(url, tmp, section)
+    if not section:
+        return src, info
+    try:
+        probe(src)
+        return src, info
+    except Exception:
+        for f in os.listdir(tmp):
+            os.remove(os.path.join(tmp, f))
+    full, info = fetch(url, tmp, None)
+    start, end = section.split("-", 1)
+    cut = os.path.join(tmp, "original.cut.mp4")
+    subprocess.run(["ffmpeg", "-v", "error", "-y", "-ss", start, "-to", end, "-i", full, "-c:v", "libx264",
+                    "-preset", "fast", "-crf", "16", "-c:a", "aac", "-b:a", "192k", cut], check=True)
+    return cut, info
 
 
 def normalize(src: str, dst_dir: str) -> None:
@@ -151,11 +183,11 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
     media_dir = os.path.join(out, "media", cid, VERSION)
     with tempfile.TemporaryDirectory() as tmp:
         try:
-            src, info = download(url, tmp)
+            src, info = download(url, tmp, cand.get("section"))
+            meta = probe(src)
         except Exception as e:  # dead links are expected; skip them
-            print(f"skip {cid}: download failed ({str(e).splitlines()[0][:120]})", file=sys.stderr)
+            print(f"skip {cid}: download failed ({(str(e).splitlines() or [repr(e)])[0][:120]})", file=sys.stderr)
             return None
-        meta = probe(src)
         if meta["duration"] > max_duration:
             print(f"skip {cid}: {meta['duration']}s is longer than {max_duration}s", file=sys.stderr)
             return None
@@ -183,6 +215,7 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
         "sha256": digest,
         "label": cand.get("label"),
         "evidence": cand.get("evidence"),
+        **{k: cand[k] for k in COMPARE_FIELDS if cand.get(k)},
         "source": {
             "url": url,
             "platform": cid.split("-")[0],
@@ -194,6 +227,35 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
     }
 
 
+def built_elsewhere(out: str, feed_name: str) -> dict[str, dict]:
+    """Rows of clips already built into the other feeds under `out`, by id, when their
+    media is still on disk. Published media is never re-encoded in place."""
+    rows: dict[str, dict] = {}
+    feeds_dir = os.path.join(out, "feeds")
+    if not os.path.isdir(feeds_dir):
+        return rows
+    for name in sorted(os.listdir(feeds_dir)):
+        if not name.endswith(".json") or name == f"{feed_name}.json":
+            continue
+        with open(os.path.join(feeds_dir, name)) as f:
+            for c in json.load(f).get("clips", []):
+                if c["id"] not in rows and os.path.exists(os.path.join(out, c["video"])):
+                    rows[c["id"]] = c
+    return rows
+
+
+def reuse(row: dict, cand: dict) -> dict:
+    """Another feed's row for this clip, with this candidate's label, evidence and
+    comparison fields (an AI clip can be a plain demo clip and a compare partner)."""
+    out = {k: v for k, v in row.items() if k not in COMPARE_FIELDS}
+    for k in ("label", "evidence"):
+        if cand.get(k):
+            out[k] = cand[k]
+    out.update({k: cand[k] for k in COMPARE_FIELDS if cand.get(k)})
+    print(f"use  {row['id']}: already built for another feed", file=sys.stderr)
+    return out
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("candidates")
@@ -201,13 +263,16 @@ def main() -> None:
     ap.add_argument("--max-duration", type=float, default=90)
     ap.add_argument("--jobs", type=int, default=3)
     ap.add_argument("--merge", action="store_true", help="keep the existing feed; only add new clips")
+    ap.add_argument("--feed", default="demo", help="feed name: writes feeds/NAME.json (default demo)")
     args = ap.parse_args()
+    if not re.fullmatch(r"[\w-]+", args.feed):
+        ap.error("--feed takes letters, digits, _ and - (the Worker's rule)")
 
     with open(args.candidates) as f:
         cands = [json.loads(line) for line in f if line.strip()]
     # One clip per id: the same post can appear twice in a candidate list.
     uniq = list({clip_id(c["url"]): c for c in cands}.values())
-    feed_path = os.path.join(args.out, "feeds", "demo.json")
+    feed_path = os.path.join(args.out, "feeds", f"{args.feed}.json")
     existing = []
     if args.merge and os.path.exists(feed_path):
         with open(feed_path) as f:
@@ -215,8 +280,14 @@ def main() -> None:
         have = {c["id"] for c in existing}
         uniq = [c for c in uniq if clip_id(c["url"]) not in have]
         print(f"merge: {len(existing)} clips kept, {len(uniq)} new to build", file=sys.stderr)
+    elsewhere = built_elsewhere(args.out, args.feed)
+
+    def build_or_reuse(c: dict) -> dict | None:
+        row = elsewhere.get(clip_id(c["url"]))
+        return reuse(row, c) if row else build_one(c, args.out, args.max_duration)
+
     with ThreadPoolExecutor(args.jobs) as ex:
-        clips = existing + [c for c in ex.map(lambda c: build_one(c, args.out, args.max_duration), uniq) if c]
+        clips = existing + [c for c in ex.map(build_or_reuse, uniq) if c]
 
     # Collapse re-uploads of byte-identical files.
     seen, feed = set(), []
@@ -233,7 +304,7 @@ def main() -> None:
     os.makedirs(os.path.join(args.out, "feeds"), exist_ok=True)
     with open(feed_path, "w") as f:
         json.dump({"version": 1, "clips": feed}, f, ensure_ascii=False, indent=2)
-    print(f"feed: {len(feed)} clips → {os.path.join(args.out, 'feeds', 'demo.json')}", file=sys.stderr)
+    print(f"feed: {len(feed)} clips → {feed_path}", file=sys.stderr)
 
 
 if __name__ == "__main__":
