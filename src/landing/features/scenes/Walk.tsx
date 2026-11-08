@@ -87,6 +87,29 @@ function liftPlace(g: StepGeo, side: 1 | -1, d: Dims, w: number) {
   return { x: g.x + side * shift, y: g.y - (d.narrow ? 4 : 8), z: d.narrow ? 14 : 30, rot: 0, scale: 1.02 };
 }
 
+/** How far in front of the screen the side card floats, px. */
+const SIDE_Z = 26;
+
+/**
+ * Where the card sits from the start (the default): beside the phone on
+ * `side`, level with its tell (or on the rail's panel), a little in front of
+ * the screen. Where there's no room beside it (phones), it rests over the
+ * phone's bottom edge, or its top edge when the tell is low on the screen.
+ */
+function sidePlace(g: StepGeo, side: 1 | -1, d: Dims, w: number, fh: number) {
+  if (d.narrow) {
+    const low = g.hole.y + g.hole.h / 2 > fh * 0.55;
+    return { x: (d.sw - w) / 2, y: low ? -18 : d.sh + 18 - g.h, below: !low };
+  }
+  const gap = 30;
+  const room = side > 0 ? d.roomR : d.roomL;
+  // Beside the phone when it fits; else as far out as the stage allows, over the phone's edge.
+  const reach = Math.min(gap, Math.max(-w * 0.6, room - w - 8));
+  const x = side > 0 ? d.sw + reach : -reach - w;
+  const cy = d.railY ?? g.hole.y + g.hole.h / 2;
+  return { x, y: Math.max(8, Math.min(d.sh - g.h - 8, cy - g.h / 2)), below: false };
+}
+
 /** Where a card goes out to: beside the phone on `side`, level with its tell (or on the rail's panel). */
 function popPlace(g: StepGeo, side: 1 | -1, d: Dims, w: number, scale: number) {
   if (d.narrow || d.pop <= 0) return { x: g.x, y: g.y - 10 * d.pop, z: 60 * d.pop, rot: 0, scale: 1 + 0.12 * d.pop };
@@ -293,24 +316,50 @@ export function WalkScene() {
     );
 
     // The card: in from below its tell as the double take opens, then over to each next tell.
-    const lift = f.lift;
-    const side: 1 | -1 = d.popSide === 0 ? (k % 2 ? -1 : 1) : d.popSide;
-    const lifted = values.card === 'lift' || d.pop <= 0;
-    const popScale = d.narrow ? 1 : Math.min(1.15, 1 + 0.1 * d.pop);
-    const out = lifted ? liftPlace(cur, side, d, cardW) : popPlace(cur, side, d, cardW, popScale);
-    const L = easeInOut(lift);
+    const mode = values.card;
     const h = mix(prev.h, cur.h);
-    const x = lerp(mix(prev.x, cur.x), out.x, L);
-    const y = lerp(mix(prev.y, cur.y), out.y, L) + (1 - f.open) * TRAVEL;
-    // Out along an arc: a little further forward on the way than where it lands (lifted: straight up off the screen).
-    const z = out.z * L + (lifted ? 0 : Math.sin(Math.PI * lift) * 26 * d.pop);
-    const s = (0.96 + 0.04 * f.open) * lerp(1, out.scale, L);
-    paint(card.current, `translate3d(${px(x)}, ${px(y)}, ${px(z)}) rotateY(${(out.rot * L).toFixed(3)}deg) scale(${s.toFixed(4)})`, f.open);
+    let x: number;
+    let y: number;
+    let z: number;
+    let rot = 0;
+    let s = 0.96 + 0.04 * f.open;
+    let L: number;
+    // Beside the phone (one side, so a step's card changes in place); stage's alternating sides apply to the old pop only.
+    let side: 1 | -1 = d.popSide === -1 ? -1 : 1;
+    let below = false;
+    if (mode === 'side') {
+      // Beside the phone from the start: it rises and fades in where it stays, and moves from tell to tell there.
+      const a = sidePlace(prev, side, d, cardW, fh);
+      const b = sidePlace(cur, side, d, cardW, fh);
+      below = b.below;
+      L = 1;
+      x = mix(a.x, b.x);
+      y = mix(a.y, b.y) + (1 - f.open) * TRAVEL;
+      z = SIDE_Z;
+    } else {
+      side = d.popSide === 0 ? (k % 2 ? -1 : 1) : d.popSide;
+      const lifted = mode === 'lift' || d.pop <= 0;
+      const popScale = d.narrow ? 1 : Math.min(1.15, 1 + 0.1 * d.pop);
+      const out = lifted ? liftPlace(cur, side, d, cardW) : popPlace(cur, side, d, cardW, popScale);
+      L = easeInOut(f.lift);
+      x = lerp(mix(prev.x, cur.x), out.x, L);
+      y = lerp(mix(prev.y, cur.y), out.y, L) + (1 - f.open) * TRAVEL;
+      // Out along an arc: a little further forward on the way than where it lands (lifted: straight up off the screen).
+      z = out.z * L + (lifted ? 0 : Math.sin(Math.PI * f.lift) * 26 * d.pop);
+      s *= lerp(1, out.scale, L);
+      rot = out.rot * L;
+    }
+    const lifted = mode !== 'out';
+    paint(card.current, `translate3d(${px(x)}, ${px(y)}, ${px(z)}) rotateY(${rot.toFixed(3)}deg) scale(${s.toFixed(4)})`, f.open);
     paint(glass.current, `scaleY(${(h / 200).toFixed(4)})`, 1);
     paint(footer.current, `translate3d(0, ${px(h - FOOTER - BOTTOM)}, 0)`, 1);
-    // The shadow falls away from the side it lifts toward, softly, as if lit from above.
-    paint(shadow.current, `translate3d(${px(-side * (lifted ? 10 : 0) * L)}, ${px(h * 0.5 + (lifted ? 10 : 18) * L)}, 0) scale(1, ${(h / 200).toFixed(4)})`, L * (lifted ? 0.75 : 0.9));
-    chips.current.forEach((el, j) => paint(el, `translate3d(0, ${px((1 - L) * 8)}, 0)`, !lifted && j === k ? L : 0));
+    // A soft shadow under it, falling away from the phone as if lit from above.
+    paint(shadow.current, `translate3d(${px((mode === 'side' ? side * 6 : -side * (lifted ? 10 : 0)) * L)}, ${px(h * 0.5 + (lifted ? 10 : 18) * L)}, 0) scale(1, ${(h / 200).toFixed(4)})`, L * (lifted ? 0.7 : 0.9));
+    // Its tell's time and name above it (beside the phone, or out with the old pop), the next one taking over as the steps change.
+    chips.current.forEach((el, j) => {
+      const on = mode === 'lift' ? 0 : j === k ? (k > 0 ? m : 1) : j === k - 1 ? 1 - m : 0;
+      paint(el, `translate3d(0, ${px((1 - on) * 6)}, 0)`, on * (mode === 'side' ? f.open : L));
+    });
 
     // The bottom row rises after the text (the app's order: the text, then the dots and arrows, one beat apart).
     const ref = plans.current[k];
@@ -358,8 +407,23 @@ export function WalkScene() {
       [cx0, cy1],
       [cx1, cy1],
     ];
-    cs.forEach(([cx, cy], i) => paint(corners.current[i], `translate3d(${px(cx)}, ${px(cy)}, ${px(lifted ? 0 : L * 18 * d.pop)})`, f.open * (lifted ? 0.8 : 0.55 + 0.45 * L)));
-    if (!lifted && !d.narrow && d.pop > 0) {
+    const flat = mode !== 'out';
+    cs.forEach(([cx, cy], i) => paint(corners.current[i], `translate3d(${px(cx)}, ${px(cy)}, ${px(flat ? 0 : L * 18 * d.pop)})`, f.open * (flat ? 0.8 : 0.55 + 0.45 * L)));
+    if (mode === 'side') {
+      // A thin line from the tell's edge to the card's near edge (up or down to it on phones).
+      const cxm = (cx0 + cx1) / 2;
+      const cym = (cy0 + cy1) / 2;
+      const [x0, y0, x1, y1] = d.narrow
+        ? below
+          ? [cxm, cy1, x + cardW / 2, y]
+          : [cxm, cy0, x + cardW / 2, y + h]
+        : side > 0
+          ? [cx1, cym, x, y + h / 2]
+          : [cx0, cym, x + cardW, y + h / 2];
+      const len = Math.max(0, Math.hypot(x1 - x0, y1 - y0) - 4);
+      const ang = Math.atan2(y1 - y0, x1 - x0);
+      paint(wire.current, `translate3d(${px(x0)}, ${px(y0)}, ${px(z * 0.5)}) rotate(${ang.toFixed(4)}rad) scaleX(${(len / 100).toFixed(4)})`, f.open * (len > 6 ? 1 : 0));
+    } else if (mode === 'out' && !d.narrow && d.pop > 0) {
       const x0 = side > 0 ? hole.x + hole.w : hole.x;
       const y0 = hole.y + hole.h / 2;
       const x1 = side > 0 ? x : x + cardW * s;
@@ -369,8 +433,8 @@ export function WalkScene() {
       paint(wire.current, `translate3d(${px(x0)}, ${px(y0)}, ${px(z * 0.5)}) rotate(${ang.toFixed(4)}rad) scaleX(${(len / 100).toFixed(4)})`, L * L);
     } else paint(wire.current, 'none', 0);
 
-    // The phone turns a little toward the card that's out (lifted: hardly at all).
-    return side * (lifted ? 1.5 : 6) * L * Math.min(1, d.pop);
+    // The phone turns a little toward the card that's out (only with the old pop).
+    return mode === 'out' ? side * 6 * L * Math.min(1, d.pop) : 0;
   });
 
   const k = dims ? dims.sw / CANVAS_W : 1;

@@ -64,8 +64,9 @@ export const FEATURE_TRIALS = {
     { value: 'floaty', label: 'Loosely' },
   ]),
   card: trial(MOTION, 'Walkthrough card', 'fcard', [
-    { value: 'lift', label: 'Lifted a little to the side' },
-    { value: 'out', label: 'Out beside the phone' },
+    { value: 'side', label: 'Beside the phone from the start' },
+    { value: 'lift', label: 'On screen, lifting a little to the side' },
+    { value: 'out', label: 'On screen, then out beside the phone' },
   ]),
   pop: trial(MOTION, 'Other cards out of the screen', 'fpop', [
     { value: 'full', label: 'Out beside the phone' },
@@ -103,7 +104,7 @@ const BASE: FeatureValues = {
   nav: 'dots',
   length: 'medium',
   follow: 'smooth',
-  card: 'lift',
+  card: 'side',
   pop: 'full',
   tilt: 'some',
   steps: '3',
