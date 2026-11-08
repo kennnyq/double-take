@@ -43,9 +43,11 @@ export function Expand({ design, entry, from, to, toRadius, closing, onClose, on
   const native = design === 'zoom' && NATIVE;
   const [e] = useState(() => new Animated.Value(0));
   const [lift] = useState(() => new Animated.Value(0));
+  // Opened at full size: the explanation starts (and stays while it closes, fading with it).
+  const [settled, setSettled] = useState(false);
 
   useEffect(() => {
-    const spring = (v: Animated.Value, toValue: number, cfg: typeof CARD_SPRING | typeof FIRM_SPRING) =>
+    const spring = (v: Animated.Value, toValue: number, cfg: { stiffness: number; damping: number; mass: number }) =>
       Animated.spring(v, { toValue, ...cfg, useNativeDriver: native, restDisplacementThreshold: 0.002, restSpeedThreshold: 0.02 });
     const liftTo = (toValue: number) => Animated.timing(lift, { toValue, duration: 150, easing: Easing.out(Easing.cubic), useNativeDriver: native });
     let a: Animated.CompositeAnimation;
@@ -53,6 +55,7 @@ export function Expand({ design, entry, from, to, toRadius, closing, onClose, on
     else a = design === 'lift' ? Animated.sequence([spring(e, 0, FIRM_SPRING), liftTo(0)]) : spring(e, 0, FIRM_SPRING);
     a.start(({ finished }) => {
       if (finished && closing) onClosed();
+      else if (finished) setSettled(true);
     });
     return () => a.stop();
   }, [closing, design, e, lift, native, onClosed]);
@@ -107,7 +110,7 @@ export function Expand({ design, entry, from, to, toRadius, closing, onClose, on
         <Pressable style={StyleSheet.absoluteFill} onPress={onClose} accessibilityLabel="Close" />
       </Animated.View>
       <Animated.View style={[styles.box, box]}>
-        <ClipView entry={entry} open={e} top={top} bottom={bottom} onClose={onClose} />
+        <ClipView entry={entry} open={e} settled={settled} width={to.w} height={to.h} top={top} bottom={bottom} onClose={onClose} />
       </Animated.View>
     </>
   );

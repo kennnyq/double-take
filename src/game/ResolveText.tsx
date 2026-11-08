@@ -12,7 +12,7 @@ export function ResolveText({ on, delay = 0, style, children, testID }: { on: bo
   useEffect(() => {
     const a = Animated.timing(v, {
       toValue: on ? 1 : 0,
-      duration: RESOLVE_MS * 1.5,
+      duration: RESOLVE_MS,
       delay: on ? delay : 0,
       easing: Easing.out(Easing.cubic),
       useNativeDriver: NATIVE,

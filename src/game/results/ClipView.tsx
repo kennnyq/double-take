@@ -1,30 +1,51 @@
-import { useEffect, useState } from 'react';
-import { Animated, Image, Platform, Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Animated, Image, Linking, Platform, Pressable, StyleSheet, View } from 'react-native';
 import { useEventListener } from 'expo';
 import { VideoView, useVideoPlayer, type VideoPlayer } from 'expo-video';
 import { Ionicons } from '@expo/vector-icons';
+import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { playWeb } from '@/feed/playWeb';
 import { fitFor } from '@/feed/tells';
 import { usePalette } from '@/ui/theme';
-import { MISS_EXPLAINER } from '../explainer';
+import { MISS_EXPLAINER, type ReplayControls } from '../explainer';
 import { lerp, useEased, type AnimNum } from '../motion';
-import type { Guess } from '../round';
 import { entryLabel, type ResultEntry } from './ResultTile';
 
 /** Outside the component: hooks' return values can't be written to in place. */
-function applyMuted(player: VideoPlayer, muted: boolean) {
-  player.muted = muted;
+function setPlayer(player: VideoPlayer, patch: { muted?: boolean; rate?: number; play?: boolean }) {
+  if (patch.muted !== undefined) player.muted = patch.muted;
+  if (patch.rate !== undefined && player.playbackRate !== patch.rate) player.playbackRate = patch.rate;
+  if (patch.play === false) player.pause();
+  else if (patch.play === true) {
+    if (Platform.OS === 'web') playWeb(player, () => (player.muted = true));
+    else player.play();
+  }
+}
+
+interface Props {
+  entry: ResultEntry;
+  /** 0..1, the expand's progress: the buttons follow once it has (nearly) opened. */
+  open: AnimNum;
+  /** It has finished opening at its full size: the explanation starts. */
+  settled: boolean;
+  width: number;
+  height: number;
+  top: number;
+  bottom: number;
+  onClose: () => void;
 }
 
 /**
  * A results clip opened full size: its poster at once (it's what the tile
- * showed), the video easing in over it once it plays, and the explanation
- * of what it really was. Lays itself out in whatever box the expand gives it.
+ * showed), the video easing in over it once it plays, and then the double
+ * take's explanation of what it really was.
  */
-export function ClipView({ entry, open, top, bottom, onClose }: { entry: ResultEntry; open: AnimNum; top: number; bottom: number; onClose: () => void }) {
+export function ClipView({ entry, open, settled, width, height, top, bottom, onClose }: Props) {
   const c = usePalette();
   const clip = entry.clip;
   const [muted, setMuted] = useState(Platform.OS === 'web');
+  const [paused, setPaused] = useState(false);
+  const [inspecting, setInspecting] = useState(false);
   const player = useVideoPlayer(clip.video, (p) => {
     p.loop = true;
     p.muted = Platform.OS === 'web';
@@ -33,18 +54,48 @@ export function ClipView({ entry, open, top, bottom, onClose }: { entry: ResultE
   useEventListener(player, 'statusChange', ({ status }) => {
     if (status === 'readyToPlay') setReady(true);
   });
-  useEffect(() => applyMuted(player, muted), [player, muted]);
+  // The walkthrough mutes its slow loops and scrubs; the viewer's choice comes back after.
+  const held = useRef({ slowmo: false, scrub: false });
+  const mutedRef = useRef(muted);
   useEffect(() => {
-    if (!ready) return;
-    if (Platform.OS === 'web') playWeb(player, () => setMuted(true));
-    else player.play();
+    mutedRef.current = muted;
+    if (!held.current.slowmo && !held.current.scrub) setPlayer(player, { muted });
+  }, [player, muted]);
+  useEffect(() => {
+    if (ready) setPlayer(player, { play: true });
   }, [player, ready]);
+
+  const controls = useMemo<ReplayControls>(
+    () => ({
+      play: () => {
+        setPaused(false);
+        setPlayer(player, { play: true });
+      },
+      pause: () => {
+        setPaused(true);
+        setPlayer(player, { play: false });
+      },
+      slowmo: (on) => {
+        held.current.slowmo = on;
+        setPlayer(player, { rate: on ? REPLAY_RATE : 1, muted: on || mutedRef.current });
+      },
+      scrub: (on) => {
+        held.current.scrub = on;
+        if (on) setPlayer(player, { play: false, muted: true });
+        else setPlayer(player, { muted: held.current.slowmo || mutedRef.current });
+      },
+      inspect: setInspecting,
+    }),
+    [player],
+  );
+
   const videoIn = useEased(ready ? 1 : 0);
-  const fit = fitFor(clip.aspect);
+  // The walkthrough shows the whole frame, as the feed's does.
+  const fit = inspecting ? 'contain' : fitFor(clip.aspect);
   const Explainer = MISS_EXPLAINER;
-  const guess: Guess = { clipId: entry.clipId, guess: entry.guess ?? 'real', truth: entry.truth, correct: entry.correct ?? false, at: 0 };
-  // The chrome and the explanation follow once the clip has (nearly) opened.
   const chrome = lerp(open, [0.7, 1], [0, 1]);
+  // The replay's own buttons step aside while the walkthrough has its Close in that corner.
+  const buttons = useEased(inspecting ? 0 : 1);
 
   return (
     <View style={StyleSheet.absoluteFill} testID="clip-expanded">
@@ -54,12 +105,28 @@ export function ClipView({ entry, open, top, bottom, onClose }: { entry: ResultE
         <VideoView player={player} style={styles.video} contentFit={fit} nativeControls={false} playsInline allowsVideoFrameAnalysis={false} />
       </Animated.View>
       <Animated.View style={[StyleSheet.absoluteFill, { opacity: chrome }]} pointerEvents="box-none">
-        <View style={[styles.top, { paddingTop: top + 10 }]} pointerEvents="box-none">
+        {settled && (
+          <Explainer
+            clip={clip}
+            truth={entry.truth}
+            label={entryLabel(entry)}
+            player={player}
+            controls={controls}
+            paused={paused}
+            stageW={width}
+            stageH={height}
+            fit={fit}
+            top={top + 10}
+            bottom={bottom}
+            ready={ready}
+          />
+        )}
+        <Animated.View style={[styles.top, { paddingTop: top + 10, opacity: buttons }]} pointerEvents={inspecting ? 'none' : 'box-none'}>
           <RoundButton icon="close" label="Close" onPress={onClose} color={c.text} />
           <View style={styles.spacer} />
+          {clip.sourceUrl ? <RoundButton icon="open-outline" label="Source" onPress={() => Linking.openURL(clip.sourceUrl!).catch(() => {})} color={c.text} /> : null}
           <RoundButton icon={muted ? 'volume-mute' : 'volume-high'} label={muted ? 'Unmute' : 'Mute'} onPress={() => setMuted((m) => !m)} color={c.text} />
-        </View>
-        <Explainer clip={clip} guess={guess} label={entryLabel(entry)} player={player} top={top + 56} bottom={bottom} />
+        </Animated.View>
       </Animated.View>
     </View>
   );
@@ -75,7 +142,7 @@ function RoundButton({ icon, label, onPress, color }: { icon: React.ComponentPro
 
 const styles = StyleSheet.create({
   video: { position: 'absolute', left: 0, top: 0, width: '100%', height: '100%' },
-  top: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
+  top: { position: 'absolute', left: 0, right: 0, top: 0, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   spacer: { flex: 1 },
   button: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(0,0,0,0.4)' },
   pressed: { opacity: 0.6 },

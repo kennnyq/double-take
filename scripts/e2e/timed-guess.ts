@@ -209,10 +209,21 @@ async function run(browser: Browser, layout: Layout) {
 
   if (tiles > 0) {
     await page.locator('[data-testid="result-tile"]').first().click();
+    await page.waitForSelector('[data-testid="clip-expanded"]', { timeout: 10_000 });
+    // A clip with tells opens the double take's walkthrough first; its Close (or last step) leads to the why card.
+    const first = await Promise.race([
+      page.waitForSelector('[aria-label="Close the walkthrough"]', { timeout: 15_000 }).then(() => 'walk'),
+      page.waitForSelector('[data-testid="miss-explanation"]', { timeout: 15_000 }).then(() => 'why'),
+    ]).catch(() => 'none');
+    check('the opened clip explains itself (walkthrough or why card)', first !== 'none', first);
+    if (first === 'walk') {
+      await page.waitForTimeout(800);
+      await page.click('[aria-label="Close the walkthrough"]');
+    }
     const card = page.locator('[data-testid="miss-explanation"]');
-    await card.waitFor({ timeout: 10_000 });
-    await page.waitForTimeout(700);
-    check('a clip opens full size with its explanation', /Why it was (AI|real)/.test(await card.innerText()));
+    await card.waitFor({ timeout: 10_000 }).catch(() => {});
+    await page.waitForTimeout(900);
+    check('it ends on why it was AI or real', /Why it was (AI|real)/.test((await card.getAttribute('aria-label')) ?? ''), await card.getAttribute('aria-label').catch(() => null));
     await page.click('[data-testid="clip-expanded"] [aria-label="Close"]');
     await page.waitForSelector('[data-testid="clip-expanded"]', { state: 'detached', timeout: 10_000 });
     check('it closes back into the grid', true);

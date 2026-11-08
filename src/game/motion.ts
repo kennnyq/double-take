@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Animated, Easing, Platform } from 'react-native';
+import { SIRI } from '@/feed/reveal';
 
 /** The native driver where there is one; browsers animate on the JS side. */
 export const NATIVE = Platform.OS !== 'web';
@@ -21,12 +22,12 @@ export function useEased(target: number, ms: number = FADE_MS): Animated.Value {
   return v;
 }
 
-/** The double take's card spring (InfoCard on feat/double-take-flow): springy, a little past and back. */
+/** The double take's card spring (its InfoCard): springy, a little past and back. */
 export const CARD_SPRING = { stiffness: 260, damping: 17, mass: 1 } as const;
-/** A firmer spring for moves that shouldn't overshoot much (geometry, slides). */
-export const FIRM_SPRING = { stiffness: 240, damping: 26, mass: 1 } as const;
-/** How long text takes to resolve from faint and blurred to sharp (the double take's Siri-style reveal). */
-export const RESOLVE_MS = 240;
+/** The double take's mode change (inset, chrome): a soft spring with no visible bounce. For geometry. */
+export { MODE_SPRING as FIRM_SPRING } from '@/feed/motion';
+/** How long text takes to resolve from faint and blurred to sharp: a word's fade in the double take's (Siri) text reveal. */
+export const RESOLVE_MS = SIRI.fadeMs;
 
 /** An Animated value that springs to `target` whenever it changes. */
 export function useSprung(target: number, spring: { stiffness: number; damping: number; mass: number } = CARD_SPRING): Animated.Value {
