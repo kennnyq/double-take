@@ -133,3 +133,34 @@ test('quitting ends the round and keeps what was played', () => {
   assert.equal(s.endReason, 'quit');
   assert.equal(s.guesses.length, 1);
 });
+
+test('untimed: straight into play, judged at its own pace, the deck growing as it is dealt', () => {
+  let s = createRound(deck.slice(0, 2), 60_000, false);
+  s = roundReducer(s, { type: 'START', now: 100 });
+  assert.equal(s.phase, 'playing');
+  assert.equal(s.deadline, null);
+  assert.equal(remaining(s, 9e12), Infinity);
+  // No clock: ticks, pauses and hours away change nothing.
+  assert.equal(roundReducer(s, { type: 'TICK', now: 9e12 }), s);
+  assert.equal(roundReducer(s, { type: 'PAUSE', now: 9e12 }), s);
+  s = run(s, { type: 'MARK_AI', now: 1100 }, { type: 'SKIP', now: 5100 });
+  assert.equal(s.phase, 'playing', 'running out of cards only waits');
+  assert.deepEqual(
+    s.guesses.map((g) => [g.clipId, g.guess, g.correct, g.at]),
+    [
+      ['a', 'ai', true, 1000],
+      ['b', 'real', true, 5000],
+    ],
+  );
+  assert.equal(roundReducer(s, { type: 'MARK_AI', now: 6000 }), s, 'nothing to judge until more are dealt');
+  s = roundReducer(s, { type: 'DEAL', cards: deck.slice(2) });
+  assert.equal(s.deck.length, 4);
+  s = roundReducer(s, { type: 'MARK_AI', now: 7000 });
+  assert.equal(s.guesses.length, 3);
+  assert.equal(s.index, 3);
+});
+
+test('a timed round deals once: DEAL only grows a deck while not over', () => {
+  const over = roundReducer(playing(), { type: 'QUIT', now: 2000 });
+  assert.equal(roundReducer(over, { type: 'DEAL', cards: deck }), over);
+});
