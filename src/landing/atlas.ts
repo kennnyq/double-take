@@ -98,7 +98,21 @@ export interface BoardPlan {
   height: number;
   /** Canvas pixels per CSS pixel. */
   scale: number;
-  draws: { sx: number; sy: number; sw: number; sh: number; dx: number; dy: number; dw: number; dh: number }[];
+  draws: BoardDraw[];
+}
+
+/** One tile on a board: its cell's crop (`sx`..`sh`), and the crop's offset within any cell (`ox`, `oy`), so it can switch cells. */
+export interface BoardDraw {
+  sx: number;
+  sy: number;
+  sw: number;
+  sh: number;
+  ox: number;
+  oy: number;
+  dx: number;
+  dy: number;
+  dw: number;
+  dh: number;
 }
 
 /** Largest canvas side we'll make; browsers refuse (or tile slowly) beyond about this. */
@@ -133,6 +147,8 @@ export function planBoard(
     return {
       sx: sx + (sw - cw) / 2,
       sy: sy + (sh - ch) / 2,
+      ox: (sw - cw) / 2,
+      oy: (sh - ch) / 2,
       sw: cw,
       sh: ch,
       // Unrounded: a strip's second half must sit exactly one half along, or the
