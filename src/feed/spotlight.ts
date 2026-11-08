@@ -198,3 +198,43 @@ export function clipTransforms(stageW: number, stageH: number, r: Rect): { outer
     inner: { tx: -tx / sx, ty: -ty / sy, sx: 1 / sx, sy: 1 / sy },
   };
 }
+
+/** A stage-sized view's transform (translate, then scale about its centre). */
+export interface BandTransform {
+  tx: number;
+  ty: number;
+  sx: number;
+  sy: number;
+}
+
+/**
+ * The dimming outside the hole image `r` (stage px), as four plain bands:
+ * full-width above and below it, and beside it between its top and bottom,
+ * each overhanging the stage by `bleed`. Each is a stage-sized view moved and
+ * scaled by transform only, so nothing is laid out or drawn per frame. (A
+ * thick border around the image looked simpler, but iOS draws a border it
+ * can't hand to Core Animation into a bitmap the size of the border: about
+ * 5 GB for one that covers the stage, which killed the app.)
+ */
+export function dimBands(stageW: number, stageH: number, r: Rect, bleed = 24): BandTransform[] {
+  'worklet';
+  const W = stageW;
+  const H = stageH;
+  const top = r.y;
+  const bottom = r.y + r.h;
+  const left = r.x;
+  const right = r.x + r.w;
+  const band = (x0: number, y0: number, x1: number, y1: number): BandTransform => {
+    const w = Math.max(0, x1 - x0);
+    const h = Math.max(0, y1 - y0);
+    return { tx: x0 + w / 2 - W / 2, ty: y0 + h / 2 - H / 2, sx: Math.max(1e-4, w / W), sy: Math.max(1e-4, h / H) };
+  };
+  const yTop = Math.max(-bleed, Math.min(H + bleed, top));
+  const yBottom = Math.max(-bleed, Math.min(H + bleed, bottom));
+  return [
+    band(-bleed, -bleed, W + bleed, yTop),
+    band(-bleed, yBottom, W + bleed, H + bleed),
+    band(-bleed, yTop, Math.max(-bleed, Math.min(W + bleed, left)), yBottom),
+    band(Math.max(-bleed, Math.min(W + bleed, right)), yTop, W + bleed, yBottom),
+  ];
+}

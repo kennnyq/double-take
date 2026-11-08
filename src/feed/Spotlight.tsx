@@ -2,7 +2,7 @@ import { Platform, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import type { VideoPlayer } from 'expo-video';
-import { MASK_BOX, MASK_SIZE, bands, maskFor, spotlightStrength, type MaskName, type SpotlightEffect, type SpotlightShape, type SpotlightStrength } from './spotlight';
+import { MASK_SIZE, bands, dimBands, maskFor, maskPlacement, spotlightStrength, type MaskName, type SpotlightEffect, type SpotlightShape, type SpotlightStrength } from './spotlight';
 import type { SpotlightMotion } from './spotlightMotion';
 
 export interface SpotlightProps {
@@ -27,20 +27,18 @@ export const HOLE_IMAGES: Record<MaskName, number> = {
 };
 
 /**
- * Black border around the hole image, so the dimming covers the whole stage
- * at any scale (a 44 px hole scales the image down to about 0.17).
- */
-const BORDER = 6000;
-const SIDE = MASK_SIZE + 2 * BORDER;
-
-/**
  * The double take's spotlight on iOS and Android.
  *
- * The dimming is one view of fixed size: a prepared soft-hole image inside a
- * thick black border. Moving the hole only changes that view's transform and
- * opacity, which Reanimated writes on the UI thread with no layout and nothing
- * redrawn: the GPU just scales a texture. (The first version resized five
- * bordered views and four blur views every frame, over the playing video.)
+ * The dimming is a prepared soft-hole image and four plain bands around it
+ * (see `dimBands`), all fixed-size views without borders. Moving the hole only
+ * changes their transforms and opacity, which Reanimated writes on the UI
+ * thread with no layout and nothing redrawn: the GPU just scales a texture and
+ * four solid rectangles.
+ *
+ * No borders, on purpose: iOS draws a border it can't hand to Core Animation
+ * (a visible border on a view that doesn't clip) into a bitmap the size of the
+ * border. The thick border this used before needed about 5 GB, and iOS closed
+ * the app as the double take opened.
  *
  * The cheap blur (a blurred still behind the live area) lives with the video
  * in ClipItem. The full blur, live blur views around the hole's bounds, is
@@ -54,30 +52,47 @@ export function Spotlight(p: SpotlightProps) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {fullBlur && [0, 1, 2, 3].map((i) => <BlurBand key={i} index={i} m={p.motion} stageW={p.stageW} stageH={p.stageH} intensity={intensity} />)}
-      <Dim m={p.motion} dim={dim} image={HOLE_IMAGES[maskFor(p.shape)]} />
+      <Dim m={p.motion} dim={dim} image={HOLE_IMAGES[maskFor(p.shape)]} stageW={p.stageW} stageH={p.stageH} />
     </View>
   );
 }
 
-function Dim({ m, dim, image }: { m: SpotlightMotion; dim: number; image: number }) {
-  // No opacity on this view: it has a child, and iOS composites a view with a
-  // child at partial opacity offscreen every frame. The border's colour and
-  // the image carry the alpha instead.
-  const frame = useAnimatedStyle(() => ({
-    borderColor: `rgba(0,0,0,${(dim * Math.min(1, Math.max(0, m.on.value * 1.3))).toFixed(3)})`,
-    transform: [
-      { translateX: m.x.value + m.w.value / 2 },
-      { translateY: m.y.value + m.h.value / 2 },
-      { scaleX: Math.max(0.01, m.w.value / MASK_BOX) },
-      { scaleY: Math.max(0.01, m.h.value / MASK_BOX) },
-    ],
-  }));
-  const fade = useAnimatedStyle(() => ({ opacity: dim * Math.min(1, Math.max(0, m.on.value * 1.3)) }));
+function Dim({ m, dim, image, stageW, stageH }: { m: SpotlightMotion; dim: number; image: number; stageW: number; stageH: number }) {
+  // Every piece is a leaf view carrying its own alpha (no group opacity, which
+  // iOS would composite offscreen every frame).
+  const fade = useAnimatedStyle(() => {
+    const r = maskPlacement({ x: m.x.value, y: m.y.value, w: m.w.value, h: m.h.value });
+    return {
+      opacity: dim * Math.min(1, Math.max(0, m.on.value * 1.3)),
+      transform: [
+        { translateX: r.x + r.w / 2 },
+        { translateY: r.y + r.h / 2 },
+        { scaleX: Math.max(1e-3, r.w / MASK_SIZE) },
+        { scaleY: Math.max(1e-3, r.h / MASK_SIZE) },
+      ],
+    };
+  });
   return (
-    <Animated.View style={[styles.dim, frame]}>
+    <>
+      {[0, 1, 2, 3].map((i) => (
+        <DimBand key={i} index={i} m={m} dim={dim} stageW={stageW} stageH={stageH} />
+      ))}
       <Animated.Image source={image} style={[styles.image, fade]} fadeDuration={0} />
-    </Animated.View>
+    </>
   );
+}
+
+/** One of the four plain bands around the hole image: a stage-sized black view, moved and scaled. */
+function DimBand({ index, m, dim, stageW, stageH }: { index: number; m: SpotlightMotion; dim: number; stageW: number; stageH: number }) {
+  const style = useAnimatedStyle(() => {
+    const r = maskPlacement({ x: m.x.value, y: m.y.value, w: m.w.value, h: m.h.value });
+    const b = dimBands(stageW, stageH, r)[index];
+    return {
+      opacity: dim * Math.min(1, Math.max(0, m.on.value * 1.3)),
+      transform: [{ translateX: b.tx }, { translateY: b.ty }, { scaleX: b.sx }, { scaleY: b.sy }],
+    };
+  });
+  return <Animated.View style={[styles.band, { width: stageW, height: stageH }, style]} />;
 }
 
 /** One of the four live blur views around the hole's bounds (full blur only). */
@@ -87,22 +102,15 @@ function BlurBand({ index, m, stageW, stageH, intensity }: { index: number; m: S
     return { left: r.x, top: r.y, width: r.w, height: r.h, opacity: Math.min(1, m.on.value * 4) };
   });
   return (
-    <Animated.View style={[styles.band, style]}>
+    <Animated.View style={[styles.blurBand, style]}>
       <BlurView intensity={intensity} tint="dark" style={StyleSheet.absoluteFill} />
     </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  // Centred on the stage's top-left corner; translated to the hole's centre.
-  dim: {
-    position: 'absolute',
-    left: -SIDE / 2,
-    top: -SIDE / 2,
-    width: SIDE,
-    height: SIDE,
-    borderWidth: BORDER,
-  },
-  image: { width: MASK_SIZE, height: MASK_SIZE },
-  band: { position: 'absolute', overflow: 'hidden' },
+  // Centred on the stage's top-left corner; translated to the hole image's centre.
+  image: { position: 'absolute', left: -MASK_SIZE / 2, top: -MASK_SIZE / 2, width: MASK_SIZE, height: MASK_SIZE },
+  band: { position: 'absolute', left: 0, top: 0, backgroundColor: '#000' },
+  blurBand: { position: 'absolute', overflow: 'hidden' },
 });

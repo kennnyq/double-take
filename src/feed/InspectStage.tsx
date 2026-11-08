@@ -108,5 +108,6 @@ export function BlurredStill({ player, at, blur, m }: { player: VideoPlayer; at:
 
 const styles = StyleSheet.create({
   cap: { position: 'absolute', overflow: 'hidden' },
-  ring: { position: 'absolute', borderColor: '#000' },
+  // Clipping (it has no children) lets iOS draw the border with Core Animation instead of a bitmap.
+  ring: { position: 'absolute', borderColor: '#000', overflow: 'hidden' },
 });

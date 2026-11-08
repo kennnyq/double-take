@@ -9,6 +9,7 @@ import {
   SPOTLIGHT_SHAPES,
   bands,
   clipTransforms,
+  dimBands,
   grow,
   holeFor,
   maskFor,
@@ -123,5 +124,34 @@ test('clipTransforms: the clip lands on the area and its child stays put', () =>
     const out = apply(outer, W, H, inChild.x, inChild.y);
     close(out.x, x, 1e-6);
     close(out.y, y, 1e-6);
+  }
+});
+
+/** A band's rectangle on the stage, from its transform (a stage-sized view at the origin). */
+const bandRect = (b: { tx: number; ty: number; sx: number; sy: number }, W: number, H: number) => {
+  const w = W * b.sx;
+  const h = H * b.sy;
+  const cx = W / 2 + b.tx;
+  const cy = H / 2 + b.ty;
+  return { x: cx - w / 2, y: cy - h / 2, w, h };
+};
+
+test('dimBands: the four bands and the image cover the stage once, with no gaps or overlaps', () => {
+  const W = 430;
+  const H = 860;
+  for (const r of [
+    { x: 100, y: 200, w: 180, h: 160 },
+    { x: -80, y: -40, w: 300, h: 300 }, // hanging off the top left
+    { x: 300, y: 700, w: 400, h: 400 }, // off the bottom right
+  ]) {
+    const bands = dimBands(W, H, r).map((b) => bandRect(b, W, H));
+    // Sample a grid of points on the stage: each lies in exactly one of the bands or the image.
+    for (let x = 1; x < W; x += 13) {
+      for (let y = 1; y < H; y += 17) {
+        const inside = (q: { x: number; y: number; w: number; h: number }) => x >= q.x && x < q.x + q.w && y >= q.y && y < q.y + q.h;
+        const n = bands.filter(inside).length + (inside(r) ? 1 : 0);
+        assert.equal(n, 1, `(${x}, ${y}) covered ${n} times for ${JSON.stringify(r)}`);
+      }
+    }
   }
 });
