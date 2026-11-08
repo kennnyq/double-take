@@ -53,6 +53,13 @@ export interface InvestigationInput {
   track: 'signals-only' | 'evidence-assisted';
   sourceEvidence?: { text: string; url?: string; claim?: { component: Component; origin: 'generated' | 'camera'; basis: 'creator-disclosure' | 'documented-source'; quote: string } }[];
 }
+export interface OverallVerdict {
+  label: 'likely_ai' | 'likely_real';
+  /** Selected-label probability; absent when no matching empirical calibration is published. */
+  confidence?: number;
+  drivers: string[];
+  calibration?: { version: string; scope: string };
+}
 export interface InvestigationResult {
   version: 1;
   clipId: string;
@@ -65,6 +72,7 @@ export interface InvestigationResult {
   elapsedMs: number;
   /** Factual inspection coverage; never evidence of authenticity or a clean bill. */
   inspection?: InspectionReport;
+  verdict?: OverallVerdict;
   fusion?: { version: 1; selectedBy: 'nemotron' | 'rule_fallback'; signals: FusionSignal[] };
 }
 export interface FusionSignal {

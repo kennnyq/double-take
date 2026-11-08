@@ -57,6 +57,12 @@ export interface TraceEntry {
   observation: ToolObservation;
   elapsedMs: number;
 }
+export interface OverallVerdict {
+  label: 'likely_ai' | 'likely_real';
+  drivers: string[];
+  confidence?: number;
+  calibration?: { version: string; scope: 'feed-domain' };
+}
 export interface AnalysisResult {
   version: 1;
   clipId: string;
@@ -69,6 +75,7 @@ export interface AnalysisResult {
   elapsedMs: number;
   /** Factual inspection coverage; never evidence of authenticity or a clean bill. */
   inspection?: InspectionReport;
+  verdict?: OverallVerdict;
 }
 export interface InspectionReport {
   version: 1;
@@ -87,8 +94,30 @@ export function isBoundResult(value: unknown, clipId: string, sha256: string): v
     && Array.isArray(r.limitations) && r.limitations.every(x => typeof x === 'string')
     && Number.isFinite(r.elapsedMs) && r.elapsedMs >= 0;
 }
+/** Explicit public verdict allowlist. Extra analyzer fields are never spread into output.
+ * Invalid label/drivers omit the verdict; invalid confidence/calibration omit only those
+ * optional fields. This boundary validates the envelope, not empirical calibration quality.
+ * Driver strings are already-public operator prose, never raw scorer explanations.
+ */
+export function publicVerdict(value: unknown): OverallVerdict | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const v = value as Record<string, unknown>;
+  if (!['likely_ai','likely_real'].includes(v.label as string) || !Array.isArray(v.drivers) ||
+      v.drivers.length < 1 || v.drivers.length > 8 || !v.drivers.every(d => typeof d === 'string' &&
+        d.trim().length > 0 && d.length <= 240 && !/[\u0000-\u001f\u007f]/.test(d))) return undefined;
+  const verdict: OverallVerdict = { label: v.label as OverallVerdict['label'], drivers: v.drivers.map(d => (d as string).trim()) };
+  const c = v.calibration && typeof v.calibration === 'object' && !Array.isArray(v.calibration)
+    ? v.calibration as Record<string, unknown> : {};
+  if (typeof v.confidence === 'number' && Number.isFinite(v.confidence) && v.confidence >= 0 && v.confidence <= 1 &&
+      c.scope === 'feed-domain' && typeof c.version === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(c.version)) {
+    verdict.confidence = v.confidence;
+    verdict.calibration = { version: c.version, scope: 'feed-domain' };
+  }
+  return verdict;
+}
 /** Analyzer authors own public prose and inspection. Private trace never crosses HTTP. */
 export function publicResult(r: AnalysisResult) {
+  const verdict = publicVerdict(r.verdict);
   const stripTrace = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(stripTrace);
     if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'trace').map(([key, v]) => [key, stripTrace(v)]));
@@ -96,5 +125,5 @@ export function publicResult(r: AnalysisResult) {
   };
   return stripTrace({ version: r.version, clipId: r.clipId, mediaSha256: r.mediaSha256,
     mode: r.mode, components: r.components, evidence: r.evidence, limitations: r.limitations,
-    elapsedMs: r.elapsedMs, ...(r.inspection ? { inspection: r.inspection } : {}) });
+    elapsedMs: r.elapsedMs, ...(r.inspection ? { inspection: r.inspection } : {}), ...(verdict ? { verdict } : {}) });
 }
