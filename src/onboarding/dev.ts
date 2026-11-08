@@ -1,52 +1,69 @@
 import { registerDevSection } from '@/devtools/api';
-import { DEV_TOOLS } from '@/devtools/store';
+import { closeDevSettings, DEV_TOOLS } from '@/devtools/store';
 import { OPENS_TO_LEARN } from './hints';
-import { hints, type HintState } from './store';
+import { DEV_DEFAULTS, hints, type HintState } from './store';
 
 /*
- * Dev settings → Interaction → Tutorial: force a hint on every clip, pick how
- * it draws, or start over as a brand-new viewer. Registered again whenever the
- * hints' state changes, so the rows show it live.
+ * Dev settings → Interaction → Gesture hint: pick a design and the input it
+ * shows, play it now, keep it on every clip to compare, or start over as a
+ * brand-new viewer. Registered again whenever the hints' state changes, so the
+ * rows show it live.
  */
 
 function register(s: HintState) {
   const { opens, swiped } = s.progress;
+  // The panel covers the clip; close it so the hint can play.
+  const play = (kind: 'doubleTake' | 'swipe') => () => {
+    closeDevSettings();
+    hints.showNow(kind);
+  };
   registerDevSection({
-    id: 'interaction/tutorial',
+    id: 'interaction/gesture-hint',
     tab: 'interaction',
-    title: 'Tutorial',
-    order: 20,
-    note: `Double takes opened: ${opens} of ${OPENS_TO_LEARN}. Swipe ${swiped ? 'learned' : 'not learned yet'}.`,
-    keywords: 'hint onboarding first run gesture swipe',
+    title: 'Gesture hint',
+    order: -10,
+    note: `The first-run hint over the feed. Double takes opened: ${opens} of ${OPENS_TO_LEARN}; swipe ${swiped ? 'learned' : 'not learned yet'}.`,
+    keywords: 'tutorial hint onboarding first run gesture swipe design style',
     rows: [
       {
         kind: 'choice',
-        id: 'force',
-        label: 'Show',
+        id: 'design',
+        label: 'Design',
         items: [
-          { label: 'Normally', value: 'off', note: 'Swipe once, then the gesture until two double takes are opened.' },
-          { label: 'Swipe', value: 'swipe', note: 'The swipe hint on every clip (phone layout).' },
-          { label: 'Gesture', value: 'doubleTake', note: 'The double take hint on every clip with tells, looping.' },
+          { label: 'Tile', value: 'tile', note: 'A frosted tile with a hand, or a cursor and space bar, and its caption.' },
+          { label: 'Ring', value: 'ring', note: 'Just a ring and a dot on the clip, with a caption under them.' },
+          { label: 'Pill', value: 'pill', note: 'A small pill low on the clip: a tiny animated glyph beside the caption.' },
         ],
-        value: s.force,
-        defaultValue: 'off',
-        onSelect: (v) => hints.setForce(v as HintState['force']),
+        value: s.design,
+        defaultValue: DEV_DEFAULTS.design,
+        onSelect: (v) => hints.setDesign(v as HintState['design']),
       },
       {
         kind: 'choice',
-        id: 'style',
-        label: 'Style',
+        id: 'input',
+        label: 'Input',
         items: [
-          { label: 'Auto', value: 'auto', note: 'A hand on touch screens; mouse and keyboard with a fine pointer.' },
+          { label: 'Auto', value: 'auto', note: 'Touch on touch screens; mouse and keyboard with a fine pointer.' },
           { label: 'Touch', value: 'touch' },
           { label: 'Mouse', value: 'mouse' },
           { label: 'Still', value: 'still', note: 'As with Reduce Motion on: a still icon and its caption.' },
         ],
-        value: s.style,
-        defaultValue: 'auto',
-        onSelect: (v) => hints.setStyle(v as HintState['style']),
+        value: s.input,
+        defaultValue: DEV_DEFAULTS.input,
+        onSelect: (v) => hints.setInput(v as HintState['input']),
       },
-      { kind: 'action', id: 'reset', label: 'Reset the tutorial', note: 'Hints show as for a brand-new viewer.', run: hints.reset },
+      { kind: 'action', id: 'show', label: 'Show now', note: 'Closes this and plays the hint on the clip, for the gesture setting.', run: play('doubleTake') },
+      { kind: 'action', id: 'show-swipe', label: 'Show the swipe hint now', note: 'Phone layout.', run: play('swipe') },
+      {
+        kind: 'switch',
+        id: 'repeat',
+        label: 'Keep showing',
+        note: 'On every clip with a double take, looping, to compare designs.',
+        value: s.force === 'doubleTake',
+        defaultValue: false,
+        onChange: (on) => hints.setForce(on ? 'doubleTake' : 'off'),
+      },
+      { kind: 'action', id: 'reset', label: 'Reset tutorial', note: 'Hints show again as for a brand-new viewer.', run: hints.reset },
     ],
   });
 }
@@ -56,7 +73,7 @@ if (DEV_TOOLS) {
   const sync = () => {
     const s = hints.getSnapshot();
     // Session changes (clips, tries) don't change the rows.
-    if (last && last.progress === s.progress && last.force === s.force && last.style === s.style) return;
+    if (last && last.progress === s.progress && last.force === s.force && last.design === s.design && last.input === s.input) return;
     last = s;
     register(s);
   };

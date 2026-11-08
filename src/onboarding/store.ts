@@ -28,9 +28,16 @@ import {
 const PROGRESS_KEY = 'double-take.hints.v1';
 const DEV_KEY = 'double-take:dev-hints:v1';
 
-/** How the hint draws: by the input (a fine pointer gets the mouse and keyboard), or forced in the dev settings. */
-export const HINT_STYLES = ['auto', 'touch', 'mouse', 'still'] as const;
-export type HintStyle = (typeof HINT_STYLES)[number];
+/**
+ * The hint's designs, on trial in the dev settings: a frosted tile with a hand
+ * (or cursor and keycap), a bare ring and dot on the clip, or a small pill
+ * with a tiny animated glyph beside its caption.
+ */
+export const HINT_DESIGNS = ['tile', 'ring', 'pill'] as const;
+export type HintDesign = (typeof HINT_DESIGNS)[number];
+/** Which input the hint shows: by the pointer (a fine one gets mouse and keyboard), or forced; `still` as with Reduce Motion. */
+export const HINT_INPUTS = ['auto', 'touch', 'mouse', 'still'] as const;
+export type HintInput = (typeof HINT_INPUTS)[number];
 const FORCES: readonly HintForce[] = ['off', 'swipe', 'doubleTake'];
 
 export interface HintState {
@@ -39,7 +46,10 @@ export interface HintState {
   /** Screens that keep every hint away while they're up (the timed game), counted. */
   blocks: number;
   force: HintForce;
-  style: HintStyle;
+  design: HintDesign;
+  input: HintInput;
+  /** "Show now" from the dev settings: the next active clip that can show it does, whatever the rules. */
+  request: { kind: HintKind; id: number } | null;
   /** Bumped by a reset, so a hint on screen starts over. */
   epoch: number;
 }
@@ -52,12 +62,20 @@ function safe<T>(fn: () => T, fallback: T): T {
   }
 }
 
-function readDev(): { force: HintForce; style: HintStyle } {
-  if (!DEV_TOOLS) return { force: 'off', style: 'auto' };
-  const o = safe(() => JSON.parse(devStorage?.getItem(DEV_KEY) ?? '{}') as Record<string, unknown>, {});
+type DevPart = Pick<HintState, 'force' | 'design' | 'input'>;
+export const DEV_DEFAULTS: Readonly<DevPart> = Object.freeze({ force: 'off', design: 'tile', input: 'auto' });
+
+function oneOf<T>(list: readonly T[], v: unknown, fallback: T): T {
+  return list.includes(v as T) ? (v as T) : fallback;
+}
+
+function readDev(): DevPart {
+  if (!DEV_TOOLS) return { ...DEV_DEFAULTS };
+  const o = safe(() => JSON.parse(devStorage?.getItem(DEV_KEY) ?? '{}') as Record<string, unknown>, {}) ?? {};
   return {
-    force: FORCES.includes(o?.force as HintForce) ? (o.force as HintForce) : 'off',
-    style: HINT_STYLES.includes(o?.style as HintStyle) ? (o.style as HintStyle) : 'auto',
+    force: oneOf(FORCES, o.force, DEV_DEFAULTS.force),
+    design: oneOf(HINT_DESIGNS, o.design, DEV_DEFAULTS.design),
+    input: oneOf(HINT_INPUTS, o.input, DEV_DEFAULTS.input),
   };
 }
 
@@ -66,6 +84,7 @@ let state: HintState = {
   session: { ...NEW_SESSION },
   blocks: 0,
   ...readDev(),
+  request: null,
   epoch: 0,
 };
 const listeners = new Set<() => void>();
@@ -74,8 +93,8 @@ function set(patch: Partial<HintState>) {
   const next = { ...state, ...patch };
   if ((Object.keys(patch) as (keyof HintState)[]).every((k) => next[k] === state[k])) return;
   if (next.progress !== state.progress) safe(() => settingsStorage?.setItem(PROGRESS_KEY, JSON.stringify(next.progress)), undefined);
-  if (next.force !== state.force || next.style !== state.style)
-    safe(() => devStorage?.setItem(DEV_KEY, JSON.stringify({ force: next.force, style: next.style })), undefined);
+  if (next.force !== state.force || next.design !== state.design || next.input !== state.input)
+    safe(() => devStorage?.setItem(DEV_KEY, JSON.stringify({ force: next.force, design: next.design, input: next.input })), undefined);
   state = next;
   listeners.forEach((l) => l());
 }
@@ -103,7 +122,14 @@ export const hints = {
   /** Every hint as for a brand-new viewer, starting now. */
   reset: () => set({ progress: { ...FRESH }, session: { ...NEW_SESSION }, epoch: state.epoch + 1 }),
   setForce: (force: HintForce) => set({ force, epoch: state.epoch + 1 }),
-  setStyle: (style: HintStyle) => set({ style }),
+  setDesign: (design: HintDesign) => set({ design }),
+  setInput: (input: HintInput) => set({ input }),
+  /** Plays a hint on the active clip as soon as nothing covers it (dev settings). */
+  showNow: (kind: HintKind) => set({ request: { kind, id: (state.request?.id ?? 0) + 1 }, epoch: state.epoch + 1 }),
+  /** The request was played. */
+  takeRequest: (id: number) => {
+    if (state.request?.id === id) set({ request: null });
+  },
   /** Keeps every hint away until the returned function is called. */
   block(): () => void {
     set({ blocks: state.blocks + 1 });
