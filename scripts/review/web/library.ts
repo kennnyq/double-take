@@ -33,7 +33,11 @@ export interface LibraryCtx {
   tellStats: ReadonlyMap<string, TellStats>;
   /** The reviewer name the worker stamps (decisions.ts WORKER_VETTED). */
   worker?: string;
+  /** Clips in the hill climb's "needs your eyes" queue, by key, with their rank. */
+  eyes?: ReadonlyMap<string, { rank: number }>;
 }
+
+export const EYES = 'Needs your eyes';
 
 export const GROUPS = {
   none: 'No grouping',
@@ -48,6 +52,7 @@ export type GroupBy = keyof typeof GROUPS;
 
 export const SORTS = {
   queue: 'Feed order',
+  eyes: 'Needs your eyes first',
   newest: 'Newest',
   oldest: 'Oldest',
   long: 'Longest',
@@ -61,7 +66,7 @@ const KIND = { ai: 'AI', real: 'Real', cgi: 'CGI / animation', unknown: 'Other l
 const STATUS = { keep: 'Kept', discard: 'Dropped', 'needs-work': 'Needs work' } as const;
 
 /** Every facet value a clip has, by facet (a clip can be in several sources and categories). */
-export function facetValues(it: LibraryItem, ctx: LibraryCtx): Record<Exclude<GroupBy, 'none'> | 'marks', string[]> {
+export function facetValues(it: LibraryItem, ctx: LibraryCtx): Record<Exclude<GroupBy, 'none'> | 'marks' | 'eyes', string[]> {
   const st = ctx.states[it.key];
   const d = decided(st ?? undefined);
   const worker = ctx.worker ?? 'worker-vetted';
@@ -76,6 +81,7 @@ export function facetValues(it: LibraryItem, ctx: LibraryCtx): Record<Exclude<Gr
     reviewer: [!d ? 'Not decided' : st?.by === worker ? 'Worker-vetted' : `Reviewed by ${st?.by ?? 'someone'}`],
     tells: [!it.media ? 'Not built' : !runs ? 'No tells' : n === undefined ? 'Tells (counting…)' : n === 0 ? 'No tells' : n <= 2 ? '1–2 tells' : n <= 5 ? '3–5 tells' : '6+ tells'],
     category: stats?.categories.length ? [...new Set(stats.categories)] : [runs ? 'Uncategorised' : 'No tells'],
+    eyes: ctx.eyes?.has(it.key) ? [EYES] : [],
     marks: [
       ...(marks.some((m) => m.pick) ? ['★ Picked tells'] : []),
       // The worker's stock vetting note isn't feedback; a reviewer's note or a tell note is.
@@ -121,6 +127,7 @@ export function sortItems(items: LibraryItem[], ctx: LibraryCtx, by: SortBy, sou
   };
   const cmp: Record<SortBy, (a: LibraryItem, b: LibraryItem) => number> = {
     queue: () => 0,
+    eyes: (a, b) => (ctx.eyes?.get(a.key)?.rank ?? Infinity) - (ctx.eyes?.get(b.key)?.rank ?? Infinity),
     newest: (a, b) => (b.date ?? 0) - (a.date ?? 0),
     oldest: (a, b) => (a.date ?? Infinity) - (b.date ?? Infinity),
     long: (a, b) => (b.media?.duration ?? 0) - (a.media?.duration ?? 0),

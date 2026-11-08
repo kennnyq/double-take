@@ -34,6 +34,7 @@ test('facets: decision, reviewer, kind, sources, tell counts and categories, mar
     reviewer: ['Reviewed by kenny'],
     tells: ['3–5 tells'],
     category: ['anatomy', 'physics'],
+    eyes: [],
     marks: ['★ Picked tells'],
   });
   const b = facetValues(ITEMS[1], ctx);

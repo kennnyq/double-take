@@ -94,3 +94,31 @@ test('tellRef builds keys the decisions log accepts', () => {
     assert.equal(checkPatch({ tells: { [ref]: { pick: true } } }), null, ref);
   }
 });
+
+test('needs-eyes: matched by sourceClipId, one per clip by rank, only clips we have; answered by a reviewer after it was generated', async () => {
+  const { answered, eyesIndex, eyesKey, eyesQueue } = await import('./eyes.ts');
+  const it = (id: string, rank: number, clipId: string, sourceClipId?: string) => ({ id, rank, clipId, sourceClipId, reason: 'ambiguous_observation', question: 'q', whyHumanHelps: 'w' });
+  const items = [it('a', 3, 'x-1'), it('b', 1, 'cand-7', 'yt-abcdefghijk'), it('c', 2, 'x-1'), it('d', 4, 'x-missing')];
+  assert.equal(eyesKey(items[1]), 'yt-abcdefghijk');
+  assert.deepEqual([...eyesIndex(items).entries()].map(([k, v]) => [k, v.rank]), [['yt-abcdefghijk', 1], ['x-1', 2], ['x-missing', 4]]);
+  assert.deepEqual(eyesQueue(items, (k) => k !== 'x-missing'), ['yt-abcdefghijk', 'x-1']);
+  const gen = '2026-11-08T09:00:00.000Z';
+  assert.equal(answered({ by: 'kenny', at: '2026-11-08T09:30:00.000Z' }, gen), true);
+  assert.equal(answered({ by: 'kenny', at: '2026-11-08T08:00:00.000Z' }, gen), false, 'decided before the question was asked');
+  assert.equal(answered({ by: 'worker-vetted', at: '2026-11-08T09:30:00.000Z' }, gen), false);
+  assert.equal(answered(undefined, gen), false);
+});
+
+test('needs-eyes in the clip grid: a facet, and a sort by rank', async () => {
+  const { EYES, facetValues, sortItems } = await import('./library.ts');
+  const media = { duration: 5, tells: [] };
+  const items = [
+    { key: 'a', kind: 'ai' as const, in: [{ kind: 'feed' as const, source: 'prod', name: 'demo', index: 0 }], media },
+    { key: 'b', kind: 'ai' as const, in: [{ kind: 'feed' as const, source: 'prod', name: 'demo', index: 1 }], media },
+    { key: 'c', kind: 'ai' as const, in: [{ kind: 'feed' as const, source: 'prod', name: 'demo', index: 2 }], media },
+  ];
+  const ctx = { states: {}, vetted: new Set<string>(), tellStats: new Map(), eyes: new Map([['c', { rank: 1 }], ['b', { rank: 2 }]]) };
+  assert.deepEqual(facetValues(items[2], ctx).eyes, [EYES]);
+  assert.deepEqual(facetValues(items[0], ctx).eyes, []);
+  assert.deepEqual(sortItems(items, ctx, 'eyes', ['feed:prod/demo']).map((i) => i.key), ['c', 'b', 'a']);
+});
