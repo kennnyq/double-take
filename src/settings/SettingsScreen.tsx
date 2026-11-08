@@ -1,4 +1,15 @@
-import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import {
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  useWindowDimensions,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { feedModeOptions } from './feedModeOptions';
@@ -7,19 +18,15 @@ import type { RevealGesture } from './settings';
 import { appSettings, closeSettings, useAppSettings, useSettingsOpen } from './store';
 
 /**
- * The viewer's Settings: a bottom sheet on phones, a centred dialog on wide
- * screens. Opened from the gear (top bar on phones, the rail on desktop).
+ * The Settings dialog on wide screens (desktop web), opened from the rail's
+ * gear. Phones show the same content as the Settings tab (`src/app/settings.tsx`).
  * Changes save and apply as soon as they're picked.
  */
 export function SettingsScreen() {
   const open = useSettingsOpen();
-  const { feedMode, revealGesture } = useAppSettings();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const wide = width >= 760;
-  // The reveal's wording follows the gesture picked below.
-  const options = feedModeOptions(revealGesture, wide);
-  const gestures = gestureOptions(wide);
 
   return (
     <Modal
@@ -55,76 +62,90 @@ export function SettingsScreen() {
             </Pressable>
           </View>
 
-          <ScrollView contentContainerStyle={styles.body} bounces={false}>
-            <Text style={styles.sectionTitle}>Feed mode</Text>
-            <Text style={styles.sectionHint}>How the feed handles whether a clip is AI.</Text>
-            <View style={styles.group} role="radiogroup" aria-label="Feed mode">
-              {options.map((o, i) => {
-                const on = feedMode === o.id;
-                return (
-                  <Pressable
-                    key={o.id}
-                    onPress={() => appSettings.set('feedMode', o.id)}
-                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
-                      styles.row,
-                      i > 0 && styles.rowDivider,
-                      (pressed || hovered) && styles.rowPressed,
-                    ]}
-                    role="radio"
-                    aria-checked={on}
-                    accessibilityLabel={`${o.title}. ${o.description}`}
-                  >
-                    <View style={[styles.icon, on && styles.iconOn]}>
-                      <Ionicons name={o.icon} size={18} color={on ? '#111' : '#fff'} />
-                    </View>
-                    <View style={styles.rowText}>
-                      <Text style={styles.rowTitle}>{o.title}</Text>
-                      <Text style={styles.rowDesc}>{o.description}</Text>
-                    </View>
-                    <View style={[styles.radio, on && styles.radioOn]}>{on && <View style={styles.radioDot} />}</View>
-                  </Pressable>
-                );
-              })}
-            </View>
-
-            <Text style={[styles.sectionTitle, styles.sectionGap]}>Double take</Text>
-            <Text style={styles.sectionHint}>
-              {wide
-                ? 'The Double take button beside each clip opens it. Pick the shortcut too.'
-                : 'The Double take button on each clip opens it. Pick the gesture too.'}
-            </Text>
-            <View style={styles.group} role="radiogroup" aria-label="Double take gesture">
-              {gestures.map((o, i) => {
-                const on = revealGesture === o.id;
-                return (
-                  <Pressable
-                    key={o.id}
-                    onPress={() => appSettings.set('revealGesture', o.id)}
-                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
-                      styles.row,
-                      i > 0 && styles.rowDivider,
-                      (pressed || hovered) && styles.rowPressed,
-                    ]}
-                    role="radio"
-                    aria-checked={on}
-                    accessibilityLabel={`${o.title}. ${o.description}`}
-                  >
-                    <View style={[styles.icon, on && styles.iconOn]}>
-                      <Ionicons name={GESTURE_ICONS[o.id]} size={18} color={on ? '#111' : '#fff'} />
-                    </View>
-                    <View style={styles.rowText}>
-                      <Text style={styles.rowTitle}>{o.title}</Text>
-                      <Text style={styles.rowDesc}>{o.description}</Text>
-                    </View>
-                    <View style={[styles.radio, on && styles.radioOn]}>{on && <View style={styles.radioDot} />}</View>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </ScrollView>
+          <SettingsContent wide={wide} />
         </View>
       </View>
     </Modal>
+  );
+}
+
+/**
+ * The settings themselves, shared by the desktop dialog and the phone's
+ * Settings tab. Every row writes the store at once; the feed reads it live.
+ */
+export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleProp<ViewStyle> }) {
+  const { feedMode, revealGesture } = useAppSettings();
+  // The reveal's wording follows the gesture picked below.
+  const options = feedModeOptions(revealGesture, wide);
+  const gestures = gestureOptions(wide);
+  return (
+    <ScrollView style={style} contentContainerStyle={styles.body} bounces={false}>
+      <Text style={styles.sectionTitle}>Feed mode</Text>
+      <Text style={styles.sectionHint}>How the feed handles whether a clip is AI.</Text>
+      <View style={styles.group} role="radiogroup" aria-label="Feed mode">
+        {options.map((o, i) => {
+          const on = feedMode === o.id;
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => appSettings.set('feedMode', o.id)}
+              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                styles.row,
+                i > 0 && styles.rowDivider,
+                (pressed || hovered) && styles.rowPressed,
+              ]}
+              role="radio"
+              aria-checked={on}
+              accessibilityLabel={`${o.title}. ${o.description}`}
+            >
+              <View style={[styles.icon, on && styles.iconOn]}>
+                <Ionicons name={o.icon} size={18} color={on ? '#111' : '#fff'} />
+              </View>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>{o.title}</Text>
+                <Text style={styles.rowDesc}>{o.description}</Text>
+              </View>
+              <View style={[styles.radio, on && styles.radioOn]}>{on && <View style={styles.radioDot} />}</View>
+            </Pressable>
+          );
+        })}
+      </View>
+
+      <Text style={[styles.sectionTitle, styles.sectionGap]}>Double take</Text>
+      <Text style={styles.sectionHint}>
+        {wide
+          ? 'The Double take button beside each clip opens it. Pick the shortcut too.'
+          : 'The Double take button on each clip opens it. Pick the gesture too.'}
+      </Text>
+      <View style={styles.group} role="radiogroup" aria-label="Double take gesture">
+        {gestures.map((o, i) => {
+          const on = revealGesture === o.id;
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => appSettings.set('revealGesture', o.id)}
+              style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                styles.row,
+                i > 0 && styles.rowDivider,
+                (pressed || hovered) && styles.rowPressed,
+              ]}
+              role="radio"
+              aria-checked={on}
+              accessibilityLabel={`${o.title}. ${o.description}`}
+            >
+              <View style={[styles.icon, on && styles.iconOn]}>
+                <Ionicons name={GESTURE_ICONS[o.id]} size={18} color={on ? '#111' : '#fff'} />
+              </View>
+              <View style={styles.rowText}>
+                <Text style={styles.rowTitle}>{o.title}</Text>
+                <Text style={styles.rowDesc}>{o.description}</Text>
+              </View>
+              <View style={[styles.radio, on && styles.radioOn]}>{on && <View style={styles.radioDot} />}</View>
+            </Pressable>
+          );
+        })}
+      </View>
+    </ScrollView>
   );
 }
 
