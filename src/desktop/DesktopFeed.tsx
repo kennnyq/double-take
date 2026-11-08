@@ -58,6 +58,7 @@ import { panelLayout } from './panelLayout';
 import { useFeedScroller } from './useFeedScroller';
 import { easedSeek } from '@/feed/scrub';
 import { ARROW_SEEK, seekBy } from '@/feed/seek';
+import { policyFor, type ClipPolicy, type FeedMode, type StageRect } from '@/feed/mode';
 
 /** Pooled `<video>` elements: the active clip and one neighbour on each side. */
 const POOL = 3;
@@ -69,6 +70,8 @@ const CARD_MARGIN = 32;
 export interface DesktopFeedHandle {
   /** Land on an item index instantly, loading more clips first if needed. */
   jumpTo: (index: number) => void;
+  /** Move to an item the way the wheel does (animated). */
+  goTo: (index: number) => void;
 }
 
 interface Props {
@@ -76,6 +79,8 @@ interface Props {
   visible: boolean;
   /** False while something else (a sheet) owns the wheel and keyboard. */
   scrollEnabled: boolean;
+  /** Something running inside the feed (the timed round): its clips, policy, events and overlay (see `mode.ts`). */
+  mode?: FeedMode;
   ref?: React.Ref<DesktopFeedHandle>;
 }
 
@@ -89,7 +94,7 @@ interface Props {
  * as you move, so the next clip is already buffered. The active card hosts the
  * same "Reveal AI tells" walkthrough as the app, through `HtmlVideoPlayer`.
  */
-export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
+export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   // Remote clips then placeholders, as loaded; more placeholders follow on demand.
   const [base, setBase] = useState<Clip[] | null>(null);
   const [minCount, setMinCount] = useState(0);
@@ -105,12 +110,14 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   const { holdMs } = useDevSettings();
   // The active clip's walkthrough (only the active slide mounts one), for Space and the slides' gestures.
   const reveal = useRef<TellOverlayHandle>(null);
-  const filter = modeFilter(feedMode);
-  const filtered = useMemo(() => (base && filter ? clipsForMode(base, feedMode) : null), [base, filter, feedMode]);
+  // A mode brings its own clips (a deck), shown as given.
+  const deck = mode?.clips;
+  const filter = deck ? null : modeFilter(feedMode);
+  const filtered = useMemo(() => (deck ? [...deck] : base && filter ? clipsForMode(base, feedMode) : null), [deck, base, filter, feedMode]);
   const { active, scrolling, goTo, next, prev } = useFeedScroller(
     feedRef,
     filtered ? filtered.length : base ? Number.MAX_SAFE_INTEGER : 0,
-    visible && scrollEnabled,
+    visible && scrollEnabled && (mode?.scrollEnabled ?? true),
   );
 
   useBlockHints(visible && scrolling);
@@ -121,6 +128,19 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     [base, total],
   );
   const clips = filtered ?? endless;
+  // What the slides show: a mode may present each clip differently (e.g. without its answer).
+  const present = mode?.present;
+  const shown = useMemo(() => (present ? clips.map(present) : clips), [clips, present]);
+
+  // A mode hears where the feed comes to rest.
+  const onActive = mode?.onActive;
+  const onActiveRef = useRef(onActive);
+  useEffect(() => {
+    onActiveRef.current = onActive;
+  }, [onActive]);
+  useEffect(() => {
+    onActiveRef.current?.(active);
+  }, [active]);
 
   useEffect(() => {
     let live = true;
@@ -266,7 +286,8 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   }, [inspecting]);
   const [focus] = useState(createFocusTracker);
   useEffect(() => {
-    if (!visible || !scrollEnabled) { space.current.down = false; return; }
+    // A mode can turn the feed's own keys off (Space, ←/→, M).
+    if (!visible || !scrollEnabled || mode?.keys === false) { space.current.down = false; return; }
     const sp = space.current;
     const taps = createSpaceRecognizer();
     const reset = () => taps.cancel();
@@ -343,7 +364,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       window.removeEventListener('blur', blur);
       window.removeEventListener('focusin', onFocus);
     };
-  }, [visible, scrollEnabled, active, inspecting, togglePause, toggleMute, revealGesture, holdMs, focus, players]);
+  }, [visible, scrollEnabled, active, inspecting, togglePause, toggleMute, revealGesture, holdMs, focus, players, mode?.keys]);
 
   // ---- feed mode switch ------------------------------------------------------
   // Stay on the same clip, or the nearest one after it.
@@ -372,8 +393,9 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
         pendingJump.current = i;
         setMinCount((n) => Math.max(n, i + POOL + 1));
       },
+      goTo: (i: number) => goTo(i),
     }),
-    [],
+    [goTo],
   );
   useEffect(() => {
     const i = pendingJump.current;
@@ -455,6 +477,10 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     [togglePause, actions, nav, toggleMute, toast, revealGesture, holdMs, toggleComments],
   );
 
+  // Each slide's policy from the mode, kept stable per index so the memoized slides don't re-render for it.
+  const policies = useMemo<(ClipPolicy | undefined)[] | null>(() => (mode ? shown.map((_, i) => policyFor(mode, i)) : null), [mode, shown]);
+  const policy = (i: number) => policies?.[i];
+
   const cardH = Math.max(0, feedH - CARD_MARGIN);
   // Stable between renders, so moving to another clip re-renders only the slides that change.
   const card = useMemo(() => ({ w: Math.round((cardH * 9) / 16), h: cardH }), [cardH]);
@@ -477,6 +503,25 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     if (el?.offsetWidth) setActionsW(el.offsetWidth);
   }, [commentsOpen, active, wrapW]);
   const activeClip = clips[active] as Clip | undefined;
+
+  // A mode's overlay sits over the active card: measured once the feed has come to rest there.
+  const [stage, setStage] = useState<StageRect | null>(null);
+  const hasOverlay = !!mode?.overlay;
+  useEffect(() => {
+    if (!hasOverlay) return;
+    const measure = () => {
+      const wrap = wrapRef.current?.getBoundingClientRect();
+      const el = feedRef.current?.querySelector<HTMLElement>('.slide[aria-current="true"] .stage.card')?.getBoundingClientRect();
+      if (!wrap || !el || !el.width) return;
+      setStage((s) => {
+        const next = { x: el.left - wrap.left, y: el.top - wrap.top, w: el.width, h: el.height };
+        return s && Math.abs(s.x - next.x) < 1 && Math.abs(s.y - next.y) < 1 && s.w === next.w && s.h === next.h ? s : next;
+      });
+    };
+    const t = window.setTimeout(measure, 450);
+    measure();
+    return () => window.clearTimeout(t);
+  }, [hasOverlay, active, card, wrapW, feedH]);
   const panel = commentsOpen && activeClip ? panelLayout(wrapW, card.w, actionsW) : null;
 
   return (
@@ -495,7 +540,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       }
     >
       <div className="feed" ref={feedRef} tabIndex={-1} aria-label="Video feed" onPointerDown={onFeedPointerDown}>
-        {clips.map((clip, i) => (
+        {shown.map((clip, i) => (
           <Slide
             key={clip.id}
             clip={clip}
@@ -512,6 +557,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             commentsOpen={i === active && commentsOpen}
             others={social.stats[clipKey(clip)]}
             label={autoLabel(clip, feedMode)}
+            policy={policy(i)}
             inspecting={i === active && inspecting}
             fit={fitOf(i)}
             zoom={zoomOf(i)}
@@ -572,6 +618,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       {panel && activeClip && (
         <CommentsPanel ref={panelRef} clip={activeClip} onClose={closeComments} overlay={panel.overlay} />
       )}
+      {mode?.overlay && stage && <div className="mode-overlay">{mode.overlay(stage)}</div>}
     </div>
   );
 }
@@ -629,6 +676,8 @@ interface SlideProps {
   /** The active clip's pooled player, once it holds this clip. */
   player: HtmlVideoPlayer | null;
   h: SlideHandlers;
+  /** A feed mode's say over this slide (see `mode.ts`). */
+  policy?: ClipPolicy;
 }
 
 interface Burst {
@@ -667,7 +716,7 @@ const Slide = memo(function Slide(p: SlideProps) {
     g.held = false;
     cancelHold();
     // Click and hold counts as a hold too, like holding Space (desktop has no 2x hold).
-    if (isActive && gestureAction('hold', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
+    if (isActive && !p.policy?.noHold && gestureAction('hold', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
       g.timer = window.setTimeout(() => {
         g.held = true;
         clicks.cancel();
@@ -690,6 +739,14 @@ const Slide = memo(function Slide(p: SlideProps) {
     if (g.held || g.moved || !isActive) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const tap = { t: performance.now(), x: e.clientX - rect.left, y: e.clientY - rect.top };
+    // A feed mode can take the double click (and quiet the single one).
+    const policy = p.policy;
+    if (policy?.onDoubleTap) {
+      const onDouble = policy.onDoubleTap;
+      clicks.tap(tap, { wait: false, onSingle: () => !policy.noTapPause && h.togglePause(), onDouble: () => onDouble(tap.x, tap.y) });
+      return;
+    }
+    if (policy?.noTapPause) return;
     // A double click likes or opens the double take. When it would open the
     // double take, the first click waits out DOUBLE_TAP_MS so opening never
     // pauses the clip first; otherwise the click acts at once.
@@ -727,7 +784,7 @@ const Slide = memo(function Slide(p: SlideProps) {
         <span className="name">{clip.author}</span>
         {clip.verified && <BadgeCheck className="verified" size={16} fill="#3797f0" color="#000" />}
         <span className="dot">•</span>
-        <button className={`follow ${p.followed ? 'on' : ''}`} onClick={() => h.toggleFollow(clip.author)}>
+        <button className={`follow ${p.followed ? 'on' : ''}`} onClick={() => h.toggleFollow(clip.author)} disabled={p.policy?.lockControls}>
           {p.followed ? 'Following' : 'Follow'}
         </button>
       </div>
@@ -747,7 +804,7 @@ const Slide = memo(function Slide(p: SlideProps) {
   const shares = formatCount(clip.shares + (p.sent ? 1 : 0));
 
   return (
-    <section className="slide" aria-roledescription="video" aria-current={isActive}>
+    <section className={`slide ${p.policy?.lockControls ? 'locked' : ''}`} aria-roledescription="video" aria-current={isActive}>
       <div className="slide-grid">
         <aside className="d-info">{info}</aside>
         <div className={`stage card ${p.inspecting ? 'inset' : ''}`}>
@@ -829,7 +886,7 @@ const Slide = memo(function Slide(p: SlideProps) {
                 <VerdictBadge verdict={clip.verdict} />
               </div>
             )}
-            <DeskScrubber player={isActive ? p.player : null} inert={p.inspecting} onHold={h.setScrubbing} />
+            <DeskScrubber player={isActive ? p.player : null} inert={p.inspecting || !!p.policy?.lockControls} onHold={h.setScrubbing} />
             {isActive && (
               <button
                 className={`mute-btn fades ${p.inspecting ? 'faded' : ''}`}
@@ -842,7 +899,7 @@ const Slide = memo(function Slide(p: SlideProps) {
             )}
           </div>
         </div>
-        <div className="d-actions">
+        <div className="d-actions" inert={p.policy?.lockControls}>
           {clip.tellsUrl && (
             <ActionBtn
               label="Double take"

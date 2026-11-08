@@ -36,6 +36,7 @@ import { playWeb } from './playWeb';
 import { ClipItem } from './ClipItem';
 import { TopBar } from './TopBar';
 import { FeedEmpty } from './VerdictBadge';
+import { phoneStageRect, policyFor, type FeedMode } from './mode';
 
 interface FeedProps {
   focused: boolean;
@@ -47,12 +48,16 @@ interface FeedProps {
   startAt?: number;
   /** Told when the double take opens and closes (the screen may fade its tab bar with the chrome). */
   onInspectChange?: (on: boolean) => void;
+  /** Something running inside the feed (the timed round): its clips, policy, events and overlay. None: the normal feed. */
+  mode?: FeedMode;
   ref?: React.Ref<FeedHandle>;
 }
 
 export interface FeedHandle {
   /** Land on an item index instantly (no animated scroll), loading more clips first if needed. */
   jumpTo: (index: number) => void;
+  /** Move to an item the way a swipe does (animated). */
+  goTo: (index: number) => void;
 }
 
 /**
@@ -66,14 +71,19 @@ export interface FeedHandle {
  * recycled for the item entering the window, so the next clip is already
  * buffered when you swipe and memory stays flat no matter how far you scroll.
  */
-export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChange, ref }: FeedProps) {
+export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChange, mode, ref }: FeedProps) {
   // Empty until the first page arrives (remote clips, then placeholders).
   const [all, setAll] = useState<Clip[]>([]);
   // The feed mode (Settings) may keep only AI or only real clips. A filtered
   // feed ends: placeholders have no verdict, so it never grows.
   const { feedMode } = useAppSettings();
   const filter = modeFilter(feedMode);
-  const clips = useMemo(() => clipsForMode(all, feedMode), [all, feedMode]);
+  // A mode brings its own clips (a deck), shown as given.
+  const deck = mode?.clips;
+  const clips = useMemo(() => (deck ? [...deck] : clipsForMode(all, feedMode)), [deck, all, feedMode]);
+  // What the pages show: a mode may present each clip differently (e.g. without its answer).
+  const present = mode?.present;
+  const shown = useMemo(() => (present ? clips.map(present) : clips), [clips, present]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [active, setActive] = useState(startAt ?? 0);
   // Browsers require a user gesture before playing video with sound.
@@ -352,7 +362,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
 
   // Wait for the first page so placeholders never jump ahead of remote clips.
   const onEndReached = () => {
-    if (!filter) setAll((c) => (c.length ? [...c, ...makeClips(c.length, 12)] : c));
+    if (!filter && !deck) setAll((c) => (c.length ? [...c, ...makeClips(c.length, 12)] : c));
   };
 
   // ---- jump to a clip (profile tile) ---------------------------------------
@@ -391,9 +401,22 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
         pendingJump.current = i;
         setAll((c) => (c.length > i ? c : [...c, ...makeClips(c.length, i + 6 - c.length)]));
       },
+      goTo: (i: number) => {
+        if (size.h) listRef.current?.scrollToOffset({ offset: Math.max(0, Math.min(clips.length - 1, i)) * size.h, animated: true });
+      },
     }),
-    [landOn, filter, clips],
+    [landOn, filter, clips, size.h],
   );
+
+  // A mode hears where the feed comes to rest.
+  const onActive = mode?.onActive;
+  const onActiveRef = useRef(onActive);
+  useEffect(() => {
+    onActiveRef.current = onActive;
+  }, [onActive]);
+  useEffect(() => {
+    onActiveRef.current?.(active);
+  }, [active]);
   const onContentSizeChange = (_w: number, contentH: number) => {
     const i = pendingJump.current;
     if (i === null || !size.h || contentH < (i + 1) * size.h) return;
@@ -579,6 +602,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
         progress={progress}
         chrome={chrome}
         h={handlers}
+        policy={policyFor(mode, index)}
       />
     );
   };
@@ -591,10 +615,10 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
           testID="clip-feed"
           style={[sheetOpen && styles.shrunk, shrinkStyle]}
           ref={listRef}
-          data={clips}
+          data={shown}
           keyExtractor={(c) => c.id}
           renderItem={renderItem}
-          extraData={[active, loaded, paused, boost, social, wide, size, feedMode]}
+          extraData={[active, loaded, paused, boost, social, wide, size, feedMode, mode]}
           getItemLayout={(_, i) => ({ length: size.h, offset: size.h * i, index: i })}
           initialScrollIndex={active}
           pagingEnabled
@@ -614,12 +638,13 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
           maxToRenderPerBatch={3}
           windowSize={5}
           removeClippedSubviews
-          scrollEnabled={!sheetOpen && !barDrag}
+          scrollEnabled={!sheetOpen && !barDrag && (mode?.scrollEnabled ?? true)}
           onContentSizeChange={onContentSizeChange}
         />
       )}
       {filter && all.length > 0 && clips.length === 0 && <FeedEmpty verdict={filter} />}
       <TopBar muted={muted} onToggleMute={toggleMute} opacity={chrome} hidden={sheetOpen} faded={inspecting} />
+      {mode?.overlay && size.h > 0 && mode.overlay(phoneStageRect(size.w, size.h, wide, wide ? Math.max(14, insets.top + 8) : 0))}
     </View>
   );
 }

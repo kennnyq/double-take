@@ -25,6 +25,7 @@ import { useFadeProgress, useModeProgress } from './motion';
 import { displayCornerRadius, inspectInset } from './shrink';
 import { fitFor } from './tells';
 import { VerdictBadge } from './VerdictBadge';
+import type { ClipPolicy } from './mode';
 
 interface Props {
   clip: Clip;
@@ -50,6 +51,8 @@ interface Props {
   /** Overlay opacity: fades rail/meta out while the page is shrunk above a sheet. */
   chrome: Animated.AnimatedInterpolation<number>;
   h: FeedHandlers;
+  /** A feed mode's say over this page (see `mode.ts`); none in the normal feed. */
+  policy?: ClipPolicy;
 }
 
 export const ClipItem = memo(function ClipItem(p: Props) {
@@ -87,6 +90,13 @@ export const ClipItem = memo(function ClipItem(p: Props) {
     if (!p.isActive) return;
     const { locationX: x, locationY: y } = e.nativeEvent;
     const t = Date.now();
+    const policy = p.policy;
+    if (policy?.onDoubleTap) {
+      const onDouble = policy.onDoubleTap;
+      taps.tap({ t, x, y }, { wait: false, onSingle: () => !policy.noTapPause && h.togglePause(), onDouble: () => onDouble(x, y) });
+      return;
+    }
+    if (policy?.noTapPause) return;
     taps.tap(
       { t, x, y },
       {
@@ -111,7 +121,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   // Holding plays at 2x until released, or opens the double take (which stays
   // open after release: it's a tap-through walkthrough).
   const onLongPress = () => {
-    if (!p.isActive) return;
+    if (!p.isActive || p.policy?.noHold) return;
     taps.cancel();
     const action = gestureAction('hold', revealGesture, { hasTells, canBoost: true });
     if (action === 'reveal') {
@@ -305,7 +315,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
             {clip.verified && <Ionicons name="checkmark-circle" size={14} color="#e8e8e8" style={{ marginLeft: -4 }} />}
             <Pressable
               onPress={() => h.toggleFollow(clip.author)}
-              style={({ pressed }) => [styles.subscribe, p.followed && styles.subscribed, pressed && styles.pressed]}
+              disabled={!!p.policy?.lockControls}
+              style={({ pressed }) => [styles.subscribe, p.followed && styles.subscribed, pressed && styles.pressed, p.policy?.lockControls && styles.locked]}
               hitSlop={8}
             >
               <Text style={[styles.subscribeText, p.followed && styles.subscribedText]}>
@@ -326,23 +337,27 @@ export const ClipItem = memo(function ClipItem(p: Props) {
       </Animated.View>
 
       {!wide && (
-        <Reanimated.View style={[styles.railWrap, ownLayer, chromeMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
-          <Rail {...p} onReveal={onReveal} revealing={inspecting} />
+        <Reanimated.View style={[styles.railWrap, ownLayer, chromeMotion]} pointerEvents={inspecting || p.policy?.lockControls ? 'none' : 'box-none'}>
+          <View style={[StyleSheet.absoluteFill, p.policy?.lockControls && styles.locked]} pointerEvents="box-none">
+            <Rail {...p} onReveal={onReveal} revealing={inspecting} />
+          </View>
         </Reanimated.View>
       )}
 
       {/* The progress bar stays as it is during a double take, out of reach (the walkthrough owns the taps). */}
-      <Reanimated.View style={[styles.scrubWrap, ownLayer]} pointerEvents={inspecting ? 'none' : 'box-none'}>
-        <Scrubber
-          player={p.isActive ? p.player : null}
-          progress={p.isActive ? p.progress : IDLE_PROGRESS}
-          width={stageW}
-          enabled={p.isActive && !inspecting}
-          onHold={h.setScrub}
-          onDrag={h.setBarDrag}
-          onFollow={h.followScrub}
-          endInset={cornerRadius}
-        />
+      <Reanimated.View style={[styles.scrubWrap, ownLayer]} pointerEvents={inspecting || p.policy?.lockControls ? 'none' : 'box-none'}>
+        <View style={[StyleSheet.absoluteFill, p.policy?.lockControls && styles.locked]} pointerEvents="box-none">
+          <Scrubber
+            player={p.isActive ? p.player : null}
+            progress={p.isActive ? p.progress : IDLE_PROGRESS}
+            width={stageW}
+            enabled={p.isActive && !inspecting && !p.policy?.lockControls}
+            onHold={h.setScrub}
+            onDrag={h.setBarDrag}
+            onFollow={h.followScrub}
+            endInset={cornerRadius}
+          />
+        </View>
       </Reanimated.View>
       {roundWithCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
     </Reanimated.View>
@@ -353,7 +368,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
       {wide ? (
         <View style={styles.wideRow}>
           {stage}
-          <View style={styles.wideRail}>
+          <View style={[styles.wideRail, p.policy?.lockControls && styles.locked]} pointerEvents={p.policy?.lockControls ? 'none' : 'box-none'}>
             <Rail {...p} onReveal={onReveal} revealing={inspecting} />
           </View>
         </View>
@@ -518,6 +533,8 @@ const IDLE_PROGRESS = new Animated.Value(0);
 
 const styles = StyleSheet.create({
   page: { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  // A control a feed mode shows but locks (e.g. in the timed round).
+  locked: { opacity: 0.38 },
   stage: { overflow: 'hidden', backgroundColor: '#000' },
   clip: { overflow: 'hidden' },
   wideRow: { flexDirection: 'row', alignItems: 'flex-end' },
