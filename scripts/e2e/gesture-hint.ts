@@ -1,7 +1,7 @@
 /**
  * Browser check for the first-run gesture hint over the feed: one hint for
  * both ways into the double take (Both is the default), "Hold or double tap"
- * on phones and "Hold spacebar or double click" on desktop (a fine pointer). It goes as soon as either gesture opens a double take, comes
+ * on phones and "Hold or double-tap Space" on desktop (a fine pointer). It goes as soon as either gesture opens a double take, comes
  * repeats on every reel until a walkthrough is actually opened, then stays
  * dismissed across refreshes for all viewers. Entering
  * from the landing's hero, it waits for the hand-off. Reduce Motion gets a
@@ -29,7 +29,7 @@ const HINTS_KEY = 'double-take.hints.v1';
 const DEV_HINTS_KEY = 'double-take:dev-hints:v1';
 const HINT = '[data-testid="gesture-hint"]';
 const CLOSE_WALKTHROUGH = '[aria-label="Close the walkthrough"]';
-const DESKTOP_BOTH = 'Hold spacebar or double click';
+const DESKTOP_BOTH = 'Hold or double-tap Space';
 const PHONE_BOTH = 'Hold or double tap';
 
 const failures: string[] = [];
@@ -101,6 +101,34 @@ const hintGone = (page: Page, ms: number) =>
     () => false,
   );
 const stored = (page: Page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null'), HINTS_KEY);
+
+/** A slow or interrupted swipe must finish before the per-reel delay starts. */
+async function waitsForSettle(browser: Browser) {
+  for (const layout of ['desktop', 'phone'] as const) {
+    const page = await open(browser, layout);
+    await page.waitForSelector(HINT, { timeout: 5000 });
+    const feed = page.locator(layout === 'desktop' ? '.feed' : '[data-testid="clip-feed"]');
+    // Hold between snap points longer than the hint delay. This exercises the
+    // real scroll listeners while keeping the browser from completing the snap.
+    await feed.evaluate((el) => {
+      (el as HTMLElement).style.scrollSnapType = 'none';
+      el.scrollTop = el.clientHeight * 0.25;
+    });
+    check(`${layout}: scrolling fades the hint out`, await hintGone(page, 1000));
+    check(`${layout}: no hint while resting between reels`, (await hintWithin(page, 1400)) === null);
+    await feed.evaluate((el) => {
+      el.scrollTop = el.clientHeight;
+      (el as HTMLElement).style.scrollSnapType = '';
+    });
+    const settled = Date.now();
+    const words = await hintWithin(page, 1750);
+    const elapsed = Date.now() - settled;
+    check(`${layout}: the next hint starts about 1 second after settling`,
+      words === (layout === 'desktop' ? DESKTOP_BOTH : PHONE_BOTH) && elapsed >= 900 && elapsed < 1750,
+      { words, elapsed });
+    await page.context().close();
+  }
+}
 
 /**
  * Whether the hint is actually seen: with every video paused (so only the hint
@@ -175,23 +203,27 @@ async function repeatUntilOpened(browser: Browser) {
 
 async function desktopFlow(browser: Browser) {
   for (const [gesture, words] of [
-    ['hold', 'Hold spacebar'],
-    ['doubleTap', 'Double click'],
+    ['hold', 'Hold Space'],
+    ['doubleTap', 'Double-tap Space'],
     [undefined, DESKTOP_BOTH],
   ] as const) {
     const page = await open(browser, 'desktop', { gesture });
     check(`desktop ${gesture ?? 'default (both)'}: "${words}"`, (await hintWithin(page, 4000)) === words, await page.getAttribute(HINT, 'aria-label').catch(() => null));
     await page.context().close();
   }
-  // With Both, either gesture dismisses it.
-  for (const how of ['space', 'dblclick'] as const) {
+  // Both advertised Space gestures (and a double-click) dismiss the hint.
+  for (const how of ['holding Space', 'double-tapping Space', 'a double-click'] as const) {
     const page = await open(browser, 'desktop');
     await hintWithin(page, 4000);
     const layer = page.locator('section.slide[aria-current="true"] .tap-layer');
-    if (how === 'space') {
+    if (how === 'holding Space') {
       await page.keyboard.down('Space');
       await page.waitForTimeout(700);
       await page.keyboard.up('Space');
+    } else if (how === 'double-tapping Space') {
+      await page.keyboard.press('Space');
+      await page.waitForTimeout(80);
+      await page.keyboard.press('Space');
     } else {
       await layer.dblclick({ position: { x: 120, y: 200 } });
     }
@@ -199,7 +231,7 @@ async function desktopFlow(browser: Browser) {
       () => true,
       () => false,
     );
-    check(`desktop: ${how === 'space' ? 'holding Space' : 'a double-click'} opens it and dismisses the hint`, opened && (await hintGone(page, 2000)), { opened });
+    check(`desktop: ${how} opens it and dismisses the hint`, opened && (await hintGone(page, 2000)), { opened });
     await page.context().close();
   }
 }
@@ -403,6 +435,7 @@ async function main() {
     await pixels(browser);
     await handContact(browser);
     if (!process.env.PIXELS_ONLY) {
+      await waitsForSettle(browser);
       await repeatUntilOpened(browser);
       await desktopFlow(browser);
       await devPanel(browser);

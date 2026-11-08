@@ -23,18 +23,18 @@ test('force bypasses completion but never a game, covering surface or missing te
   }
 });
 test('default delay is brief and offered in tutorial settings', () => {
-  assert.ok(SHOW_DELAY_MS >= 1500 && SHOW_DELAY_MS <= 2000);
+  assert.equal(SHOW_DELAY_MS, 1000);
   assert.ok(HINT_DELAYS.includes(SHOW_DELAY_MS));
 });
 
 test('Both is one hint with one caption: hold or double tap', () => {
   assert.equal(demoCaption('both', { mouse: false }), 'Hold or double tap');
-  assert.equal(demoCaption('both', { mouse: true }), 'Hold spacebar or double click');
+  assert.equal(demoCaption('both', { mouse: true }), 'Hold or double-tap Space');
 });
 
 test('a single gesture gets a word or two, worded for the input', () => {
   assert.equal(demoCaption('hold', { mouse: false }), 'Hold');
-  assert.equal(demoCaption('hold', { mouse: true }), 'Hold spacebar');
+  assert.equal(demoCaption('hold', { mouse: true }), 'Hold Space');
   assert.equal(demoCaption('doubleTap', { mouse: false }), 'Double tap');
-  assert.equal(demoCaption('doubleTap', { mouse: true }), 'Double click');
+  assert.equal(demoCaption('doubleTap', { mouse: true }), 'Double-tap Space');
 });

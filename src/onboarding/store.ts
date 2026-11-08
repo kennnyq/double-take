@@ -30,7 +30,7 @@ const DEV_KEY = 'double-take:dev-hints:v1';
  */
 export const HINT_DESIGNS = ['hand', 'finger', 'fingertip'] as const;
 export type HintDesign = (typeof HINT_DESIGNS)[number];
-/** Which input the hint's words name: by the pointer (a fine one says "click"), or forced; `still` as with Reduce Motion. */
+/** Which input the hint's words name: by the pointer (a fine one names the Space key), or forced; `still` as with Reduce Motion. */
 export const HINT_INPUTS = ['auto', 'touch', 'mouse', 'still'] as const;
 export type HintInput = (typeof HINT_INPUTS)[number];
 const FORCES: readonly HintForce[] = ['off', 'doubleTake'];

@@ -19,7 +19,7 @@ import type { HintDesign } from './store';
  * - fingertip: the same finger with only its shadows and a pressed glow that
  *   swells while it holds
  *
- * Desktop shows the same hand; the words name the spacebar and double click.
+ * Desktop shows the same hand; the words name the Space key gestures.
  */
 
 /** The demo is drawn in a W×H box; the fingertip lands on TARGET. */
@@ -30,7 +30,7 @@ const TARGET = { x: W / 2, y: 58 };
 export function HintView(props: {
   demo: Demo;
   design: HintDesign;
-  /** A fine pointer: the words say "click". */
+  /** A fine pointer: the words name the Space key. */
   mouse: boolean;
   still: boolean;
   on: boolean;

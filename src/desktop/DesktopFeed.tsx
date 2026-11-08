@@ -43,6 +43,7 @@ import { useAppNav } from '@/social/nav';
 import { createSpaceRecognizer } from '@/settings/spaceGesture';
 import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
+import { useBlockHints } from '@/onboarding/store';
 import { GestureHint } from '@/onboarding/GestureHint';
 import type { RevealGesture } from '@/settings/settings';
 import { useSocial } from '@/social/store';
@@ -106,11 +107,13 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   const reveal = useRef<TellOverlayHandle>(null);
   const filter = modeFilter(feedMode);
   const filtered = useMemo(() => (base && filter ? clipsForMode(base, feedMode) : null), [base, filter, feedMode]);
-  const { active, goTo, next, prev } = useFeedScroller(
+  const { active, scrolling, goTo, next, prev } = useFeedScroller(
     feedRef,
     filtered ? filtered.length : base ? Number.MAX_SAFE_INTEGER : 0,
     visible && scrollEnabled,
   );
+
+  useBlockHints(visible && scrolling);
 
   const total = base ? Math.max(base.length, active + AHEAD, minCount) : 0;
   const endless = useMemo(

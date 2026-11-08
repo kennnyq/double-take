@@ -19,6 +19,7 @@ import { useEventListener } from 'expo';
 import * as Haptics from 'expo-haptics';
 import { makeClips, type Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
+import { useBlockHints } from '@/onboarding/store';
 import { receiveHandoff } from '@/landing/handoff';
 import { useSocialActions } from '@/social/actions';
 import { clipKey } from '@/social/clipRefs';
@@ -288,6 +289,9 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
     if (paused) progress.stopAnimation();
   }, [paused, progress]);
 
+  const [scrolling, setScrolling] = useState(false);
+  useBlockHints(focused && scrolling);
+
   // ---- paging ------------------------------------------------------------
   const settleAt = useCallback(
     (offset: number) => {
@@ -302,11 +306,17 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
     },
     [size.h, clips.length],
   );
-  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => settleAt(e.nativeEvent.contentOffset.y);
+  const onMomentumEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    settleAt(e.nativeEvent.contentOffset.y);
+    setScrolling(false);
+  };
   // Released exactly on a page with no velocity: no momentum phase follows.
   const onDragEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const y = e.nativeEvent.contentOffset.y;
-    if (isOnPage(y, size.h) && !e.nativeEvent.velocity?.y) settleAt(y);
+    if (isOnPage(y, size.h) && !e.nativeEvent.velocity?.y) {
+      settleAt(y);
+      setScrolling(false);
+    }
   };
   // Browsers have no drag-end or momentum-end events (React Native Web never
   // fires them), so a swipe never changed the active clip: the first clip kept
@@ -315,10 +325,14 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
   const webSettle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => () => clearTimeout(webSettle.current), []);
   const onWebScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    setScrolling(true);
     const y = e.nativeEvent.contentOffset.y;
     clearTimeout(webSettle.current);
     webSettle.current = setTimeout(() => {
-      if (isOnPage(y, size.h)) settleAt(y);
+      if (isOnPage(y, size.h)) {
+        settleAt(y);
+        setScrolling(false);
+      }
     }, WEB_SETTLE_MS);
   };
 
@@ -574,6 +588,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
       {/* Mounted once the clips are in, so it can open on `startAt`. */}
       {size.h > 0 && clips.length > 0 && (
         <Animated.FlatList
+          testID="clip-feed"
           style={[sheetOpen && styles.shrunk, shrinkStyle]}
           ref={listRef}
           data={clips}
@@ -588,6 +603,8 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
           showsVerticalScrollIndicator={false}
           scrollsToTop={false}
           contentInsetAdjustmentBehavior="never"
+          onScrollBeginDrag={() => setScrolling(true)}
+          onMomentumScrollBegin={() => setScrolling(true)}
           onMomentumScrollEnd={onMomentumEnd}
           onScrollEndDrag={onDragEnd}
           onScroll={Platform.OS === 'web' ? onWebScroll : undefined}

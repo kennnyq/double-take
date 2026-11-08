@@ -25,6 +25,7 @@ const prefersReducedMotion = () =>
 
 export interface FeedScroller {
   active: number;
+  scrolling: boolean;
   goTo: (index: number, instant?: boolean) => void;
   next: () => void;
   prev: () => void;
@@ -38,6 +39,7 @@ export function useFeedScroller(
   enabled = true,
 ): FeedScroller {
   const [active, setActive] = useState(0);
+  const [scrolling, setScrolling] = useState(false);
   const activeRef = useRef(0);
   const targetRef = useRef(0);
   const countRef = useRef(count);
@@ -63,6 +65,7 @@ export function useFeedScroller(
       cancelAnimationFrame(anim.current.raf);
       anim.current = null;
     }
+    setScrolling(false);
     if (el) el.style.scrollSnapType = '';
   }, [ref]);
 
@@ -81,6 +84,7 @@ export function useFeedScroller(
         el.scrollTop = to;
         return;
       }
+      setScrolling(true);
       el.style.scrollSnapType = 'none';
       // The clock starts on the first frame, not now: the new clip's render can
       // hold up that frame, and starting earlier would skip most of the move.
@@ -97,6 +101,7 @@ export function useFeedScroller(
           anim.current = null;
           el.scrollTop = to;
           el.style.scrollSnapType = '';
+          setScrolling(false);
         }
       };
       state.raf = requestAnimationFrame(step);
@@ -112,14 +117,16 @@ export function useFeedScroller(
     if (!el || !enabled) return;
 
     const settle = () => {
-      if (anim.current) return;
+      if (anim.current || touching.current) return;
       const h = el.clientHeight;
       if (!h) return;
       commit(Math.max(0, Math.min(countRef.current - 1, Math.round(el.scrollTop / h))));
+      if (Math.abs(el.scrollTop - Math.round(el.scrollTop / h) * h) < 1) setScrolling(false);
     };
 
     const onScroll = () => {
       if (anim.current) return;
+      setScrolling(true);
       const h = el.clientHeight;
       const i = Math.round(el.scrollTop / h);
       // Landed exactly on a snap point: commit without waiting.
@@ -147,6 +154,7 @@ export function useFeedScroller(
       touching.current = true;
       // A finger always wins over a programmatic animation.
       if (anim.current) stopAnimation();
+      setScrolling(true);
     };
     const onTouchEnd = () => {
       touching.current = false;
@@ -202,5 +210,5 @@ export function useFeedScroller(
 
   const isUserScrolling = useCallback(() => touching.current, []);
 
-  return { active, goTo, next, prev, isUserScrolling };
+  return { active, scrolling, goTo, next, prev, isUserScrolling };
 }
