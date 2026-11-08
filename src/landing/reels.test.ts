@@ -131,3 +131,12 @@ test('chooseNext only takes a start the plan has room for', () => {
   assert.equal(chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], fitsAt: () => false }), null);
 });
 
+
+test('chooseNext never takes a clip it may not (a neighbouring strip shows it)', () => {
+  const tile = { x: 0, y: 0, size: 100, cell: 0 };
+  const all = chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [] });
+  assert.ok(all);
+  const other = chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], allow: (c) => c !== all.cell });
+  assert.notEqual(other?.cell, all.cell);
+  assert.equal(chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], allow: () => false }), null);
+});

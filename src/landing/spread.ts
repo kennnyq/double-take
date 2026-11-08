@@ -94,21 +94,27 @@ export function spreadCells(
   return new Map(order.map((spot, i) => [spot.key, cellOf[i]]));
 }
 
+/** How many sets `stripLoops` splits `cells` clips into: three when each still fills a strip's run, so strips up to two apart never share a clip. */
+export function stripSetCount(cells: number): number {
+  return cells >= 36 ? 3 : 2;
+}
+
 /**
- * Clips for strips that slide past each other (rows, columns). Neighbouring
- * strips slide at different speeds, so any clip two of them share will, at
- * some point, line up side by side; and a strip shows its clips in a loop. So
- * the clips are split into two sets, alternated strip by strip, so
- * neighbouring strips never share one. The same footage under two ids goes
- * in one set (it then sits half a loop apart); look-alikes are shared out
- * between the sets; and within each loop, alikes sit as far apart as they can.
- * Returns the two loops.
+ * Clips for strips that slide past each other (rows, columns). Strips slide
+ * at different speeds, so any clip two of them share will, at some point,
+ * line up one above the other; and a strip shows its clips in a loop. So the
+ * clips are split into `sets` sets (three: strips take them in turn, so no
+ * two strips within two of each other share one), the same footage under two
+ * ids goes in one set (it then sits half a loop apart), look-alikes are
+ * shared out between the sets, and within each loop alikes sit as far apart
+ * as they can. Returns the loops.
  */
-export function stripLoops(cells: number, distances?: readonly (readonly number[])[]): [number[], number[]] {
-  const size = Math.ceil(cells / 2);
+export function stripLoops(cells: number, distances?: readonly (readonly number[])[], sets = stripSetCount(cells)): number[][] {
+  const size = Math.ceil(cells / sets);
+  const ks = [...Array(sets).keys()];
   const like = (a: number, b: number) => likeness(a, b, distances);
   const setOf = new Array<number>(cells).fill(-1);
-  const count = [0, 0];
+  const count = new Array<number>(sets).fill(0);
   const put = (c: number, k: number) => {
     setOf[c] = k;
     count[k]++;
@@ -117,21 +123,20 @@ export function stripLoops(cells: number, distances?: readonly (readonly number[
   for (let a = 0; a < cells; a++)
     for (let b = a + 1; b < cells; b++) {
       if (like(a, b) < 0.9 || setOf[a] >= 0 || setOf[b] >= 0) continue;
-      const k = count[0] <= count[1] ? 0 : 1;
+      const k = ks.reduce((m, x) => (count[x] < count[m] ? x : m), 0);
       if (count[k] + 2 > size) continue;
       put(a, k);
       put(b, k);
     }
   // Then each clip, most look-alikes first, into the set where it has fewer.
   const crowd = (c: number, k: number) => [...Array(cells).keys()].reduce((n, o) => n + (setOf[o] === k && o !== c ? like(c, o) : 0), 0);
-  const rest = [...Array(cells).keys()]
-    .filter((c) => setOf[c] < 0)
-    .sort((a, b) => crowd(b, 0) + crowd(b, 1) - (crowd(a, 0) + crowd(a, 1)) || a - b);
+  const total = (c: number) => ks.reduce((n, k) => n + crowd(c, k), 0);
+  const rest = [...Array(cells).keys()].filter((c) => setOf[c] < 0).sort((a, b) => total(b) - total(a) || a - b);
   for (const c of rest) {
-    const options = [0, 1].filter((k) => count[k] < size);
+    const options = ks.filter((k) => count[k] < size);
     put(c, options.sort((x, y) => crowd(c, x) - crowd(c, y) || count[x] - count[y])[0]);
   }
-  return [0, 1].map((k) => loopOf([...Array(cells).keys()].filter((c) => setOf[c] === k), distances)) as [number[], number[]];
+  return ks.map((k) => loopOf([...Array(cells).keys()].filter((c) => setOf[c] === k), distances));
 }
 
 /** One set's clips round a loop, each placed as far as it can be from its look-alikes (most alike first). */
@@ -175,19 +180,19 @@ export function stripPeriod(places: number, loop: number): number {
 
 /**
  * The clips along strip number `strip`, which has `places` tiles in a loop:
- * strips alternate between the two loops, each taking its own run of its
- * loop, repeated. When no run fits evenly, the places left over take the
+ * strips take the loops in turn, each taking its own run of its loop,
+ * repeated. When no run fits evenly, the places left over take the
  * clips that keep the same footage and look-alikes furthest off round the loop.
  */
 export function stripSequence(
-  loops: [number[], number[]],
+  loops: readonly (readonly number[])[],
   strip: number,
   places: number,
   distances?: readonly (readonly number[])[],
 ): number[] {
-  const loop = loops[strip % 2];
+  const loop = loops[strip % loops.length];
   const period = stripPeriod(places, loop.length);
-  const start = Math.floor(strip / 2) * 5;
+  const start = Math.floor(strip / loops.length) * 5;
   // Its own run of the loop, laid round its own ring, so alikes keep apart at
   // its period too (a run cut straight from the loop can bring them together).
   const run = loopOf(

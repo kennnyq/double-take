@@ -196,6 +196,7 @@ export function chooseNext({
   busy = [],
   fps = 15,
   fitsAt,
+  allow,
 }: {
   tile: { x: number; y: number; size: number; cell: number };
   t: number;
@@ -209,11 +210,13 @@ export function chooseNext({
   fps?: number;
   /** Whether a turn may start then (the busyness plan, see `fits`). */
   fitsAt?: (at: number) => boolean;
+  /** Whether it may turn to `cell` at all (a strip's neighbours: AtlasPlayer.allowedIn). */
+  allow?: (cell: number) => boolean;
 }): { cell: number; at: number } | null {
   let best: { cell: number; at: number } | null = null;
   let bestScore = Infinity;
   phases.forEach((phase, cell) => {
-    if (cell === tile.cell) return;
+    if (cell === tile.cell || (allow && !allow(cell))) return;
     const at = nextStart(t, phase, loop);
     if (at > until) return;
     const beside = neighbours.some(

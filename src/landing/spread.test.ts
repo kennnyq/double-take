@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { likeness, spreadCells, stripLoops, stripSequence, type Spot } from './spread.ts';
+import { likeness, spreadCells, stripLoops, stripSequence, stripSetCount, type Spot } from './spread.ts';
 
 // Six clips: 0 and 1 are one clip under two ids, 2 and 3 look alike, 4 and 5 are unlike anything.
 const D = [
@@ -50,11 +50,11 @@ test('spreadCells: on a tight wall (6 clips, 24 tiles) no clip or duplicate sits
 });
 
 /** 24 clips like the atlas's: unrelated, but for one duplicate pair and two look-alike pairs. */
-function atlasLike(): number[][] {
+function atlasLike(n = 24): number[][] {
   let seed = 7;
   const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-  const d = Array.from({ length: 24 }, () => new Array<number>(24).fill(0));
-  for (let i = 0; i < 24; i++) for (let j = i + 1; j < 24; j++) d[i][j] = d[j][i] = 0.12 + rnd() * 0.22;
+  const d = Array.from({ length: n }, () => new Array<number>(n).fill(0));
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) d[i][j] = d[j][i] = 0.12 + rnd() * 0.22;
   const set = (i: number, j: number, v: number) => (d[i][j] = d[j][i] = v);
   set(0, 9, 0.017);
   set(3, 19, 0.067);
@@ -95,6 +95,25 @@ test('stripLoops: neighbouring strips never share a clip or a duplicate, and a s
           assert.notEqual(ring[i], ring[i + k], `${places}: same clip ${k} apart`);
           if (k < Math.min(3, period)) assert.ok(R[ring[i]][ring[i + k]] >= 0.04, `${places}: duplicate ${k} apart`);
         }
+    }
+  }
+});
+
+test('stripLoops: with 48 clips, three sets, so strips up to two apart never share a clip, and none comes back within two places', () => {
+  const R = atlasLike(48);
+  assert.equal(stripSetCount(48), 3);
+  const loops = stripLoops(48, R);
+  assert.equal(loops.length, 3);
+  assert.equal(new Set(loops.flat()).size, 48);
+  for (const places of [20, 7, 11, 13, 4]) {
+    // Tilted plane's rows on a desktop (20 places), on a phone (7), the marquee's (11), the columns' (4).
+    const rows = Array.from({ length: 9 }, (_, r) => stripSequence(loops, r, places, R));
+    for (let r = 0; r < rows.length; r++)
+      for (const o of [r + 1, r + 2].filter((o) => o < rows.length))
+        for (const a of rows[r]) for (const b of rows[o]) assert.ok(a !== b && R[a][b] >= 0.04, `${places}: rows ${r}/${o}: ${a} ~ ${b}`);
+    for (const row of rows) {
+      const ring = [...row, ...row];
+      for (let i = 0; i < places; i++) for (let k = 1; k <= Math.min(2, places - 1); k++) assert.notEqual(ring[i], ring[i + k], `${places}: same clip ${k} apart`);
     }
   }
 });
