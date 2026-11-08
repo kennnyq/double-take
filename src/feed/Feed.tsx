@@ -284,6 +284,10 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   // Rotation / iPad window resize: keep the same item in view.
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
+    // A hidden screen (web hides Home with display: none under the Settings
+    // route) lays out at 0×0: keep the last size, so the list and its videos
+    // stay mounted and pick up where they were.
+    if (!width || !height) return;
     if (width === size.w && height === size.h) return;
     setSize({ w: width, h: height });
   };
