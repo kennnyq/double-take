@@ -802,14 +802,19 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // has stopped, and the shade lifts as before.)
   const survivorStrip = survivor.parentElement?.closest<HTMLElement>('.lt-row, .lt-col') ?? null;
   const front = survivor.closest('.lt-front') !== null;
-  const atPress = !deskFeed && !front && (light || survivorStrip !== null);
+  // A clip from further down the page (a call to action's), not the hero's wall:
+  // it was never under the wall's shade, and has nothing to wait for, so it
+  // lifts out as it looks and grows as soon as the full clip can show (see
+  // below). Waiting as for the wall left it alone, dimmed, for ~1.2 s.
+  const fromBelow = !survivor.closest('.lt-gallery');
+  const atPress = !deskFeed && !front && !fromBelow && (light || survivorStrip !== null);
   const cover = atPress ? coverAt(root, center(survivor.getBoundingClientRect())) : null;
   // On the lighter tier, no blur: animating one off a layer growing to the
   // whole screen repaints it every frame.
   const coveredFilter = cover
     ? `${!light && cover.blur > 0.3 ? `blur(${cover.blur.toFixed(1)}px) ` : ''}brightness(${(1 - cover.alpha).toFixed(3)})`
     : '';
-  let lifted: Lifted | null = atPress ? lift(root, survivor, coveredFilter) : liftNow ? lift(root, survivor, front ? 'none' : lateFilter) : null;
+  let lifted: Lifted | null = atPress ? lift(root, survivor, coveredFilter) : liftNow ? lift(root, survivor, front || fromBelow ? 'none' : lateFilter) : null;
   const glide = survivorStrip ? glides.get(survivorStrip) : undefined;
   const gliding =
     !deskFeed && lifted && glide
@@ -971,7 +976,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     const exitWait = long ? 140 + spread * 0.7 + vanish.ms * 0.45 : 140 + spread + vanish.ms;
     await wait(Math.max(0, exitWait - 500));
   } else {
-    const startIn = Math.max(0, startMs - 290);
+    const startIn = fromBelow ? 0 : Math.max(0, startMs - 290);
     await wait(Math.max(0, startIn - SETTLE_LEAD));
     if (!alive()) return;
     settle();
@@ -1026,7 +1031,9 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     beatOn.animate([{ scale: '1' }, { scale: '1.07' }, { scale: '1' }], { duration: beatMs, easing: 'ease-in-out' });
   }
   // The full clip fades in over it whenever it's ready; the growth doesn't wait.
-  await Promise.all([wait(beatMs), deskFeed ? sharpening : Promise.race([sharpening, wait(250)])]);
+  // (From below the page: the growth lays the layer out at full size, which clears the tile's own canvas, so it
+  // waits, briefly and in place, for the full clip's first frame; with the wall's wait gone, that's usually all.)
+  await Promise.all([wait(fromBelow ? 0 : beatMs), deskFeed ? sharpening : Promise.race([sharpening, wait(fromBelow ? 700 : 250)])]);
   if (!alive() || !lifted) return;
   const L: Lifted = lifted;
 
