@@ -6,6 +6,7 @@ import Animated, {
   runOnJS,
   useAnimatedStyle,
   useSharedValue,
+  withDelay,
   withSpring,
   withTiming,
   type SharedValue,
@@ -16,7 +17,7 @@ import { themed, usePalette } from '@/ui/theme';
 import type { CardSpot } from './card';
 import { alpha, useGlass } from './glass';
 import { ownLayer } from './layer';
-import { REVEAL_LINE_DURATION } from './reveal';
+import type { RevealVariant } from './reveal';
 import { RevealText } from './RevealText';
 
 interface Props {
@@ -30,6 +31,8 @@ interface Props {
   blur?: boolean;
   /** Back and forward buttons along the bottom (walkthrough steps). */
   nav?: CardNav;
+  /** How the text comes in (dev settings → Double take → Text); a word wave by default. */
+  revealVariant?: RevealVariant;
   /** Set to play the exit; `onGone` follows once it's done. */
   leaving: boolean;
   onGone: () => void;
@@ -49,23 +52,26 @@ export interface CardNav {
 const TRAVEL = 18;
 /** Bubbly but quick: a little overshoot, settled in about 400 ms. */
 const CARD_SPRING = { stiffness: 260, damping: 17, mass: 1 };
-/** The text block's own drift up as it resolves, like Siri's answer. */
-const TEXT_RISE = 6;
+/** The text's wave starts this long into the card's entrance, while the card is still settling. */
+const TEXT_START_MS = 140;
+/** The buttons and loop line fade in over the last of the text. */
+const FOOTER_FADE_MS = 300;
 
 /**
  * The double take's info card. The card fades in with a short springy move
  * from its side of the subject (rising from below when it sits under it,
  * dropping from above when over it) and leaves the same way, faster.
  *
- * The text resolves like Siri's answers: line by line from the top, each
- * line fading in from faint and slightly low (and, in browsers, blurred),
- * while the block drifts up a few points; it leaves in reverse, quickly. One
- * timeline drives it on the UI thread (see RevealText).
+ * The text comes in the way Apple's answer cards do: word by word in a quick
+ * wave in reading order, each word fading in (from a blur, in browsers) while
+ * it rises a few points, on a spring with no overshoot. The wave starts while
+ * the card is still settling, and leaves in reverse. One timeline drives it
+ * on the UI thread (see RevealText and reveal.ts).
  *
  * Everything animates transform and opacity only; nothing is laid out again
  * while the card moves.
  */
-export function InfoCard({ spot, text, hint, loop, blur, nav, leaving, onGone }: Props) {
+export function InfoCard({ spot, text, hint, loop, blur, nav, revealVariant, leaving, onGone }: Props) {
   const g = useGlass();
   const W = spot.width;
   const down = spot.from === 'above' ? -1 : 1;
@@ -78,9 +84,10 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, leaving, onGone }:
 
   useEffect(() => {
     if (leaving) {
-      clock.value = withTiming(0, { duration: 200, easing: Easing.in(Easing.quad) });
-      card.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.cubic) });
-      shown.value = withTiming(0, { duration: 220, easing: Easing.in(Easing.quad) }, (done) => {
+      // The wave runs back (last words first), gently, as the card goes.
+      clock.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) });
+      card.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.cubic) });
+      shown.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) }, (done) => {
         if (done) runOnJS(onGone)();
       });
       return;
@@ -88,7 +95,7 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, leaving, onGone }:
     if (!total) return;
     shown.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
     card.value = withSpring(1, CARD_SPRING);
-    clock.value = withTiming(total, { duration: total, easing: Easing.linear });
+    clock.value = withDelay(TEXT_START_MS, withTiming(total, { duration: total, easing: Easing.linear }));
     // onGone is stable per card (keyed by the overlay).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving, total]);
@@ -96,9 +103,6 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, leaving, onGone }:
   const cardStyle = useAnimatedStyle(() => ({
     opacity: shown.value,
     transform: [{ translateY: (1 - card.value) * TRAVEL * down }, { scale: 0.96 + 0.04 * card.value }],
-  }));
-  const blockStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: (1 - Math.min(1, clock.value / Math.max(1, total))) * TEXT_RISE }],
   }));
 
   return (
@@ -111,7 +115,7 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, leaving, onGone }:
       <View style={[StyleSheet.absoluteFill, styles.glass, g.glass, blur ? g.tint : g.tintSolid]} pointerEvents="none">
         {blur ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
       </View>
-      <Animated.View style={[styles.content, blockStyle]} pointerEvents="box-none" accessible accessibilityLabel={hint ? `${text}. ${hint}` : text}>
+      <Animated.View style={styles.content} pointerEvents="box-none" accessible accessibilityLabel={hint ? `${text}. ${hint}` : text}>
         <RevealText
           text={text}
           hint={hint}
@@ -119,6 +123,7 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, leaving, onGone }:
           hintStyle={[styles.hint, g.hint]}
           clock={clock}
           onReady={setTotal}
+          variant={revealVariant}
         />
         {nav ? (
           <Footer nav={nav} loop={loop ?? null} clock={clock} total={total} />
@@ -144,7 +149,7 @@ function Footer({ nav, loop, clock, total }: { nav: CardNav; loop: SharedValue<n
   const last = nav.step + 1 >= nav.count;
   const done = last && nav.cue === 'done';
   const shown = useAnimatedStyle(() => ({
-    opacity: total ? Math.min(1, Math.max(0, (clock.value - (total - REVEAL_LINE_DURATION)) / REVEAL_LINE_DURATION)) : 0,
+    opacity: total ? Math.min(1, Math.max(0, (clock.value - (total - FOOTER_FADE_MS)) / FOOTER_FADE_MS)) : 0,
   }));
   return (
     <Animated.View style={[styles.footer, shown]} pointerEvents="box-none">
@@ -210,7 +215,7 @@ function LoopLine({ loop, clock, total }: { loop: SharedValue<number>; clock: Sh
   const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.min(1, Math.max(0, loop.value)) }] }));
   // Appears with the last of the text.
   const shown = useAnimatedStyle(() => ({
-    opacity: total ? Math.min(1, Math.max(0, (clock.value - (total - REVEAL_LINE_DURATION)) / REVEAL_LINE_DURATION)) : 0,
+    opacity: total ? Math.min(1, Math.max(0, (clock.value - (total - FOOTER_FADE_MS)) / FOOTER_FADE_MS)) : 0,
   }));
   return (
     <Animated.View style={[styles.track, g.track, shown]}>

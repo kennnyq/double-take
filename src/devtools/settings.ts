@@ -14,6 +14,7 @@ import {
   type SpotlightShape,
   type SpotlightStrength,
 } from '../feed/spotlight.ts';
+import { REVEAL_VARIANTS, type RevealVariant } from '../feed/reveal.ts';
 
 export { SPOTLIGHT_EFFECTS, SPOTLIGHT_PADDINGS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRENGTHS };
 
@@ -58,6 +59,8 @@ export interface DevSettings {
   /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
   markDrafts: boolean;
   endCue: EndCue;
+  /** How the double take card's text comes in: a word wave (default), a softer slower wave, or by lines. */
+  textReveal: RevealVariant;
 }
 
 export type DevSettingKey = keyof DevSettings;
@@ -72,6 +75,7 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightPadding: 'normal',
   markDrafts: false,
   endCue: 'done',
+  textReveal: 'wave',
 });
 
 export const STORAGE_KEY = 'double-take:dev-settings:v1';
@@ -100,6 +104,7 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     spotlightPadding: oneOf(SPOTLIGHT_PADDINGS, o.spotlightPadding, d.spotlightPadding),
     markDrafts: typeof o.markDrafts === 'boolean' ? o.markDrafts : d.markDrafts,
     endCue: oneOf(END_CUES, o.endCue, d.endCue),
+    textReveal: oneOf(REVEAL_VARIANTS, o.textReveal, d.textReveal),
   };
 }
 

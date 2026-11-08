@@ -508,6 +508,7 @@ export function TellOverlay({ ref, ...p }: Props) {
           hint={c.hint}
           loop={c.loop ? loop : null}
           blur={settings.spotlightEffect === 'fullBlur'}
+          revealVariant={settings.textReveal}
           nav={
             c.step
               ? { step: c.step.index, count: c.step.count, cue: settings.endCue, onBack: () => backRef.current(), onNext: () => nextRef.current() }

@@ -52,6 +52,11 @@ registerDevSection({
       { label: 'Normal', value: 'normal', note: 'A comfortable margin around the box; the card keeps clear of it.' },
       { label: 'Roomy', value: 'roomy', note: 'Plenty of context around the box.' },
     ]),
+    settingChoice(s, 'textReveal', 'Text', [
+      { label: 'Wave', value: 'wave', note: 'Word by word, ~28 ms apart, each dropping into place out of a blur (Apple’s WWDC24 TextRenderer demo, per word).' },
+      { label: 'Soft', value: 'soft', note: 'Slower (~42 ms apart), each word rising from below, closer to Siri’s card.' },
+      { label: 'Lines', value: 'lines', note: 'A line at a time, as in Apple’s first demo.' },
+    ]),
     settingChoice(s, 'endCue', 'Last step', [
       { label: 'Check', value: 'done', note: 'On the last tell, the forward button turns into a check.' },
       { label: 'Dots', value: 'dots', note: 'Step dots between the arrows; the last one fills on the last tell.' },
