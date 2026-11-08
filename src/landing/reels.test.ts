@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { CLASH, chooseNext, FADE_MS, handover, loopAt, nextStart, NUDGE_FRAMES, snap, soft, SWIPE_MS, swipeSlices } from './reels.ts';
+import { BUSYNESS, CLASH, chooseNext, FADE_MS, fits, handover, loopAt, nextStart, NUDGE_FRAMES, snap, soft, SWIPE_MS, swipeSlices, type Planned } from './reels.ts';
 
 test('snap: continuous, quick to leave, soft to settle, never overshooting', () => {
   assert.equal(snap(0), 0);
@@ -97,4 +97,46 @@ test('chooseNext spreads swipes apart, and prefers the strip\'s own set', () => 
   assert.ok([2, 3].every((b) => Math.abs(next.at - b) >= 1 / 15 - 1e-9), `at ${next.at}`);
   assert.ok(next.at - Math.floor(next.at) <= NUDGE_FRAMES / 15 + 1e-9);
   assert.deepEqual(chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], prefer: [1] }), { cell: 1, at: 2 });
+});
+
+const at = (t: number, x: number, y = 0): Planned => ({ at: t, x, y, size: 100 });
+
+test('fits: no two turns close together in space and time', () => {
+  const b = BUSYNESS.medium; // 2 tiles, 0.75 s
+  assert.equal(fits([at(10, 0)], 10.5, 150, 0, 100, b), false);
+  // Far enough apart in space, or in time.
+  assert.equal(fits([at(10, 0)], 10.5, 250, 0, 100, b), true);
+  assert.equal(fits([at(10, 0)], 10.8, 150, 0, 100, b), true);
+});
+
+test('fits: a cap on turns in any second on screen', () => {
+  const b = BUSYNESS.calm; // 3 a second
+  const plan = [at(10, 0), at(10.1, 1000), at(10.2, 2000)];
+  assert.equal(fits(plan, 10.25, 3000, 0, 100, b), false);
+  assert.equal(fits(plan, 10.8, 3000, 0, 100, b), true);
+  assert.equal(fits(plan.slice(0, 2), 10.25, 3000, 0, 100, b), true);
+});
+
+test('busyness: calmer means longer holds, fewer turns, wider spacing', () => {
+  const { calm, medium, lively } = BUSYNESS;
+  assert.ok(calm.hold > medium.hold && medium.hold > lively.hold);
+  assert.ok(calm.perSecond < medium.perSecond && medium.perSecond < lively.perSecond);
+  assert.ok(calm.apart >= medium.apart && calm.within >= medium.within);
+});
+
+test('chooseNext only takes a start the plan has room for', () => {
+  // Cell 2 starts at 3, cell 1 at 2; the plan has no room at 3 (or its nudges).
+  const next = chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], fitsAt: (a) => a < 2.5 });
+  assert.deepEqual(next, { cell: 1, at: 2 });
+  assert.equal(chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], fitsAt: () => false }), null);
+});
+
+
+test('chooseNext never takes a clip it may not (a neighbouring strip shows it)', () => {
+  const tile = { x: 0, y: 0, size: 100, cell: 0 };
+  const all = chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [] });
+  assert.ok(all);
+  const other = chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], allow: (c) => c !== all.cell });
+  assert.notEqual(other?.cell, all.cell);
+  assert.equal(chooseNext({ tile, t: 1.5, until: 3.6, phases: PHASES, loop: 7, neighbours: [], allow: () => false }), null);
 });

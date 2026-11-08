@@ -1,7 +1,7 @@
 import { atlasMode, cellRect, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
 import { streamLoop } from './atlasStream';
-import { chooseNext, FADE_MS, handover, loopAt, snap, soft, SWIPE_MS, swipeSlices, type Neighbour, type Turn } from './reels';
-import { spreadCells, stripLoops, stripSequence, type Spot } from './spread';
+import { BUSYNESS, chooseNext, fits, FADE_MS, handover, loopAt, snap, soft, SWIPE_MS, swipeSlices, type Busyness, type Neighbour, type Planned, type Turn } from './reels';
+import { likeness, spreadCells, stripLoops, stripSequence, type Spot } from './spread';
 import { PHONE_SWIPES, type Tier } from './tier';
 
 /**
@@ -153,6 +153,10 @@ export class AtlasPlayer {
   private busy: number[] = [];
   /** Tiles that found no clip to hand over to this time round, by key: the loop they're in. Their clip loops instead. */
   private noHandover = new Map<string, number>();
+  /** How busy the wall may be (reels.ts: Busyness), the turns planned, and when each tile's clip came in (atlas time). */
+  private busyness: Busyness = BUSYNESS.medium;
+  private planned: Planned[] = [];
+  private shownSince = new Map<string, number>();
   /** The lighter tier caps swipes (tier.ts). */
   private tier: Tier = 'full';
   /** How tiles turn to their next clip, and how long that takes (ms). */
@@ -167,6 +171,10 @@ export class AtlasPlayer {
   private clipOfCell = new Map<number, number>();
   /** Each strip's set of clips (spread.ts: stripLoops), which its swipes keep to. */
   private stripSets = new WeakMap<Element, readonly number[]>();
+  /** Each strip's place in its gallery (rows top to bottom, columns left to right) and how many tiles its loop holds. */
+  private stripAt = new WeakMap<Element, { k: number; places: number }>();
+  /** For each cell, it and any other cell of the same footage. */
+  private sameAs: number[][] | null = null;
 
   constructor(readonly atlas: Atlas) {
     this.mode = visitorMode();
@@ -378,8 +386,9 @@ export class AtlasPlayer {
   }
 
   /** Whether tiles swipe as their clips end (false: they loop), and which feed clip each cell holds. */
-  setReels(on: boolean, clipOfCell: Map<number, number>, tier: Tier = 'full', turn?: Turn) {
+  setReels(on: boolean, clipOfCell: Map<number, number>, tier: Tier = 'full', turn?: Turn, busyness: Busyness = BUSYNESS.medium) {
     this.tier = tier;
+    this.busyness = busyness;
     // A swipe on the full tier; a soft crossfade on the lighter one (it read as flashy and jittery on phones).
     this.turn = turn ?? (tier === 'phone' ? 'fade' : 'slide');
     this.turnMs = this.turn === 'fade' ? FADE_MS : SWIPE_MS;
@@ -401,6 +410,8 @@ export class AtlasPlayer {
     const span = handover(loop, lead, 2, this.turnMs);
     const wallAt = (at: number) => shows + (at - t) * 1000;
     this.busy = this.busy.filter((b) => b > t - 1);
+    this.planned = this.planned.filter((p) => p.at > t - 2);
+    const { hold } = this.busyness;
     // Tiles due to hand over: every copy of each (a strip holds each twice).
     const due = new Map<string, [Board, number][]>();
     for (const b of this.visible) {
@@ -415,6 +426,13 @@ export class AtlasPlayer {
         if (into < span.from || into > span.until) return;
         const round = Math.floor((t + phases[cell]) / loop);
         if (this.noHandover.get(key) === round) return;
+        // Held long enough? If not, its clip loops once more. (First seen: as if it
+        // came in a little while ago, so the wall doesn't all turn at once.)
+        if (!this.shownSince.has(key)) this.shownSince.set(key, t - Math.random() * hold);
+        if (t + (span.until - into) - this.shownSince.get(key)! < hold) {
+          this.noHandover.set(key, round);
+          return;
+        }
         due.set(key, [...(due.get(key) ?? []), [b, i]]);
       });
     }
@@ -437,6 +455,7 @@ export class AtlasPlayer {
         where.set(b.keys[i], { x: r.left + r.width / 2, y: r.top + r.height / 2, size: Math.max(r.width, r.height), cell: b.cells[i] });
       });
     }
+    const shown = this.stripsShowing();
     due.forEach((members, key) => {
       const me = where.get(key);
       if (!me || room <= 0) return;
@@ -444,6 +463,7 @@ export class AtlasPlayer {
       const cell = b0.cells[i0];
       const into = loopAt(t, phases[cell], loop);
       const strip = b0.tiles[i0].parentElement?.closest('.lt-row, .lt-col');
+      const allow = strip ? this.allowedIn(strip, Number(b0.tiles[i0].dataset.twin ?? i0), shown) : undefined;
       const next = chooseNext({
         tile: { ...me, cell },
         t,
@@ -453,15 +473,22 @@ export class AtlasPlayer {
         neighbours: [...where].filter(([k]) => k !== key).map(([, n]) => n),
         distances: this.atlas.distances,
         prefer: strip ? this.stripSets.get(strip) : undefined,
+        allow,
         busy: this.busy,
+        fitsAt: (at) => fits(this.planned, at, me.x, me.y, me.size, this.busyness),
       });
       if (!next) {
         this.noHandover.set(key, Math.floor((t + phases[cell]) / loop));
         return;
       }
       this.busy.push(next.at);
+      this.planned.push({ at: next.at, x: me.x, y: me.y, size: me.size });
+      this.shownSince.set(key, next.at);
       room--;
       me.cell = next.cell;
+      // Its strip shows the new clip from now on, for the tiles that turn after it.
+      const showing = strip && shown.get(strip);
+      if (showing) showing.set(next.cell, [...(showing.get(next.cell) ?? []), Number(b0.tiles[i0].dataset.twin ?? i0)]);
       for (const [b, i] of members) {
         b.swipes[i] = { from: b.cells[i], to: next.cell, start: wallAt(next.at) };
         b.cells[i] = next.cell;
@@ -474,6 +501,64 @@ export class AtlasPlayer {
       }
     });
     this.animateSwipes();
+  }
+
+  /**
+   * What each strip shows, by cell: the places (twin numbers) showing it,
+   * counting a clip still on its way out of a tile that is turning.
+   */
+  private stripsShowing(): Map<Element, Map<number, number[]>> {
+    const shown = new Map<Element, Map<number, number[]>>();
+    for (const b of this.boards)
+      b.tiles.forEach((el, i) => {
+        const strip = el.parentElement?.closest('.lt-row, .lt-col');
+        if (!strip || b.hidden[i]) return;
+        const cells = shown.get(strip) ?? new Map<number, number[]>();
+        shown.set(strip, cells);
+        const place = Number(el.dataset.twin ?? i);
+        const add = (cell: number) => {
+          const at = cells.get(cell);
+          if (!at) cells.set(cell, [place]);
+          else if (!at.includes(place)) at.push(place);
+        };
+        add(b.cells[i]);
+        const sw = b.swipes[i];
+        if (sw) add(sw.from);
+      });
+    return shown;
+  }
+
+  /**
+   * Which clips a tile at `place` on `strip` may turn to: none that any strip
+   * within two of it shows (it slides past them, so they'd line up), and none
+   * shown within two places of it along its own strip, round its wrap.
+   * The same footage under another id counts as the same clip.
+   */
+  private allowedIn(strip: Element, place: number, shown: Map<Element, Map<number, number[]>>): (cell: number) => boolean {
+    const me = this.stripAt.get(strip);
+    if (!me) return () => true;
+    const n = this.atlas.ids.length;
+    this.sameAs ??= Array.from({ length: n }, (_, a) =>
+      [...Array(n).keys()].filter((b) => a === b || likeness(a, b, this.atlas.distances) >= 0.9),
+    );
+    const gallery = strip.closest('.lt-gallery');
+    const near = new Set<number>();
+    shown.forEach((cells, other) => {
+      const at = this.stripAt.get(other);
+      if (!at || other.closest('.lt-gallery') !== gallery) return;
+      const apart = Math.abs(at.k - me.k);
+      if (apart > 2) return;
+      cells.forEach((places, cell) => {
+        const close =
+          apart > 0 ||
+          places.some((p) => {
+            const d = Math.abs(p - place) % me.places;
+            return p !== place && Math.min(d, me.places - d) <= 2;
+          });
+        if (close) near.add(cell);
+      });
+    });
+    return (cell) => !this.sameAs![cell].some((c) => near.has(c));
   }
 
   /** Redraws tiles mid-swipe every frame (only them), until their swipes settle. */
@@ -656,8 +741,9 @@ export class AtlasPlayer {
     const n = this.atlas.ids.length;
     const loops = stripLoops(n, this.atlas.distances);
     order.forEach(({ el }, k) => {
-      this.stripSets.set(el, loops[k % 2]);
+      this.stripSets.set(el, loops[k % loops.length]);
       const byTwin = strips.get(el)!;
+      this.stripAt.set(el, { k, places: byTwin.size });
       const seq = stripSequence(loops, k, byTwin.size, this.atlas.distances);
       byTwin.forEach((members, twin) => deal(members, seq[Number(twin) % seq.length]));
     });

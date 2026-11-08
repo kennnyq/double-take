@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, type CSSProperties } from 'react';
 import type { LandingValues } from './designs';
+import { BUSYNESS } from './reels';
 import type { Tier } from './tier';
 import { rand, Tile, useAtlasBoards, useBox, useTilePlayback } from './Tile';
 
@@ -91,12 +92,26 @@ function Columns({ w, h, speed }: Props) {
   );
 }
 
+/**
+ * The tilted plane's transform, and the same functions untilted: the launch
+ * animates between the two, function by function. (From a computed matrix to
+ * `none` instead, Safari couldn't interpolate and flipped in one frame.)
+ */
+export const TILT = 'perspective(1500px) rotateX(36deg) rotateZ(-14deg)';
+export const UNTILT = 'perspective(1500px) rotateX(0deg) rotateZ(0deg)';
+
 /** The rows on a plane tilted back in 3D. */
 function Tilted({ w, h, speed }: Props) {
   const pw = w * 1.9;
   const ph = h * 2.1;
   return (
-    <div className="lt-plane lt-tilted" data-plane="" style={{ width: pw, height: ph, left: (w - pw) / 2, top: (h - ph) / 2 }}>
+    <div
+      className="lt-plane lt-tilted"
+      data-plane=""
+      data-tilt={TILT}
+      data-untilt={UNTILT}
+      style={{ width: pw, height: ph, left: (w - pw) / 2, top: (h - ph) / 2, transform: TILT }}
+    >
       <Rows w={pw} h={ph} speed={speed} tileH={clamp(150, h * 0.26, 250)} />
     </div>
   );
@@ -295,6 +310,7 @@ export const Gallery = memo(function Gallery({
   speed,
   reels,
   turn,
+  busy,
   tier,
 }: {
   design: LandingValues['gallery'];
@@ -303,6 +319,8 @@ export const Gallery = memo(function Gallery({
   reels: LandingValues['reels'];
   /** How a tile's next clip comes in (auto: a swipe, a crossfade on the lighter tier). */
   turn: LandingValues['turn'];
+  /** How busy the wall may be: how long a clip stays, how many turns a second, how far apart. */
+  busy: LandingValues['busy'];
   /** How much to ask of the device (tier.ts). */
   tier: Tier;
 }) {
@@ -310,7 +328,7 @@ export const Gallery = memo(function Gallery({
   const { w, h } = useBox(ref);
   const Layout = GALLERIES[design];
   useTilePlayback(ref, `${design}:${w}x${h}`);
-  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off', tier, turn === 'auto' ? undefined : turn);
+  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off', tier, turn === 'auto' ? undefined : turn, BUSYNESS[busy]);
   return (
     <div className="lt-gallery" data-gallery={design} ref={ref}>
       {w > 0 && <Layout w={w} h={h} speed={SPEED[speed]} />}

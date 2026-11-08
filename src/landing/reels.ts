@@ -138,6 +138,45 @@ export function lookAround(
 }
 
 /**
+ * How busy the wall is (a design on trial: `busy`). Turns still only happen as
+ * a clip ends, but a tile keeps a clip at least `hold` seconds (looping it
+ * meanwhile), at most `perSecond` turns start in any second on screen, and
+ * none within `apart` tile-widths of another within `within` seconds. A tile
+ * that can't turn at one end loops once more and tries at the next.
+ */
+export interface Busyness {
+  hold: number;
+  perSecond: number;
+  apart: number;
+  within: number;
+}
+
+export const BUSYNESS = {
+  calm: { hold: 13, perSecond: 3, apart: 2.5, within: 1 },
+  medium: { hold: 8, perSecond: 5, apart: 2, within: 0.75 },
+  lively: { hold: 0, perSecond: 12, apart: 1.5, within: 0.5 },
+} satisfies Record<string, Busyness>;
+
+/** A turn planned (or under way): when (atlas time), and where on screen. */
+export interface Planned {
+  at: number;
+  x: number;
+  y: number;
+  size: number;
+}
+
+/** Whether a turn at `at`, at (x, y), fits the plan: under the cap for its second, and apart from the turns near it in time. O(plan). */
+export function fits(plan: readonly Planned[], at: number, x: number, y: number, size: number, b: Busyness): boolean {
+  let sameSecond = 0;
+  for (const p of plan) {
+    const dt = Math.abs(p.at - at);
+    if (dt < 0.5) sameSecond++;
+    if (dt < b.within && Math.hypot(p.x - x, p.y - y) < b.apart * Math.max(size, p.size)) return false;
+  }
+  return sameSecond < b.perSecond;
+}
+
+/**
  * The clip a tile hands over to, and when (atlas time): one starting between
  * now (`t`) and `until`, that isn't its own, that looks least like the tiles
  * around it and isn't near a look-alike, preferably from `prefer` (a strip's
@@ -156,6 +195,8 @@ export function chooseNext({
   prefer,
   busy = [],
   fps = 15,
+  fitsAt,
+  allow,
 }: {
   tile: { x: number; y: number; size: number; cell: number };
   t: number;
@@ -167,11 +208,15 @@ export function chooseNext({
   prefer?: readonly number[];
   busy?: readonly number[];
   fps?: number;
+  /** Whether a turn may start then (the busyness plan, see `fits`). */
+  fitsAt?: (at: number) => boolean;
+  /** Whether it may turn to `cell` at all (a strip's neighbours: AtlasPlayer.allowedIn). */
+  allow?: (cell: number) => boolean;
 }): { cell: number; at: number } | null {
   let best: { cell: number; at: number } | null = null;
   let bestScore = Infinity;
   phases.forEach((phase, cell) => {
-    if (cell === tile.cell) return;
+    if (cell === tile.cell || (allow && !allow(cell))) return;
     const at = nextStart(t, phase, loop);
     if (at > until) return;
     const beside = neighbours.some(
@@ -183,6 +228,7 @@ export function chooseNext({
     for (let k = 0; k <= NUDGE_FRAMES; k++) {
       const when = at + k / fps;
       if (when > until) break;
+      if (fitsAt && !fitsAt(when)) continue;
       const together = busy.some((b) => Math.abs(b - when) < 0.5 / fps) ? 10 : 0;
       const near = busy.filter((b) => Math.abs(b - when) < CLASH).length * 0.5;
       const score = look + off + together + near + k * 0.02 - (at - t) * 1e-3;

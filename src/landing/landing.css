@@ -344,13 +344,11 @@
   position: absolute;
 }
 
-.lt-tilted {
-  transform: perspective(1500px) rotateX(36deg) rotateZ(-14deg);
-}
+/* .lt-tilted's transform is set inline (Galleries.tsx: TILT), so the launch can untilt it function by function. */
 
 /* For the launch, the plane keeps its depth, so tiles can sink back into it
    (the "recede" exit moves them along the plane's own normal). */
-.lt-root[data-launching] .lt-tilted,
+.lt-root[data-launching]:not([data-tier='phone']) .lt-tilted,
 .lt-root[data-launching]:not([data-tier='phone']) .lt-tilted .lt-row {
   transform-style: preserve-3d;
 }
@@ -1073,7 +1071,8 @@
   background: #000;
 }
 
-.lt-lift video {
+.lt-lift video,
+.lt-lift canvas {
   position: absolute;
   inset: 0;
   width: 100%;

@@ -179,5 +179,9 @@ export function useTrials<T extends Trials>(
     [preset, state.values, trials],
   );
 
-  return { trials, presets, values: state.values, preset, presetIndex, edited, select, applyPreset, step };
+  // Every axis has a value, even one added since the state was made (a hot
+  // reload keeps the old state): the preset's, where the state has none.
+  const values = useMemo(() => ({ ...preset.values, ...state.values }), [preset, state.values]);
+
+  return { trials, presets, values, preset, presetIndex, edited, select, applyPreset, step };
 }
