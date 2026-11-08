@@ -1,7 +1,8 @@
 /**
  * Browser check for the desktop feed's Space key, with real (trusted) key
  * events in Chromium: held Space opens the double take, a quick press
- * plays/pauses, and neither depends on what was clicked last. It caught the
+ * plays/pauses (or, during a double take, goes on to its next step), and
+ * none of it depends on what was clicked last. It caught the
  * bug where a clicked button (e.g. Unmute) kept focus and took Space.
  *
  *   npm run e2e:space                                   (dev server on 8081)
@@ -88,6 +89,25 @@ async function main() {
   await page.waitForTimeout(1500);
 
   await holdOpens(page, 'on a fresh load', async () => {});
+
+  // During a double take, a new press goes on to the next step (on this
+  // one-tell clip: finishes it), without pausing; the hold that opened it
+  // didn't advance it.
+  await holdSpace(page);
+  const openedOnFirst = await page.evaluate(() => ({
+    open: !!document.querySelector('[aria-label="Close the walkthrough"]'),
+    scrubs: ((window as unknown as { __dtMarks?: { kind: string }[] }).__dtMarks ?? []).filter((m) => m.kind === 'scrubStart').length,
+  }));
+  await page.waitForTimeout(800);
+  await page.keyboard.press(' ');
+  await page.waitForTimeout(700);
+  const afterPress = await state(page);
+  check(
+    'Space during a double take goes on to its next step, not pause',
+    openedOnFirst.open && !afterPress.open && !afterPress.paused,
+    { openedOnFirst, afterPress },
+  );
+  await closeWalkthrough(page);
 
   // A quick press still plays and pauses.
   await page.keyboard.press(' ');

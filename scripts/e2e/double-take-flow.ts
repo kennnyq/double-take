@@ -81,6 +81,12 @@ async function run(browser: Browser, layout: Layout) {
   await page.waitForSelector('[aria-label="Close the walkthrough"]', { timeout: 10_000 });
   // Long enough for the scrub and a few slow-mo loops.
   await page.waitForTimeout(9000);
+  // The card: only the reason and a faint way on, worded for the input (mouse: click; touch: tap).
+  const card = await page.evaluate(() => document.body.innerText);
+  const verb = layout === 'desktop' ? 'Click' : 'Tap';
+  check(`${layout}: the card says "${verb} to …" and carries no labels`, new RegExp(`${verb} to (continue|finish)`).test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
+    card: card.slice(0, 300),
+  });
   await page.click('[aria-label="Close the walkthrough"]');
   await page.waitForTimeout(1500);
   const { samples, marks } = await page.evaluate(() => {
