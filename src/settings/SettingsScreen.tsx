@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { PlayRow } from '@/game/PlayRow';
 import { themed, usePalette } from '@/ui/theme';
 import { feedModeOptions } from './feedModeOptions';
 import { gestureOptions } from './gesture';
@@ -84,6 +85,11 @@ export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleP
   const tint = useTint();
   return (
     <ScrollView style={style} contentContainerStyle={styles.body} bounces={false}>
+      <Text style={styles.sectionTitle}>Play</Text>
+      <View style={[styles.group, styles.playGroup, tint.group]}>
+        <PlayRow wide={wide} />
+      </View>
+
       <Text style={styles.sectionTitle}>Feed mode</Text>
       <Text style={styles.sectionHint}>How the feed handles whether a clip is AI.</Text>
       <View style={[styles.group, tint.group]} role="radiogroup" aria-label="Feed mode">
@@ -207,6 +213,7 @@ const styles = StyleSheet.create({
   sectionGap: { marginTop: 22 },
   sectionHint: { color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4, marginBottom: 10, marginLeft: 4 },
   group: { borderRadius: 14, overflow: 'hidden' },
+  playGroup: { marginTop: 10, marginBottom: 22 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
   rowPressed: { backgroundColor: 'rgba(255,255,255,0.05)' },
