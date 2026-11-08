@@ -113,6 +113,17 @@ const VANISH: Record<
       { opacity: 0, translate: '0 70px', rotate: `${Math.random() < 0.5 ? -9 : 9}deg` },
     ],
   },
+  // Back, away from the viewer, along the normal of the plane it lives on,
+  // fading as it goes; on a flat gallery, the same depth read as shrinking.
+  recede: {
+    ms: 1050,
+    easing: 'cubic-bezier(.45,0,.25,1)',
+    frames: (o, _f, deep) => [
+      { opacity: o, translate: '0 0 0', scale: '1' },
+      { offset: 0.3, opacity: o },
+      { opacity: 0, translate: deep ? '0 0 -900px' : '0 0 0', scale: deep ? '1' : '0.5' },
+    ],
+  },
   flip: {
     ms: 520,
     easing: 'cubic-bezier(.5,0,.75,.4)',

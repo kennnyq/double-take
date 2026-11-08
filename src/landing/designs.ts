@@ -145,6 +145,7 @@ export const LANDING_TRIALS = {
     { value: 'shrink', label: 'Shrinking' },
     { value: 'blur', label: 'Blurring away' },
     { value: 'drop', label: 'Dropping' },
+    { value: 'recede', label: 'Sinking back into the plane' },
     { value: 'flip', label: 'Flipping over' },
   ]),
   pace: trial(LAUNCH, 'Leaving takes', 'pace', [
