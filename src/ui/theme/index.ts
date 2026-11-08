@@ -4,7 +4,7 @@ import { devStorage } from '@/devtools/storage';
 import { DEV_TOOLS } from '@/devtools/store';
 import { DEFAULT_PALETTE, PALETTES, cssVariables, parsePaletteId, type Palette, type PaletteId } from './palettes';
 
-export { DEFAULT_PALETTE, PALETTES, PALETTE_IDS, type Palette, type PaletteId } from './palettes';
+export { DEFAULT_PALETTE, LEGACY_PALETTES, PALETTES, PALETTE_IDS, type Palette, type PaletteId } from './palettes';
 
 /**
  * The live palette. Builds ship `DEFAULT_PALETTE`; where the dev tools show

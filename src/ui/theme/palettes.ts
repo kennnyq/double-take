@@ -7,7 +7,7 @@
  * scrims behind it) stay where they are used.
  */
 
-export const PALETTE_IDS = ['mono', 'glacier', 'ultraviolet', 'yellow'] as const;
+export const PALETTE_IDS = ['graphite', 'slate', 'stone', 'smoke', 'yellow'] as const;
 export type PaletteId = (typeof PALETTE_IDS)[number];
 
 export interface Palette {
@@ -69,83 +69,112 @@ const GLASS = {
   onReal: '#ffffff',
 } as const;
 
+/**
+ * Neutral palettes: grays and off-white for every control, true dark surfaces,
+ * at most a faint tint. Emphasis comes from contrast, weight and fill, not hue.
+ *
+ * AI vs Not AI never relies on colour: the AI chip is a light, filled chip with
+ * dark text and a sparkle; Not AI is dark glass with a hairline border, white
+ * text and a check. They differ in lightness (≥ 7:1), icon and words, which
+ * holds for every kind of colour vision.
+ */
 export const PALETTES: Readonly<Record<PaletteId, Palette>> = Object.freeze({
-  mono: {
-    id: 'mono',
-    name: 'Mono + magenta',
-    blurb: 'White controls on black; magenta only marks AI and its tells.',
-    accent: '#f2f2f2',
-    onAccent: '#0a0a0a',
-    accentSoft: 'rgba(242,242,242,0.4)',
-    // Magenta: rare in real footage, and clear of the like's red and the
-    // repost's green for protan and deutan vision too.
-    ai: '#ee6bff',
-    onAi: '#1f0420',
-    tell: '#ee6bff',
-    onTell: '#1f0420',
+  graphite: {
+    id: 'graphite',
+    name: 'Graphite',
+    blurb: 'True neutral, like iOS dark mode: black, system grays, off-white controls.',
+    accent: '#f5f5f7',
+    onAccent: '#000000',
+    accentSoft: 'rgba(245,245,247,0.35)',
+    ai: '#e5e5ea',
+    onAi: '#000000',
+    tell: '#f5f5f7',
+    onTell: '#000000',
     ...GLASS,
-    focus: '#f2f2f2',
-    link: '#ffffff',
-    bg: '#0a0a0a',
-    bgGlow: '#141414',
-    bgDeep: '#080808',
-    surface: '#1a1a1a',
-    surfaceRaised: '#262626',
-    text: '#f5f5f5',
-    textDim: '#a6a6a6',
+    focus: '#f5f5f7',
+    link: '#f5f5f7',
+    bg: '#000000',
+    bgGlow: '#111113',
+    bgDeep: '#000000',
+    surface: '#1c1c1e',
+    surfaceRaised: '#2c2c2e',
+    text: '#f5f5f7',
+    textDim: '#98989f',
     ...SOCIAL,
   },
-  glacier: {
-    id: 'glacier',
-    name: 'Glacier',
-    blurb: 'Cool slate surfaces with one soft ice-blue accent.',
-    accent: '#8ccbff',
-    onAccent: '#06121f',
-    accentSoft: 'rgba(140,203,255,0.4)',
-    ai: '#8ccbff',
-    onAi: '#06121f',
-    tell: '#8ccbff',
-    onTell: '#06121f',
+  slate: {
+    id: 'slate',
+    name: 'Slate',
+    blurb: 'Graphite with a faint cool tint in the grays.',
+    accent: '#dfe3e9',
+    onAccent: '#0b0d10',
+    accentSoft: 'rgba(223,227,233,0.35)',
+    ai: '#cdd3db',
+    onAi: '#0b0d10',
+    tell: '#e6eaf0',
+    onTell: '#0b0d10',
     ...GLASS,
-    focus: '#8ccbff',
-    link: '#8ccbff',
-    bg: '#0a0d12',
-    bgGlow: '#121924',
-    bgDeep: '#080a0e',
-    surface: '#161b23',
-    surfaceRaised: '#212833',
-    text: '#eef2f7',
-    textDim: '#98a2b3',
+    focus: '#dfe3e9',
+    link: '#dfe3e9',
+    bg: '#06070a',
+    bgGlow: '#11141a',
+    bgDeep: '#050608',
+    surface: '#16181c',
+    surfaceRaised: '#22252b',
+    text: '#eef0f3',
+    textDim: '#9aa0a9',
     ...SOCIAL,
   },
-  ultraviolet: {
-    id: 'ultraviolet',
-    name: 'Ultraviolet',
-    blurb: 'One bold violet for controls, AI and its tells.',
-    accent: '#9b7bff',
-    onAccent: '#0d0620',
-    accentSoft: 'rgba(155,123,255,0.45)',
-    ai: '#9b7bff',
-    onAi: '#0d0620',
-    // Lighter than the chip, so the outline holds up over dark footage.
-    tell: '#b39dff',
-    onTell: '#0d0620',
+  stone: {
+    id: 'stone',
+    name: 'Stone',
+    blurb: 'Graphite with a faint warm tint, like paper on dark stone.',
+    accent: '#ebe6de',
+    onAccent: '#12100d',
+    accentSoft: 'rgba(235,230,222,0.35)',
+    ai: '#d6cfc4',
+    onAi: '#12100d',
+    tell: '#efeae2',
+    onTell: '#12100d',
     ...GLASS,
-    focus: '#b39dff',
-    link: '#c4b5ff',
-    bg: '#0b0b10',
-    bgGlow: '#15131f',
-    bgDeep: '#09090c',
-    surface: '#1b1a22',
-    surfaceRaised: '#26252f',
-    text: '#f4f3f8',
-    textDim: '#a3a3b2',
+    focus: '#ebe6de',
+    link: '#ebe6de',
+    bg: '#0a0908',
+    bgGlow: '#15130f',
+    bgDeep: '#080706',
+    surface: '#1b1a18',
+    surfaceRaised: '#282624',
+    text: '#f3f0eb',
+    textDim: '#a39e96',
+    ...SOCIAL,
+  },
+  smoke: {
+    id: 'smoke',
+    name: 'Smoke',
+    blurb: 'Softer and lower-key: lifted charcoal surfaces and pale gray controls.',
+    accent: '#c7c7cc',
+    onAccent: '#111113',
+    accentSoft: 'rgba(199,199,204,0.35)',
+    ai: '#d1d1d6',
+    onAi: '#111113',
+    tell: '#d1d1d6',
+    onTell: '#111113',
+    ...GLASS,
+    focus: '#c7c7cc',
+    link: '#d1d1d6',
+    bg: '#111113',
+    bgGlow: '#1c1c1f',
+    bgDeep: '#0c0c0e',
+    surface: '#222224',
+    surfaceRaised: '#2e2e31',
+    text: '#e8e8ea',
+    textDim: '#a1a1a7',
     ...SOCIAL,
   },
   yellow: {
     id: 'yellow',
-    name: 'Yellow (before)',
-    blurb: 'The palette the app had: iOS system yellow, with a blue focus ring on desktop.',
+    name: 'Yellow (legacy)',
+    blurb: 'The palette the app had, kept for comparison: iOS system yellow, with a blue focus ring on desktop.',
     accent: '#ffd60a',
     onAccent: '#111111',
     accentSoft: 'rgba(255,214,10,0.45)',
@@ -167,8 +196,11 @@ export const PALETTES: Readonly<Record<PaletteId, Palette>> = Object.freeze({
   },
 });
 
+/** The old look, kept in Dev settings → Colors only to compare against. */
+export const LEGACY_PALETTES: readonly PaletteId[] = ['yellow'];
+
 /** The palette the app ships with; dev builds can switch it in Dev settings → Colors. */
-export const DEFAULT_PALETTE: PaletteId = 'mono';
+export const DEFAULT_PALETTE: PaletteId = 'graphite';
 
 export function parsePaletteId(raw: unknown): PaletteId {
   return PALETTE_IDS.includes(raw as PaletteId) ? (raw as PaletteId) : DEFAULT_PALETTE;
@@ -245,6 +277,12 @@ function oklab([r, g, b]: Rgb): Rgb {
     1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s,
     0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s,
   ];
+}
+
+/** How colourful a colour is: OKLab chroma × 100 (0 for grays, ~20+ for vivid hues). */
+export function chroma(hex: string): number {
+  const [, a, b] = oklab(seen(hex, 'normal'));
+  return Math.hypot(a, b) * 100;
 }
 
 /** How different two colours look (OKLab distance × 100) to someone with the given vision. */

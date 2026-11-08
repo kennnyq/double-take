@@ -5,6 +5,8 @@ import {
   PALETTES,
   hexToRgb,
   PALETTE_IDS,
+  LEGACY_PALETTES,
+  chroma,
   contrast,
   cssVariables,
   difference,
@@ -19,6 +21,8 @@ const REAL_CHIP_ON_VIDEO = '#373737';
 /** Small enough apart that people with these kinds of vision can still tell them apart. */
 const VISIONS: Vision[] = ['normal', 'protan', 'deutan'];
 const DISTINCT = 12;
+/** A faint tint at most: OKLab chroma × 100 (pure grays are 0, the legacy yellow is ~17). */
+const MAX_TINT = 2.5;
 
 for (const id of PALETTE_IDS) {
   const p = PALETTES[id];
@@ -40,11 +44,20 @@ for (const id of PALETTE_IDS) {
     }
   });
 
-  test(`${id}: the AI chip is set apart from the Not AI chip by lightness, not hue alone`, () => {
-    assert.ok(contrast(p.ai, REAL_CHIP_ON_VIDEO) >= AA_UI);
+  test(`${id}: the AI chip is set apart from the Not AI chip by lightness, not hue`, () => {
+    assert.ok(contrast(p.ai, REAL_CHIP_ON_VIDEO) >= (LEGACY_PALETTES.includes(id) ? AA_UI : 7));
   });
 
-  test(`${id}: AI and the tells don't look like a like or a repost`, () => {
+  if (!LEGACY_PALETTES.includes(id)) {
+    test(`${id}: controls, verdict and surfaces are neutral (no bright hues)`, () => {
+      const ui = [p.accent, p.onAccent, p.ai, p.onAi, p.tell, p.focus, p.link, p.bg, p.surface, p.surfaceRaised, p.text, p.textDim];
+      for (const c of ui) assert.ok(chroma(c) <= MAX_TINT, `${c} has chroma ${chroma(c).toFixed(1)}`);
+    });
+  }
+
+  // Hue-coded palettes only: neutral ones mark AI by fill and shape, which no
+  // like or repost colour can be mistaken for.
+  test(`${id}: AI and the tells don't look like a like or a repost`, { skip: chroma(p.ai) <= MAX_TINT }, () => {
     for (const v of VISIONS) {
       for (const c of [p.ai, p.tell]) {
         assert.ok(difference(c, p.like, v) >= DISTINCT, `${c} vs like (${v})`);
@@ -54,7 +67,11 @@ for (const id of PALETTE_IDS) {
   });
 }
 
-test('only the old palette is yellow', () => {
+test('the default is not a legacy palette', () => {
+  assert.ok(!LEGACY_PALETTES.includes(DEFAULT_PALETTE));
+});
+
+test('only the legacy palette is yellow', () => {
   const yellow = PALETTES.yellow.accent;
   for (const id of PALETTE_IDS.filter((i) => i !== 'yellow')) {
     for (const c of [PALETTES[id].accent, PALETTES[id].ai, PALETTES[id].tell]) {
@@ -66,14 +83,15 @@ test('only the old palette is yellow', () => {
 });
 
 test('parsePaletteId falls back to the default', () => {
-  assert.equal(parsePaletteId('glacier'), 'glacier');
+  assert.equal(parsePaletteId('slate'), 'slate');
+  assert.equal(parsePaletteId('mono'), DEFAULT_PALETTE); // a pick from the first round
   assert.equal(parsePaletteId('nope'), DEFAULT_PALETTE);
   assert.equal(parsePaletteId(null), DEFAULT_PALETTE);
 });
 
 test('cssVariables names every colour in kebab case', () => {
-  const vars = cssVariables(PALETTES.mono);
-  assert.equal(vars['--dt-on-accent'], PALETTES.mono.onAccent);
-  assert.equal(vars['--dt-surface-raised'], PALETTES.mono.surfaceRaised);
+  const vars = cssVariables(PALETTES.graphite);
+  assert.equal(vars['--dt-on-accent'], PALETTES.graphite.onAccent);
+  assert.equal(vars['--dt-surface-raised'], PALETTES.graphite.surfaceRaised);
   assert.ok(!('--dt-id' in vars) && !('--dt-name' in vars));
 });
