@@ -6,6 +6,7 @@ import { useAppSettings, useSettingsOpen } from '@/settings/store';
 import { themed, usePalette, type Palette } from '@/ui/theme';
 import { demoCaption, demoSteps, HINT_TIMEOUT_MS, SHOW_DELAY_MS, type DemoStep, type HintEnd, type HintKind } from './hints';
 import { hints, useHints } from './store';
+import './dev';
 
 /**
  * A first-run hint over the active clip: a hand (or the mouse and keyboard,
