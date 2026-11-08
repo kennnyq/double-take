@@ -1,8 +1,12 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
+import { openSignIn, requireAccount } from '@/auth/gate';
+import { signOut, useAuth, useMe } from '@/auth/store';
+import { supabase } from '@/auth/supabase';
+import { openSettings } from '@/settings/store';
 import { ME, profileLink } from '@/social/me';
 import { useAppNav, type ProfileTab } from '@/social/nav';
 import type { ClipEntry, SocialState } from '@/social/reducer';
@@ -23,7 +27,36 @@ const MAX_WIDTH = 720;
 
 /** The "You" tab: header, stats, and grids of reposted / shared / liked / saved Takes. */
 export function Profile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab) => void }) {
+  const { status } = useAuth();
+  if (status === 'guest' || status === 'loading') return <GuestProfile loading={status === 'loading'} />;
+  return <MemberProfile tab={tab} onTab={onTab} />;
+}
+
+/** How many members follow this handle (public), or null while unknown. */
+function useFollowers(handle: string, local: boolean): number | null {
+  const [n, setN] = useState<number | null>(null);
+  useEffect(() => {
+    if (local || !supabase) return;
+    let live = true;
+    supabase
+      .from('follows')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('author_handle', handle)
+      .then(({ count }) => live && setN(count ?? 0));
+    return () => {
+      live = false;
+    };
+  }, [handle, local]);
+  return local ? ME.followers : n;
+}
+
+function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab) => void }) {
   const social = useSocial();
+  const { status } = useAuth();
+  const local = status === 'local';
+  const me = useMe();
+  const followers = useFollowers(me.handle, local);
+  const [menu, setMenu] = useState(false);
   const nav = useAppNav();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -38,7 +71,7 @@ export function Profile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab
   const soon = (what: string) => toast.show({ icon: 'construct-outline', text: `${what} coming soon` });
   const shareProfile = async () => {
     try {
-      await Clipboard.setStringAsync(profileLink());
+      await Clipboard.setStringAsync(profileLink(me.handle));
       toast.show({ icon: 'link', text: 'Profile link copied' });
     } catch {
       soon('Sharing profiles is');
@@ -49,7 +82,7 @@ export function Profile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab
     <View>
       <View style={styles.headRow}>
         <View style={styles.avatarWrap}>
-          <Avatar name={ME.handle} size={86} />
+          <Avatar name={me.handle} size={86} />
           <View style={styles.note}>
             <Text style={styles.noteText} numberOfLines={2}>
               Note…
@@ -57,11 +90,11 @@ export function Profile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab
           </View>
         </View>
         <View style={styles.headInfo}>
-          <Text style={styles.name}>{ME.name}</Text>
+          <Text style={styles.name}>{me.name}</Text>
           <View style={styles.stats}>
             <Stat n={0} label="posts" />
-            <Stat n={ME.followers} label="followers" />
-            <Stat n={ME.following} label="following" />
+            <Stat n={followers ?? 0} label="followers" />
+            <Stat n={local ? ME.following : social.followed.length} label="following" />
           </View>
         </View>
       </View>
@@ -82,19 +115,51 @@ export function Profile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab
   return (
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
-        <Pressable onPress={() => soon('Creating is')} hitSlop={8} accessibilityLabel="Create" style={styles.topBtn}>
+        <Pressable
+          onPress={() => requireAccount('Sign in to post Takes', () => soon('Creating is'))}
+          hitSlop={8}
+          accessibilityLabel="Create"
+          style={styles.topBtn}
+        >
           <Ionicons name="add" size={30} color="#fff" />
         </Pressable>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
-            {ME.handle}
+            {me.handle}
           </Text>
           <Ionicons name="chevron-down" size={16} color="#fff" />
         </View>
-        <Pressable onPress={() => soon('Settings are')} hitSlop={8} accessibilityLabel="Menu" style={styles.topBtn}>
+        <Pressable onPress={() => setMenu((m) => !m)} hitSlop={8} accessibilityLabel="Menu" style={styles.topBtn}>
           <Ionicons name="menu" size={28} color="#fff" />
         </Pressable>
       </View>
+      {menu && (
+        <>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setMenu(false)} accessibilityLabel="Close menu" />
+          <View style={[styles.menu, { top: insets.top + 50 }]} role="menu">
+            <MenuItem
+              icon="settings-outline"
+              label="Settings"
+              onPress={() => {
+                setMenu(false);
+                openSettings();
+              }}
+            />
+            {!local && (
+              <MenuItem
+                icon="log-out-outline"
+                label="Sign out"
+                tone="danger"
+                onPress={() => {
+                  setMenu(false);
+                  signOut();
+                  toast.show({ icon: 'log-out-outline', text: 'Signed out' });
+                }}
+              />
+            )}
+          </View>
+        </>
+      )}
       <FlatList<ClipEntry>
         key={tab}
         style={[styles.list, { width: contentW }]}
@@ -111,6 +176,50 @@ export function Profile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab
         showsVerticalScrollIndicator={false}
       />
     </View>
+  );
+}
+
+/** Signed out: a prompt to sign in, instead of empty grids. */
+function GuestProfile({ loading }: { loading: boolean }) {
+  const insets = useSafeAreaInsets();
+  return (
+    <View style={[styles.root, styles.guest, { paddingTop: insets.top }]}>
+      {!loading && (
+        <View style={styles.guestBody}>
+          <View style={styles.guestIcon}>
+            <Ionicons name="person-outline" size={40} color="#fff" />
+          </View>
+          <Text style={styles.guestTitle}>Your profile</Text>
+          <Text style={styles.guestText}>Sign in to keep your likes, saves and reposts, and pick up where you left off on any device.</Text>
+          <Pressable
+            onPress={() => openSignIn()}
+            style={({ pressed }) => [styles.guestButton, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+          >
+            <Text style={styles.guestButtonText}>Sign in or sign up</Text>
+          </Pressable>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function MenuItem({
+  icon,
+  label,
+  tone,
+  onPress,
+}: {
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+  label: string;
+  tone?: 'danger';
+  onPress: () => void;
+}) {
+  return (
+    <Pressable onPress={onPress} style={({ pressed }) => [styles.menuItem, pressed && { opacity: 0.6 }]} role="menuitem">
+      <Ionicons name={icon} size={20} color={tone ? '#ff6961' : '#fff'} />
+      <Text style={[styles.menuText, tone && { color: '#ff6961' }]}>{label}</Text>
+    </Pressable>
   );
 }
 
@@ -185,4 +294,41 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
   privateNote: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10 },
   privateText: { color: '#a8a8a8', fontSize: 13 },
+  menu: {
+    position: 'absolute',
+    right: 12,
+    minWidth: 180,
+    paddingVertical: 6,
+    borderRadius: 14,
+    backgroundColor: '#262626',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.14)',
+    zIndex: 10,
+  },
+  menuItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 12 },
+  menuText: { color: '#fff', fontSize: 15, fontWeight: '600' },
+  guest: { justifyContent: 'center' },
+  guestBody: { alignItems: 'center', gap: 12, paddingHorizontal: 32, maxWidth: 420 },
+  guestIcon: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    borderWidth: 2,
+    borderColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  guestTitle: { color: '#fff', fontSize: 22, fontWeight: '700' },
+  guestText: { color: '#a8a8a8', fontSize: 15, lineHeight: 21, textAlign: 'center' },
+  guestButton: {
+    marginTop: 10,
+    height: 46,
+    paddingHorizontal: 28,
+    borderRadius: 12,
+    backgroundColor: '#FFD60A',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  guestButtonText: { color: '#111', fontSize: 16, fontWeight: '700' },
 });

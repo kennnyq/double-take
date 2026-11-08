@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } 
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/ui/Avatar';
 import { canAct, openSignIn } from '@/auth/gate';
-import { ME } from '@/social/me';
+import { useMe } from '@/auth/store';
 
 const EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
 
@@ -20,6 +20,7 @@ interface Props {
 /** Quick-emoji row + "Add a comment" input with a Post button. */
 export function Composer({ value, onChange, onPost, placeholder, replyingTo, onCancelReply, bottomInset, inputRef }: Props) {
   const canPost = value.trim().length > 0;
+  const me = useMe();
   return (
     <View style={[styles.wrap, { paddingBottom: bottomInset + 8 }]}>
       {replyingTo && (
@@ -47,7 +48,7 @@ export function Composer({ value, onChange, onPost, placeholder, replyingTo, onC
         ))}
       </View>
       <View style={styles.inputRow}>
-        <Avatar name={ME.handle} size={34} />
+        <Avatar name={me.handle} size={34} />
         <View style={styles.inputPill}>
           <TextInput
             ref={inputRef}

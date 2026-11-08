@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
-import { CircleUserRound, House, Plus, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
+import { CircleUserRound, House, LogIn, LogOut, Plus, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
+import { openSignIn, requireAccount } from '@/auth/gate';
+import { signOut, useAuth, useMe } from '@/auth/store';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import type { Clip } from '@/data/clips';
 import { Profile } from '@/profile/Profile';
@@ -44,6 +46,8 @@ export function DesktopApp({
   const [sheetProgress] = useState(() => new Animated.Value(0));
   const current = NAV.find((n) => n.id === tab)!;
   const settingsOpen = useSettingsOpen();
+  const { status } = useAuth();
+  const me = useMe();
 
   const closeSheet = useCallback(() => setSheetOpen(false), []);
   const onSheetClosed = useCallback(() => setSheet(null), []);
@@ -96,7 +100,7 @@ export function DesktopApp({
               <button
                 key={id}
                 className={`rail-item ${tab === id ? 'active' : ''}`}
-                onClick={() => setTab(id)}
+                onClick={() => (id === 'create' ? requireAccount('Sign in to post Takes', () => setTab(id)) : setTab(id))}
                 aria-label={label}
                 aria-current={tab === id ? 'page' : undefined}
                 data-tip={label}
@@ -106,6 +110,16 @@ export function DesktopApp({
             ))}
           </div>
           <div className="rail-bottom">
+            {status === 'guest' && (
+              <button className="rail-item" onClick={() => openSignIn()} aria-label="Log in" aria-haspopup="dialog" data-tip="Log in">
+                <LogIn size={25} strokeWidth={1.9} />
+              </button>
+            )}
+            {status === 'member' && (
+              <button className="rail-item" onClick={() => signOut()} aria-label={`Sign out @${me.handle}`} data-tip={`Sign out @${me.handle}`}>
+                <LogOut size={24} strokeWidth={1.9} />
+              </button>
+            )}
             <button
               className={`rail-item ${settingsOpen ? 'active' : ''}`}
               onClick={openSettings}

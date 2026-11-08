@@ -1,5 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
+import { ME } from '@/social/me';
 import { isMember } from './member';
 import { supabase } from './supabase';
 
@@ -113,4 +114,16 @@ export function useAuth(): AuthState {
 export function AuthBoot() {
   useEffect(startAuth, []);
   return null;
+}
+
+/**
+ * The handle and name to show for "you": the member's profile, a stand-in
+ * while it loads, or the local mock when no Supabase is configured.
+ */
+export function useMe(): { handle: string; name: string } {
+  const { status, profile, session } = useAuth();
+  if (status === 'local') return { handle: ME.handle, name: ME.name };
+  if (profile) return { handle: profile.handle, name: profile.displayName ?? profile.handle };
+  const local = session?.user.email?.split('@')[0] ?? 'you';
+  return { handle: local, name: local };
 }
