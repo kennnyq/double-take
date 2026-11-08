@@ -325,7 +325,17 @@ export class AtlasPlayer {
       });
     }
     const tiles = [...onScreen.values()];
-    const pick = pickSwipe(tiles, this.atlas.ids.length, now, pace);
+    // A strip's tile swipes to a clip of its strip's set that the strip doesn't show yet.
+    const allowed = (key: string) => {
+      const [b, i] = members.get(key)![0];
+      const strip = b.tiles[i].parentElement?.closest('.lt-row, .lt-col');
+      const set = strip && this.stripSets.get(strip);
+      if (!set) return undefined;
+      const onStrip = new Set(b.tiles.map((_, j) => b.cells[j]));
+      const fresh = set.filter((c) => !onStrip.has(c));
+      return fresh.length ? fresh : set;
+    };
+    const pick = pickSwipe(tiles, this.atlas.ids.length, now, pace, Math.random, this.atlas.distances, allowed);
     if (!pick) return;
     this.lastSwipe.set(pick.key, now);
     for (const [b, i] of members.get(pick.key)!) {

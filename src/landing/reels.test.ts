@@ -67,9 +67,11 @@ test('pickSwipe moves a tile to a clip not shown near it, preferring the least s
   assert.deepEqual([...picks], [4]);
 });
 
-test('pickSwipe falls back to any other clip when every clip is nearby', () => {
-  const tiles = [tile('a', 0, 0), tile('b', 50, 1, 1e9)];
-  assert.equal(pickSwipe(tiles, 2, 100_000, REEL_PACES.sometimes, seq(0))!.cell, 1);
+test('pickSwipe takes a clip shown nearby only when it is far enough off, and otherwise holds off', () => {
+  // Only clip 1 is left, and the tile showing it is 4 tiles away: fine.
+  assert.equal(pickSwipe([tile('a', 0, 0), tile('b', 400, 1, 1e9)], 2, 100_000, REEL_PACES.sometimes, seq(0))!.cell, 1);
+  // Half a tile away: it would sit right beside its double, so nothing swipes.
+  assert.equal(pickSwipe([tile('a', 0, 0), tile('b', 50, 1, 1e9)], 2, 100_000, REEL_PACES.sometimes, seq(0)), null);
   assert.equal(pickSwipe([tile('a', 0, 0)], 1, 100_000, REEL_PACES.sometimes), null);
 });
 
@@ -77,3 +79,37 @@ test('nextGap varies around the pace, never zero', () => {
   assert.equal(nextGap(REEL_PACES.sometimes, () => 0), 2.2 * 0.6);
   assert.equal(nextGap(REEL_PACES.sometimes, () => 1), 2.2 * 1.4);
 });
+
+test('pickSwipe avoids clips that look like the neighbours', () => {
+  // 0 and 1 are one clip under two ids; 2 looks like 3; 4 is unlike anything.
+  const D = [
+    [0, 0.02, 0.3, 0.3, 0.3],
+    [0.02, 0, 0.3, 0.3, 0.3],
+    [0.3, 0.3, 0, 0.07, 0.3],
+    [0.3, 0.3, 0.07, 0, 0.3],
+    [0.3, 0.3, 0.3, 0.3, 0],
+  ];
+  // 'a' (showing 2) is due; 'b' beside it shows 0. Clips 1 (a duplicate of 0) and 3 (like 2... and next to nothing) compete with 4.
+  const tiles = [tile('a', 0, 2), tile('b', 120, 0, 1e9), tile('c', 2000, 4, 1e9)];
+  const pick = pickSwipe(tiles, 5, 100_000, REEL_PACES.sometimes, seq(0), D);
+  // Not 0 or 1 (that's the clip beside it), not its own; 3 and 4 remain, and 4 is already far off on screen, so 3.
+  assert.ok(pick!.cell !== 0 && pick!.cell !== 1 && pick!.cell !== 2, `picked ${pick!.cell}`);
+});
+
+test('pickSwipe keeps a tile to the clips it is allowed', () => {
+  const tiles = [tile('a', 0, 2), tile('b', 3000, 7, 1e9)];
+  for (let r = 0; r < 1; r += 0.1) {
+    const pick = pickSwipe(tiles, 24, 100_000, REEL_PACES.sometimes, seq(0, r), undefined, () => [2, 11, 13]);
+    assert.ok(pick!.cell === 11 || pick!.cell === 13, `picked ${pick!.cell}`);
+  }
+  assert.equal(pickSwipe(tiles, 24, 100_000, REEL_PACES.sometimes, seq(0), undefined, () => [2]), null);
+});
+
+test('pickSwipe swipes a tile that has drifted beside its own clip before one that has merely waited', () => {
+  // All due; 'a' waited longest, but 'b' and 'c' show the same clip side by side.
+  const tiles = [tile('a', 0, 0, 0), tile('b', 1000, 5, 20_000), tile('c', 1100, 5, 20_000), tile('d', 3000, 7, 20_000)];
+  const pick = pickSwipe(tiles, 24, 100_000, REEL_PACES.sometimes, seq(0));
+  assert.ok(pick!.key === 'b' || pick!.key === 'c', `picked ${pick!.key}`);
+  assert.notEqual(pick!.cell, 5);
+});
+
