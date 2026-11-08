@@ -1,13 +1,13 @@
-import { useEffect, useMemo } from 'react';
-import { Pressable, Text, View } from 'react-native';
-import Animated, { interpolate, useAnimatedStyle, useSharedValue, withDelay, withTiming, type SharedValue } from 'react-native-reanimated';
+import { useEffect, useMemo, useRef } from 'react';
+import { Pressable, ScrollView, Text, View, type ScrollViewInstance } from 'react-native';
+import Animated, { cancelAnimation, interpolate, useAnimatedStyle, useSharedValue, withDelay, withRepeat, withTiming, type SharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import type { InvestigationResult, InvestigationSummary, OverallVerdict } from '../investigation/contract';
 import { ownLayer } from '../feed/layer';
 import { useDevSettings } from '../devtools/store';
 import { themed, usePalette } from '../ui/theme';
 import { clockTime } from '../components/investigation/EvidencePlayer';
-import { EASE_OUT } from './motion';
+import { EASE_OUT, useEased } from './motion';
 import './devSection';
 
 /*
@@ -101,11 +101,11 @@ interface Row {
   /** The planner's decision that picked this tool. */
   decision?: Step;
 }
-function rowsOf(t: InvestigationSummary): Row[] {
+export function rowsOf(steps: readonly Step[]): Row[] {
   const rows: Row[] = [];
-  for (let i = 0; i < t.steps.length; i++) {
-    const step = t.steps[i];
-    const next = t.steps[i + 1];
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const next = steps[i + 1];
     if (step.kind === 'plan' && step.tool && next?.kind === 'tool' && next.tool === step.tool) {
       rows.push({ step: next, decision: step });
       i++;
@@ -114,14 +114,11 @@ function rowsOf(t: InvestigationSummary): Row[] {
   return rows;
 }
 
-/** "5 checks · picked one at a time · 13.0 s", or "… · changed plan once · …" */
-function summaryOf(t: InvestigationSummary, rows: Row[]) {
+/** "5 checks · 11.0 s" */
+function summaryOf(steps: readonly Step[], rows: Row[]) {
   const tools = rows.filter((r) => r.step.kind === 'tool').length;
-  const decided = rows.filter((r) => r.decision).length;
-  const replans = t.steps.filter((s) => s.kind === 'replan').length;
-  const ms = t.steps.reduce((sum, s) => sum + s.elapsedMs, 0);
-  const how = replans ? `changed plan ${replans === 1 ? 'once' : `${replans} times`}` : decided > 1 ? 'picked one at a time' : null;
-  return [`${tools} ${tools === 1 ? 'check' : 'checks'}`, how, ms > 0 ? seconds(ms) : null].filter(Boolean).join(' · ');
+  const ms = steps.reduce((sum, s) => sum + s.elapsedMs, 0);
+  return [`${tools} ${tools === 1 ? 'check' : 'checks'}`, ms > 0 ? seconds(ms) : null].filter(Boolean).join(' · ');
 }
 
 /**
@@ -134,7 +131,7 @@ export function HowWeChecked({ trace, links, verdict, onLink }: { trace: Investi
   const s = useTint();
   const c = usePalette();
   const { showModels } = useDevSettings();
-  const rows = useMemo(() => rowsOf(trace), [trace]);
+  const rows = useMemo(() => rowsOf(trace.steps), [trace]);
   // Starts once the result has faded in, so the steps arrive where the eye already is.
   const open = useSharedValue(0);
   useEffect(() => {
@@ -142,13 +139,12 @@ export function HowWeChecked({ trace, links, verdict, onLink }: { trace: Investi
   }, [open]);
   const rail = useAnimatedStyle(() => ({ transform: [{ scaleY: interpolate(open.value, [0, 0.9], [0, 1], 'clamp') }] }));
   const notes = [trace.replay ? 'Replay of a prepared check' : null, trace.outcome === 'partial' ? 'Some checks didn’t finish' : null].filter(Boolean);
-  const how = trace.strategy === 'adaptive' ? 'adapts as it goes' : 'fixed plan';
   return (
     <View style={{ gap: 10 }}>
       <View style={{ gap: 2 }}>
         <Text style={s.heading}>How we checked</Text>
-        <Text style={s.muted}>{summaryOf(trace, rows)}</Text>
-        <Text style={s.meta}>{showModels ? `Planned by ${modelName(trace.plannerModel)} · ${how}` : `Planned step by step · ${how}`}</Text>
+        <Text style={s.muted}>{summaryOf(trace.steps, rows)}</Text>
+        {showModels && <Text style={s.meta}>Planned by {modelName(trace.plannerModel)}</Text>}
       </View>
       {notes.length > 0 && (
         <View style={s.note}>
@@ -222,6 +218,107 @@ function StepRow(props: { step: Step; decision?: Step; index: number; count: num
           </View>
         )}
         {showModels && models.length > 0 && <Text style={s.meta}>{models.map(modelName).join(' · ')}</Text>}
+      </View>
+    </Animated.View>
+  );
+}
+
+/**
+ * The check as it runs: its steps arrive one by one in the card, each first
+ * working (a soft pulse on its node), then its result fades in, until the
+ * verdict lands. `done` rows are finished; `working` adds the step in hand.
+ * For a live check that's the tool the planner just picked, if the last step
+ * named one, or else a plain "Checking…". It scrolls itself to the newest step.
+ */
+export function LiveTrace({ steps, done = Infinity, working, replay, width, maxHeight }: { steps: readonly Step[]; done?: number; working: boolean; replay?: boolean; width: number; maxHeight: number }) {
+  const s = useTint();
+  const c = usePalette();
+  const scroll = useRef<ScrollViewInstance>(null);
+  const all = useMemo(() => rowsOf(steps), [steps]);
+  const shown = all.slice(0, Math.min(done, all.length));
+  // A live check: the planner's latest pick, still running, is the step in hand.
+  const last = steps[steps.length - 1];
+  const pending: Row | undefined =
+    done < all.length ? all[done] : last?.kind === 'plan' && last.tool && shown[shown.length - 1]?.step === last ? { step: { ...last, kind: 'tool' }, decision: last } : undefined;
+  const rows = pending && shown[shown.length - 1]?.step === last ? shown.slice(0, -1) : shown;
+  const finished = steps.filter((st) => rows.some((r) => r.step === st || r.decision === st));
+  return (
+    <View style={{ width, maxHeight, gap: 8 }}>
+      <View style={{ gap: 2 }}>
+        <Text style={s.heading}>{working ? 'Checking…' : 'How we checked'}</Text>
+        <Text style={s.muted}>{rows.length ? summaryOf(finished, rows) : replay ? 'Replay of a prepared check' : 'Starting the check'}</Text>
+      </View>
+      <ScrollView ref={scroll} style={{ flexGrow: 0 }} onContentSizeChange={() => scroll.current?.scrollToEnd({ animated: true })} showsVerticalScrollIndicator={false}>
+        <View>
+          <View pointerEvents="none" style={s.rail} />
+          {rows.map((r) => (
+            <LiveRow key={r.step.id} row={r} />
+          ))}
+          {working && <LiveRow key={pending ? `${pending.step.id}:working` : 'working'} row={pending} working />}
+        </View>
+      </ScrollView>
+      {replay && rows.length > 0 && (
+        <View style={s.note}>
+          <Ionicons name="information-circle-outline" size={14} color={c.textDim} />
+          <Text style={s.muted}>Replay of a prepared check</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+function LiveRow({ row, working = false }: { row?: Row; working?: boolean }) {
+  const s = useTint();
+  const c = usePalette();
+  const enter = useSharedValue(0);
+  const pulse = useSharedValue(0);
+  useEffect(() => {
+    enter.value = withTiming(1, { duration: 320, easing: EASE_OUT });
+  }, [enter]);
+  useEffect(() => {
+    if (!working) return;
+    pulse.value = withRepeat(withTiming(1, { duration: 700 }), -1, true);
+    return () => cancelAnimation(pulse);
+  }, [working, pulse]);
+  const resultIn = useEased(working ? 0 : 1, 360);
+  const rise = useAnimatedStyle(() => ({ opacity: enter.value, transform: [{ translateY: (1 - enter.value) * 10 }] }));
+  const glow = useAnimatedStyle(() => ({ opacity: 0.35 + pulse.value * 0.65, transform: [{ scale: 1 + pulse.value * 0.25 }] }));
+  const result = useAnimatedStyle(() => ({ opacity: resultIn.value }));
+  const step = row?.step;
+  const { title, icon } = step ? look(step) : { title: 'Checking', icon: 'search-outline' as const };
+  const plan = step?.kind === 'plan';
+  const replan = step?.kind === 'replan';
+  const off = !!step && step.status !== 'ok' && !working;
+  return (
+    <Animated.View style={[s.step, ownLayer, rise]}>
+      <View style={[s.node, plan ? { backgroundColor: c.accent } : step?.kind === 'verdict' ? s.nodeVerdict : replan ? null : s.nodeTool]}>
+        {replan && <View style={s.diamond} />}
+        <Ionicons name={icon} size={14} color={plan || replan ? c.onAccent : off ? c.textDim : c.text} />
+        {working ? (
+          <Animated.View style={[s.pip, { backgroundColor: c.accent }, ownLayer, glow]} />
+        ) : (
+          step?.kind === 'tool' && <View style={[s.pip, { backgroundColor: off ? c.danger : c.correct }]} />
+        )}
+      </View>
+      <View style={[s.body, plan && s.bodyPlan, replan && s.bodyReplan]}>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8 }}>
+          {(plan || replan) && <Text style={[s.tag, replan && s.tagReplan]}>{plan ? 'Plan' : 'New plan'}</Text>}
+          {off && <Text style={[s.tagOff, { color: c.danger, borderColor: c.danger }]}>{step?.status === 'skipped' ? 'Skipped' : 'Unavailable'}</Text>}
+          <Text style={[s.title, { flex: 1 }, off && { color: c.textDim }]}>{working ? `${title}…` : title}</Text>
+          {!working && step && step.elapsedMs > 0 && <Text style={s.time}>{seconds(step.elapsedMs)}</Text>}
+        </View>
+        {row?.decision && (
+          <View style={s.decision}>
+            <View style={s.decisionMark} />
+            <Text style={s.decisionText}>Picked next by the planner</Text>
+          </View>
+        )}
+        {step && !working && (
+          <Animated.Text style={[s.result, off && { color: c.textDim }, ownLayer, result]}>
+            <Text style={{ color: c.textDim }}>→ </Text>
+            {step.result}
+          </Animated.Text>
+        )}
       </View>
     </Animated.View>
   );

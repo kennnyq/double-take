@@ -47,6 +47,14 @@ test('fresh results bind request id and media hash; prepared revisions preserve 
   assert.doesNotThrow(() => validateJobResponse({ ...job, result: { ...result, clipId: 'source-clip' } }, id, true));
   assert.throws(() => validateJobResponse({ ...job, sha256: 'wrong' }, id, true));
 });
+test('a running check may carry only its partial investigation, bound to the upload', () => {
+  const id = 'a'.repeat(64), sha256 = 'b'.repeat(64);
+  const partial = { version: 1, clipId: id, mediaSha256: sha256, components: [], evidence: [], trace: [], investigation: { outcome: 'partial', steps: [] } };
+  assert.doesNotThrow(() => validateJobResponse({ id, state: 'running', sha256, result: partial }, id));
+  assert.doesNotThrow(() => validateJobResponse({ id, state: 'running' }, id));
+  for (const bad of [{ ...partial, mediaSha256: 'c'.repeat(64) }, { ...partial, clipId: 'other' }, { ...partial, investigation: { outcome: 'complete', steps: [] } }, { ...partial, investigation: undefined }, { ...partial, verdict: { label: 'likely_ai', drivers: [] } }])
+    assert.throws(() => validateJobResponse({ id, state: 'running', sha256, result: bad }, id), /result unavailable/);
+});
 test('optional verdict rejects malformed headlines before desktop or native rendering', () => {
   const id = 'a'.repeat(64), sha256 = 'b'.repeat(64);
   const result = { version: 1, clipId: id, mediaSha256: sha256, components: [], evidence: [] };

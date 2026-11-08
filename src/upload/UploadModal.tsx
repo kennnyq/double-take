@@ -10,12 +10,13 @@ import { uploadId } from '../investigation/upload-id';
 import { acceptUpload, sendOrRecover, uploadRoute } from '../investigation/upload-flow';
 import { getJob, mediaUrl, retryAnalysis, upload, uploadLink, type ClientJob } from '../investigation/client';
 import { uuid } from '../lib/uuid';
+import type { InvestigationSummary } from '../investigation/contract';
 import { canUpload, requireMember } from '../auth/gate';
 import { useAuth } from '../auth/store';
 import { ownLayer } from '../feed/layer';
 import { usePalette } from '../ui/theme';
 import { EvidencePlayer, type EvidencePlayerHandle } from '../components/investigation/EvidencePlayer';
-import { HowWeChecked, stepLinks, type StepLink } from './Trace';
+import { HowWeChecked, LiveTrace, rowsOf, stepLinks, type StepLink } from './Trace';
 import { Processing } from '../components/investigation/Processing';
 import { DropZone } from './DropZone';
 import { ClipPreview, previewSource } from './ClipPreview';
@@ -120,6 +121,8 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
   const [canRetry, setCanRetry] = useState(false);
   /** A prepared check being shown: its video plays from the cloud, and nothing polls the job runner. */
   const [demo, setDemo] = useState<Prepared>();
+  /** A prepared check's steps as they play back in the card, and how many rows have finished. */
+  const [replay, setReplay] = useState<{ steps: InvestigationSummary['steps']; done: number }>();
   const markPreviewFailed = useCallback(() => setPreviewFailed(true), []);
   const generation = useRef(0);
   const locked = useRef(false);
@@ -142,7 +145,8 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
   // The preview player goes away once the result has faded in, so no hidden <video> lingers under it.
   const [previewLive] = usePresence(!complete, 900);
   const previewUri = shownSelection?.kind === 'file' && previewLive ? shownSelection.preview.uri : '';
-  const running = busy || job?.state === 'queued' || job?.state === 'running';
+  // A prepared check's playback has nothing to lose, so leaving it never asks.
+  const running = !demo && (busy || job?.state === 'queued' || job?.state === 'running');
   const checking = busy || (!!job && !jobFailed);
   const step = checking ? 2 : selection ? 1 : job || handle ? 2 : 0;
   const failureText = failure || (jobFailed ? job?.error || 'This video could not be checked.' : '');
@@ -238,6 +242,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     setBusy(true);
     setJob(undefined);
     setDemo(undefined);
+    setReplay(undefined);
     setFailure('');
     setNotice('');
     retry.current = request;
@@ -299,9 +304,21 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     setDemo(prepared);
     await wait(900 + Math.min(1400, bytes / 20000));
     if (!live()) return;
+    // Then the check plays back step by step: each row's recorded time, scaled so the
+    // whole run takes about 6–8 s, and never less than 0.4 s a step.
+    const steps = prepared.job.result?.investigation?.steps ?? [];
+    const rows = rowsOf(steps);
+    const ms = rows.map((r) => (r.decision?.elapsedMs ?? 0) + r.step.elapsedMs);
+    const scale = Math.min(1, 6000 / Math.max(1, ms.reduce((a, b) => a + b, 0)));
     setBusy(false);
+    setReplay({ steps, done: 0 });
     setJob({ ...prepared.job, state: 'running', result: undefined });
-    await wait(2600);
+    for (let i = 0; i < rows.length; i++) {
+      await wait(Math.max(400, Math.min(2200, ms[i] * scale)));
+      if (!live()) return;
+      setReplay({ steps, done: i + 1 });
+    }
+    await wait(rows.length ? 700 : 2600);
     if (!live()) return;
     setJob(prepared.job);
     locked.current = false;
@@ -359,6 +376,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     setSelection(undefined);
     setJob(undefined);
     setDemo(undefined);
+    setReplay(undefined);
     setBusy(false);
     setFailure('');
     setNotice('');
@@ -547,9 +565,25 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
         )
       }
       progress={
-        <View style={{ width: Math.min(320, bodyW - 64), gap: 4 }}>
-          <Processing key={handle ?? 'check'} uploading={busy} stage={job?.state} />
-          <Text style={[s.muted, { minHeight: 18 }]}>{notice || (job?.state === 'queued' ? 'Waiting to check' : '')}</Text>
+        // Uploading: the progress bar. Then the check itself, its steps arriving as they run.
+        // (Both only 'on' at this step: a hidden step's layers must never take clicks on web.)
+        <View style={{ position: 'absolute', inset: 0 }}>
+          <Swap on={step === 2 && (busy || !job || job.state === 'queued')}>
+            <View style={{ width: Math.min(320, bodyW - 64), gap: 4 }}>
+              <Processing key={handle ?? 'check'} uploading={busy} stage={job?.state} />
+              <Text style={[s.muted, { minHeight: 18 }]}>{notice || (job?.state === 'queued' ? 'Waiting to check' : '')}</Text>
+            </View>
+          </Swap>
+          <Swap on={step === 2 && !busy && !!job && job.state !== 'queued'}>
+            <LiveTrace
+              steps={replay?.steps ?? job?.result?.investigation?.steps ?? []}
+              done={replay ? replay.done : Infinity}
+              working={job?.state === 'running' && (!replay || replay.done < rowsOf(replay.steps).length)}
+              replay={!!demo}
+              width={Math.min(440, bodyW - 32)}
+              maxHeight={bodyH - 48}
+            />
+          </Swap>
         </View>
       }
       stepFailure={
@@ -795,7 +829,7 @@ function Body(props: {
           {media}
         </Animated.View>
       )}
-      {media && <Animated.View pointerEvents="none" style={[{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.62)' }, ownLayer, scrim]} />}
+      {media && <Animated.View pointerEvents="none" style={[{ position: 'absolute', inset: 0, backgroundColor: 'rgba(0,0,0,0.8)' }, ownLayer, scrim]} />}
       <StepLayer index={0} pos={pos} current={step}>
         {pick}
       </StepLayer>

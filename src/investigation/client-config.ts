@@ -54,6 +54,13 @@ export function validateJobResponse(value: unknown, id: string, prepared = false
   const job = value as { id?: unknown; state?: unknown; sha256?: unknown; result?: { version?: unknown; clipId?: unknown; mediaSha256?: unknown; components?: unknown; evidence?: unknown; verdict?: unknown } } | null;
   const fail = () => { throw new ClientServiceError('invalid_response', 'Upload result unavailable. Retry to continue.'); };
   if (!job || job.id !== id || !['queued', 'running', 'complete', 'error'].includes(String(job.state))) return fail();
+  if (job.state === 'running' && job.result !== undefined) {
+    // A check in progress may carry its investigation so far: bound to this upload, marked partial, no verdict yet.
+    const r = job.result as { version?: unknown; clipId?: unknown; mediaSha256?: unknown; verdict?: unknown; investigation?: { outcome?: unknown; steps?: unknown } } | null;
+    if (!r || r.version !== 1 || typeof job.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(job.sha256) || r.mediaSha256 !== job.sha256
+      || (!prepared && r.clipId !== id) || r.investigation?.outcome !== 'partial' || !Array.isArray(r.investigation.steps) || r.verdict !== undefined) return fail();
+    return;
+  }
   if (job.state === 'complete' || job.result !== undefined) {
     const r = job.result;
     if (job.state !== 'complete' || !r || r.version !== 1 || typeof job.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(job.sha256)
