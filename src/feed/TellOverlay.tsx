@@ -304,13 +304,17 @@ export function TellOverlay({ ref, ...p }: Props) {
     const plan = planScrub(player.currentTime, r.from);
     setSeekBadge(seekBadgeFor(plan.to - plan.from, plan.ms));
     p.onScrubPlan?.(plan);
-    // The annotations come in as the scrub nears its end, timed off its plan.
+    // A visible card responds immediately to next/back. Only the first
+    // entrance waits for the scrub; moving between tells must not wait.
+    const continuing = cards.some((c) => !c.leaving);
+    if (continuing) showCard(card);
+    // The spotlight still waits until its area is relevant in the video.
     let annotatedNow = false;
     const annotate = () => {
       if (annotatedNow) return;
       annotatedNow = true;
       setAnnotated(true);
-      showCard(card);
+      if (!continuing) showCard(card);
     };
     setAnnotated(false);
     if (plan.ms > 0) annotateTimer.current = setTimeout(annotate, Math.max(0, plan.ms - ANNOTATE_LEAD_MS));

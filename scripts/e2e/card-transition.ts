@@ -30,10 +30,15 @@ try {
       w.savedBack = el.querySelector('[aria-label="Previous tell"]');
       w.savedFooter = w.savedBack.parentElement;
       w.footerSamples = [];
+      el.addEventListener('click', () => { w.inputAt = performance.now(); }, { once: true, capture: true });
+      const glass = el.querySelector('[data-testid="dt-card-glass"]')!;
       w.sampleFooter = true;
       const tick = () => {
         if (!w.sampleFooter) return;
         w.footerSamples.push({
+          at: performance.now(),
+          top: glass.getBoundingClientRect().top,
+          bottom: glass.getBoundingClientRect().bottom,
           connected: el.isConnected,
           opacity: Number(getComputedStyle(w.savedFooter).opacity),
           transform: getComputedStyle(w.savedFooter).transform,
@@ -44,7 +49,7 @@ try {
       tick();
     });
     await card.getByRole('button', { name: 'Next tell', exact: true }).click();
-    await card.getByText('Second', { exact: true }).waitFor();
+    await card.getByText('Second', { exact: true }).filter({ visible: true }).waitFor();
     await page.waitForTimeout(1500);
     const result = await card.evaluate((el) => {
       const w = window as any;
@@ -52,6 +57,7 @@ try {
       return {
         same: el === w.savedCard && el.querySelector('[aria-label="Previous tell"]') === w.savedBack,
         samples: w.footerSamples,
+        inputAt: w.inputAt,
       };
     });
     assert.ok(result.same, 'shell and navigation button retain their identity');
@@ -60,13 +66,32 @@ try {
       assert.ok(s.connected && s.opacity > 0.99 && s.cardOpacity > 0.99, 'footer and shell never fade between tells');
       assert.ok(s.transform === 'none' || s.transform === 'matrix(1, 0, 0, 1, 0, 0)', 'footer does not replay its rise');
     }
+    const samples = result.samples.filter((s: any) => s.at >= result.inputAt);
+    const initial = result.samples[0];
+    const moved = samples.find((s: any) => Math.abs(s.bottom - initial.bottom) > 1);
+    assert.ok(moved && moved.at - result.inputAt < 150, 'card responds within 150 ms of the accepted input');
+    const resized = samples.find((s: any) => Math.abs((s.bottom - s.top) - (initial.bottom - initial.top)) > 1);
+    assert.ok(resized && resized.at - result.inputAt < 150, 'resize starts alongside travel, before the old text has exited');
+    for (const edge of ['top', 'bottom']) {
+      const end = samples.at(-1)[edge];
+      for (let i = 1; i < samples.length; i++) {
+        const a = samples[i];
+        const b = samples.find((s: any) => s.at >= a.at + 65);
+        if (!b || Math.abs(end - a[edge]) < 20 || Math.abs(a[edge] - initial[edge]) < 5) continue;
+        assert.ok(Math.abs(b[edge] - a[edge]) > 1, edge + ' keeps moving through text replacement');
+      }
+    }
+    console.log('motion latency ms:', Math.round(moved.at - result.inputAt), 'resize:', Math.round(resized.at - result.inputAt));
     await card.getByRole('button', { name: 'Previous tell' }).click();
     await page.waitForTimeout(100);
     // This rapid reversal targets the second tell again before the first has settled.
     await page.getByRole('button', { name: 'Next tell', exact: true }).first().click({ force: true });
-    await card.getByText('Second', { exact: true }).waitFor();
+    await card.getByText('Second', { exact: true }).filter({ visible: true }).waitFor();
     await page.waitForTimeout(1500);
     assert.equal(await card.count(), 1);
+    const restoredHeight = await card.getByTestId('dt-card-glass').evaluate((el) => el.getBoundingClientRect().height);
+    const settled = result.samples.at(-1);
+    assert.ok(Math.abs(restoredHeight - (settled.bottom - settled.top)) < 1, 'reversal restores the visible text height');
     await card.getByRole('button', { name: 'Next tell', exact: true }).click();
     await page.waitForTimeout(100);
     await page.getByRole('button', { name: 'Close the walkthrough' }).click();

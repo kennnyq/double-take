@@ -76,24 +76,22 @@ export function InfoCard({ spot, stageH, text, hint, loop, blur, nav, revealVari
   const shown = useSharedValue(0);
   // This clock belongs to the shell: it never restarts between tells.
   const clock = useSharedValue(0);
-  const x = useSharedValue(spot.cx - spot.width / 2);
-  const y = useSharedValue(bottom - 60);
-  const h = useSharedValue(height);
+  // Animate the actual edges together. Deriving size from them prevents a
+  // late height measurement from counteracting translation or restarting it.
+  const bounds = useSharedValue([spot.cx - spot.width / 2, bottom - height, bottom]);
   const positioned = useRef(false);
 
   useEffect(() => {
-    const motion = { duration: 420, easing: Easing.inOut(Easing.cubic) };
+    const target = [spot.cx - spot.width / 2, bottom - height, bottom];
     if (!positioned.current) {
-      x.value = spot.cx - spot.width / 2;
-      y.value = bottom - 60;
-      h.value = height;
+      bounds.set(target);
       positioned.current = !!total;
     } else {
-      x.value = withTiming(spot.cx - spot.width / 2, motion);
-      y.value = withTiming(bottom - 60, motion);
-      h.value = withTiming(height, motion);
+      // Physics springs inherit velocity when retargeted, unlike restarting
+      // an ease-in-out timing curve every time text layout reports its size.
+      bounds.set(withSpring(target, { stiffness: 320, damping: 36, mass: 1 }));
     }
-  }, [spot.cx, spot.width, bottom, height, total, x, y, h]);
+  }, [spot.cx, spot.width, bottom, height, total, bounds]);
 
   useEffect(() => {
     if (leaving) {
@@ -116,10 +114,10 @@ export function InfoCard({ spot, stageH, text, hint, loop, blur, nav, revealVari
   const [direction] = useState(spot.from === 'above' ? -1 : 1);
   const cardStyle = useAnimatedStyle(() => ({
     opacity: shown.value,
-    transform: [{ translateX: x.value }, { translateY: y.value + (1 - card.value) * TRAVEL * direction }, { scale: 0.96 + 0.04 * card.value }],
+    transform: [{ translateX: bounds.value[0] }, { translateY: bounds.value[2] - 60 + (1 - card.value) * TRAVEL * direction }, { scale: 0.96 + 0.04 * card.value }],
   }));
   const glassStyle = useAnimatedStyle(() => ({
-    transform: [{ scaleY: h.value / 200 }],
+    transform: [{ scaleY: (bounds.value[2] - bounds.value[1]) / 200 }],
   }));
 
   return (
@@ -129,7 +127,7 @@ export function InfoCard({ spot, stageH, text, hint, loop, blur, nav, revealVari
       accessibilityLiveRegion="polite"
       testID="dt-card"
     >
-      <Animated.View style={[styles.glass, ownLayer, g.glass, blur ? g.tint : g.tintSolid, glassStyle]} pointerEvents="none">
+      <Animated.View testID="dt-card-glass" style={[styles.glass, ownLayer, g.glass, blur ? g.tint : g.tintSolid, glassStyle]} pointerEvents="none">
         {blur ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
       </Animated.View>
       <View style={[styles.copy, { bottom: footerHeight + 9 }]} pointerEvents="none">
@@ -161,9 +159,17 @@ function CardText({ text, hint, step, variant, leaving, onReady, onHeight }: {
   const target = JSON.stringify([text, hint, step, variant]);
   const [displayed, setDisplayed] = useState({ key: target, text, hint, variant });
   const clock = useSharedValue(0);
+  const measureClock = useSharedValue(0);
   const ready = useRef(0);
   const first = useRef(true);
   const previousTarget = useRef(target);
+  const heights = useRef(new Map<string, number>());
+  // A reversal can return to still-visible copy without a new layout event.
+  // Restore its measured size rather than retaining the abandoned target's.
+  useEffect(() => {
+    const known = heights.current.get(target);
+    if (known !== undefined) onHeight(known);
+  }, [target, onHeight]);
   useEffect(() => {
     const reversed = previousTarget.current !== target;
     previousTarget.current = target;
@@ -179,7 +185,21 @@ function CardText({ text, hint, step, variant, leaving, onReady, onHeight }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, displayed.key, leaving]);
   return (
-    <View onLayout={(e) => onHeight(e.nativeEvent.layout.height)} accessible accessibilityLabel={displayed.hint ? `${displayed.text}. ${displayed.hint}` : displayed.text}>
+    <>
+    {target !== displayed.key && (
+      <View key={target} style={styles.measureCopy} pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" aria-hidden
+        onLayout={(e) => {
+          heights.current.set(target, e.nativeEvent.layout.height);
+          onHeight(e.nativeEvent.layout.height);
+        }}>
+        <RevealText text={text} hint={hint} variant={variant} textStyle={[styles.text, g.text]} hintStyle={[styles.hint, g.hint]}
+          clock={measureClock} onReady={() => {}} />
+      </View>
+    )}
+    <View onLayout={(e) => {
+      heights.current.set(displayed.key, e.nativeEvent.layout.height);
+      if (target === displayed.key) onHeight(e.nativeEvent.layout.height);
+    }} accessible accessibilityLabel={displayed.hint ? `${displayed.text}. ${displayed.hint}` : displayed.text}>
       <RevealText
         key={displayed.key}
         text={displayed.text} hint={displayed.hint} variant={displayed.variant}
@@ -188,11 +208,12 @@ function CardText({ text, hint, step, variant, leaving, onReady, onHeight }: {
         onReady={(duration) => {
           ready.current = duration;
           onReady(duration);
-          if (!leaving) clock.set(withDelay(first.current ? TEXT_START_MS : 80, withTiming(duration, { duration, easing: Easing.linear })));
+          if (!leaving) clock.set(withDelay(first.current ? TEXT_START_MS : 0, withTiming(duration, { duration, easing: Easing.linear })));
           first.current = false;
         }}
       />
     </View>
+    </>
   );
 }
 
@@ -320,6 +341,7 @@ const styles = StyleSheet.create({
   // Clips (it holds at most a blur view) so iOS draws its hairline border with
   // Core Animation rather than into a bitmap.
   glass: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200, transformOrigin: 'bottom', borderRadius: 22, overflow: 'hidden' },
+  measureCopy: { position: 'absolute', left: 0, right: 0, opacity: 0 },
   copy: { position: 'absolute', left: 16, right: 16 },
   bottom: { position: 'absolute', left: 16, right: 16, bottom: 9 },
   text: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
