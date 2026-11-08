@@ -741,9 +741,11 @@ const Slide = memo(function Slide(p: SlideProps) {
       <div className="slide-grid">
         <aside className="d-info">{info}</aside>
         <div className={`stage card ${p.inspecting ? 'inset' : ''}`}>
+          {/* The posters, in their own layer so the double take can inset them without
+              making the stage a stacking context (the overlay must stay above the pooled video). */}
+          <div className="stage-media">
           {p.zoom ? (
             <>
-              {/* The blurred fill shows only once the walkthrough has zoomed out. */}
               <img
                 className="poster contained"
                 src={poster}
@@ -761,6 +763,7 @@ const Slide = memo(function Slide(p: SlideProps) {
           ) : (
             <img className="poster" src={poster} alt="" draggable={false} />
           )}
+          </div>
           <div className="overlay">
             <div className={`shade compact-only fades ${p.inspecting ? 'faded' : ''}`} />
             <div

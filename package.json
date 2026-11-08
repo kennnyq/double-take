@@ -63,7 +63,8 @@
     "e2e:taps": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/double-tap.ts",
     "e2e:flow": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/double-take-flow.ts",
     "e2e:scrub": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/scrub-bar.ts",
-    "e2e:wheel": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/panel-wheel.ts"
+    "e2e:wheel": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/panel-wheel.ts",
+    "e2e:overlay": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/overlay-on-top.ts"
   },
   "private": true
 }

@@ -887,18 +887,39 @@
   z-index: 4;
 }
 
-/* The double take: the card insets (both the slide's stage and the pooled
-   video's, so they stay together), its corners round more, and a faint ring
-   marks the new mode. The card's dark bands stay plain (no blurred fill). */
-.desk .stage {
+/* The double take: the card insets, its corners round more, and a faint
+   ring marks the new mode. The slide's stage itself never transforms: that
+   would make it a stacking context, and its overlay (spotlight, card, Close,
+   progress bar) would sink under the pooled <video> layered over it. So its
+   two layers, the posters and the overlay, inset separately, and the pooled
+   video's own stage insets the same way; all three stay together. */
+.desk .stage-media {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: 8px;
+}
+.desk .stage-media,
+.desk .stage > .overlay,
+.desk .pool-slot .stage {
   transition:
     transform 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
     border-radius 0.55s cubic-bezier(0.22, 0.9, 0.24, 1),
     box-shadow 0.55s ease;
-  will-change: transform;
 }
-.desk .stage.inset {
+.desk .slide .stage {
+  transition: background-color 0.55s ease;
+}
+.desk .slide .stage.inset {
+  background: transparent;
+}
+.desk .stage.inset > .stage-media,
+.desk .stage.inset > .overlay,
+.desk .pool-slot .stage.inset {
   transform: scale(0.9);
   border-radius: 22px;
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--dt-text) 14%, transparent);
+}
+.desk .stage.inset > .overlay {
+  overflow: hidden;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--dt-text) 14%, transparent);
 }

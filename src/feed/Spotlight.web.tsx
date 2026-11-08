@@ -96,7 +96,7 @@ export function Spotlight(p: SpotlightProps) {
     <div style={layer} aria-hidden>
       {effect === 'cheapBlur' && <canvas ref={stillEl} style={{ ...layer, ...masked, width: '100%', height: '100%', filter: `blur(${stillBlur}px)`, opacity: 0 }} />}
       {effect === 'fullBlur' && <div ref={blurEl} style={{ ...layer, ...masked }} />}
-      <div ref={dimEl} style={{ ...layer, ...masked, background: '#000', opacity: 0 }} />
+      <div ref={dimEl} data-testid="dt-spot-dim" style={{ ...layer, ...masked, background: '#000', opacity: 0 }} />
     </div>
   );
 }
