@@ -85,12 +85,17 @@ test('works without storage, or with storage that throws', () => {
   assert.equal(store.getSnapshot().feedMode, 'autoLabel');
 });
 
-test('the double take opens with a hold by default, and takes any of the three gestures', () => {
-  assert.equal(DEFAULT_SETTINGS.revealGesture, 'hold');
+test('the double take opens with a hold or a double tap by default, and takes any of the three gestures', () => {
+  assert.equal(DEFAULT_SETTINGS.revealGesture, 'both');
   for (const g of ['hold', 'doubleTap', 'both'] as const) {
     assert.equal(readSettings(JSON.stringify({ revealGesture: g })).revealGesture, g);
   }
-  assert.equal(readSettings('{"revealGesture":"swipe"}').revealGesture, 'hold');
+  assert.equal(readSettings('{"revealGesture":"swipe"}').revealGesture, 'both');
+});
+
+test('a gesture saved before Both became the default stays', () => {
+  assert.equal(readSettings('{"feedMode":"default","revealGesture":"hold"}').revealGesture, 'hold');
+  assert.equal(readSettings('{"revealGesture":"doubleTap"}').revealGesture, 'doubleTap');
 });
 
 test('a gesture saved in the dev settings carries over until one is saved here', () => {
@@ -98,8 +103,8 @@ test('a gesture saved in the dev settings carries over until one is saved here',
   assert.equal(readSettings(null, dev).revealGesture, 'doubleTap');
   assert.equal(readSettings('{"feedMode":"onlyAi"}', dev).revealGesture, 'doubleTap');
   assert.equal(readSettings('{"revealGesture":"both"}', dev).revealGesture, 'both', 'the user setting wins');
-  assert.equal(readSettings(null, '{"revealGesture":"wiggle"}').revealGesture, 'hold');
-  assert.equal(readSettings(null, '{broken').revealGesture, 'hold');
+  assert.equal(readSettings(null, '{"revealGesture":"wiggle"}').revealGesture, 'both');
+  assert.equal(readSettings(null, '{broken').revealGesture, 'both');
 });
 
 test('the store migrates the dev gesture and saves it as a user setting', () => {
@@ -117,7 +122,7 @@ test('the store migrates the dev gesture and saves it as a user setting', () => 
 // the clip on screen as soon as subscribers hear about it. Every setting must
 // notify synchronously, with a new snapshot that already holds the new value.
 test('every setting notifies subscribers at once with the new value', () => {
-  const alternatives: { [K in keyof AppSettings]: AppSettings[K] } = { feedMode: 'onlyReal', revealGesture: 'both' };
+  const alternatives: { [K in keyof AppSettings]: AppSettings[K] } = { feedMode: 'onlyReal', revealGesture: 'hold' };
   assert.deepEqual(Object.keys(alternatives).sort(), Object.keys(SCHEMA).sort(), 'a new setting needs a case here');
   for (const key of Object.keys(alternatives) as (keyof AppSettings)[]) {
     const store = createSettingsStore(null);

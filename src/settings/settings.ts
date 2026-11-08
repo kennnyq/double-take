@@ -14,7 +14,7 @@ export type FeedMode = (typeof FEED_MODES)[number];
 /**
  * How a clip's double take (its tells walkthrough) opens, besides its button:
  * hold (long-press on phones, holding Space on desktop), double tap
- * (double-click on desktop), or either.
+ * (double-click on desktop), or either (the default). A saved pick stays.
  */
 export const REVEAL_GESTURES = ['hold', 'doubleTap', 'both'] as const;
 export type RevealGesture = (typeof REVEAL_GESTURES)[number];
@@ -36,7 +36,7 @@ const oneOf =
 
 export const SCHEMA: { [K in keyof AppSettings]: Field<AppSettings[K]> } = {
   feedMode: { default: 'default', valid: oneOf(FEED_MODES) },
-  revealGesture: { default: 'hold', valid: oneOf(REVEAL_GESTURES) },
+  revealGesture: { default: 'both', valid: oneOf(REVEAL_GESTURES) },
 };
 
 export const DEFAULT_SETTINGS: AppSettings = Object.freeze(
