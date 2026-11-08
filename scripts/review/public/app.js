@@ -7,12 +7,13 @@
 import { grow, holeFor, maskFor, maskPlacement, paddingPx, spotlightStrength } from '/app/src/feed/spotlight.ts';
 import { cardSpot, emptierSide, estimateCardHeight } from '/app/src/feed/card.ts';
 import { easedSeek, planScrub, runScrub, safeSeek } from '/app/src/feed/scrub.ts';
-import { boxOnStage, fitFor, videoRect } from '/app/src/feed/tells.ts';
+import { areaFor, coverScale, frameFor, stageInset } from '/app/scripts/review/web/placement.ts';
 import { readTellsFile } from '/app/src/annotations/format.ts';
 import { REPLAY_RATE, activeTells, boxShownAt, replayWindow, seekTimeFor, walkthroughSteps } from '/app/src/annotations/walkthrough.ts';
 import { DEFAULT_PALETTE, PALETTES, cssVariables } from '/app/src/ui/theme/palettes.ts';
 import { DEFAULT_FILTER, buildQueue, decided, nextIndex, sourceId, sourceOptions } from '/app/scripts/review/web/queue.ts';
 import { clock, markers, runLabel, stepFrom, tellRef } from '/app/scripts/review/web/timeline.ts';
+import { GROUPS, SORTS, chipCounts, facetValues, filterItems, groupItems, sortItems } from '/app/scripts/review/web/library.ts';
 
 // The app's defaults (src/devtools/settings.ts): feathered spotlight, darken, medium strength.
 const SHAPE = 'feather';
@@ -115,15 +116,40 @@ function aspectOf(it) {
   const m = it?.media;
   return m && m.width && m.height ? m.width / m.height : video.videoWidth ? video.videoWidth / video.videoHeight : 9 / 16;
 }
-function frameRect() {
+/** play: the clip as it plays (portrait fills the stage); doubleTake: shown whole, as the app does in the double take. */
+const modeNow = () => (S.dt.on ? 'doubleTake' : 'play');
+function frameRect(mode = modeNow()) {
   const { W, H } = stageSize();
-  const a = aspectOf(current());
-  return videoRect(W, H, a, fitFor(a));
+  return frameFor(W, H, aspectOf(current()), mode);
 }
-function areaOf(tell) {
+/** A tell's box on the stage, exactly where the app's overlay puts it (scripts/review/web/placement.ts). */
+function areaOf(tell, mode = modeNow()) {
   if (!tell?.box) return null;
   const { W, H } = stageSize();
-  return boxOnStage(tell.box, frameRect(), W, H);
+  return areaFor(tell.box, W, H, aspectOf(current()), mode);
+}
+
+/**
+ * The video and the outlines sit in a zoom layer, always contained; while the clip
+ * plays a portrait clip is scaled up to fill the stage, and the double take zooms it
+ * out to the whole frame, continuously (ClipItem's coverScale). The whole stage then
+ * insets like the app's (inspectInset). Both are CSS transitions on transforms.
+ */
+const zoomEl = $('#zoom');
+const insetEl = $('#inset');
+function applyStageMotion() {
+  const it = current();
+  const { W, H } = stageSize();
+  const k = it?.media && W ? coverScale(W, H, aspectOf(it), modeNow()) : 1;
+  zoomEl.style.transform = k === 1 ? '' : `scale(${k.toFixed(4)})`;
+  if (S.dt.on && W) {
+    const inset = stageInset(W, H, 28);
+    insetEl.style.transform = `translateY(${inset.dy.toFixed(1)}px) scale(${inset.scale.toFixed(4)})`;
+    insetEl.style.borderRadius = `${Math.min(inset.radius, 40).toFixed(1)}px`;
+  } else {
+    insetEl.style.transform = '';
+    insetEl.style.borderRadius = '';
+  }
 }
 const duration = () => (Number.isFinite(video.duration) && video.duration > 0 ? video.duration : current()?.media?.duration || 0);
 const runTells = (i = S.run) => S.runs[i]?.file?.tells ?? [];
@@ -159,6 +185,7 @@ async function load(refresh = false) {
 }
 
 function rebuildQueue(keepKey) {
+  S.adhoc = null;
   S.queue = buildQueue(S.items, S.states, S.vetted, S.filter, S.sourceOrder);
   const i = keepKey ? S.queue.indexOf(keepKey) : -1;
   S.i = i >= 0 ? i : 0;
@@ -171,7 +198,8 @@ function renderQueueLabel() {
   if (f.source !== 'all') parts.push(f.source.replace(/^(feed|batch):/, ''));
   if (f.vetted !== 'any') parts.push(f.vetted === 'vetted' ? 'worker-vetted' : 'not vetted');
   if (f.tells !== 'any') parts.push(f.tells === 'with' ? 'with tells' : 'no tells');
-  $('#queue-label').textContent = parts.join(' · ');
+  $('#queue-label').textContent = S.adhoc ? `Clips grid (${S.queue.length})` : parts.join(' · ');
+  $('#queue-btn').title = S.adhoc ? `From the clips grid: ${S.adhoc}. Pick a queue (F) to go back.` : 'Queue (F)';
   const inQueue = S.queue.indexOf(S.key);
   $('#pos').textContent = S.queue.length ? `${inQueue >= 0 ? inQueue + 1 : '–'} / ${S.queue.length}` : '0';
 }
@@ -206,8 +234,7 @@ async function openClip(key) {
     renderRuns();
     return;
   }
-  const a = aspectOf(it);
-  video.classList.toggle('contain', fitFor(a) === 'contain');
+  applyStageMotion();
   video.poster = it.media.poster;
   video.src = it.media.video;
   video.loop = true;
@@ -384,7 +411,8 @@ function renderOutlines() {
   const parts = [];
   S.runs.forEach((r, ri) =>
     (r.file?.tells ?? []).forEach((t) => {
-      const a = areaOf(t);
+      // In the zoom layer, which carries the contained video: contained coordinates, zoomed with it.
+      const a = areaOf(t, 'doubleTake');
       if (!a) return;
       parts.push(
         `<div class="ol ${ri === S.run ? '' : 'other'}" style="left:${a.x}px;top:${a.y}px;width:${a.w}px;height:${a.h}px"><span>${esc(runLabel(r.name).name)} · ${esc(t.label)}</span></div>`,
@@ -413,6 +441,7 @@ function startDoubleTake(at = 0) {
   if (!steps.length && !unplaced.length) return toast('No annotations in this run');
   S.dt = { on: true, step: -1, steps, unplaced, replay: null };
   stage.classList.add('dt');
+  applyStageMotion();
   video.loop = false;
   goStep(at);
 }
@@ -423,6 +452,7 @@ function exitDoubleTake(resume = true) {
   S.dt = { on: false, step: -1, steps: [], unplaced: [], replay: null };
   S.live = null;
   stage.classList.remove('dt');
+  applyStageMotion();
   spot.onTarget = 0;
   leaveCards();
   video.loop = true;
@@ -435,6 +465,7 @@ function exitDoubleTake(resume = true) {
 function resetDoubleTake() {
   S.dt = { on: false, step: -1, steps: [], unplaced: [], replay: null };
   stage.classList.remove('dt');
+  applyStageMotion();
   spot.cur = spot.target = null;
   spot.on = spot.onTarget = 0;
   spotEl.style.opacity = '0';
@@ -667,6 +698,49 @@ function togglePlay() {
 }
 playBtn.onclick = togglePlay;
 
+// ---------------------------------------------------------------- placement check
+/**
+ * Dev check, from the console or automation: `await reviewPlacementCheck()`. For
+ * every boxed tell of the current clip, compares where the outline and the
+ * spotlight are drawn on screen with where the box falls on the video's own pixels,
+ * measured from the browser's layout of the <video> (getBoundingClientRect, after
+ * the inset and zoom transforms, and contain letterboxing from its real size).
+ * That measurement doesn't use the placement maths, so it checks it.
+ */
+window.reviewPlacementCheck = async () => {
+  const before = S.outlines;
+  S.outlines = true;
+  renderOutlines();
+  await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+  const vr = video.getBoundingClientRect();
+  const s = Math.min(vr.width / video.videoWidth, vr.height / video.videoHeight);
+  const px = { x: vr.left + (vr.width - video.videoWidth * s) / 2, y: vr.top + (vr.height - video.videoHeight * s) / 2, w: video.videoWidth * s, h: video.videoHeight * s };
+  const rows = outlineEls
+    .filter((o) => o.tell.box)
+    .map((o) => {
+      const b = o.tell.box;
+      const want = { x: px.x + b.x * px.w, y: px.y + b.y * px.h, w: b.w * px.w, h: b.h * px.h };
+      const got = o.el.getBoundingClientRect();
+      const err = Math.max(Math.abs(got.left - want.x), Math.abs(got.top - want.y), Math.abs(got.width - want.w), Math.abs(got.height - want.h));
+      return { tell: o.tell.id, err: +err.toFixed(2) };
+    });
+  // The spotlight of the step on screen: its centre against the box's, through the inset.
+  let spotErr = null;
+  const tell = S.dt.on ? S.dt.steps[S.dt.step] : null;
+  if (tell?.box && spot.target) {
+    const ir = insetEl.getBoundingClientRect();
+    const { W } = stageSize();
+    const k = ir.width / W;
+    const cx = ir.left + (spot.target.x + spot.target.w / 2) * k;
+    const cy = ir.top + (spot.target.y + spot.target.h / 2) * k;
+    const b = tell.box;
+    spotErr = +Math.max(Math.abs(cx - (px.x + (b.x + b.w / 2) * px.w)), Math.abs(cy - (px.y + (b.y + b.h / 2) * px.h))).toFixed(2);
+  }
+  S.outlines = before;
+  renderOutlines();
+  return { key: S.key, mode: modeNow(), video: `${video.videoWidth}x${video.videoHeight}`, boxes: rows.length, maxErr: Math.max(0, ...rows.map((r) => r.err)), spotErr, rows };
+};
+
 // ---------------------------------------------------------------- per-frame updates
 let last = performance.now();
 function tick(now) {
@@ -725,6 +799,7 @@ video.addEventListener('loadedmetadata', () => {
   renderOutlines();
 });
 new ResizeObserver(() => {
+  applyStageMotion();
   renderOutlines();
   if (S.dt.on && S.dt.step >= 0) {
     // Re-place the hole and card for the new size, without replaying the scrub.
@@ -885,6 +960,7 @@ function renderDrawer() {
     .join('');
   const unplaced = S.runs[S.run]?.file?.unplaced ?? [];
   dr.innerHTML = `
+    <button class="icon dr-close" data-close-drawer title="Close (E)" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
     <section><p class="who">@${esc(it.author || it.platform || '?')}</p>
       <div class="meta">${esc(meta)}${label ? `<br>${esc(label)}` : ''}</div>
       <div style="margin-top:8px">${sources}${S.vetted.has(it.key) ? '<span class="chip">worker-vetted</span>' : ''}</div>
@@ -898,6 +974,7 @@ function renderDrawer() {
     ${partners.length ? `<section><h3>Compare with</h3>${partners.map((k) => `<p><a href="#${esc(k)}" data-goto="${esc(k)}">${esc(S.byKey.get(k).author ? `@${S.byKey.get(k).author}` : k)}</a> <span class="sub">${esc([S.byKey.get(k).label, S.byKey.get(k).tier].filter(Boolean).join(' · '))}</span></p>`).join('')}</section>` : ''}`;
 }
 $('#drawer').addEventListener('click', (e) => {
+  if (e.target.closest('[data-close-drawer]')) return toggleDrawer(false);
   if (e.target.closest('[data-open-grid]')) {
     e.preventDefault();
     return toggleGrid(true);
@@ -917,7 +994,9 @@ $('#drawer').addEventListener('click', (e) => {
   if (at >= 0) S.i = at;
   openClip(a.dataset.goto);
 });
+const wideLayout = () => window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1 / 1)').matches;
 function toggleDrawer(on = !$('#drawer').classList.contains('open')) {
+  if (wideLayout()) store.set('drawerWide', on);
   $('#drawer').classList.toggle('open', on);
   $('#info-btn').classList.toggle('on', on);
   if (window.matchMedia('(max-width: 760px)').matches) $('#scrim').classList.toggle('on', on);
@@ -1005,11 +1084,9 @@ const thumbCache = new Map();
 function toggleGrid(on = !gridOpen) {
   gridOpen = on;
   $('#gridview').classList.toggle('open', on);
-  $('#grid-btn').classList.toggle('on', on);
   if (on) renderGrid();
   else thumbJob++;
 }
-$('#grid-btn').onclick = () => toggleGrid();
 $('#grid-chip').onclick = () => toggleGrid(true);
 $('#gv-close').onclick = () => toggleGrid(false);
 $('#gv-sort').addEventListener('click', (e) => {
@@ -1169,6 +1246,219 @@ $('#gv-cells').addEventListener('focusout', (e) => {
   if (c && v !== (markOf(c.run, c.tell)?.note ?? '')) markTell(c.run, c.tell, { note: v }, 'tell note').then(() => toast('Note saved'));
 });
 
+// ---------------------------------------------------------------- all clips: the clip grid
+let libOpen = false;
+let libOrder = [];
+const LIB = { group: 'status', sort: 'queue', q: '', chips: {}, unbuilt: false, ...store.get('lib', {}) };
+const LIB_FACETS = [
+  ['status', 'Decision'],
+  ['kind', 'AI / real'],
+  ['reviewer', 'By'],
+  ['tells', 'Tells'],
+  ['marks', 'Marks'],
+  ['source', 'Source'],
+];
+/** Shipped-run tell counts and categories, fetched in the background for grouping and sorting. */
+const tellStats = new Map();
+let statsStarted = false;
+const libCtx = () => ({ states: S.states, vetted: S.vetted, tellStats, worker: 'worker-vetted' });
+
+$('#lib-group').innerHTML = Object.entries(GROUPS).map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
+$('#lib-sort').innerHTML = Object.entries(SORTS).map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
+
+function toggleLibrary(on = !libOpen) {
+  libOpen = on;
+  $('#library').classList.toggle('open', on);
+  $('#grid-btn').classList.toggle('on', on);
+  if (on) {
+    if (!video.paused) video.pause();
+    $('#lib-group').value = LIB.group;
+    $('#lib-sort').value = LIB.sort;
+    $('#lib-q').value = LIB.q;
+    $('#lib-unbuilt').checked = LIB.unbuilt;
+    renderLibrary(true);
+    loadTellStats();
+  } else stopLibHover();
+}
+$('#grid-btn').onclick = () => toggleLibrary();
+$('#lib-close').onclick = () => toggleLibrary(false);
+
+async function loadTellStats() {
+  if (statsStarted) return;
+  statsStarted = true;
+  const todo = S.items.filter((it) => it.media?.tells.length);
+  let i = 0;
+  let pending = null;
+  const refresh = () => {
+    if (pending || !libOpen) return;
+    pending = setTimeout(() => {
+      pending = null;
+      if (libOpen && (LIB.group === 'tells' || LIB.group === 'category' || LIB.sort === 'tells' || LIB.chips.tells?.length)) renderLibrary(false);
+      else if (libOpen) updateLibCounts();
+    }, 400);
+  };
+  const worker = async () => {
+    while (i < todo.length) {
+      const it = todo[i++];
+      const t = it.media.tells.find((x) => x.name === 'main') ?? it.media.tells[0];
+      const file = await loadTellsFile(t.url);
+      tellStats.set(it.key, { count: file?.tells.length ?? 0, categories: (file?.tells ?? []).map((x) => x.category).filter(Boolean) });
+      refresh();
+    }
+  };
+  await Promise.all(Array.from({ length: 6 }, worker));
+}
+
+function libItems() {
+  const ctx = libCtx();
+  return sortItems(filterItems(S.items, ctx, LIB), ctx, LIB.sort, S.sourceOrder);
+}
+
+function renderChips() {
+  const counts = chipCounts(S.items, libCtx(), LIB, LIB_FACETS.map(([f]) => f));
+  const anyOn = Object.values(LIB.chips).some((v) => v.length);
+  $('#lib-chips').innerHTML =
+    LIB_FACETS.map(([f, title]) => {
+      const on = LIB.chips[f] ?? [];
+      const vals = counts[f].filter(([v]) => !v.includes('counting'));
+      for (const v of on) if (!vals.some(([x]) => x === v)) vals.push([v, 0]);
+      if (!vals.length) return '';
+      return `<div class="facet"><span>${esc(title)}</span>${vals
+        .map(([v, n]) => `<button class="fchip${on.includes(v) ? ' on' : ''}" data-f="${f}" data-v="${esc(v)}">${esc(v)}<span class="n">${n}</span></button>`)
+        .join('')}</div>`;
+    }).join('') + (anyOn ? '<button class="fchip clear" data-clear>Clear filters</button>' : '');
+}
+
+function libCell(it) {
+  const st = S.states[it.key];
+  const d = st?.status;
+  const v = facetValues(it, libCtx());
+  const marks = Object.values(st?.tells ?? {});
+  const picks = marks.filter((m) => m.pick).length;
+  const noted = !!((st?.note && st.by !== 'worker-vetted') || marks.some((m) => m.note));
+  const stats = tellStats.get(it.key);
+  const badge = d === 'keep' ? '<span class="bdg keep r">Kept</span>' : d === 'discard' ? '<span class="bdg discard r">Dropped</span>' : d === 'needs-work' ? '<span class="bdg work r">Needs work</span>' : '';
+  const thumb = it.media ? `<img loading="lazy" src="${esc(it.media.poster)}" alt="">` : '';
+  const kind = v.kind[0] === 'AI' ? 'AI' : v.kind[0] === 'Real' ? 'Real' : v.kind[0];
+  return `<button class="lc s-${d || 'open'}${it.key === S.key ? ' cur' : ''}" data-key="${esc(it.key)}" title="${esc(it.key)}">
+    <div class="lthumb">${thumb}
+      <div class="lb"><span class="bdg">${esc(kind)}</span>${S.vetted.has(it.key) && st?.by === 'worker-vetted' ? '<span class="bdg dim">vetted</span>' : ''}${badge}</div>
+      <div class="lbr">${picks ? `<span class="bdg">★ ${picks}</span>` : ''}${noted ? '<span class="bdg">✎</span>' : ''}${it.media?.tells.length && stats?.count !== 0 ? `<span class="bdg">${stats ? `${stats.count} tell${stats.count === 1 ? '' : 's'}` : 'tells'}</span>` : ''}${it.media ? `<span class="bdg">${clock(it.media.duration).replace(/\.\d$/, '')}</span>` : '<span class="bdg dim">not built</span>'}</div>
+    </div>
+    <div class="lmeta"><span class="who">@${esc(it.author || it.platform || it.key)}</span></div></button>`;
+}
+
+function renderLibrary(scrollToCurrent) {
+  const items = libItems();
+  const groups = groupItems(items, libCtx(), LIB.group);
+  const byKey = new Map(items.map((i) => [i.key, i]));
+  const seen = new Set();
+  libOrder = [];
+  for (const g of groups) for (const k of g.keys) if (!seen.has(k)) seen.add(k) && libOrder.push(k);
+  const decidedN = items.filter((i) => S.states[i.key]?.status === 'keep' || S.states[i.key]?.status === 'discard').length;
+  $('#lib-title').innerHTML = `Clips <span>· ${items.length} · ${decidedN} decided</span>`;
+  renderChips();
+  $('#lib-body').innerHTML = groups.length
+    ? groups
+        .map(
+          (g) => `<section class="lib-group"><h3>${esc(g.title)} <span>${g.keys.length}</span></h3>
+          <div class="lib-cells">${g.keys.map((k) => libCell(byKey.get(k))).join('')}</div></section>`,
+        )
+        .join('')
+    : '<div class="gv-empty">No clips match these filters.</div>';
+  if (scrollToCurrent) document.querySelector('#lib-body .lc.cur')?.scrollIntoView({ block: 'center' });
+}
+/** Counts and badges only (tell counts arriving), without moving anything. */
+function updateLibCounts() {
+  renderChips();
+  for (const el of document.querySelectorAll('#lib-body .lc')) {
+    const it = S.byKey.get(el.dataset.key);
+    const stats = tellStats.get(it?.key);
+    const b = stats && [...el.querySelectorAll('.lbr .bdg')].find((x) => /tell/.test(x.textContent));
+    if (b && stats.count === 0) b.remove();
+    else if (b) b.textContent = `${stats.count} tell${stats.count === 1 ? '' : 's'}`;
+  }
+}
+
+function saveLib() {
+  store.set('lib', { group: LIB.group, sort: LIB.sort, chips: LIB.chips, unbuilt: LIB.unbuilt });
+}
+$('#lib-group').onchange = (e) => {
+  LIB.group = e.target.value;
+  saveLib();
+  renderLibrary(false);
+};
+$('#lib-sort').onchange = (e) => {
+  LIB.sort = e.target.value;
+  saveLib();
+  renderLibrary(false);
+};
+$('#lib-unbuilt').onchange = (e) => {
+  LIB.unbuilt = e.target.checked;
+  saveLib();
+  renderLibrary(false);
+};
+let libSearch;
+$('#lib-q').addEventListener('input', (e) => {
+  clearTimeout(libSearch);
+  libSearch = setTimeout(() => {
+    LIB.q = e.target.value.trim();
+    renderLibrary(false);
+  }, 150);
+});
+$('#lib-q').addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') e.target.blur();
+});
+$('#lib-chips').addEventListener('click', (e) => {
+  const b = e.target.closest('button');
+  if (!b) return;
+  if (b.dataset.clear !== undefined) LIB.chips = {};
+  else {
+    const cur = LIB.chips[b.dataset.f] ?? [];
+    LIB.chips = { ...LIB.chips, [b.dataset.f]: cur.includes(b.dataset.v) ? cur.filter((x) => x !== b.dataset.v) : [...cur, b.dataset.v] };
+  }
+  saveLib();
+  renderLibrary(false);
+});
+$('#lib-body').addEventListener('click', (e) => {
+  const cell = e.target.closest('.lc');
+  if (!cell) return;
+  // The grid's order becomes the queue, so J/K walk the same clips.
+  const key = cell.dataset.key;
+  S.queue = libOrder.slice();
+  S.i = Math.max(0, S.queue.indexOf(key));
+  const chips = Object.values(LIB.chips).flat();
+  S.adhoc = `${GROUPS[LIB.group] === GROUPS.none ? '' : `${GROUPS[LIB.group].toLowerCase()} · `}${chips.length ? chips.join(', ') : 'all'} · ${S.queue.length}`;
+  toggleLibrary(false);
+  saveNote();
+  openClip(key);
+});
+
+// Muted preview loop on hover (mouse only).
+let libHover = null;
+function stopLibHover() {
+  libHover?.remove();
+  libHover = null;
+}
+$('#lib-body').addEventListener('pointerover', (e) => {
+  if (e.pointerType !== 'mouse') return;
+  const cell = e.target.closest('.lc');
+  if (!cell || cell.contains(libHover)) return;
+  stopLibHover();
+  const it = S.byKey.get(cell.dataset.key);
+  if (!it?.media) return;
+  const v = document.createElement('video');
+  Object.assign(v, { muted: true, loop: true, playsInline: true, autoplay: true, src: it.media.tile || it.media.video });
+  v.style.opacity = '0';
+  v.addEventListener('playing', () => (v.style.opacity = '1'));
+  cell.querySelector('.lthumb').prepend(v);
+  libHover = v;
+});
+$('#lib-body').addEventListener('pointerout', (e) => {
+  const cell = e.target.closest('.lc');
+  if (cell && !cell.contains(e.relatedTarget) && cell.contains(libHover)) stopLibHover();
+});
+
 // ---------------------------------------------------------------- stage gestures: tap, double tap, swipe
 let press = null;
 let tapTimer = null;
@@ -1208,12 +1498,14 @@ document.addEventListener('keydown', (e) => {
   if (k === 'Escape') {
     if (openSheet) return run(() => toggleSheet(openSheet));
     if (gridOpen) return run(() => toggleGrid(false));
+    if (libOpen) return run(() => toggleLibrary(false));
     if ($('#drawer').classList.contains('open')) return run(() => toggleDrawer(false));
     if (S.dt.on) return run(() => exitDoubleTake());
     return;
   }
   if (openSheet && k !== '?' && k !== 'f') return;
-  if (gridOpen && !['g', 'j', 'k', 'ArrowDown', 'ArrowUp', 'u', 'a', 'x', 'e', '?'].includes(k)) return;
+  if (gridOpen && !['t', 'g', 'j', 'k', 'ArrowDown', 'ArrowUp', 'u', 'a', 'x', 'e', '?'].includes(k)) return;
+  if (libOpen && !['g', '?'].includes(k)) return;
   if (k === 'j' || k === 'ArrowDown') run(() => go(1));
   else if (k === 'k' || k === 'ArrowUp') run(() => go(-1));
   else if (k === 'ArrowRight' || k === 'ArrowLeft') {
@@ -1242,7 +1534,8 @@ document.addEventListener('keydown', (e) => {
       toast(S.outlines ? 'Outlines on' : 'Outlines off');
     });
   else if (k === 'l') run(() => setMode(S.mode === 'live' ? 'step' : 'live'));
-  else if (k === 'g') run(() => toggleGrid());
+  else if (k === 'g') run(() => toggleLibrary());
+  else if (k === 't') run(() => toggleGrid());
   else if (k === 'p')
     run(() => {
       const on = tellOnScreen();
@@ -1262,6 +1555,26 @@ document.addEventListener('keydown', (e) => {
       video.muted = S.muted;
       toast(S.muted ? 'Muted' : 'Sound on');
     });
+});
+
+// A link or the back button changed the clip in the URL.
+window.addEventListener('hashchange', () => {
+  const want = decodeURIComponent(location.hash.slice(1));
+  if (want && want !== S.key && S.byKey.has(want)) {
+    const at = S.queue.indexOf(want);
+    if (at >= 0) S.i = at;
+    saveNote();
+    openClip(want);
+  }
+});
+
+// Wide windows have room for the evidence beside the controls: open by default there.
+if (wideLayout() && store.get('drawerWide', true)) toggleDrawer(true);
+// Narrowing the window turns it back into a sheet over the stage: close it then; widening reopens it.
+window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1 / 1)').addEventListener('change', (e) => {
+  $('#drawer').classList.toggle('open', e.matches && store.get('drawerWide', true));
+  $('#info-btn').classList.toggle('on', $('#drawer').classList.contains('open'));
+  $('#scrim').classList.remove('on');
 });
 
 // ---------------------------------------------------------------- start

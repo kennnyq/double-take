@@ -27,11 +27,11 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 
 /* ---------- top bar ---------- */
 .bar {
-  display: flex; align-items: center; gap: 6px; padding: 10px 14px; padding-top: max(10px, env(safe-area-inset-top));
+  display: flex; align-items: center; gap: 4px; padding: 6px 10px; padding-top: max(6px, env(safe-area-inset-top));
   flex: none;
 }
 .pill {
-  display: inline-flex; align-items: center; gap: 6px; height: 32px; padding: 0 12px; border-radius: 16px;
+  display: inline-flex; align-items: center; gap: 6px; height: 30px; padding: 0 12px; border-radius: 15px;
   background: var(--dt-surface); border: 1px solid var(--line); font-weight: 500; font-size: 13px;
   transition: background 0.2s var(--ease);
 }
@@ -40,30 +40,30 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .pos { color: var(--dt-text-dim); font-variant-numeric: tabular-nums; font-size: 13px; margin-left: 6px; }
 .grow { flex: 1; }
 .icon {
-  width: 34px; height: 34px; border-radius: 17px; display: inline-grid; place-items: center; color: var(--dt-text-dim);
+  width: 32px; height: 32px; border-radius: 16px; display: inline-grid; place-items: center; color: var(--dt-text-dim);
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
 }
 .icon:hover, .icon.on { background: var(--dt-surface); color: var(--dt-text); }
 
 /* ---------- layout ---------- */
 .main { flex: 1; min-height: 0; display: flex; position: relative; }
-.center { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 0 16px 16px; gap: 12px; }
+.center { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: center; padding: 0 12px 10px; gap: 8px; }
 .stage-area { flex: 1; min-height: 0; width: 100%; display: grid; place-items: center; }
 
 /* The stage: a phone screen, the way the app shows a clip. */
 .stage {
-  position: relative; height: 100%; max-height: 860px; aspect-ratio: 9 / 16; max-width: 100%;
+  position: relative; height: 100%; aspect-ratio: 9 / 16; max-width: 100%;
   border-radius: 28px; overflow: hidden; background: #000; touch-action: pan-x;
   box-shadow: 0 0 0 1px var(--line), 0 30px 80px rgba(0, 0, 0, 0.6);
 }
 .inset {
-  position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 46%;
+  position: absolute; inset: 0; overflow: hidden; transform-origin: 50% 50%;
   transition: transform 0.5s var(--ease), border-radius 0.5s var(--ease);
   will-change: transform;
 }
-.dt .inset { transform: scale(0.94); border-radius: 22px; }
-.inset video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
-.inset video.contain { object-fit: contain; }
+/* The video is always contained; the zoom layer scales a portrait clip up to fill the stage while it plays. */
+.zoom { position: absolute; inset: 0; transform-origin: 50% 50%; transition: transform 0.5s var(--ease); will-change: transform; }
+.inset video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; background: #000; }
 .spot {
   position: absolute; inset: 0; background: #000; opacity: 0; pointer-events: none; will-change: opacity;
   -webkit-mask-repeat: no-repeat; mask-repeat: no-repeat; -webkit-mask-composite: xor; mask-composite: exclude;
@@ -140,12 +140,12 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .icon.sm svg { width: 14px; height: 14px; fill: currentColor; stroke: none; }
 .seg.mini { padding: 2px; border-radius: 9px; background: var(--dt-surface); margin-left: 10px; }
 .seg.mini button { height: 22px; padding: 0 9px; font-size: 12px; border-radius: 7px; flex: none; }
-.dock { width: min(100%, 560px); display: flex; flex-direction: column; gap: 10px; flex: none; }
+.dock { width: min(100%, 560px); display: flex; flex-direction: column; gap: 7px; flex: none; }
 .models { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: var(--dt-surface); overflow-x: auto; scrollbar-width: none; }
 .models::-webkit-scrollbar { display: none; }
 .models:empty { display: none; }
 .models button {
-  flex: 1 0 auto; height: 30px; padding: 0 12px; border-radius: 9px; font-size: 13px; color: var(--dt-text-dim);
+  flex: 1 0 auto; height: 26px; padding: 0 10px; border-radius: 8px; font-size: 13px; color: var(--dt-text-dim);
   display: inline-flex; align-items: center; justify-content: center; gap: 6px; white-space: nowrap;
   transition: background 0.22s var(--ease), color 0.22s var(--ease);
 }
@@ -153,9 +153,9 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .models button .n { font-variant-numeric: tabular-nums; font-size: 11px; opacity: 0.6; }
 
 .timeline { position: relative; padding: 2px 0 0; touch-action: none; cursor: pointer; user-select: none; -webkit-user-select: none; }
-.lanes { display: flex; flex-direction: column; gap: 3px; margin-bottom: 6px; }
-.lane { position: relative; height: 8px; border-radius: 4px; background: var(--soft); transition: height 0.25s var(--ease), background 0.25s linear; }
-.lane.on { height: 12px; background: rgba(245, 245, 247, 0.09); }
+.lanes { display: flex; flex-direction: column; gap: 3px; margin-bottom: 5px; }
+.lane { position: relative; height: 7px; border-radius: 4px; background: var(--soft); transition: height 0.25s var(--ease), background 0.25s linear; }
+.lane.on { height: 11px; background: rgba(245, 245, 247, 0.09); }
 .mk {
   position: absolute; top: 0; bottom: 0; border-radius: 4px; background: rgba(245, 245, 247, 0.32);
   transition: background 0.2s linear, transform 0.2s var(--ease);
@@ -179,7 +179,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 
 .actions { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 8px; }
 .decide {
-  height: 44px; border-radius: 14px; font-weight: 600; font-size: 15px; background: var(--dt-surface); border: 1px solid var(--line);
+  height: 38px; border-radius: 12px; font-weight: 600; font-size: 15px; background: var(--dt-surface); border: 1px solid var(--line);
   transition: background 0.22s var(--ease), color 0.22s var(--ease), border-color 0.22s linear, transform 0.15s var(--ease);
 }
 .decide:hover { background: var(--dt-surface-raised); }
@@ -187,7 +187,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .decide.keep.on { background: var(--dt-text); color: #000; border-color: transparent; }
 .decide.drop.on { background: transparent; border-color: rgba(245, 245, 247, 0.6); color: var(--dt-text); }
 .note {
-  height: 44px; border-radius: 14px; background: transparent; border: 1px solid var(--line); padding: 0 14px; min-width: 0;
+  height: 38px; border-radius: 12px; background: transparent; border: 1px solid var(--line); padding: 0 12px; min-width: 0;
   transition: border-color 0.2s linear, background 0.2s linear;
 }
 .note:focus { outline: none; border-color: rgba(245, 245, 247, 0.4); background: var(--dt-surface); }
@@ -201,6 +201,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   transition: margin-right 0.42s var(--ease), opacity 0.3s linear, transform 0.42s var(--ease), visibility 0s 0.42s;
 }
 .drawer.open { margin-right: 0; opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
+.dr-close { position: sticky; top: 8px; float: right; z-index: 2; margin: 8px -8px 0 0; background: var(--dt-surface); }
 .drawer section { padding: 14px 0; border-bottom: 1px solid var(--line); }
 .drawer section:last-child { border-bottom: 0; }
 .drawer h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dt-text-dim); display: flex; justify-content: space-between; }
@@ -221,14 +222,15 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 
 /* ---------- all tells: a grid of every run's annotations ---------- */
 .gridview {
-  position: fixed; z-index: 15; inset: 54px 0 0 0; background: var(--dt-bg); display: flex; flex-direction: column;
+  position: fixed; z-index: 15; inset: 0; background: var(--dt-bg); display: flex; flex-direction: column;
   opacity: 0; transform: translateY(12px); pointer-events: none; visibility: hidden;
   transition: opacity 0.26s linear, transform 0.42s var(--ease), visibility 0s 0.42s;
 }
 .gridview.open { opacity: 1; transform: none; pointer-events: auto; visibility: visible; transition-delay: 0s; }
-.gv-head { display: flex; align-items: center; gap: 8px; padding: 6px 20px 12px; }
+.gv-head { display: flex; align-items: center; gap: 8px; padding: 10px 20px 10px; flex-wrap: wrap; }
 .gv-head h2 { margin: 0; font-size: 15px; font-weight: 600; }
 .gv-head h2 span { color: var(--dt-text-dim); font-weight: 400; }
+.gv-head h2 { white-space: nowrap; }
 .gv-cells {
   flex: 1; overflow-y: auto; padding: 0 20px 40px; display: grid; gap: 14px;
   grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); grid-auto-rows: max-content; align-content: start;
@@ -264,6 +266,57 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 }
 .cell input:focus { outline: none; border-color: rgba(245, 245, 247, 0.4); }
 .gv-empty { grid-column: 1 / -1; color: var(--dt-text-dim); padding: 40px 0; text-align: center; }
+
+/* ---------- all clips ---------- */
+.library { z-index: 16; }
+.lib-q { flex: 1 1 180px; min-width: 120px; height: 30px; background: var(--dt-surface); border: 1px solid var(--line); border-radius: 10px; padding: 0 10px; }
+.lib-head .sel { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dt-text-dim); }
+.lib-head select { height: 30px; background: var(--dt-surface); border: 1px solid var(--line); border-radius: 10px; padding: 0 8px; }
+.check.mini { margin: 0; font-size: 12px; }
+.lib-chips { display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 0 20px 10px; align-items: center; }
+.lib-chips .facet { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+.lib-chips .facet > span { font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dt-text-dim); margin-right: 2px; }
+.fchip {
+  height: 26px; padding: 0 10px; border-radius: 13px; background: var(--dt-surface); border: 1px solid var(--line); font-size: 12px;
+  color: var(--dt-text-dim); transition: background 0.2s var(--ease), color 0.2s var(--ease), border-color 0.2s linear;
+}
+.fchip .n { margin-left: 6px; opacity: 0.6; font-variant-numeric: tabular-nums; }
+.fchip:hover { color: var(--dt-text); }
+.fchip.on { background: var(--dt-text); color: #000; border-color: transparent; }
+.fchip.clear { background: none; border-color: transparent; text-decoration: underline; text-underline-offset: 3px; }
+.lib-body { flex: 1; overflow-y: auto; padding: 0 20px 40px; }
+.lib-group { margin-bottom: 18px; }
+.lib-group h3 {
+  position: sticky; top: 0; z-index: 2; margin: 0; padding: 8px 0; background: var(--dt-bg); font-size: 13px; font-weight: 600;
+  display: flex; gap: 10px; align-items: baseline;
+}
+.lib-group h3 span { color: var(--dt-text-dim); font-weight: 400; font-size: 12px; }
+.lib-cells { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); grid-auto-rows: max-content; gap: 10px; }
+.lc {
+  display: flex; flex-direction: column; text-align: left; border-radius: 14px; overflow: hidden; background: var(--dt-surface);
+  border: 1.5px solid transparent; transition: border-color 0.2s linear, transform 0.2s var(--ease);
+}
+.lc:hover { border-color: rgba(245, 245, 247, 0.3); }
+.lc.cur { border-color: var(--dt-text); }
+.lc .lthumb { position: relative; flex: none; aspect-ratio: 9 / 16; background: #000; }
+.lc .lthumb img, .lc .lthumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: opacity 0.25s linear; }
+.lc .lthumb video { z-index: 1; }
+.lc .lb, .lc .lbr { z-index: 2; }
+.lc.s-discard .lthumb img { opacity: 0.4; }
+.lc .lb { position: absolute; left: 6px; right: 6px; top: 6px; display: flex; gap: 4px; flex-wrap: wrap; z-index: 1; }
+.lc .lb .r { margin-left: auto; }
+.lc .lbr { position: absolute; left: 6px; right: 6px; bottom: 6px; display: flex; gap: 4px; z-index: 1; justify-content: flex-end; }
+.bdg {
+  font-size: 11px; line-height: 1; padding: 4px 7px; border-radius: 9px; background: rgba(0, 0, 0, 0.66); color: var(--dt-text);
+  border: 0.5px solid rgba(245, 245, 247, 0.16); white-space: nowrap; font-variant-numeric: tabular-nums;
+}
+.bdg.keep { background: var(--dt-text); color: #000; border-color: transparent; font-weight: 600; }
+.bdg.discard { background: rgba(0, 0, 0, 0.75); border-color: rgba(245, 245, 247, 0.6); font-weight: 600; }
+.bdg.work { background: rgba(0, 0, 0, 0.75); border-style: dashed; border-color: rgba(245, 245, 247, 0.6); }
+.bdg.dim { color: var(--dt-text-dim); }
+.lc .lmeta { padding: 7px 9px 8px; display: flex; gap: 6px; align-items: center; font-size: 12px; min-width: 0; }
+.lc .lmeta .who { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--dt-text-dim); }
+.lc .lmeta .ic { flex: none; color: var(--dt-text); font-variant-numeric: tabular-nums; }
 
 /* ---------- sheets ---------- */
 .scrim {
@@ -312,7 +365,8 @@ kbd {
 /* ---------- phone ---------- */
 @media (max-width: 760px) {
   .bar { padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top)); }
-  .center { padding: 0 10px; padding-bottom: max(10px, env(safe-area-inset-bottom)); gap: 10px; }
+  .center { padding: 0 6px; padding-bottom: max(8px, env(safe-area-inset-bottom)); gap: 8px; }
+  .dock { padding: 0 4px; }
   .stage { border-radius: 22px; max-height: none; }
   .dock { width: 100%; }
   .drawer {
@@ -324,8 +378,35 @@ kbd {
   .sheet { top: auto; bottom: 0; border-radius: 22px 22px 0 0; width: 100vw; transform: translate(-50%, 24px); max-height: 80vh; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
   .sheet.open { transform: translate(-50%, 0); }
   .toast { bottom: 140px; }
-  .gridview { inset: 50px 0 0 0; }
-  .gv-head { padding: 4px 12px 10px; }
+  .gv-head { padding: 8px 12px 8px; }
   .gv-cells { padding: 0 12px 30px; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .lib-chips { flex-wrap: nowrap; overflow-x: auto; padding: 0 12px 8px; scrollbar-width: none; }
+  .lib-chips::-webkit-scrollbar { display: none; }
+  .lib-chips .facet { flex-wrap: nowrap; flex: none; }
+  .lib-body { padding: 0 12px 30px; }
+  .lib-cells { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+  .lc .lmeta { padding: 5px 7px 6px; font-size: 11px; }
+  .bdg { font-size: 10px; padding: 3px 5px; }
   .chip-btn { padding: 0 10px; }
+}
+
+/* ---------- wide windows: the stage takes the full height, the controls a column beside it ---------- */
+@media (min-width: 900px) and (min-aspect-ratio: 1 / 1) {
+  body {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(340px, 400px); grid-template-rows: auto minmax(0, 1fr) auto;
+    grid-template-areas: 'stage bar' 'stage info' 'stage dock';
+  }
+  .main, .center { display: contents; }
+  .bar { grid-area: bar; padding: 12px 16px 6px 4px; }
+  .stage-area { grid-area: stage; padding: 12px 0 12px 12px; }
+  .stage { border-radius: 26px; }
+  .dock { grid-area: dock; width: auto; align-self: end; padding: 0 16px 16px 4px; gap: 9px; }
+  /* The evidence sits in the column's free space, between the bar and the controls: it costs the video nothing. */
+  .drawer {
+    grid-area: info; width: auto; min-height: 0; margin: 0; border-left: 0; padding: 0 16px 8px 4px; transform: translateY(8px);
+  }
+  .drawer.open { transform: none; }
+  .dr-close { display: none; }
+  .toast { left: auto; right: 200px; transform: translate(50%, 10px); }
+  .toast.on { transform: translate(50%, 0); }
 }

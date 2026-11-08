@@ -19,7 +19,7 @@
       <button id="next" class="icon" title="Next clip (J)" aria-label="Next clip">
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
       </button>
-      <button id="grid-btn" class="icon" title="All tells (G)" aria-label="All tells">
+      <button id="grid-btn" class="icon" title="All clips (G)" aria-label="All clips">
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></svg>
       </button>
       <button id="info-btn" class="icon" title="Evidence (E)" aria-label="Evidence">
@@ -35,9 +35,11 @@
         <div class="stage-area" id="stage-area">
           <div class="stage" id="stage">
             <div class="inset" id="inset">
-              <video id="video" playsinline muted preload="auto"></video>
+              <div class="zoom" id="zoom">
+                <video id="video" playsinline muted preload="auto"></video>
+                <div class="outlines" id="outlines" aria-hidden="true"></div>
+              </div>
               <div class="spot" id="spot" aria-hidden="true"></div>
-              <div class="outlines" id="outlines" aria-hidden="true"></div>
               <div class="cards" id="cards"></div>
             </div>
             <div class="pp" id="pp" aria-hidden="true"></div>
@@ -48,7 +50,7 @@
         <div class="dock">
           <div class="runs-row">
             <div class="models" id="models" role="tablist" aria-label="Annotation run"></div>
-            <button class="chip-btn" id="grid-chip" title="Every annotation from every run (G)">All tells</button>
+            <button class="chip-btn" id="grid-chip" title="Every annotation from every run (T)">All tells</button>
           </div>
           <div class="timeline" id="timeline">
             <div class="lanes" id="lanes"></div>
@@ -76,6 +78,19 @@
       <aside class="drawer" id="drawer" aria-label="Evidence"></aside>
     </main>
 
+    <section class="gridview library" id="library" aria-label="All clips">
+      <div class="gv-head lib-head">
+        <h2 id="lib-title">Clips</h2>
+        <input id="lib-q" class="lib-q" type="search" placeholder="Search" autocomplete="off" />
+        <label class="sel">Group <select id="lib-group"></select></label>
+        <label class="sel">Sort <select id="lib-sort"></select></label>
+        <label class="check mini"><input type="checkbox" id="lib-unbuilt" /> Unbuilt</label>
+        <button class="icon" id="lib-close" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+      </div>
+      <div class="lib-chips" id="lib-chips"></div>
+      <div class="lib-body" id="lib-body"></div>
+    </section>
+
     <section class="gridview" id="gridview" aria-label="All tells">
       <div class="gv-head">
         <h2 id="gv-title">All tells</h2>
@@ -98,7 +113,8 @@
         <dt><kbd>1</kbd>–<kbd>9</kbd> <kbd>V</kbd></dt><dd>Pick / cycle the annotation run</dd>
         <dt><kbd>B</kbd></dt><dd>Outline every run's boxes</dd>
         <dt><kbd>L</kbd></dt><dd>Annotations live while playing / only when stepping</dd>
-        <dt><kbd>G</kbd></dt><dd>All tells: every run's annotations, to pick the best</dd>
+        <dt><kbd>G</kbd></dt><dd>All clips: a grid to group, filter and open clips</dd>
+        <dt><kbd>T</kbd></dt><dd>All tells: this clip's annotations from every run, to pick the best</dd>
         <dt><kbd>P</kbd></dt><dd>Pick (★) the annotation on screen</dd>
         <dt><kbd>A</kbd> <kbd>X</kbd></dt><dd>Keep / drop (again to clear)</dd>
         <dt><kbd>N</kbd></dt><dd>Note</dd>
