@@ -19,6 +19,16 @@ import { loadPlayableClips } from '../playable';
 import { Results } from '../results/Results';
 import { createRound, remaining, roundReducer, type RoundState } from '../round';
 import { fakeRound } from './fake';
+import { BOTS, RankerSim, SimChip, SkillsSim, TASTES, WEAKNESS, type SkillSimParams } from './SimViews';
+
+import type { SkillCategory } from '@/skills/categories';
+import { freshSkills, recordAnswer } from '@/skills/skill';
+
+/** The lab's tabs: one per element of the round, then the simulations. */
+const LAB_VIEWS = [...GAME_ELEMENTS, 'skills', 'ranker'] as const;
+type LabView = (typeof LAB_VIEWS)[number];
+const SIM_LABELS = { skills: 'Skill bot', ranker: 'Feed ranker' } as const;
+const isElement = (v: LabView): v is GameElement => (GAME_ELEMENTS as readonly string[]).includes(v);
 
 /**
  * Dev builds: the timed round's designs, one element at a time, with fake
@@ -29,7 +39,15 @@ import { fakeRound } from './fake';
 export function GameLab() {
   const params = useLocalSearchParams<Record<string, string>>();
   const designs = useGameDesigns();
-  const [el, setEl] = useState<GameElement>(() => (GAME_ELEMENTS as readonly string[]).includes(params.el ?? '') ? (params.el as GameElement) : 'countdown');
+  const [el, setEl] = useState<LabView>(() => (LAB_VIEWS as readonly string[]).includes(params.el ?? '') ? (params.el as LabView) : 'countdown');
+  const [sim, setSim] = useState<SkillSimParams>(() => ({
+    bot: (params.bot as SkillSimParams['bot']) in BOTS ? (params.bot as SkillSimParams['bot']) : 'average',
+    weak: (params.weak as SkillSimParams['weak']) in WEAKNESS ? (params.weak as SkillSimParams['weak']) : 'none',
+    rounds: Number(params.rounds) > 0 ? Number(params.rounds) : 30,
+    adaptive: params.adaptive !== '0',
+    scale: Number(params.scale) > 1 ? Number(params.scale) : 1,
+  }));
+  const [taste, setTaste] = useState<keyof typeof TASTES>((params.taste as keyof typeof TASTES) in TASTES ? (params.taste as keyof typeof TASTES) : 'bodies');
   const [replay, setReplay] = useState(0);
   const [timeLeft, setTimeLeft] = useState(Number(params.left) > 0 ? Number(params.left) * 1000 : 60_000);
   const [judged, setJudged] = useState(Number(params.n) > 0 ? Number(params.n) : 16);
@@ -61,18 +79,22 @@ export function GameLab() {
     };
   }, []);
 
-  const pick = useCallback((id: string) => {
-    setGameDesign({ [el]: id } as Partial<GameDesigns>);
-    setReplay((r) => r + 1);
-  }, [el]);
+  const pick = useCallback(
+    (id: string) => {
+      if (!isElement(el)) return;
+      setGameDesign({ [el]: id } as Partial<GameDesigns>);
+      setReplay((r) => r + 1);
+    },
+    [el],
+  );
 
   // [ and ] step the design; 1–6 pick the element; R replays.
   useEffect(() => {
     if (Platform.OS !== 'web') return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === '[' || e.key === ']') pick(stepDesign(el, designs[el], e.key === ']' ? 1 : -1));
-      else if (/^[1-6]$/.test(e.key)) setEl(GAME_ELEMENTS[Number(e.key) - 1]);
+      if ((e.key === '[' || e.key === ']') && isElement(el)) pick(stepDesign(el, designs[el], e.key === ']' ? 1 : -1));
+      else if (/^[1-8]$/.test(e.key)) setEl(LAB_VIEWS[Number(e.key) - 1]);
       else if (e.key === 'r' || e.key === 'R') setReplay((r) => r + 1);
     };
     window.addEventListener('keydown', onKey);
@@ -84,7 +106,7 @@ export function GameLab() {
     if (width !== size.width || height !== size.height) setSize({ width, height });
   };
   const frame: FrameSize = { width: size.width, height: size.height, desktop: wide, top: 0 };
-  const info = GAME_DESIGNS[el];
+  const info = isElement(el) ? GAME_DESIGNS[el] : null;
   const resultsEl = el === 'reveal' || el === 'grid' || el === 'expand';
 
   const controls = (
@@ -98,15 +120,55 @@ export function GameLab() {
       </View>
 
       <View style={styles.chips} role="tablist">
-        {GAME_ELEMENTS.map((e, i) => (
-          <Chip key={e} on={e === el} onPress={() => setEl(e)} label={`${i + 1} ${GAME_DESIGNS[e].label}`} testID={`lab-el-${e}`} />
+        {LAB_VIEWS.map((e, i) => (
+          <Chip key={e} on={e === el} onPress={() => setEl(e)} label={`${i + 1} ${isElement(e) ? GAME_DESIGNS[e].label : SIM_LABELS[e]}`} testID={`lab-el-${e}`} />
         ))}
       </View>
 
-      <Text style={[styles.h2, tint.dim]}>{info.label} · design</Text>
-      <View style={styles.options}>
+      {el === 'skills' && (
+        <>
+          <Text style={[styles.h2, tint.dim]}>Bot</Text>
+          <View style={styles.chips}>
+            {(Object.keys(BOTS) as (keyof typeof BOTS)[]).map((b) => (
+              <SimChip key={b} on={sim.bot === b} onPress={() => setSim((x) => ({ ...x, bot: b }))} label={BOTS[b].label} />
+            ))}
+          </View>
+          <View style={styles.chips}>
+            {(Object.keys(WEAKNESS) as (keyof typeof WEAKNESS)[]).map((w) => (
+              <SimChip key={w} on={sim.weak === w} onPress={() => setSim((x) => ({ ...x, weak: w }))} label={WEAKNESS[w].label} />
+            ))}
+          </View>
+          <Text style={[styles.h2, tint.dim]}>Rounds · dealing · catalog</Text>
+          <View style={styles.chips}>
+            {[10, 30, 60].map((n) => (
+              <SimChip key={n} on={sim.rounds === n} onPress={() => setSim((x) => ({ ...x, rounds: n }))} label={`${n} rounds`} />
+            ))}
+          </View>
+          <View style={styles.chips}>
+            <SimChip on={sim.adaptive} onPress={() => setSim((x) => ({ ...x, adaptive: true }))} label="Adaptive" />
+            <SimChip on={!sim.adaptive} onPress={() => setSim((x) => ({ ...x, adaptive: false }))} label="Shuffle" />
+          </View>
+          <View style={styles.chips}>
+            <SimChip on={sim.scale === 1} onPress={() => setSim((x) => ({ ...x, scale: 1 }))} label="Today’s clips" />
+            <SimChip on={sim.scale === 5} onPress={() => setSim((x) => ({ ...x, scale: 5 }))} label="5× catalog" />
+          </View>
+        </>
+      )}
+      {el === 'ranker' && (
+        <>
+          <Text style={[styles.h2, tint.dim]}>Viewer</Text>
+          <View style={styles.chips}>
+            {(Object.keys(TASTES) as (keyof typeof TASTES)[]).map((t) => (
+              <SimChip key={t} on={taste === t} onPress={() => setTaste(t)} label={TASTES[t].label} />
+            ))}
+          </View>
+        </>
+      )}
+
+      {info && <Text style={[styles.h2, tint.dim]}>{info.label} · design</Text>}
+      {info && <View style={styles.options}>
         {info.options.map((o) => {
-          const on = designs[el] === o.id;
+          const on = isElement(el) && designs[el] === o.id;
           return (
             <Pressable
               key={o.id}
@@ -124,10 +186,10 @@ export function GameLab() {
             </Pressable>
           );
         })}
-      </View>
-      <Text style={[styles.why, tint.dim]}>★ {info.why}</Text>
+      </View>}
+      {info && <Text style={[styles.why, tint.dim]}>★ {info.why}</Text>}
 
-      <Text style={[styles.h2, tint.dim]}>Fake state</Text>
+      {info && <Text style={[styles.h2, tint.dim]}>Fake state</Text>}
       {(el === 'countdown' || el === 'hud') && (
         <View style={styles.chips}>
           {[60, 30, 10, 3].map((s) => (
@@ -158,7 +220,7 @@ export function GameLab() {
         <Ionicons name="refresh" size={16} color={c.onAccent} />
         <Text style={[styles.replayText, { color: c.onAccent }]}>Replay</Text>
       </Pressable>
-      <Text style={[styles.keys, tint.dim]}>Keys: 1–6 element · [ ] design · R replay</Text>
+      <Text style={[styles.keys, tint.dim]}>Keys: 1–8 tab · [ ] design · R replay</Text>
     </ScrollView>
   );
 
@@ -171,6 +233,8 @@ export function GameLab() {
             {(el === 'countdown' || el === 'hud') && <HudPreview key={`hud-${replay}`} designs={designs} timeLeftMs={timeLeft} poster={clips[0]} />}
             {el === 'transition' && <TransitionPreview key={`tr-${replay}-${designs.transition}`} designs={designs} clips={clips} />}
             {resultsEl && <ResultsPreview key={`res-${replay}-${designs.reveal}-${designs.grid}`} designs={designs} clips={clips} judged={judged} right={right} newBest={newBest} />}
+            {el === 'skills' && <SkillsSim key={`sk-${replay}`} clips={clips} params={sim} width={Math.min(size.width - 16, 640)} />}
+            {el === 'ranker' && <RankerSim key={`rk-${replay}`} clips={clips} taste={taste} sessions={12} width={Math.min(size.width - 16, 640)} />}
           </FrameContext.Provider>
         )}
       </View>
@@ -304,7 +368,17 @@ function TransitionPreview({ designs, clips }: { designs: GameDesigns; clips: Cl
 function ResultsPreview({ designs, clips, judged, right, newBest }: { designs: GameDesigns; clips: Clip[]; judged: number; right: number; newBest: boolean }) {
   const done = useMemo(() => {
     const f = fakeRound(clips, { judged, right, ai: 0.5, timeUp: true, seed: judged * 7 + Math.round(right * 100) });
-    return { ...f, newBest, best: newBest ? f.stats.score : f.stats.score + 4 };
+    // How the round would move a newcomer's skills (categories by turns, as a stand-in for real tells).
+    const order: SkillCategory[] = ['subject', 'text', 'visuals', 'other'];
+    const before = freshSkills();
+    let after = before;
+    const touched = new Set<SkillCategory>();
+    f.round.guesses.forEach((g, i) => {
+      const cat: SkillCategory = g.truth === 'real' ? 'real' : order[i % order.length];
+      touched.add(cat);
+      after = recordAnswer(after, { [cat]: 1 }, 0, g.correct);
+    });
+    return { ...f, newBest, best: newBest ? f.stats.score : f.stats.score + 4, skills: { before, after, touched: [...touched] } };
   }, [clips, judged, right, newBest]);
   return <Results done={done} designs={designs} actions={false} />;
 }
