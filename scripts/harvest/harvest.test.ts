@@ -12,3 +12,9 @@ test('harvest Python tests pass', () => {
   assert.equal(r.error, undefined, `python3 not runnable: ${r.error}`);
   assert.equal(r.status, 0, r.stderr);
 });
+
+test('review publish Python tests pass', () => {
+  const r = spawnSync('python3', ['-I', resolve(import.meta.dirname, 'test_review_publish.py')], { encoding: 'utf8' });
+  assert.equal(r.error, undefined, `python3 not runnable: ${r.error}`);
+  assert.equal(r.status, 0, r.stderr);
+});
