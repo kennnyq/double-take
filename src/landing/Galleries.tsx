@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, type CSSProperties } from 'react';
 import type { LandingValues } from './designs';
+import type { Tier } from './tier';
 import { rand, Tile, useAtlasBoards, useBox, useTilePlayback } from './Tile';
 
 type Speed = LandingValues['speed'];
@@ -293,17 +294,20 @@ export const Gallery = memo(function Gallery({
   design,
   speed,
   reels,
+  tier,
 }: {
   design: LandingValues['gallery'];
   speed: Speed;
-  /** How often a tile swipes to the next clip, like scrolling reels. */
+  /** Whether tiles swipe to their next clip as their clip ends, like scrolling reels. */
   reels: LandingValues['reels'];
+  /** How much to ask of the device (tier.ts). */
+  tier: Tier;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const { w, h } = useBox(ref);
   const Layout = GALLERIES[design];
   useTilePlayback(ref, `${design}:${w}x${h}`);
-  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off');
+  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off', tier);
   return (
     <div className="lt-gallery" data-gallery={design} ref={ref}>
       {w > 0 && <Layout w={w} h={h} speed={SPEED[speed]} />}

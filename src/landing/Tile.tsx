@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import type { Atlas } from './atlas';
 import { atlasPlayer } from './AtlasPlayer';
+import type { Tier } from './tier';
 
 /** One feed clip as the gallery shows it. */
 export interface GalleryClip {
@@ -122,7 +123,7 @@ export function useTilePlayback(rootRef: RefObject<HTMLElement | null>, key: str
  * canvas per `[data-board]` strip, one inside each other tile. With `reels`,
  * each tile swipes to its next clip as its clip ends (false: clips loop).
  */
-export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: string, reels?: boolean) {
+export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: string, reels?: boolean, tier: Tier = 'full') {
   const atlas = useContext(GalleryAtlas);
   const clips = useContext(GalleryClips);
   const loaded = clips.length;
@@ -132,12 +133,12 @@ export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: stri
     const player = atlasPlayer(atlas);
     const clipOfCell = new Map(clips.flatMap((c) => (c.cell === undefined ? [] : [[c.cell, c.index] as const])));
     const unmount = player.mount(root, clipOfCell);
-    if (reels !== undefined) player.setReels(reels, clipOfCell);
+    if (reels !== undefined) player.setReels(reels, clipOfCell, tier);
     return () => {
       if (reels !== undefined) player.setReels(false, new Map());
       unmount();
     };
-  }, [rootRef, key, atlas, loaded, clips, reels]);
+  }, [rootRef, key, atlas, loaded, clips, reels, tier]);
 }
 
 /** The element's size, kept up to date. */

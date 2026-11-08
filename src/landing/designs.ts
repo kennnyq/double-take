@@ -106,6 +106,11 @@ export const LANDING_TRIALS = {
   ]),
 
   // ---- Page --------------------------------------------------------------
+  tier: trial(PAGE, 'Lighter for phones', 'tier', [
+    { value: 'auto', label: 'When the device needs it' },
+    { value: 'full', label: 'Never' },
+    { value: 'phone', label: 'Always' },
+  ]),
   header: trial(PAGE, 'Header', 'header', [
     { value: 'full', label: 'Logo, links, button' },
     { value: 'logo', label: 'Logo only' },
@@ -218,6 +223,7 @@ const BASE: LandingValues = {
   layout: 'center',
   cta: 'pill',
   accent: 'blue',
+  tier: 'auto',
   header: 'full',
   below: 'full',
   motion: 'decelerate',

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, type CSSProperties, type MouseEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, type CSSProperties, type MouseEvent } from 'react';
 import { ArrowDown, ArrowRight, Play } from 'lucide-react';
 import { Logo } from '@/desktop/Logo';
 import { COPY, STEPS, TELLS } from './content';
@@ -6,6 +6,7 @@ import type { LandingValues } from './designs';
 import { Gallery } from './Galleries';
 import { Tile, useAtlasBoards, useGalleryClip, useTilePlayback } from './Tile';
 import { launch } from './launch';
+import { pickTier } from './tier';
 import './landing.css';
 
 const FONTS =
@@ -81,6 +82,21 @@ export function Landing({
   useScan(rootRef, v.scan, `${v.gallery}:${v.scan}`);
   useLens(rootRef, v.blur === 'lens');
 
+  // How much to ask of this device (tier.ts): read once, the screen doesn't change size class.
+  const tier = useMemo(
+    () =>
+      pickTier(
+        {
+          shortSide: Math.min(window.screen.width, window.screen.height),
+          coarse: window.matchMedia('(pointer: coarse)').matches,
+          cores: navigator.hardwareConcurrency || undefined,
+          memory: (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+        },
+        v.tier,
+      ),
+    [v.tier],
+  );
+
   const words = COPY[v.copy];
   const [accent, ink] = ACCENTS[v.accent];
   // In-page links scroll the landing (its own scroller) to the section in their href.
@@ -96,6 +112,7 @@ export function Landing({
       ref={rootRef}
       data-type={v.type}
       data-cta={v.cta}
+      data-tier={tier}
       style={{ '--accent': accent, '--accent-ink': ink, '--dim': Number(v.dim) / 100 } as CSSProperties}
     >
       {v.header !== 'none' && (
@@ -133,7 +150,7 @@ export function Landing({
 
       <section className="lt-hero" data-layout={v.layout} data-gallery={v.gallery}>
         <div className="lt-gallery-hit" onClick={pressTile}>
-          <Gallery design={v.gallery} speed={v.speed} reels={v.reels} />
+          <Gallery design={v.gallery} speed={v.speed} reels={v.reels} tier={tier} />
         </div>
         {v.blur !== 'none' && <div className="lt-blur" data-mode={v.blur} />}
         <div className="lt-veil" data-mode={v.veil} />

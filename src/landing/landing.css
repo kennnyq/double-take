@@ -350,9 +350,16 @@
 
 /* For the launch, the plane keeps its depth, so tiles can sink back into it
    (the "recede" exit moves them along the plane's own normal). */
-.lt-root[data-launching] .lt-tilted,
-.lt-root[data-launching] .lt-tilted .lt-row {
+.lt-root[data-launching]:not([data-tier='phone']) .lt-tilted,
+.lt-root[data-launching]:not([data-tier='phone']) .lt-tilted .lt-row {
   transform-style: preserve-3d;
+}
+
+/* The lighter tier (tier.ts): no blur of the moving wall behind it, a shade instead. */
+.lt-root[data-tier='phone'] .lt-blur {
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  background: rgb(0 0 0 / 0.28);
 }
 
 .lt-mosaic {

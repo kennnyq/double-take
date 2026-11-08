@@ -2,6 +2,7 @@ import { atlasMode, cellRect, clipTime, planBoard, type Atlas, type AtlasMode, t
 import { streamLoop } from './atlasStream';
 import { chooseNext, handover, loopAt, snap, SWIPE_MS, swipeSlices, type Neighbour } from './reels';
 import { spreadCells, stripLoops, stripSequence, type Spot } from './spread';
+import { PHONE_SWIPES, type Tier } from './tier';
 
 /**
  * Draws the gallery atlas onto "boards": one canvas under each strip of tiles
@@ -152,6 +153,9 @@ export class AtlasPlayer {
   private busy: number[] = [];
   /** Tiles that found no clip to hand over to this time round, by key: the loop they're in. Their clip loops instead. */
   private noHandover = new Map<string, number>();
+  /** The lighter tier caps swipes (tier.ts). */
+  private tier: Tier = 'full';
+  private lastSwipeFrame = 0;
   /** Swipes stop for the launch. */
   private held = false;
   private swiping = new Set<Board>();
@@ -362,7 +366,8 @@ export class AtlasPlayer {
   }
 
   /** Whether tiles swipe as their clips end (false: they loop), and which feed clip each cell holds. */
-  setReels(on: boolean, clipOfCell: Map<number, number>) {
+  setReels(on: boolean, clipOfCell: Map<number, number>, tier: Tier = 'full') {
+    this.tier = tier;
     this.reels = on && this.mode === 'play' && !!this.atlas.phases;
     this.clipOfCell = clipOfCell;
     this.held = false;
@@ -399,6 +404,14 @@ export class AtlasPlayer {
       });
     }
     if (!due.size) return;
+    // The lighter tier: only so many swipes moving or about to, at once.
+    let room = Infinity;
+    if (this.tier === 'phone') {
+      let busy = 0;
+      for (const b of this.visible) for (const sw of b.swipes) if (sw && sw.start + SWIPE_MS > shows) busy++;
+      room = PHONE_SWIPES.concurrent - busy;
+      if (room <= 0) return;
+    }
     // Where every tile on screen is, and the clip it shows or is about to.
     const where = new Map<string, Neighbour & { size: number }>();
     for (const b of this.visible) {
@@ -411,7 +424,7 @@ export class AtlasPlayer {
     }
     due.forEach((members, key) => {
       const me = where.get(key);
-      if (!me) return;
+      if (!me || room <= 0) return;
       const [b0, i0] = members[0];
       const cell = b0.cells[i0];
       const into = loopAt(t, phases[cell], loop);
@@ -432,6 +445,7 @@ export class AtlasPlayer {
         return;
       }
       this.busy.push(next.at);
+      room--;
       me.cell = next.cell;
       for (const [b, i] of members) {
         b.swipes[i] = { from: b.cells[i], to: next.cell, start: wallAt(next.at) };
@@ -452,6 +466,12 @@ export class AtlasPlayer {
     if (this.swipeFrame) return;
     const step = () => {
       const now = performance.now();
+      // The lighter tier redraws swipes at most every PHONE_SWIPES.frameMs.
+      if (this.tier === 'phone' && now - this.lastSwipeFrame < PHONE_SWIPES.frameMs - 4) {
+        this.swipeFrame = requestAnimationFrame(step);
+        return;
+      }
+      this.lastSwipeFrame = now;
       for (const b of this.swiping) {
         const moving: number[] = [];
         let waiting = false;
