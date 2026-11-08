@@ -18,6 +18,11 @@ export class HtmlVideoPlayer {
     this.el = el;
   }
 
+  /** The <video> itself (the double take's cheap blur draws a still from it). */
+  get element(): HTMLVideoElement | null {
+    return this.el;
+  }
+
   get duration(): number {
     const d = this.el?.duration;
     return d && Number.isFinite(d) ? d : 0;

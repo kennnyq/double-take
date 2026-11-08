@@ -1,13 +1,25 @@
 /**
  * Geometry for the double take's spotlight: everything outside the area of
- * interest is darkened and/or blurred, through a hole shaped like the dev
- * settings ask (rectangle, rounded, ellipse, circle, feathered, blob). Pure,
- * so it runs under `node --test`; `Spotlight.tsx` (native) and
+ * interest is darkened (and optionally blurred) through a hole shaped like
+ * the dev settings ask (rectangle, rounded, ellipse, circle, feathered, blob).
+ * Pure, so it runs under `node --test`; `Spotlight.tsx` (native) and
  * `Spotlight.web.tsx` draw it.
+ *
+ * Performance: the hole is a prepared soft-edged image (scripts/spotlight-masks.ts)
+ * moved and scaled with transforms (native) or mask position/size (web), so a
+ * moving spotlight never redraws or relayouts anything.
  */
 
-export const SPOTLIGHT_MODES = ['darken', 'blur', 'both'] as const;
-export type SpotlightMode = (typeof SPOTLIGHT_MODES)[number];
+/**
+ * What the spotlight does outside the area, cheapest first:
+ *  - off: nothing;
+ *  - darken: dims it (the default: cheap everywhere);
+ *  - cheapBlur: dims it over a blurred still of the loop (blurred once per step,
+ *    the live video stays sharp inside the area);
+ *  - fullBlur: dims it and live-blurs the playing video (expensive on iPhones).
+ */
+export const SPOTLIGHT_EFFECTS = ['off', 'darken', 'cheapBlur', 'fullBlur'] as const;
+export type SpotlightEffect = (typeof SPOTLIGHT_EFFECTS)[number];
 
 export const SPOTLIGHT_SHAPES = ['rect', 'rounded', 'ellipse', 'circle', 'feather', 'blob'] as const;
 export type SpotlightShape = (typeof SPOTLIGHT_SHAPES)[number];
@@ -23,18 +35,17 @@ export interface Rect {
   h: number;
 }
 
-/** The hole: a rounded rectangle (`radius`, clamped to half the short side) or an ellipse, with a soft edge `feather` px wide. */
+/** The hole around a tell's area, in stage px. */
 export interface Hole extends Rect {
-  radius: number;
-  ellipse: boolean;
+  /** Soft edge width, px (keeps the info card clear of it). */
   feather: number;
 }
 
-/** How dark the outside gets (0..1) and how much it's blurred (CSS px on web, expo-blur intensity on devices). */
-export function spotlightStrength(level: SpotlightStrength): { dim: number; blurPx: number; intensity: number } {
-  if (level === 1) return { dim: 0.32, blurPx: 4, intensity: 22 };
-  if (level === 3) return { dim: 0.66, blurPx: 14, intensity: 65 };
-  return { dim: 0.5, blurPx: 8, intensity: 40 };
+/** How dark the outside gets (0..1), and how much it's blurred (CSS px on web, expo-blur intensity / expo-image radius on devices). */
+export function spotlightStrength(level: SpotlightStrength): { dim: number; blurPx: number; intensity: number; stillBlur: number } {
+  if (level === 1) return { dim: 0.32, blurPx: 4, intensity: 22, stillBlur: 6 };
+  if (level === 3) return { dim: 0.66, blurPx: 14, intensity: 65, stillBlur: 16 };
+  return { dim: 0.5, blurPx: 8, intensity: 40, stillBlur: 10 };
 }
 
 /** The smallest hole drawn, so a tiny box still reads as a spotlight. */
@@ -46,8 +57,6 @@ export function holeFor(box: Rect, shape: SpotlightShape): Hole {
   const cy = box.y + box.h / 2;
   let w = box.w;
   let h = box.h;
-  let radius = 0;
-  let ellipse = false;
   let feather = 0;
   switch (shape) {
     case 'rect':
@@ -57,156 +66,85 @@ export function holeFor(box: Rect, shape: SpotlightShape): Hole {
     case 'rounded':
       w += 16;
       h += 16;
-      radius = 14;
       feather = 4;
       break;
     case 'ellipse':
       // Through the box's corners, a little loose.
       w = w * Math.SQRT2 + 8;
       h = h * Math.SQRT2 + 8;
-      ellipse = true;
       feather = 14;
       break;
     case 'circle': {
       const d = Math.hypot(w, h) + 8;
       w = d;
       h = d;
-      ellipse = true;
       feather = 10;
       break;
     }
     case 'feather':
       w += 24;
       h += 24;
-      radius = 20;
       feather = 28;
       break;
     case 'blob':
-      // A padded capsule with a very soft edge.
       w += 40;
       h += 40;
-      radius = Math.min(w, h) / 2;
       feather = 40;
       break;
   }
   w = Math.max(MIN_SIDE, w);
   h = Math.max(MIN_SIDE, h);
-  return { x: cx - w / 2, y: cy - h / 2, w, h, radius: Math.min(radius, w / 2, h / 2), ellipse, feather };
+  return { x: cx - w / 2, y: cy - h / 2, w, h, feather };
 }
 
-/** The hole grown (or shrunk, for negative `by`) on every side; the radius follows, so the edges stay parallel. */
+/** The hole grown (or shrunk, for negative `by`) on every side. */
 export function grow(h: Hole, by: number): Hole {
   'worklet';
   const w = Math.max(2, h.w + 2 * by);
   const ht = Math.max(2, h.h + 2 * by);
-  return {
-    ...h,
-    x: h.x + (h.w - w) / 2,
-    y: h.y + (h.h - ht) / 2,
-    w,
-    h: ht,
-    radius: Math.max(0, Math.min(h.radius + by, w / 2, ht / 2)),
-  };
+  return { ...h, x: h.x + (h.w - w) / 2, y: h.y + (h.h - ht) / 2, w, h: ht };
+}
+
+// ---- the prepared soft-hole images ----------------------------------------------
+
+/** Size of each mask image, and of the central square the shape fills. */
+export const MASK_SIZE = 512;
+export const MASK_BOX = 256;
+
+export type MaskShape = { kind: 'ellipse'; feather: number } | { kind: 'rrect'; radius: number; feather: number };
+
+/** The images (in MASK_BOX px): `node scripts/spotlight-masks.ts` writes hole-<name>.png and spot-<name>.png. */
+export const MASK_SHAPES = {
+  rect: { kind: 'rrect', radius: 0, feather: 2 },
+  rounded: { kind: 'rrect', radius: 28, feather: 5 },
+  ellipse: { kind: 'ellipse', feather: 22 },
+  soft: { kind: 'rrect', radius: 44, feather: 48 },
+  blob: { kind: 'ellipse', feather: 80 },
+} as const satisfies Record<string, MaskShape>;
+export type MaskName = keyof typeof MASK_SHAPES;
+
+/** Which image draws a shape (a circle is a square hole drawn with the ellipse). */
+export function maskFor(shape: SpotlightShape): MaskName {
+  if (shape === 'circle') return 'ellipse';
+  if (shape === 'feather') return 'soft';
+  return shape;
 }
 
 /**
- * The dimming as stacked layers, each a full cover with a hole. A soft edge is
- * `n` layers with holes spread across the feather, inner first; their alphas
- * are chosen so that, stacked, the darkness rises evenly from nothing inside
- * the hole to `dim` outside it.
+ * Where a mask image goes so its central box lands on the hole: its top-left
+ * corner and size, in stage px (the image is MASK_SIZE / MASK_BOX times the hole).
  */
-export function featherLayers(hole: Hole, dim: number, n = 5): { hole: Hole; alpha: number }[] {
+export function maskPlacement(h: Rect): Rect {
   'worklet';
-  if (hole.feather <= 0 || n <= 1) return [{ hole, alpha: dim }];
-  const out: { hole: Hole; alpha: number }[] = [];
-  let prev = 0;
-  for (let k = 0; k < n; k++) {
-    const cumulative = (dim * (k + 1)) / n;
-    const alpha = 1 - (1 - cumulative) / (1 - prev);
-    prev = cumulative;
-    out.push({ hole: grow(hole, hole.feather * (k / (n - 1) - 0.5)), alpha });
-  }
-  return out;
-}
-
-/** The alpha of stacked layers at a point covered by the first `count` of them (for tests). */
-export function stackedAlpha(alphas: number[]): number {
-  return 1 - alphas.reduce((keep, a) => keep * (1 - a), 1);
-}
-
-/** A hole big enough to take in the whole stage: where the spotlight opens from and closes to. */
-export function openHole(stageW: number, stageH: number, like: Hole): Hole {
-  'worklet';
-  const pad = Math.max(stageW, stageH) * 0.6 + like.feather;
-  return { ...like, x: -pad, y: -pad, w: stageW + 2 * pad, h: stageH + 2 * pad, radius: like.ellipse ? 0 : like.radius };
-}
-
-/** Interpolate between two holes (`t` may overshoot a little, for springs). */
-export function mixHole(a: Hole, b: Hole, t: number): Hole {
-  'worklet';
-  const m = (p: number, q: number) => p + (q - p) * t;
-  return { x: m(a.x, b.x), y: m(a.y, b.y), w: m(a.w, b.w), h: m(a.h, b.h), radius: m(a.radius, b.radius), ellipse: b.ellipse, feather: m(a.feather, b.feather) };
-}
-
-function n(v: number): number {
-  'worklet';
-  return Math.round(v * 10) / 10;
-}
-
-/** The hole's outline as an SVG subpath (rounded rect or ellipse). */
-export function holeSubpath(hole: Hole): string {
-  'worklet';
-  const { x, y, w, h } = hole;
-  if (hole.ellipse) {
-    const rx = w / 2;
-    const ry = h / 2;
-    const cy = y + ry;
-    return `M${n(x)} ${n(cy)}A${n(rx)} ${n(ry)} 0 1 0 ${n(x + w)} ${n(cy)}A${n(rx)} ${n(ry)} 0 1 0 ${n(x)} ${n(cy)}Z`;
-  }
-  const r = Math.max(0, Math.min(hole.radius, w / 2, h / 2));
-  if (r <= 0) return `M${n(x)} ${n(y)}H${n(x + w)}V${n(y + h)}H${n(x)}Z`;
-  return (
-    `M${n(x + r)} ${n(y)}H${n(x + w - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w)} ${n(y + r)}` +
-    `V${n(y + h - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w - r)} ${n(y + h)}H${n(x + r)}` +
-    `A${n(r)} ${n(r)} 0 0 1 ${n(x)} ${n(y + h - r)}V${n(y + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + r)} ${n(y)}Z`
-  );
-}
-
-/**
- * An SVG path covering the stage except the hole, for `clip-path: path(evenodd, …)`
- * on web: the outer rectangle, then the hole (rounded rect or ellipse).
- */
-export function holePath(stageW: number, stageH: number, hole: Hole): string {
-  'worklet';
-  return `M0 0H${n(stageW)}V${n(stageH)}H0Z${holeSubpath(hole)}`;
-}
-
-/**
- * An SVG image of the stage, opaque except the hole, whose edge is softened
- * by a Gaussian blur across the hole's feather: a CSS mask for the web
- * spotlight's dim and blur layers (one layer each, with a smooth edge).
- */
-export function holeMaskSvg(stageW: number, stageH: number, hole: Hole): string {
-  'worklet';
-  const pad = 200;
-  const W = Math.round(stageW);
-  const H = Math.round(stageH);
-  const outer = `M${-pad} ${-pad}H${W + pad}V${H + pad}H${-pad}Z`;
-  // About ±2σ spans the feather.
-  const sigma = hole.feather / 4;
-  const filter =
-    sigma > 0.3
-      ? `<filter id="f" x="${-pad}" y="${-pad}" width="${W + 2 * pad}" height="${H + 2 * pad}" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="${n(sigma)}"/></filter>`
-      : '';
-  return (
-    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${filter}` +
-    `<path fill="#fff" fill-rule="evenodd" d="${outer}${holeSubpath(hole)}"${filter ? ' filter="url(#f)"' : ''}/></svg>`
-  );
+  const k = MASK_SIZE / MASK_BOX;
+  const w = h.w * k;
+  const ht = h.h * k;
+  return { x: h.x + h.w / 2 - w / 2, y: h.y + h.h / 2 - ht / 2, w, h: ht };
 }
 
 /**
  * Bands around a rectangular hole (top, bottom, left, right), clipped to the
- * stage: native blurs these, since a blur view can't have a shaped hole.
+ * stage: native's full blur uses these, since a blur view can't have a shaped hole.
  */
 export function bands(stageW: number, stageH: number, hole: Rect): Rect[] {
   'worklet';
@@ -220,4 +158,29 @@ export function bands(stageW: number, stageH: number, hole: Rect): Rect[] {
     { x: 0, y: y0, w: x0, h: y1 - y0 },
     { x: x1, y: y0, w: stageW - x1, h: y1 - y0 },
   ];
+}
+
+export interface ClipTransform {
+  tx: number;
+  ty: number;
+  sx: number;
+  sy: number;
+}
+
+/**
+ * The transform that maps a stage-sized view onto `r` (translate, then scale
+ * about its centre), and the inverse for its child, so the child stays put
+ * while the parent's clip shrinks to `r`: native's cheap blur shows the live
+ * video only inside the area this way, with transforms alone.
+ */
+export function clipTransforms(stageW: number, stageH: number, r: Rect): { outer: ClipTransform; inner: ClipTransform } {
+  'worklet';
+  const sx = Math.max(1e-3, r.w / stageW);
+  const sy = Math.max(1e-3, r.h / stageH);
+  const tx = r.x + r.w / 2 - stageW / 2;
+  const ty = r.y + r.h / 2 - stageH / 2;
+  return {
+    outer: { tx, ty, sx, sy },
+    inner: { tx: -tx / sx, ty: -ty / sy, sx: 1 / sx, sy: 1 / sy },
+  };
 }

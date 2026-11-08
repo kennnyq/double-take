@@ -11,12 +11,15 @@ export function alpha(hex: string, a: number): string {
 
 /**
  * The double take's dark glass (info cards, the Close button) and its text,
- * from the live palette: the surface colour, translucent over a blur, with
+ * from the live palette: the surface colour, translucent (over a blur when the spotlight uses one), with
  * the palette's text and its `tell` colour for the loop line.
  */
 export const useGlass = themed((c) => ({
   glass: { borderColor: alpha(c.text, 0.1), borderWidth: StyleSheet.hairlineWidth },
+  /** Over a live blur. */
   tint: { backgroundColor: alpha(c.surface, 0.62) },
+  /** Without one (the default: a live blur over video is expensive), a little more solid. */
+  tintSolid: { backgroundColor: alpha(c.surface, 0.8) },
   button: { backgroundColor: alpha(c.surface, 0.58), borderColor: alpha(c.text, 0.18), borderWidth: StyleSheet.hairlineWidth },
   text: { color: alpha(c.text, 0.94) },
   hint: { color: alpha(c.textDim, 0.75) },

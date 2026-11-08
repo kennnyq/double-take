@@ -15,15 +15,26 @@ import './devSection';
 import { cardSpot, emptierSide, estimateCardHeight, type CardSpot } from './card';
 import { useGlass } from './glass';
 import { InfoCard } from './InfoCard';
+import { ownLayer } from './layer';
 import { planScrub, runScrub } from './scrub';
 import { Spotlight } from './Spotlight';
 import { grow, holeFor, type Rect } from './spotlight';
+import { useSpotlightMotion, type SpotlightMotion } from './spotlightMotion';
 import { boxOnStage, videoRect, type Fit, type Tell } from './tells';
 
 /** Lets the clip's Double take button and gestures (a user setting) open and close the walkthrough. */
 export interface TellOverlayHandle {
   open: () => void;
   close: () => void;
+  /** Go on to the next step, as a tap does (desktop: Space). False when the walkthrough isn't showing a step. */
+  next: () => boolean;
+}
+
+/** What the spotlight shows, for a clip that draws part of it with the video (native cheap blur). */
+export interface SpotState {
+  area: Rect | null;
+  /** When the current loop starts (its still is blurred behind the area); null between steps. */
+  stillAt: number | null;
 }
 
 interface Props {
@@ -47,6 +58,10 @@ interface Props {
   onScrub: (on: boolean) => void;
   /** The walkthrough started or ended: the clip shows the whole frame and hides its chrome meanwhile. */
   onInspect: (on: boolean) => void;
+  /** The spotlight's motion, when the clip owns it (it draws the cheap blur with the video); else the overlay's own. */
+  motion?: SpotlightMotion;
+  /** Where the spotlight is and which still it blurs, as it changes. */
+  onSpot?: (s: SpotState) => void;
 }
 
 interface Loaded {
@@ -132,7 +147,11 @@ export function TellOverlay({ ref, ...p }: Props) {
   const [cache, setCache] = useState<Record<string, Loaded>>({});
   const [cards, setCards] = useState<Card[]>([]);
   const [scrubbing, setScrubbing] = useState(false);
-  const [now, setNow] = useState(0);
+  // Only whether the loop is inside the tell's camera shot re-renders us; the
+  // time itself (every 100 ms) stays in a ref.
+  const [inShotNow, setInShotNow] = useState(true);
+  const shotRef = useRef<{ t0: number; t1: number } | null>(null);
+  const [stillAt, setStillAt] = useState<number | null>(null);
   const replay = useRef<Replay | null>(null);
   const cancelScrub = useRef<() => void>(() => {});
   const held = useRef(false);
@@ -221,7 +240,10 @@ export function TellOverlay({ ref, ...p }: Props) {
     stopScrub();
     leaveCards();
     setStep(i);
+    setStillAt(null);
     const tell = d.steps[i];
+    shotRef.current = tell?.shot ?? null;
+    setInShotNow(true);
     Haptics.selectionAsync().catch(() => {});
     if (!tell || !player) {
       // The closing "Also noted" card: plain playback under it.
@@ -240,13 +262,13 @@ export function TellOverlay({ ref, ...p }: Props) {
     setScrubbing(true);
     devMark('scrubStart');
     onScrub(true);
-    loop.value = withTiming(0, { duration: 200 });
+    loop.set(withTiming(0, { duration: 200 }));
     const card = cardFor(d, i);
     cancelScrub.current = runScrub(player, planScrub(player.currentTime, r.from), () => {
       cancelScrub.current = () => {};
       devMark('scrubEnd');
       replay.current = r;
-      setNow(r.from);
+      setStillAt(r.from);
       setScrubbing(false);
       onSlowmo(true);
       onScrub(false);
@@ -273,7 +295,7 @@ export function TellOverlay({ ref, ...p }: Props) {
       return;
     }
     onInspect(true);
-    shown.value = withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) });
+    shown.set(withTiming(1, { duration: 320, easing: Easing.out(Easing.cubic) }));
     settling.current = true;
     setTimeout(() => (settling.current = false), OPEN_SETTLE_MS);
     goTo(0, d);
@@ -285,7 +307,9 @@ export function TellOverlay({ ref, ...p }: Props) {
     leaveCards();
     setStep(null);
     setScrubbing(false);
-    shown.value = withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) });
+    setStillAt(null);
+    shotRef.current = null;
+    shown.set(withTiming(0, { duration: 220, easing: Easing.out(Easing.cubic) }));
     if (player) setTick(player, TICK_FEED);
     // Playback carries on from wherever the loop is: no jump back.
     onScrub(false);
@@ -298,30 +322,40 @@ export function TellOverlay({ ref, ...p }: Props) {
     closeRef.current = close;
   });
 
-  const next = () => {
-    if (!data || step === null || step < 0 || settling.current) return;
+  const next = (): boolean => {
+    if (!data || step === null || step < 0) return false;
+    if (settling.current) return true;
     if (step + 1 < count) goTo(step + 1, data);
     else close();
+    return true;
   };
+  const nextRef = useRef(next);
+  useEffect(() => {
+    nextRef.current = next;
+  });
   const back = () => {
     if (data && step !== null && step > 0 && !settling.current) goTo(step - 1, data);
   };
 
   // Keep the replay inside its loop; the loop line follows it (and restarts with it).
   const onTime = (time: number) => {
-    setNow(time);
+    const shot = shotRef.current;
+    if (shot) {
+      const inside = time >= shot.t0 - 0.05 && time <= shot.t1 + 0.05;
+      if (inside !== inShotNow) setInShotNow(inside);
+    }
     const r = replay.current;
     if (!r || !player) return;
     // The clip's own loop can also wrap it to 0.
     if (time >= r.to || time < r.from - 0.3) {
       restartLoop(player, r.from);
-      loop.value = 0;
+      loop.set(0);
       return;
     }
     const len = Math.max(0.1, r.to - r.from);
     const frac = Math.min(1, Math.max(0, (time - r.from) / len));
     const ahead = Math.min(1, frac + (TICK_WALKTHROUGH * (player.playbackRate || 0.35)) / len);
-    loop.value = withTiming(ahead, { duration: TICK_WALKTHROUGH * 1000, easing: Easing.linear });
+    loop.set(withTiming(ahead, { duration: TICK_WALKTHROUGH * 1000, easing: Easing.linear }));
   };
 
   const holdToPause = {
@@ -343,7 +377,11 @@ export function TellOverlay({ ref, ...p }: Props) {
   useEffect(() => {
     openRef.current = open;
   });
-  useImperativeHandle(ref, () => ({ open: () => void openRef.current(), close: () => closeRef.current() }), []);
+  useImperativeHandle(
+    ref,
+    () => ({ open: () => void openRef.current(), close: () => closeRef.current(), next: () => nextRef.current() }),
+    [],
+  );
 
   // A new pick in the dev settings ends a walkthrough of the old pipeline's tells.
   const shownUrl = useRef(url);
@@ -359,8 +397,18 @@ export function TellOverlay({ ref, ...p }: Props) {
   // The spotlight follows the step's area, during the scrub too (it eases there
   // while the video runs to it). A box pinned to a camera shot means nothing
   // across a cut, so it lets go outside that shot.
-  const inShot = !current?.shot || scrubbing || (now >= current.shot.t0 - 0.05 && now <= current.shot.t1 + 0.05);
+  const inShot = !current?.shot || scrubbing || inShotNow;
   const area = inShot ? areaOf(current) : null;
+  const ownMotion = useSpotlightMotion(p.motion ? null : area, settings.spotlightShape);
+  const motion = p.motion ?? ownMotion;
+  // Tell the clip (it springs the shared motion, and blurs the still for the cheap blur).
+  const { onSpot } = p;
+  const areaKey = area ? [area.x, area.y, area.w, area.h].map(Math.round).join() : '';
+  useEffect(() => {
+    onSpot?.({ area, stillAt });
+    // `areaKey` stands for the area's numbers.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onSpot, areaKey, stillAt]);
 
   const g = useGlass();
   const c = usePalette();
@@ -370,12 +418,14 @@ export function TellOverlay({ ref, ...p }: Props) {
     <>
       {player && inStep && <PlayerClock player={player} onTime={onTime} />}
       <Spotlight
-        area={area}
+        motion={motion}
         stageW={p.stageW}
         stageH={p.stageH}
-        mode={settings.spotlight}
+        effect={settings.spotlightEffect}
         strength={settings.spotlightStrength}
         shape={settings.spotlightShape}
+        player={player}
+        stillAt={stillAt}
       />
       {inStep && (
         <>
@@ -406,11 +456,12 @@ export function TellOverlay({ ref, ...p }: Props) {
           text={c.text}
           hint={c.hint}
           loop={c.loop ? loop : null}
+          blur={settings.spotlightEffect === 'fullBlur'}
           leaving={c.leaving}
           onGone={() => dropCard(c.key)}
         />
       ))}
-      <Animated.View style={[styles.closeWrap, { top: p.top }, closeStyle]} pointerEvents={inStep ? 'box-none' : 'none'}>
+      <Animated.View style={[styles.closeWrap, ownLayer, { top: p.top }, closeStyle]} pointerEvents={inStep ? 'box-none' : 'none'}>
         <Pressable
           onPress={close}
           disabled={!inStep}

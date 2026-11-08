@@ -5,15 +5,15 @@
  */
 
 import {
-  SPOTLIGHT_MODES,
+  SPOTLIGHT_EFFECTS,
   SPOTLIGHT_SHAPES,
   SPOTLIGHT_STRENGTHS,
-  type SpotlightMode,
+  type SpotlightEffect,
   type SpotlightShape,
   type SpotlightStrength,
 } from '../feed/spotlight.ts';
 
-export { SPOTLIGHT_MODES, SPOTLIGHT_SHAPES, SPOTLIGHT_STRENGTHS };
+export { SPOTLIGHT_EFFECTS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRENGTHS };
 
 /** How long a press must last to count as a hold, in ms. */
 export const HOLD_DELAYS = [250, 350, 500] as const;
@@ -35,10 +35,16 @@ export interface DevSettings {
   /** The tells pipeline ("model") every clip shows; clips without it fall back to main. */
   pipeline: string;
   launcher: LauncherCorner;
-  /** The double take's spotlight: darken and/or blur outside the tell's area. */
-  spotlight: SpotlightMode;
+  /**
+   * The double take's spotlight outside the tell's area: off, darken (default),
+   * a cheap blur (a blurred still) or the full live blur. A new key, so a
+   * stored pick from the first version (darken/blur/both) falls back to darken.
+   */
+  spotlightEffect: SpotlightEffect;
   spotlightStrength: SpotlightStrength;
   spotlightShape: SpotlightShape;
+  /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
+  markDrafts: boolean;
 }
 
 export type DevSettingKey = keyof DevSettings;
@@ -47,9 +53,10 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   holdMs: 350,
   pipeline: MAIN_PIPELINE,
   launcher: 'auto',
-  spotlight: 'both',
+  spotlightEffect: 'darken',
   spotlightStrength: 2,
   spotlightShape: 'feather',
+  markDrafts: false,
 });
 
 export const STORAGE_KEY = 'double-take:dev-settings:v1';
@@ -72,9 +79,10 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     holdMs: oneOf(HOLD_DELAYS, o.holdMs, d.holdMs),
     pipeline: typeof o.pipeline === 'string' && /^[\w.-]{1,40}$/.test(o.pipeline) ? o.pipeline : d.pipeline,
     launcher: oneOf(LAUNCHER_CORNERS, o.launcher, d.launcher),
-    spotlight: oneOf(SPOTLIGHT_MODES, o.spotlight, d.spotlight),
+    spotlightEffect: oneOf(SPOTLIGHT_EFFECTS, o.spotlightEffect, d.spotlightEffect),
     spotlightStrength: oneOf(SPOTLIGHT_STRENGTHS, o.spotlightStrength, d.spotlightStrength),
     spotlightShape: oneOf(SPOTLIGHT_SHAPES, o.spotlightShape, d.spotlightShape),
+    markDrafts: typeof o.markDrafts === 'boolean' ? o.markDrafts : d.markDrafts,
   };
 }
 

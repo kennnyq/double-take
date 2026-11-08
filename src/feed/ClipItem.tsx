@@ -14,7 +14,11 @@ import { useDevSettings } from '@/devtools/store';
 import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
 import type { FeedHandlers } from './Feed';
-import { TellOverlay, type TellOverlayHandle } from './TellOverlay';
+import { BlurredStill, CornerCaps, useCheapClip } from './InspectStage';
+import { ownLayer } from './layer';
+import { spotlightStrength } from './spotlight';
+import { useSpotlightMotion } from './spotlightMotion';
+import { TellOverlay, type SpotState, type TellOverlayHandle } from './TellOverlay';
 import { useFadeProgress, useModeProgress } from './motion';
 import { displayCornerRadius, inspectInset } from './shrink';
 import { fitFor } from './tells';
@@ -53,7 +57,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const longPressed = useRef(false);
   const tells = useRef<TellOverlayHandle>(null);
   const { revealGesture } = useAppSettings();
-  const { holdMs } = useDevSettings();
+  const { holdMs, spotlightEffect, spotlightShape, spotlightStrength: strength } = useDevSettings();
   const hasTells = !!clip.tellsUrl && p.isActive;
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
@@ -145,17 +149,28 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const chromeOut = useFadeProgress(!inspecting, inspecting ? 180 : 320);
   const screen = useWindowDimensions();
   const inset = inspectInset(stageW, stageH, displayCornerRadius(screen.width, screen.height, Platform.OS));
+  // Browsers round the inset stage itself; the apps cap its corners instead
+  // (see CornerCaps: a rounded clip over video costs iOS an offscreen pass per frame).
+  const roundWithCaps = Platform.OS !== 'web' && !wide;
   const stageMotion = useAnimatedStyle(() =>
     wide
       ? { borderRadius: 14 }
       : {
-          borderRadius: interpolate(mode.value, [0, 1], [0, inset.radius]),
+          ...(roundWithCaps ? {} : { borderRadius: interpolate(mode.value, [0, 1], [0, inset.radius]) }),
           transform: [
             { translateY: interpolate(mode.value, [0, 1], [0, inset.dy]) },
             { scale: interpolate(mode.value, [0, 1], [1, inset.scale]) },
           ],
         },
   );
+
+  // The spotlight's motion lives here, so the apps' cheap blur can clip the
+  // live video to the area (the overlay draws the dimming with the same values).
+  const [spot, setSpot] = useState<SpotState>({ area: null, stillAt: null });
+  const motion = useSpotlightMotion(spot.area, spotlightShape);
+  const cheap = Platform.OS !== 'web' && spotlightEffect === 'cheapBlur' && inspecting;
+  const cheapOn = useFadeProgress(cheap, 1);
+  const cheapClip = useCheapClip(motion, cheapOn, stageW, stageH);
   const zoomMotion = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(mode.value, [0, 1], [coverScale, 1]) }],
   }));
@@ -164,30 +179,38 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const verdictMotion = useAnimatedStyle(() => ({ opacity: 1 - chromeOut.value }));
 
   const stage = (
-    <Reanimated.View style={[styles.stage, { width: stageW, height: stageH }, stageMotion]}>
+    <Reanimated.View style={[styles.stage, ownLayer, { width: stageW, height: stageH }, stageMotion]}>
       {zoomOut ? (
         p.isActive && (
-          <Reanimated.View style={[StyleSheet.absoluteFill, fillMotion]} pointerEvents="none">
+          <Reanimated.View style={[StyleSheet.absoluteFill, ownLayer, fillMotion]} pointerEvents="none">
             <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={40} />
           </Reanimated.View>
         )
       ) : (
         <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={baseFit === 'contain' ? 40 : 0} />
       )}
-      <Reanimated.View style={[StyleSheet.absoluteFill, zoomOut && zoomMotion]} pointerEvents="none">
-        {videoFit === 'contain' && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="contain" />}
-        {p.player && (
-          <VideoView
-            player={p.player}
-            style={StyleSheet.absoluteFill}
-            contentFit={videoFit}
-            nativeControls={false}
-            playsInline
-            allowsVideoFrameAnalysis={false}
-          />
-        )}
+      {cheap && p.player && spot.stillAt !== null && (
+        <BlurredStill player={p.player} at={spot.stillAt} blur={spotlightStrength(strength).stillBlur} m={motion} />
+      )}
+      {/* Always the same three wrappers, so the video never remounts; they're identity unless the cheap blur clips it. */}
+      <Reanimated.View style={[StyleSheet.absoluteFill, styles.clip, cheapClip.outer]} pointerEvents="none">
+        <Reanimated.View style={[StyleSheet.absoluteFill, cheapClip.inner]}>
+          <Reanimated.View style={[StyleSheet.absoluteFill, zoomOut && ownLayer, zoomOut && zoomMotion]}>
+            {videoFit === 'contain' && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="contain" />}
+            {p.player && (
+              <VideoView
+                player={p.player}
+                style={StyleSheet.absoluteFill}
+                contentFit={videoFit}
+                nativeControls={false}
+                playsInline
+                allowsVideoFrameAnalysis={false}
+              />
+            )}
+          </Reanimated.View>
+        </Reanimated.View>
       </Reanimated.View>
-      <Reanimated.View style={[styles.shade, chromeMotion]} pointerEvents="none">
+      <Reanimated.View style={[styles.shade, ownLayer, chromeMotion]} pointerEvents="none">
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.18)', 'rgba(0,0,0,0.6)']}
           locations={[0, 0.5, 1]}
@@ -238,11 +261,13 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           onSlowmo={h.setSlowmo}
           onScrub={h.setScrub}
           onInspect={onInspect}
+          motion={motion}
+          onSpot={setSpot}
         />
       )}
       {/* The reveal shows the verdict along with the reasoning, in every feed mode. */}
       {p.isActive && clip.verdict && (
-        <Reanimated.View style={[styles.revealVerdict, { top: walkthroughTop + 3 }, verdictMotion]} pointerEvents="none">
+        <Reanimated.View style={[styles.revealVerdict, ownLayer, { top: walkthroughTop + 3 }, verdictMotion]} pointerEvents="none">
           <VerdictBadge verdict={clip.verdict} />
         </Reanimated.View>
       )}
@@ -259,7 +284,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]}
         pointerEvents={inspecting ? 'none' : 'box-none'}
       >
-        <Reanimated.View style={[styles.metaInner, chromeMotion]} pointerEvents="box-none">
+        <Reanimated.View style={[styles.metaInner, ownLayer, chromeMotion]} pointerEvents="box-none">
           {p.label && (
             <View style={styles.labelRow} pointerEvents="none">
               <VerdictBadge verdict={p.label} />
@@ -294,12 +319,12 @@ export const ClipItem = memo(function ClipItem(p: Props) {
       </Animated.View>
 
       {!wide && (
-        <Reanimated.View style={[styles.railWrap, chromeMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
+        <Reanimated.View style={[styles.railWrap, ownLayer, chromeMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
           <Rail {...p} onReveal={onReveal} revealing={inspecting} />
         </Reanimated.View>
       )}
 
-      <Reanimated.View style={[styles.progressTrack, chromeMotion]} pointerEvents="none">
+      <Reanimated.View style={[styles.progressTrack, ownLayer, chromeMotion]} pointerEvents="none">
         <Animated.View
           style={[
             styles.progressFill,
@@ -314,6 +339,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           ]}
         />
       </Reanimated.View>
+      {roundWithCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
     </Reanimated.View>
   );
 
@@ -485,6 +511,7 @@ const textShadow = {
 const styles = StyleSheet.create({
   page: { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
   stage: { overflow: 'hidden', backgroundColor: '#111' },
+  clip: { overflow: 'hidden' },
   wideRow: { flexDirection: 'row', alignItems: 'flex-end' },
   wideRail: { marginLeft: 14, marginBottom: 18 },
   shade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: '40%' },

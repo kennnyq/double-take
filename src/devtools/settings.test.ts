@@ -25,14 +25,21 @@ test('parseSettings falls back to the defaults for missing, corrupt or invalid v
 });
 
 test('parseSettings reads the double take spotlight settings', () => {
-  const s = parseSettings(JSON.stringify({ spotlight: 'blur', spotlightStrength: 3, spotlightShape: 'ellipse' }));
-  assert.equal(s.spotlight, 'blur');
+  const s = parseSettings(JSON.stringify({ spotlightEffect: 'cheapBlur', spotlightStrength: 3, spotlightShape: 'ellipse', markDrafts: true }));
+  assert.equal(s.spotlightEffect, 'cheapBlur');
   assert.equal(s.spotlightStrength, 3);
   assert.equal(s.spotlightShape, 'ellipse');
-  const bad = parseSettings(JSON.stringify({ spotlight: 'glow', spotlightStrength: 9, spotlightShape: 'star' }));
-  assert.equal(bad.spotlight, DEFAULT_SETTINGS.spotlight);
+  assert.equal(s.markDrafts, true);
+  const bad = parseSettings(JSON.stringify({ spotlightEffect: 'glow', spotlightStrength: 9, spotlightShape: 'star', markDrafts: 'yes' }));
+  assert.equal(bad.spotlightEffect, DEFAULT_SETTINGS.spotlightEffect);
   assert.equal(bad.spotlightStrength, DEFAULT_SETTINGS.spotlightStrength);
   assert.equal(bad.spotlightShape, DEFAULT_SETTINGS.spotlightShape);
+  assert.equal(bad.markDrafts, false);
+});
+
+test('the spotlight defaults to darken only, and a first-version pick falls back to it', () => {
+  assert.equal(DEFAULT_SETTINGS.spotlightEffect, 'darken');
+  assert.equal(parseSettings(JSON.stringify({ spotlight: 'both' })).spotlightEffect, 'darken');
 });
 
 test('parseSettings keeps valid values', () => {

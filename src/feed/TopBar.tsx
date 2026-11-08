@@ -2,6 +2,7 @@ import { Animated, Pressable, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
+import { ownLayer } from './layer';
 import { useFadeProgress } from './motion';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
@@ -44,7 +45,7 @@ export function TopBar({
       style={[styles.bar, { paddingTop: insets.top + 2 }, opacity && { opacity }]}
       pointerEvents={hidden || faded ? 'none' : 'box-none'}
     >
-      <Reanimated.View style={fadeStyle}>
+      <Reanimated.View style={[ownLayer, fadeStyle]}>
         <IconButton
           name={muted ? 'volume-mute-outline' : 'volume-high-outline'}
           onPress={onToggleMute}

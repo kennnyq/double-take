@@ -1,26 +1,38 @@
 import { Platform } from 'react-native';
-import { registerDevSection, settingChoice } from '@/devtools/api';
+import { registerDevSection, settingChoice, settingSwitch } from '@/devtools/api';
 
 /*
- * The double take's dev options (spotlight effect, strength and shape), on the
- * Interaction tab next to the hold length. Registered when the overlay loads.
+ * The double take's dev options (spotlight effect, strength and shape, and a
+ * reviewer marker for model drafts), on the Interaction tab next to the hold
+ * length. Registered when the overlay loads.
  */
 registerDevSection({
   id: 'double-take',
   tab: 'interaction',
   title: 'Double take',
-  note: 'The spotlight on each tell: everything outside its area. It eases between areas.',
-  keywords: 'spotlight darken blur dim shape ellipse circle feather blob strength',
+  note: 'The spotlight on each tell: everything outside its area. Cheapest first; darken is the default.',
+  keywords: 'spotlight darken blur dim shape ellipse circle feather blob strength draft performance',
   order: 20,
   rows: (s) => [
-    settingChoice(s, 'spotlight', 'Spotlight', [
-      { label: 'Darken', value: 'darken', note: 'Dims outside the area.' },
+    settingChoice(s, 'spotlightEffect', 'Spotlight', [
+      { label: 'Off', value: 'off', note: 'No spotlight: just the card.' },
+      { label: 'Darken', value: 'darken', note: 'Dims outside the area. Cheap everywhere.' },
       {
-        label: 'Blur',
-        value: 'blur',
-        note: Platform.OS === 'android' ? 'Blurs outside the area (dims instead on Android for now).' : 'Blurs outside the area.',
+        label: 'Cheap blur',
+        value: 'cheapBlur',
+        note:
+          Platform.OS === 'web'
+            ? 'Dims over a blurred still of the loop; the area stays live.'
+            : 'Dims over a blurred still of the loop (blurred once per tell); the area stays live.',
       },
-      { label: 'Both', value: 'both', note: 'Dims and blurs outside the area.' },
+      {
+        label: 'Full blur',
+        value: 'fullBlur',
+        note:
+          Platform.OS === 'android'
+            ? 'Live blur over the playing video (dims only on Android).'
+            : 'Live blur over the playing video. Slow on iPhones; for comparison.',
+      },
     ]),
     settingChoice(s, 'spotlightStrength', 'Strength', [
       { label: 'Light', value: 1 },
@@ -33,7 +45,8 @@ registerDevSection({
       { label: 'Ellipse', value: 'ellipse', note: 'An ellipse through the box’s corners, soft edged.' },
       { label: 'Circle', value: 'circle', note: 'A circle around the whole box.' },
       { label: 'Feathered', value: 'feather', note: 'A padded rounded rectangle that fades out.' },
-      { label: 'Blob', value: 'blob', note: 'A roomy capsule with a very soft edge.' },
+      { label: 'Blob', value: 'blob', note: 'A roomy soft oval with a very soft edge.' },
     ]),
+    settingSwitch(s, 'markDrafts', 'Mark model drafts', 'Reviewers: adds “AI draft” under unreviewed tells. Never shown by default.'),
   ],
 });
