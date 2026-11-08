@@ -146,6 +146,8 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   // Set by the tells walkthrough while it is open on the active clip.
   const [inspecting, setInspecting] = useState(false);
   const [slowmo, setSlowmo] = useState(false);
+  // The walkthrough scrubs between tells by seeking: the video holds still meanwhile.
+  const [scrubbing, setScrubbing] = useState(false);
 
   // ---- video pool ---------------------------------------------------------
   // Slot = index % POOL, so an element keeps its clip while it stays in the
@@ -186,9 +188,9 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       const v = videos.current[s];
       if (!v) return;
       if (idx === active && visible) {
-        v.muted = muted || slowmo;
+        v.muted = muted || slowmo || scrubbing;
         v.playbackRate = slowmo ? REPLAY_RATE : 1;
-        if (paused) v.pause();
+        if (paused || scrubbing) v.pause();
         else if (v.paused) safePlay(v);
       } else {
         v.pause();
@@ -204,7 +206,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       });
     }, 450);
     return () => window.clearTimeout(t);
-  }, [active, paused, muted, slowmo, visible, slotIndex, safePlay]);
+  }, [active, paused, muted, slowmo, scrubbing, visible, slotIndex, safePlay]);
 
   // Buffering spinner on the active card, after a short grace period.
   useEffect(() => {
@@ -407,6 +409,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       openShare: (clip) => nav.openSheet('share', clip),
       toggleMute,
       setSlowmo,
+      setScrubbing,
       setInspecting,
       reveal,
       revealGesture,
@@ -420,6 +423,15 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   // Stable between renders, so moving to another clip re-renders only the slides that change.
   const card = useMemo(() => ({ w: Math.round((cardH * 9) / 16), h: cardH }), [cardH]);
   const fitOf = (i: number): Fit => (i === active && inspecting ? 'contain' : fitFor(clips[i]?.aspect));
+  // Portrait clips of known shape are drawn contained and scaled up to fill the
+  // card, so the walkthrough zooms out to the whole frame (a CSS transition)
+  // instead of cutting from cover to contain.
+  const zoomOf = (i: number) => zoomFor(clips[i]?.aspect, card.w / Math.max(1, card.h));
+  const videoStyle = (i: number): React.CSSProperties => {
+    const zoom = zoomOf(i);
+    if (!zoom) return { objectFit: fitOf(i) };
+    return { objectFit: 'contain', transform: `scale(${i === active && inspecting ? 1 : zoom})`, transition: ZOOM_TRANSITION };
+  };
 
   // The action column's width varies with its labels, so measure the active one.
   const [actionsW, setActionsW] = useState(104);
@@ -465,6 +477,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             label={autoLabel(clip, feedMode)}
             inspecting={i === active && inspecting}
             fit={fitOf(i)}
+            zoom={zoomOf(i)}
             card={card}
             player={i === active && slotIndex.indexOf(i) >= 0 ? players[slotIndex.indexOf(i)] : null}
             h={handlers}
@@ -481,7 +494,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
                     players[s].attach(el);
                   }}
                   src={idx >= 0 ? mediaUri(clips[idx].video) : undefined}
-                  style={{ objectFit: idx >= 0 ? fitOf(idx) : 'cover' }}
+                  style={idx >= 0 ? videoStyle(idx) : { objectFit: 'cover' }}
                   preload="auto"
                   playsInline
                   loop
@@ -543,6 +556,7 @@ interface SlideHandlers {
   openShare: (clip: Clip) => void;
   toggleMute: () => void;
   setSlowmo: (on: boolean) => void;
+  setScrubbing: (on: boolean) => void;
   setInspecting: (on: boolean) => void;
   /** The active clip's walkthrough. */
   reveal: React.RefObject<TellOverlayHandle | null>;
@@ -570,6 +584,8 @@ interface SlideProps {
   label: Verdict | null;
   inspecting: boolean;
   fit: Fit;
+  /** Contained and scaled up by this much to fill the card (0: drawn with `fit` as is). */
+  zoom: number;
   card: { w: number; h: number };
   /** The active clip's pooled player, once it holds this clip. */
   player: HtmlVideoPlayer | null;
@@ -693,7 +709,19 @@ const Slide = memo(function Slide(p: SlideProps) {
       <div className="slide-grid">
         <aside className="d-info">{info}</aside>
         <div className="stage card">
-          {p.fit === 'contain' ? (
+          {p.zoom ? (
+            <>
+              {/* The blurred fill shows only once the walkthrough has zoomed out. */}
+              {isActive && <img className={`poster blurred fades ${p.inspecting ? '' : 'faded'}`} src={poster} alt="" draggable={false} />}
+              <img
+                className="poster contained"
+                src={poster}
+                alt=""
+                draggable={false}
+                style={{ transform: `scale(${p.inspecting ? 1 : p.zoom})`, transition: ZOOM_TRANSITION }}
+              />
+            </>
+          ) : p.fit === 'contain' ? (
             <>
               <img className="poster blurred" src={poster} alt="" draggable={false} />
               <img className="poster contained" src={poster} alt="" draggable={false} />
@@ -702,7 +730,7 @@ const Slide = memo(function Slide(p: SlideProps) {
             <img className="poster" src={poster} alt="" draggable={false} />
           )}
           <div className="overlay">
-            {!p.inspecting && <div className="shade compact-only" />}
+            <div className={`shade compact-only fades ${p.inspecting ? 'faded' : ''}`} />
             <div
               className="tap-layer"
               onPointerDown={onPointerDown}
@@ -727,7 +755,9 @@ const Slide = memo(function Slide(p: SlideProps) {
                 />
               ))}
             </div>
-            {!p.inspecting && <div className="d-info-overlay compact-only">{info}</div>}
+            <div className={`d-info-overlay compact-only fades ${p.inspecting ? 'faded' : ''}`} inert={p.inspecting}>
+              {info}
+            </div>
             {isActive && clip.tellsUrl && p.card.h > 0 && (
               <TellOverlay
                 ref={tells}
@@ -742,17 +772,23 @@ const Slide = memo(function Slide(p: SlideProps) {
                 onPause={h.pause}
                 onPlay={h.play}
                 onSlowmo={h.setSlowmo}
+                onScrub={h.setScrubbing}
                 onInspect={h.setInspecting}
               />
             )}
             {/* The reveal shows the verdict along with the reasoning, in every feed mode. */}
-            {p.inspecting && clip.verdict && (
-              <div className="reveal-verdict">
+            {isActive && clip.verdict && (
+              <div className={`reveal-verdict fades ${p.inspecting ? '' : 'faded'}`} aria-hidden={!p.inspecting}>
                 <VerdictBadge verdict={clip.verdict} />
               </div>
             )}
-            {isActive && !p.inspecting && (
-              <button className="mute-btn" onClick={h.toggleMute} aria-label={p.muted ? 'Unmute' : 'Mute'}>
+            {isActive && (
+              <button
+                className={`mute-btn fades ${p.inspecting ? 'faded' : ''}`}
+                onClick={h.toggleMute}
+                aria-label={p.muted ? 'Unmute' : 'Mute'}
+                tabIndex={p.inspecting ? -1 : undefined}
+              >
                 {p.muted ? <VolumeX size={16} /> : <Volume2 size={16} />}
               </button>
             )}
@@ -843,4 +879,17 @@ function ActionBtn(props: {
       {props.label && <span>{props.label}</span>}
     </button>
   );
+}
+
+/** The walkthrough's zoom out to the whole frame, and back. */
+const ZOOM_TRANSITION = 'transform 560ms cubic-bezier(0.22, 0.9, 0.24, 1)';
+
+/**
+ * How much a portrait clip, drawn contained, is scaled up to fill a card of
+ * `cardAspect` (width / height); 0 for clips drawn as they are (unknown shape,
+ * or shown whole anyway).
+ */
+function zoomFor(aspect: number | undefined, cardAspect: number): number {
+  if (aspect === undefined || fitFor(aspect) !== 'cover' || !(cardAspect > 0)) return 0;
+  return Math.max(aspect / cardAspect, cardAspect / aspect);
 }

@@ -501,12 +501,29 @@
 }
 
 /* The double take, on: the icon on a filled disc (a ring of the same colour
-   grows it without moving the column), so "on" reads by shape, not hue. */
+   grows it without moving the column), so "on" reads by shape, not hue.
+   It fills and empties smoothly. */
+.desk .action-btn.double-take svg {
+  border-radius: 50%;
+  box-shadow: 0 0 0 0 transparent;
+  transition:
+    color 0.25s ease,
+    background-color 0.25s ease,
+    box-shadow 0.25s ease;
+}
 .desk .action-btn.double-take.on svg {
   color: var(--dt-on-tell);
   background: var(--dt-tell);
-  border-radius: 50%;
   box-shadow: 0 0 0 5px var(--dt-tell);
+}
+
+/* Chrome that fades out (and back) with the double take instead of popping. */
+.desk .fades {
+  transition: opacity 0.28s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+.desk .fades.faded {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .desk .action-btn.liked svg,
