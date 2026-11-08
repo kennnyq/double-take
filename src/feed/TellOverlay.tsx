@@ -77,14 +77,21 @@ async function loadTells(url: string): Promise<Loaded> {
   }
 }
 
+/**
+ * Dev builds in a browser: what the walkthrough did and when, for the browser
+ * checks in scripts/e2e/ (`loop`: a loop restart, the one allowed jump;
+ * `scrubStart`/`scrubEnd`: the player is held paused while it scrubs).
+ */
+function devMark(kind: 'loop' | 'scrubStart' | 'scrubEnd') {
+  if (!__DEV__ || Platform.OS !== 'web' || typeof window === 'undefined') return;
+  const w = window as unknown as { __dtMarks?: { kind: string; at: number }[] };
+  (w.__dtMarks ??= []).push({ kind, at: performance.now() });
+}
+
 /** The loop restart: the one place the walkthrough sets the time directly. */
 function restartLoop(player: VideoPlayer, seconds: number) {
+  devMark('loop');
   player.currentTime = seconds;
-  if (__DEV__ && Platform.OS === 'web' && typeof window !== 'undefined') {
-    // For the browser check (scripts/e2e/double-take-flow.ts): jumps are only allowed here.
-    const w = window as unknown as { __dtLoopRestarts?: number[] };
-    (w.__dtLoopRestarts ??= []).push(performance.now());
-  }
 }
 
 /** How often the player reports time: finer during the walkthrough, so the loop line moves smoothly. */
@@ -204,8 +211,14 @@ export function TellOverlay({ ref, ...p }: Props) {
   };
 
   // ---- steps ----------------------------------------------------------------
-  const goTo = (i: number, d: Loaded) => {
+  const stopScrub = () => {
     cancelScrub.current();
+    cancelScrub.current = () => {};
+    if (scrubbing) devMark('scrubEnd');
+  };
+
+  const goTo = (i: number, d: Loaded) => {
+    stopScrub();
     leaveCards();
     setStep(i);
     const tell = d.steps[i];
@@ -225,11 +238,13 @@ export function TellOverlay({ ref, ...p }: Props) {
     replay.current = null;
     setTick(player, TICK_WALKTHROUGH);
     setScrubbing(true);
+    devMark('scrubStart');
     onScrub(true);
     loop.value = withTiming(0, { duration: 200 });
     const card = cardFor(d, i);
     cancelScrub.current = runScrub(player, planScrub(player.currentTime, r.from), () => {
       cancelScrub.current = () => {};
+      devMark('scrubEnd');
       replay.current = r;
       setNow(r.from);
       setScrubbing(false);
@@ -265,8 +280,7 @@ export function TellOverlay({ ref, ...p }: Props) {
   };
 
   function close() {
-    cancelScrub.current();
-    cancelScrub.current = () => {};
+    stopScrub();
     replay.current = null;
     leaveCards();
     setStep(null);

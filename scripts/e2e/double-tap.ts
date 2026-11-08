@@ -8,7 +8,8 @@
  *   BASE_URL=http://localhost:8086 npm run e2e:taps
  *
  * Needs a running dev server and a Chromium (see browser.ts). Every `pause`
- * event on any <video> is recorded, so a stray pause can't slip by unseen.
+ * event on any <video> is recorded, so a stray pause can't slip by unseen
+ * (except the double take's own while it scrubs to a tell).
  */
 import { chromium, type Browser, type Page } from 'playwright-core';
 import { BASE_URL, findChrome } from './browser.ts';
@@ -63,8 +64,21 @@ async function videoPoint(page: Page, layout: Layout) {
   return box;
 }
 
+/**
+ * Pauses so far, leaving out the double take's own: it holds the clip paused
+ * while it scrubs to a tell (logged to `__dtMarks` in dev builds).
+ */
 async function pauses(page: Page) {
-  return page.evaluate(() => (window as unknown as { __pauses: number[] }).__pauses.length);
+  return page.evaluate(() => {
+    const w = window as unknown as { __pauses: number[]; __dtMarks?: { kind: string; at: number }[] };
+    const marks = w.__dtMarks ?? [];
+    const windows = marks.flatMap((m, i) => {
+      if (m.kind !== 'scrubStart') return [];
+      const end = marks.slice(i + 1).find((e) => e.kind === 'scrubEnd')?.at ?? Infinity;
+      return [[m.at - 50, end + 50]];
+    });
+    return w.__pauses.filter((t) => !windows.some(([a, z]) => t >= a && t <= z)).length;
+  });
 }
 const isOpen = (page: Page) => page.evaluate((s) => !!document.querySelector(s), CLOSE_WALKTHROUGH);
 
