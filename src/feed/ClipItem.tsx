@@ -58,7 +58,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const longPressed = useRef(false);
   const tells = useRef<TellOverlayHandle>(null);
   const { revealGesture } = useAppSettings();
-  const { holdMs, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength } = useDevSettings();
+  const { holdMs, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength, dbgCornerCaps } = useDevSettings();
   const hasTells = !!clip.tellsUrl && p.isActive;
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
@@ -178,6 +178,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const fillMotion = useAnimatedStyle(() => ({ opacity: zoomOut ? Math.min(1, Math.max(0, mode.value)) : 1 }));
   const chromeMotion = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
   const verdictMotion = useAnimatedStyle(() => ({ opacity: 1 - chromeOut.value }));
+  const barMotion = useAnimatedStyle(() => ({ opacity: BAR_DIMMED + (1 - BAR_DIMMED) * chromeOut.value }));
 
   const stage = (
     <Reanimated.View style={[styles.stage, ownLayer, { width: stageW, height: stageH }, stageMotion]}>
@@ -325,8 +326,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         </Reanimated.View>
       )}
 
-      {/* The progress bar fades with the rest of the chrome during a double take (its card has its own loop line). */}
-      <Reanimated.View style={[styles.scrubWrap, ownLayer, chromeMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
+      {/* The progress bar stays during a double take, dimmed and out of reach (the walkthrough owns the taps). */}
+      <Reanimated.View style={[styles.scrubWrap, ownLayer, barMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
         <Scrubber
           player={p.isActive ? p.player : null}
           progress={p.isActive ? p.progress : IDLE_PROGRESS}
@@ -336,7 +337,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           onDrag={h.setBarDrag}
         />
       </Reanimated.View>
-      {roundWithCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
+      {roundWithCaps && dbgCornerCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
     </Reanimated.View>
   );
 
@@ -504,6 +505,9 @@ const textShadow = {
   textShadowOffset: { width: 0, height: 1 },
   textShadowRadius: 2,
 };
+
+/** The progress bar's opacity during a double take. */
+const BAR_DIMMED = 0.4;
 
 /** The bar of a clip that isn't playing: empty. */
 const IDLE_PROGRESS = new Animated.Value(0);

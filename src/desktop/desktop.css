@@ -877,6 +877,11 @@
 .desk .d-scrub.dragging .d-scrub-bubble {
   opacity: 1;
 }
+/* During a double take: still there, dimmed, and out of reach. */
+.desk .d-scrub.dimmed {
+  opacity: 0.4;
+  pointer-events: none;
+}
 /* The mute button sits above the strip. */
 .desk .mute-btn {
   z-index: 4;

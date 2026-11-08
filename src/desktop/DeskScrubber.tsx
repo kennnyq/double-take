@@ -1,20 +1,20 @@
 import { useEffect, useRef, useState, type PointerEvent as RPointerEvent } from 'react';
-import { easedSeek, setScrubMode } from '@/feed/scrub';
+import { easedSeek, safeSeek, setScrubMode } from '@/feed/scrub';
 import { fracAt, pressIntent, timeLabel } from '@/feed/seek';
 import type { HtmlVideoPlayer } from './HtmlVideoPlayer';
 
 interface Props {
   /** The active clip's player; null for other slides (the bar shows empty). */
   player: HtmlVideoPlayer | null;
-  /** Hidden and inert (during a double take). */
-  faded: boolean;
+  /** Dimmed and inert (during a double take: the walkthrough owns the clicks). */
+  dimmed: boolean;
   /** Hold the clip paused and silent while scrubbing. */
   onHold: (on: boolean) => void;
 }
 
 /** Seeking is a property write on the player; kept out of the component body. */
 function seekTo(player: HtmlVideoPlayer, seconds: number) {
-  player.currentTime = seconds;
+  safeSeek(player, seconds);
 }
 
 /** Seeks while dragging, at most this often (ms). */
@@ -27,7 +27,7 @@ const DRAG_SEEK_MS = 40;
  * rewinds there (an eased scrub, never a jump). The fill follows playback
  * every frame. Arrow keys seek too (see DesktopFeed).
  */
-export function DeskScrubber({ player, faded, onHold }: Props) {
+export function DeskScrubber({ player, dimmed, onHold }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const fill = useRef<HTMLDivElement>(null);
   const bubble = useRef<HTMLDivElement>(null);
@@ -78,12 +78,12 @@ export function DeskScrubber({ player, faded, onHold }: Props) {
   return (
     <div
       ref={root}
-      className={`d-scrub fades ${faded ? 'faded' : ''} ${dragging ? 'dragging' : ''}`}
+      className={`d-scrub fades ${dimmed ? 'dimmed' : ''} ${dragging ? 'dragging' : ''}`}
       role="slider"
       aria-label="Seek"
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-hidden={faded || !player}
+      aria-hidden={dimmed || !player}
       onPointerDown={(e) => {
         if (e.button !== 0 || !player) return;
         e.stopPropagation();

@@ -4,7 +4,7 @@
  * there through several frames (never a jump); dragging along it moves the
  * video with the pointer, paused, and playback resumes after; arrow keys seek
  * (desktop); a drag on the bar doesn't scroll the feed; during a double take
- * it is faded and ignores the pointer.
+ * it stays, dimmed, and ignores the pointer.
  *
  *   npm run e2e:scrub                                   (dev server on 8081)
  *   BASE_URL=http://localhost:8089 npm run e2e:scrub
@@ -132,7 +132,7 @@ async function desktop(browser: Browser) {
   const right = eased(await samples(page), Math.min(d - 0.25, before + 5), 1.2);
   check('desktop: ArrowRight runs 5 s on', right.ok || Math.abs(right.end - Math.min(d - 0.25, before + 5)) < 0.8, right);
 
-  // During a double take the bar is faded and ignores the pointer.
+  // During a double take the bar stays, dimmed, and ignores the pointer.
   await page.click('section.slide[aria-current="true"] [aria-label^="Double take"]');
   await page.waitForTimeout(1500);
   const faded = await page.evaluate(() => {
@@ -140,7 +140,7 @@ async function desktop(browser: Browser) {
     const c = getComputedStyle(s);
     return { opacity: c.opacity, events: c.pointerEvents };
   });
-  check('desktop: the bar fades out during a double take', faded.opacity === '0' && faded.events === 'none', faded);
+  check('desktop: the bar stays dimmed and out of reach during a double take', faded.opacity === '0.4' && faded.events === 'none', faded);
   await page.context().close();
 }
 
