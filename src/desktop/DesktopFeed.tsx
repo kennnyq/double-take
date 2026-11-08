@@ -47,11 +47,14 @@ import { useSocial } from '@/social/store';
 import { useToast } from '@/ui/Toast';
 import { useGate } from '@/auth/gate';
 import { CommentsPanel } from './CommentsPanel';
+import { DeskScrubber } from './DeskScrubber';
 import { HtmlVideoPlayer } from './HtmlVideoPlayer';
 import { createFocusTracker, keyOwner } from './feedKeys';
 import { mediaUri } from './media';
 import { panelLayout } from './panelLayout';
 import { useFeedScroller } from './useFeedScroller';
+import { easedSeek } from '@/feed/scrub';
+import { ARROW_SEEK, seekBy } from '@/feed/seek';
 
 /** Pooled `<video>` elements: the active clip and one neighbour on each side. */
 const POOL = 3;
@@ -256,6 +259,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   // feedKeys.ts); controls reached with Tab, text fields and dialogs keep it.
   const space = useRef({ down: false, waiting: false, held: false, timer: 0 });
   const inspectingRef = useRef(inspecting);
+  const arrowSeek = useRef<() => void>(() => {});
   useEffect(() => {
     inspectingRef.current = inspecting;
   }, [inspecting]);
@@ -296,6 +300,15 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
         }
       } else if ((e.key === 'm' || e.key === 'M') && !e.repeat && (owner === 'feed' || owner === 'control')) {
         toggleMute();
+      } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && owner === 'feed' && !inspectingRef.current) {
+        // Back or on a few seconds, as an eased scrub (repeats while held).
+        e.preventDefault();
+        const s = slotIndexRef.current.indexOf(activeRef.current);
+        const player = s >= 0 ? players[s] : null;
+        if (!player?.duration) return;
+        arrowSeek.current();
+        const to = seekBy(player.currentTime, e.key === 'ArrowLeft' ? -ARROW_SEEK : ARROW_SEEK, player.duration);
+        arrowSeek.current = easedSeek(player, to, setScrubbing);
       }
     };
     const onKeyUp = (e: KeyboardEvent) => {
@@ -318,7 +331,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       window.removeEventListener('pointerdown', onPointerDown, true);
       window.removeEventListener('blur', reset);
     };
-  }, [visible, scrollEnabled, togglePause, toggleMute, revealGesture, holdMs, focus]);
+  }, [visible, scrollEnabled, togglePause, toggleMute, revealGesture, holdMs, focus, players]);
 
   // ---- feed mode switch ------------------------------------------------------
   // Stay on the same clip, or the nearest one after it.
@@ -793,6 +806,7 @@ const Slide = memo(function Slide(p: SlideProps) {
                 <VerdictBadge verdict={clip.verdict} />
               </div>
             )}
+            <DeskScrubber player={isActive ? p.player : null} faded={p.inspecting} onHold={h.setScrubbing} />
             {isActive && (
               <button
                 className={`mute-btn fades ${p.inspecting ? 'faded' : ''}`}

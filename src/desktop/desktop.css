@@ -822,3 +822,62 @@
     transition: none;
   }
 }
+
+/* The progress bar: a slim line along the bottom of the card that thickens
+   under the pointer; the strip above it takes the pointer (see DeskScrubber). */
+.desk .d-scrub {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 22px;
+  cursor: pointer;
+  touch-action: pan-y;
+  z-index: 3;
+}
+.desk .d-scrub-track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--dt-text) 28%, transparent);
+  transform-origin: bottom;
+  transition: transform 0.18s cubic-bezier(0.22, 0.9, 0.24, 1);
+}
+.desk .d-scrub:hover .d-scrub-track,
+.desk .d-scrub.dragging .d-scrub-track {
+  transform: scaleY(2);
+}
+.desk .d-scrub-fill {
+  height: 100%;
+  background: var(--dt-text);
+  transform-origin: left;
+  transform: scaleX(0);
+  will-change: transform;
+}
+.desk .d-scrub-bubble {
+  position: absolute;
+  bottom: 14px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--dt-surface) 88%, transparent);
+  color: var(--dt-text);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  transform: translateX(-50%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.desk .d-scrub:hover .d-scrub-bubble:not(:empty),
+.desk .d-scrub.dragging .d-scrub-bubble {
+  opacity: 1;
+}
+/* The mute button sits above the strip. */
+.desk .mute-btn {
+  z-index: 4;
+}
