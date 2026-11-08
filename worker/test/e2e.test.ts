@@ -165,6 +165,40 @@ test('tells are served and well-formed', async () => {
   }
 });
 
+interface CompareClip extends Clip {
+  label?: string | null;
+  tier?: string;
+  pairOf?: string;
+}
+
+test('compare feed (?name=compare) pairs real clips with AI ones', async () => {
+  const res = await fetch(`${BASE}/feed?name=compare`, { headers: { authorization: `Bearer ${passcode()}` } });
+  assert.equal(res.status, 200, await res.clone().text());
+  const { clips } = (await res.json()) as { clips: CompareClip[] };
+  const byId = new Map(clips.map((c) => [c.id, c]));
+  const real = clips.filter((c) => c.label === 'real');
+  assert.ok(real.length >= 5, `expected 5+ real clips, got ${real.length}`);
+  for (const c of real) {
+    assert.match(c.tier ?? '', /^real-(verified|prior|agency)$/, `${c.id}: real clips say how we know`);
+  }
+  const paired = real.filter((c) => c.pairOf);
+  assert.ok(paired.length >= 3, `expected 3+ pairs, got ${paired.length}`);
+  for (const c of paired) {
+    // Each pair ships with its AI clip, so the feed stands on its own.
+    assert.equal(byId.get(c.pairOf!)?.label, 'confirmed', `${c.id}: pairOf ${c.pairOf} should be an AI clip in this feed`);
+  }
+  // Media is signed the same way as demo's, and a real clip's video plays.
+  for (const c of clips) assert.match(c.video, /\/720\.mp4\?exp=\d+&sig=/);
+  const media = await fetch(real[0].video, { headers: { range: 'bytes=0-1' } });
+  assert.equal(media.status, 206);
+});
+
+test('unknown feeds are 404 and bad names 400', async () => {
+  const auth = { authorization: `Bearer ${passcode()}` };
+  assert.equal((await fetch(`${BASE}/feed?name=nope-not-a-feed`, { headers: auth })).status, 404);
+  assert.equal((await fetch(`${BASE}/feed?name=..%2Fdemo`, { headers: auth })).status, 400);
+});
+
 test('tampered or missing signatures are rejected', async () => {
   const { clips } = await feed();
   const u = new URL(clips[0].video);
