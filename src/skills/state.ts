@@ -60,8 +60,8 @@ export interface Answer {
   prior: number;
 }
 
-/** A round's answers folded in, in the order they were given. */
-export function applyRound(state: SkillState, answers: readonly Answer[]): SkillState {
+/** A round's answers folded in, in the order they were given (`round`: counts as a round played). */
+export function applyRound(state: SkillState, answers: readonly Answer[], round = true): SkillState {
   let skills = state.skills;
   let overall = state.overall;
   const clips = { ...state.clips };
@@ -74,7 +74,7 @@ export function applyRound(state: SkillState, answers: readonly Answer[]): Skill
     clips[a.key] = updateDifficulty(d, theta, a.correct);
     cats[a.key] = a.cats;
   }
-  return { skills, overall, clips, cats, answers: state.answers + answers.length, rounds: state.rounds + (answers.length ? 1 : 0) };
+  return { skills, overall, clips, cats, answers: state.answers + answers.length, rounds: state.rounds + (round && answers.length ? 1 : 0) };
 }
 
 /** A clip's current difficulty: answered here, else its prior. */
@@ -85,7 +85,7 @@ export function difficultyOf(state: SkillState, key: string, prior: number): num
 export interface SkillStore {
   getSnapshot(): SkillState;
   subscribe(l: () => void): () => void;
-  recordRound(answers: readonly Answer[]): { before: Skills; after: Skills; overallBefore: Belief; overallAfter: Belief };
+  recordRound(answers: readonly Answer[], round?: boolean): { before: Skills; after: Skills; overallBefore: Belief; overallAfter: Belief };
   rememberCategories(cats: ReadonlyMap<string, Partial<Record<SkillCategory, number>>>): void;
   reset(): void;
 }
@@ -121,9 +121,9 @@ export function createSkillStore(kv: KeyValue | null): SkillStore {
         listeners.delete(l);
       };
     },
-    recordRound(answers) {
+    recordRound(answers, round = true) {
       const prev = read();
-      const next = applyRound(prev, answers);
+      const next = applyRound(prev, answers, round);
       commit(next);
       return { before: prev.skills, after: next.skills, overallBefore: prev.overall, overallAfter: next.overall };
     },
