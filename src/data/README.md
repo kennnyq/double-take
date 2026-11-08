@@ -16,7 +16,9 @@ Pure API in `rank.ts`:
   12 points wide; shuffling cannot cross a tier within the same verdict. One or
   two AI clips precede each real clip while both pools have clips.
 - `heroCandidates(clips, limit?, options?)` shortlists within 12 points of the
-  strongest available clip of each verdict. Filter for eligible atlas cells or
+  strongest available clip of each verdict, then fills to twelve distinct clips
+  from the next-best ranks for variety. Use `{ minimum: 0 }` for the strict
+  walkthrough shortlist. Filter for eligible atlas cells or
   AI walkthroughs before calling. This deliberately favors quality even when the
   feed's Original option is selected.
 - Edit `DEMO_PINNED_FIRST` to force source ids first, e.g.
@@ -41,7 +43,8 @@ node scripts/data/demo-quality.ts /path/to/build/feeds/demo.json /path/to/build
 ```
 
 The landing atlas keeps its existing cells/decoder, but uses only the shared
-shortlist among cells it actually contains. The walkthrough showcase chooses from
+shortlist among cells it actually contains, with twelve distinct candidates and
+three disjoint strip groups so neighboring rows/columns do not repeat a clip. The walkthrough showcase chooses from
 the full AI shortlist, validates its tells at runtime, and can use clips absent
 from the atlas. Game preserves the shared order within fresh/recent groups while
 keeping balanced deals, deduplication and lazy media checks.

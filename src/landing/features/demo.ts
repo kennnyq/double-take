@@ -7,7 +7,7 @@
  */
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
-import { heroCandidates } from '@/data/rank';
+import { heroCandidates, rankClips, type RankableClip } from '@/data/rank';
 import { mediaUri } from '@/desktop/media';
 import { readTellsFile, type Box, type Tell } from '@/annotations/format';
 import { replayWindow, seekTimeFor, walkthroughSteps, type Replay } from '@/annotations/walkthrough';
@@ -41,7 +41,7 @@ export interface DemoMedia {
   /** The walkthrough's clip. */
   walk: DemoClip;
   /** Other portrait clips, for the feed before it and the other sections. */
-  others: { video: string; poster?: string; author: string; caption: string; verdict?: 'ai' | 'real'; evidence?: string }[];
+  others: (RankableClip & { video: string; poster?: string; author: string; caption: string; verdict?: 'ai' | 'real'; evidence?: string })[];
 }
 
 const PORTRAIT = 9 / 16;
@@ -104,7 +104,7 @@ export function loadDemo(): Promise<DemoMedia> {
     // The first AI clip (of a few) with at least two placed tells.
     let walk: DemoClip | null = null;
     let used: Clip | null = null;
-    for (const c of heroCandidates(tall.filter((c) => c.verdict === 'ai' && c.tellsUrl), 3)) {
+    for (const c of heroCandidates(tall.filter((c) => c.verdict === 'ai' && c.tellsUrl), 3, { minimum: 0 })) {
       const tells = await tellsOf(c);
       if (tells.length >= 2) {
         used = c;
@@ -116,10 +116,10 @@ export function loadDemo(): Promise<DemoMedia> {
       used = tall.find((c) => c.verdict === 'ai') ?? tall[0] ?? clips[0];
       walk = { ...base(used), steps: standIn() };
     }
-    const others = tall
+    const others = rankClips(tall)
       .filter((c) => c !== used)
       .slice(0, 12)
-      .map((c) => ({ video: mediaUri(c.video) ?? '', poster: mediaUri(c.poster), author: c.author, caption: c.caption, verdict: c.verdict, evidence: c.verdictEvidence }));
+      .map((c) => ({ ...c, video: mediaUri(c.video) ?? '', poster: mediaUri(c.poster), author: c.author, caption: c.caption, verdict: c.verdict, evidence: c.verdictEvidence }));
     return { walk, others };
   })();
   return pending;

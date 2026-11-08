@@ -141,5 +141,5 @@ test('gallery quality shortlist preserves eligible atlas cells and original feed
     { id: '2', sourceId: 'unavailable', verdict: 'ai' as const, duration: 12, aspect: 0.56 },
     { id: '3', sourceId: 'real', verdict: 'real' as const, duration: 12, aspect: 0.56 },
   ];
-  assert.deepEqual(galleryPicks(feed, { ids: ['real', 'weak', 'best'] }, 48), [{ index: 1, cell: 2 }, { index: 3, cell: 0 }]);
+  assert.deepEqual(galleryPicks(feed, { ids: ['real', 'weak', 'best'] }, 48), [{ index: 1, cell: 2 }, { index: 3, cell: 0 }, { index: 0, cell: 1 }]);
 });

@@ -4,6 +4,7 @@ import { ROW_H, ROW_Y } from '@/game/hud/Hud';
 import { MarkStamp } from '@/game/MarkStamp';
 import { ScorePill } from '@/game/Pills';
 import { POINTS } from '@/game/config';
+import { heroCandidates } from '@/data/rank';
 import { pointsFor } from '@/game/score';
 import { paint, px, useHost, useScene } from '../engine';
 import { GAME_CALLS, answer, isRight } from '../mock';
@@ -46,7 +47,7 @@ export function GameScene() {
   const [shown, setShown] = useShown();
   const [current, setCurrent] = useState(0);
   const k = dims ? dims.sw / CANVAS_W : 1;
-  const pool = media?.others ?? [];
+  const pool = heroCandidates(media?.others ?? [], 12);
   // The round's clips: an AI one and a real one where the feed has them, then one more.
   const ai = pool.find((x) => x.verdict === 'ai') ?? pool[1];
   const real = pool.find((x) => x.verdict === 'real') ?? pool.find((x) => x !== ai && x.verdict);

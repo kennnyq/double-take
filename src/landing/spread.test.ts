@@ -132,3 +132,17 @@ test('stripLoops keeps the same footage in one loop, half of it apart, and share
   const inFirst = [3, 19, 8, 5].filter((c) => split[0].includes(c)).length;
   assert.equal(inFirst, 2);
 });
+
+test('twelve hero candidates retain three separate strip groups and no adjacent repeats', () => {
+  const loops = stripLoops(12, undefined, 3);
+  for (const places of [20, 7, 11, 13, 4]) {
+    const strips = Array.from({ length: 9 }, (_, k) => stripSequence(loops, k, places));
+    for (let k = 0; k < strips.length; k++) {
+      const row = strips[k];
+      row.forEach((cell, i) => assert.notEqual(cell, row[(i + 1) % row.length]));
+      for (const other of strips.slice(k + 1, k + 3)) {
+        assert.ok(row.every((cell) => !other.includes(cell)), 'no shared clip within two strips');
+      }
+    }
+  }
+});

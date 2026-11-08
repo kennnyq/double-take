@@ -745,7 +745,7 @@ export class AtlasPlayer {
     const n = eligible.length;
     if (!n) return;
     const distances = this.atlas.distances && eligible.map((a) => eligible.map((b) => this.atlas.distances![a][b]));
-    const loops = stripLoops(n, distances).filter((loop) => loop.length).map((loop) => loop.map((i) => eligible[i]));
+    const loops = stripLoops(n, distances, Math.min(3, n)).filter((loop) => loop.length).map((loop) => loop.map((i) => eligible[i]));
     order.forEach(({ el }, k) => {
       this.stripSets.set(el, loops[k % loops.length]);
       const byTwin = strips.get(el)!;

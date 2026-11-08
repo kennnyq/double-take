@@ -111,15 +111,28 @@ export function rankClips<T extends RankableClip>(clips: readonly T[], options: 
   return [...out, ...rest.filter((c) => !c.sourceId || !c.verdict)];
 }
 
-/** Landing's shortlist: within one tier-width of the best of each verdict.
+/** Landing's shortlist: prefer one tier-width of the best of each verdict,
+ * then fill to `minimum` distinct clips (12 by default) for a varied hero wall.
  * Call after filtering for available atlas cells or AI walkthroughs, if needed.
  * Always honors pins. Falls back gracefully for offline/unknown-only feeds.
  */
-export function heroCandidates<T extends RankableClip>(clips: readonly T[], limit = 48, options: RankOptions = {}): T[] {
-  const ranked = rankClips(clips, { ...options, order: 'best' });
+export function heroCandidates<T extends RankableClip>(clips: readonly T[], limit = 48, options: RankOptions & { minimum?: number } = {}): T[] {
+  const seen = new Set<string>();
+  const ranked = rankClips(clips, { ...options, order: 'best' }).filter((c) => {
+    const key = c.sourceId ?? c.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
   const best = { ai: -Infinity, real: -Infinity };
   for (const c of ranked) if (c.verdict) best[c.verdict] = Math.max(best[c.verdict], scoreClip(c));
   const pins = new Set(options.pinnedFirst ?? DEMO_PINNED_FIRST);
   const top = ranked.filter((c) => pins.has(c.sourceId ?? '') || (c.verdict && scoreClip(c) >= best[c.verdict] - QUALITY_TIER_WIDTH));
+  const selected = new Set(top);
+  const minimum = Math.min(limit, options.minimum ?? 12);
+  for (const c of ranked) {
+    if (top.length >= minimum) break;
+    if (!selected.has(c)) { top.push(c); selected.add(c); }
+  }
   return (top.length ? top : ranked).slice(0, Math.max(0, limit));
 }

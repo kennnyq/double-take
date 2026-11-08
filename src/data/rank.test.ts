@@ -71,7 +71,7 @@ test('pins take precedence, ignore missing/duplicate ids, and Original restores 
 
 test('hero excludes weaker tiers, retains original object references and honors explicit pins', () => {
   const clips = [sample('long', { duration: 90 }), sample('good'), sample('real', { verdict: 'real' })];
-  assert.deepEqual(new Set(heroCandidates(clips)), new Set([clips[1], clips[2]]));
+  assert.deepEqual(new Set(heroCandidates(clips, 48, { minimum: 0 })), new Set([clips[1], clips[2]]));
   assert.equal(heroCandidates(clips, 1, { pinnedFirst: ['long'] })[0], clips[0]);
   assert.deepEqual(heroCandidates([], 10), []);
 });
@@ -88,4 +88,14 @@ test('published demo: multi-box vertical candidates beat the long and 4:5 candid
   assert.equal(tellSummary(room)?.boxed, 3);
   assert.ok(scoreClip(cat) > scoreClip(long));
   assert.ok(scoreClip(room) > scoreClip(wide));
+});
+
+test('hero prefers the strict band, then fills to twelve distinct best-ranked candidates', () => {
+  const best = sample('best', { verdict: 'real', duration: 12, sourceLikes: 10000 });
+  const fillers = Array.from({ length: 20 }, (_, i) => sample(`f${i}`, { verdict: 'real', duration: i < 12 ? 25 : 90 }));
+  const selected = heroCandidates([best, best, ...fillers], 48, { seed: 1 });
+  assert.equal(selected[0], best);
+  assert.equal(selected.length, 12);
+  assert.equal(new Set(selected.map((c) => c.sourceId)).size, 12);
+  assert.ok(selected.every((c) => c.duration! < 40));
 });
