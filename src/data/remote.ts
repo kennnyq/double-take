@@ -20,6 +20,10 @@ export interface RemoteClip {
   duration: number;
   /** Ground truth for the reveal; never shown before the viewer guesses. */
   label?: string | null;
+  /** How a real clip is known to be real (harvest tier, e.g. `real-prior`). */
+  tier?: string | null;
+  /** The note or check behind the label. */
+  evidence?: string | null;
   source?: {
     url?: string;
     platform?: string;
@@ -105,6 +109,32 @@ export function verdictFromLabel(label: string | null | undefined): Verdict | un
   }
 }
 
+/** The harvest's tiers for real clips, as one line the reveal can show. */
+const TIER_WHY: Record<string, string> = {
+  'real-verified': 'A community note or fact-check confirms this is real footage.',
+  'real-prior': 'Uploaded before 2023, before realistic AI video existed.',
+  'real-agency': 'From a licensing agency that verifies footage before buying it.',
+};
+
+/** One line on why a clip has its verdict, or undefined when the feed says nothing. */
+export function verdictWhy(clip: Pick<Clip, 'verdict' | 'verdictTier' | 'verdictEvidence'>): string | undefined {
+  if (clip.verdict === 'real' && clip.verdictTier && TIER_WHY[clip.verdictTier]) return TIER_WHY[clip.verdictTier];
+  return clip.verdictEvidence || undefined;
+}
+
+/** Note text from the dumps: HTML entities decoded, whitespace collapsed. */
+function cleanEvidence(text: string | null | undefined): string | undefined {
+  const t = (text ?? '')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return t || undefined;
+}
+
 /** Turn an uploader name into a feed handle: "Gabriele Corno" → "gabriele_corno". */
 export function toHandle(author: string | null | undefined, fallback: string): string {
   const h = (author ?? '')
@@ -154,5 +184,7 @@ export function toClip(r: RemoteClip, index: number): Clip {
     sourceUrl: r.source?.url,
     tile: typeof r.tile === 'string' && r.tile ? r.tile : undefined,
     verdict: verdictFromLabel(r.label),
+    verdictTier: typeof r.tier === 'string' && r.tier ? r.tier : undefined,
+    verdictEvidence: typeof r.evidence === 'string' ? cleanEvidence(r.evidence) : undefined,
   };
 }

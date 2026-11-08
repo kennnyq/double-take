@@ -1,6 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FeedError, fetchRemoteClips, toCaption, toClip, toHandle, verdictFromLabel, type RemoteClip } from './remote.ts';
+import {
+  FeedError,
+  fetchRemoteClips,
+  toCaption,
+  toClip,
+  toHandle,
+  verdictFromLabel,
+  verdictWhy,
+  type RemoteClip,
+} from './remote.ts';
 
 const CLIP: RemoteClip = {
   id: 'x-2023151052800000040',
@@ -47,6 +56,22 @@ test('verdictFromLabel', () => {
   assert.equal(verdictFromLabel('not_ai'), 'real');
   assert.equal(verdictFromLabel('disputed'), undefined);
   assert.equal(verdictFromLabel(undefined), undefined);
+});
+
+test('toClip carries why a real clip is real', () => {
+  const c = toClip({ ...CLIP, label: 'real', tier: 'real-prior', evidence: 'Uploaded 2016-09-10 by  National Geographic &amp; co.' }, 0);
+  assert.equal(c.verdict, 'real');
+  assert.equal(c.verdictTier, 'real-prior');
+  assert.equal(c.verdictEvidence, 'Uploaded 2016-09-10 by National Geographic & co.');
+  assert.equal(verdictWhy(c), 'Uploaded before 2023, before realistic AI video existed.');
+  // A note-verified clip still explains itself; unknown tiers fall back to the evidence.
+  assert.match(verdictWhy({ ...c, verdictTier: 'real-verified' })!, /community note/);
+  assert.equal(verdictWhy({ ...c, verdictTier: 'something-new' }), c.verdictEvidence);
+  // AI clips explain themselves with their note; clips without evidence say nothing.
+  assert.equal(verdictWhy({ verdict: 'ai', verdictEvidence: 'Extra arm at 0:03.' }), 'Extra arm at 0:03.');
+  const bare = toClip(CLIP, 0);
+  assert.equal(bare.verdictTier, undefined);
+  assert.equal(verdictWhy({ verdict: 'real' }), undefined);
 });
 
 test('toClip copes with missing source metadata', () => {

@@ -33,6 +33,13 @@ export interface Clip {
    * as for the bundled placeholders, which are neither AI video nor real footage.
    */
   verdict?: Verdict;
+  /**
+   * Why the verdict holds, for the reveal: how a real clip is known to be real
+   * (`real-verified`, `real-prior`, `real-agency`) and the evidence behind it
+   * (a community note, or "Uploaded 2016 by …"). Missing when the feed has none.
+   */
+  verdictTier?: string;
+  verdictEvidence?: string;
 }
 
 /** Whether a clip is AI-generated or real footage. */
