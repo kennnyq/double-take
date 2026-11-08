@@ -247,6 +247,22 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
     }
 
 
+def with_media(feed: list[dict], out: str) -> list[dict]:
+    """The feed without clips whose video or poster isn't under `out` (logged), so a feed
+    never lists a clip it can't play. A missing tells file is unlinked, not fatal."""
+    kept = []
+    for c in feed:
+        missing = [k for k in ("video", "poster") if not c.get(k) or not os.path.isfile(os.path.join(out, c[k]))]
+        if missing:
+            print(f"drop {c['id']}: no {' or '.join(missing)} under {out}", file=sys.stderr)
+            continue
+        if c.get("tells") and not os.path.isfile(os.path.join(out, c["tells"])):
+            print(f"warn {c['id']}: tells file {c['tells']} missing; unlinked", file=sys.stderr)
+            c["tells"] = None
+        kept.append(c)
+    return kept
+
+
 def built_elsewhere(out: str, feed_name: str) -> dict[str, dict]:
     """Rows of clips already built into the other feeds under `out`, by id, when their
     media is still on disk. Published media is never re-encoded in place."""
@@ -364,6 +380,8 @@ def main() -> None:
             for d in g["drop"]:
                 extra = f", {d['share']:.0%} of frames" if "share" in d else ""
                 print(f"dup  {d['id']}: {d['why']}{extra}; kept {g['keep']}", file=sys.stderr)
+    # Never list a clip without its media (a kept row whose files were removed, say).
+    feed = with_media(feed, args.out)
     # Tiles too, so --merge also makes them for clips built before tiles existed.
     with ThreadPoolExecutor(args.jobs) as ex:
         list(ex.map(lambda c: attach_tile(c, args.out), feed))

@@ -318,6 +318,22 @@ def _scene(n: int, seed: int) -> list[int]:
     return [r.getrandbits(64) for _ in range(n)]
 
 
+class Media(unittest.TestCase):
+    def test_a_feed_never_lists_a_clip_without_media(self):
+        import tempfile
+        from build_media import with_media
+        with tempfile.TemporaryDirectory() as d:
+            for rel in ("media/a/v1/720.mp4", "media/a/v1/poster.jpg", "media/b/v1/720.mp4"):
+                os.makedirs(os.path.dirname(os.path.join(d, rel)), exist_ok=True)
+                open(os.path.join(d, rel), "w").close()
+            feed = [{"id": "a", "video": "media/a/v1/720.mp4", "poster": "media/a/v1/poster.jpg", "tells": "media/a/v1/tells.x.json"},
+                    {"id": "b", "video": "media/b/v1/720.mp4", "poster": "media/b/v1/poster.jpg"},
+                    {"id": "c", "video": "media/c/v1/720.mp4", "poster": "media/c/v1/poster.jpg"}]
+            kept = with_media(feed, d)
+        self.assertEqual([c["id"] for c in kept], ["a"])
+        self.assertIsNone(kept[0]["tells"])  # missing tells are unlinked, not fatal
+
+
 class Dedupe(unittest.TestCase):
     SCENE = _scene(40, 7)
 
