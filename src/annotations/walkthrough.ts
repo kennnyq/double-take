@@ -40,6 +40,9 @@ export const REPLAY_RATE = 0.35;
 export const REPLAY_MIN = 1.2;
 export const REPLAY_MAX = 3;
 
+/** A shot at least this long (seconds) holds a tell's whole loop; shorter ones can't. */
+export const SHOT_LOOP_MIN = 0.9;
+
 export interface Replay {
   from: number;
   to: number;
@@ -70,6 +73,13 @@ export function replayWindow(t: Tell, duration = Infinity): Replay {
     to = from + REPLAY_MAX;
   }
   if (to - from < REPLAY_MIN) to = from + REPLAY_MIN;
+  // A tell pinned to a camera shot loops inside that shot when it's long
+  // enough, so the loop never crosses a cut (where its box means nothing).
+  if (t.shot && t.shot.t1 - t.shot.t0 >= SHOT_LOOP_MIN) {
+    const len = Math.min(to - from, t.shot.t1 - t.shot.t0);
+    from = Math.min(Math.max(from, t.shot.t0), t.shot.t1 - len);
+    to = from + len;
+  }
   // Shift, rather than shrink, a loop that runs off either end of the clip.
   if (from < 0) [from, to] = [0, to - from];
   if (to > end) [from, to] = [Math.max(0, from - (to - end)), end];

@@ -176,3 +176,13 @@ test('a draft trimmed to just past a checked tell of the same kind is still a du
   // Well apart in time, a different artifact of the same kind is kept.
   assert.equal(mergeTells([checked], [{ ...draft, t0: 4, t1: 5 }]).tells.length, 2);
 });
+
+test('a tell pinned to a long enough shot loops inside it', () => {
+  const t: Tell = { ...base, t0: 4.2, t1: 4.8, focusT: 4.5, shot: { t0: 4, t1: 5.5 } };
+  const r = replayWindow(t, 10);
+  assert.ok(r.from >= 4 && r.to <= 5.5, JSON.stringify(r));
+  assert.ok(r.from <= 4.5 && r.to >= 4.5);
+  // A shot too short to hold a loop: the loop runs past it, as before.
+  const short = replayWindow({ ...t, shot: { t0: 4.2, t1: 4.8 } }, 10);
+  assert.ok(short.to - short.from >= REPLAY_MIN - 1e-9);
+});
