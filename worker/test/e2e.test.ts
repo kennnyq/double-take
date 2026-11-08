@@ -229,3 +229,13 @@ test('CORS preflight for Range requests (web build)', async () => {
   assert.equal(res.headers.get('access-control-allow-origin'), '*');
   assert.match(res.headers.get('access-control-allow-headers') ?? '', /range/);
 });
+
+test('dev-only test-account routes are absent on deployed Workers', { skip: /localhost|127\.0\.0\.1/.test(BASE) }, async () => {
+  for (const path of ['/dev/session', '/dev/wipe', '/dev/delete']) {
+    const res = await fetch(`${BASE}${path}`, { method: 'POST', body: '{"account":"alice"}', headers: { 'content-type': 'application/json' } });
+    // 404 once this code is deployed (no DEV_AUTH in production); 405 from a Worker
+    // deployed before the dev routes existed, which rejects every POST.
+    assert.ok([404, 405].includes(res.status), `${path}: ${res.status}`);
+    assert.ok(!(await res.text()).includes('token_hash'));
+  }
+});

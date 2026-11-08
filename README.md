@@ -45,7 +45,9 @@ npm run media       # regenerate placeholder clips into assets/media (needs ffmp
 | `src/annotations/` | Tells format, validation, geometry, timing and walkthrough logic shared by the app and the pipeline (pure, tested) |
 | `scripts/annotate/` | Pipeline that drafts tells with NVIDIA Nemotron and publishes them to the feed |
 | `src/data/` | Placeholder clips, the remote feed client, stand-in comments and friends |
-| `src/social/` | In-memory engagement store (likes, saves, reposts, sends, follows, comments), actions with toasts, app navigation |
+| `src/social/` | Engagement store (likes, saves, reposts, sends, follows, comments), actions with toasts, saving to Supabase (`sync.ts`), app navigation |
+| `src/auth/` | Supabase client, auth store, the auth gate and the email-code sign-in sheet |
+| `supabase/migrations/` | Database schema and row level security |
 | `src/comments/`, `src/share/` | Comments and Send to bottom sheets |
 | `src/profile/` | You tab: Reposts, Shared, Liked and Saved grids |
 | `src/desktop/` | Desktop web layout: icon rail, Reels-style feed with wheel and keyboard paging (web only) |
@@ -92,13 +94,32 @@ After the launch the address gets `#app`, so a reload stays in the app, and Back
 - **Designs on trial (development only).** `designs.ts` defines ~25 axes (gallery, blur, shade, words, type, key word, button, what's below, and every beat of the launch) and 12 whole designs. A dark pill bottom-right steps through the designs with ‹ › (or `[` `]`); its name opens every axis to mix, and ↺ replays the landing. `?design=<id>` picks a design and `?<axis>=<value>` overrides one, so a copied link reproduces what you see. Without them, the last design you looked at comes back. Production shows the first design and never reads the address or storage; add `?dev` to get the bar.
 - **Testing against a local Worker.** In development Expo reads `.env.local` over shell variables, so to point the web app at `npm --prefix worker run dev`, build it instead: `EXPO_NO_DOTENV=1 EXPO_PUBLIC_API_URL=http://localhost:8787 EXPO_PUBLIC_DEMO_PASSCODE=… npx expo export -p web`, then serve `dist/`.
 
-## Social features (in memory)
+## Social features and accounts
 
-- **Store:** one React context and reducer (`src/social/`) holds liked, saved, reposted, sent, followed authors and your comments. Nothing persists across launches. The signed-in user is `ME` in `src/social/me.ts`.
+- **Guests watch; members act.** Signed out, you can watch everything and see public counts. Any write (like, double-tap, save, repost, follow, send, comment, comment like, create) opens sign-in, and the action runs by itself once you're in. There are no anonymous sessions.
+- **Sign-in:** one email flow for sign-in and sign-up: enter your email, then the 6-digit code (or paste the email's sign-in link; see below). A sheet on phones, a dialog on desktop, and the You tab / rail "Log in" for guests. Sign out from the profile menu or the rail.
+- **Store:** one reducer (`src/social/`) holds liked, saved, reposted, sent, followed authors and your comments. Members see changes at once; each write is saved to Supabase in the background (latest state wins per item) and rolled back with a toast if it fails. On sign-in your lists load and profile tiles are rebuilt from the live feed.
+- **Keys:** clips are keyed by the Worker's clip id (`sourceId`). Placeholder clips have no stable id, so actions on them stay on the device.
+- **Visibility:** likes, reposts, follows and comments are public (counts come from `clip_stats`); saves, sends and comment likes are private. Row level security enforces it (`supabase/migrations/`).
+- **Local mode:** without `EXPO_PUBLIC_SUPABASE_*` in `.env.local` the app works as before: in memory, nothing gated.
 - **Actions and toasts:** every action has haptics and a toast (Saved · View, Reposted · Undo, Sent, …).
-- **Comments:** stand-in comments and replies are generated per clip. The sheet opens with the clip shrunk above it; drag down or tap above it to close.
+- **Comments:** stand-in comments and replies are generated per clip, alongside members' real comments.
 - **Share:** Send to with friend search, repost, copy link, system share and download.
 - **Profile:** tapping a tile jumps back to that clip in the feed.
+
+### Accounts setup
+
+- **Supabase project:** `double-take` (ref `qlcaalavfcyppczamztb`), email sign-in on, anonymous sign-ins off, 6-digit codes that expire in 10 minutes. Apply new migrations from `supabase/migrations/` (Supabase CLI `supabase db push`, or the Management API).
+- **App env** (`.env.local`, public by design): `EXPO_PUBLIC_SUPABASE_URL`, `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, and for dev builds `EXPO_PUBLIC_DEV_AUTH_URL`.
+- **Worker dev env** (`worker/.dev.vars`, never in production): `SUPABASE_URL`, `SUPABASE_SECRET_KEY`, `DEV_AUTH=1`.
+- **Test accounts:** `npm run dev:auth` serves the Worker's `/dev/*` routes on 8788. Dev builds then sign in as `alice`, `bob`, `carol` or a fresh throwaway in one tap (from the sign-in sheet or the wrench → Accounts tab), with no email or password. The tab also wipes a test account's data and simulates token expiry. Without `DEV_AUTH` (as in production) every `/dev/*` path is a 404.
+- **Email (to do before real users):** the built-in sender only reaches the project's team, about 2 emails an hour, and on the free plan its templates can't be edited, so the email holds a sign-in **link**, not a code. The sheet accepts the pasted link meanwhile. To send real codes:
+  1. Verify a sending domain in [Resend](https://resend.com) and create an API key.
+  2. Supabase → Authentication → Emails → SMTP settings: host `smtp.resend.com`, port `465`, user `resend`, password = the API key, sender e.g. `login@<domain>`.
+  3. Edit the **Magic link** and **Confirm signup** templates to show `{{ .Token }}` (the 6-digit code).
+  4. Raise the email rate limit under Authentication → Rate limits.
+- **Later:** Sign in with Apple (`expo-apple-authentication` + `signInWithIdToken`; needs a dev build in production), then Google (OAuth with redirect URLs), then Turnstile captcha on sign-in.
+- **Free plan:** the project pauses after 7 days without activity; the app then falls back to stand-in counts. Unpause from the dashboard, or move to Pro when there are real users.
 
 ## AI tells
 
