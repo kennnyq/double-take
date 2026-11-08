@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated as NativeAnimated, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useVideoPlayer, VideoView, type VideoPlayer } from 'expo-video';
 import { themed, usePalette } from '../../ui/theme';
 import { Scrubber } from '../../feed/Scrubber';
@@ -153,16 +154,24 @@ export function EvidencePlayer({ uri, width, height, duration, preview = false, 
     </View>
   );
 
-  if (pinned) return (
-    <View style={{ flex: 1 }}>
-      <View style={{ paddingHorizontal: 16, paddingTop: 12 }}>{stage}</View>
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 12, gap: 24 }}>
-        {lead}
-        {list}
-        {children}
-      </ScrollView>
-    </View>
-  );
+  if (pinned) {
+    // The pinned video sits on its own opaque band, and what scrolls up under it fades out just
+    // below that band, so a line never looks sliced by the video's bottom edge.
+    const clear = /^#[0-9a-f]{6}$/i.test(c.surface) ? `${c.surface}00` : 'transparent';
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={[styles.pinned, { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8 }]}>{stage}</View>
+        <View style={{ flex: 1 }}>
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingTop: 14, gap: 24 }}>
+            {lead}
+            {list}
+            {children}
+          </ScrollView>
+          <LinearGradient pointerEvents="none" colors={[c.surface, clear]} style={styles.fade} />
+        </View>
+      </View>
+    );
+  }
   return <View style={{ gap: 20 }}>{stage}{lead}{list}{children}</View>;
 }
 
@@ -196,5 +205,7 @@ const useTint = themed(c => ({
   rowLit: { borderRadius: 12, backgroundColor: c.accentSoft },
   when: { flexDirection: 'row', alignItems: 'center', gap: 4, minWidth: 62, paddingTop: 2 },
   whenText: { color: c.text, fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  pinned: { backgroundColor: c.surface, zIndex: 1 },
+  fade: { position: 'absolute', top: 0, left: 0, right: 0, height: 18 },
   playHint: { width: 64, height: 64, borderRadius: 32, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
 }));
