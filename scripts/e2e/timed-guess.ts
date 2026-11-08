@@ -174,6 +174,22 @@ async function run(browser: Browser, layout: Layout) {
     return { opacity, off };
   });
   check('the clip’s buttons are dimmed and out of reach', !!locked && locked.opacity < 0.6 && locked.off, locked);
+  // The feed's first-run gesture hint (it teaches the double take, which a round turns off) stays away.
+  const hintShown = await page.evaluate(() =>
+    [...document.querySelectorAll('[data-testid="gesture-hint"]')].some((el) => {
+      let e: Element | null = el;
+      let opacity = 1;
+      while (e) {
+        const st = getComputedStyle(e);
+        if (st.display === 'none' || st.visibility === 'hidden') return false;
+        opacity *= Number(st.opacity);
+        e = e.parentElement;
+      }
+      const r = el.getBoundingClientRect();
+      return opacity > 0.05 && r.width > 0 && r.height > 0;
+    }),
+  );
+  check('no gesture hint during the round', !hintShown);
   const chrome = layout === 'desktop' ? 'nav[aria-label="Main"]' : '[role="tab"][aria-label="Home"]';
   check(`the app's ${layout === 'desktop' ? 'rail' : 'tab bar'} stays during the round`, await anyVisible(page, chrome));
   check('the clip on screen and the next one load (no broken posters)', (await brokenImages(page, '[data-testid="game-stage"]')) === 0, await brokenImages(page, '[data-testid="game-stage"]'));
