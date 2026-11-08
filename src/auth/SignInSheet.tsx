@@ -16,6 +16,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { TEST_ACCOUNTS, devAccountsAvailable, devSignIn, type TestAccount } from './devAccounts';
 import { closeSignIn, useGate } from './gate';
+import { continueAsGuest, useGuestChosen } from './guest';
 import { supabase } from './supabase';
 import {
   PASSWORD_MIN,
@@ -88,6 +89,8 @@ type Mode = 'signIn' | 'signUp';
 function SignInBody({ reason }: { reason: string | null }) {
   const c = usePalette();
   const tint = useTint();
+  // Already a guest (opened to sign in and save across devices): no guest option.
+  const guest = useGuestChosen();
   const [mode, setMode] = useState<Mode>('signIn');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -242,6 +245,16 @@ function SignInBody({ reason }: { reason: string | null }) {
           <Text style={[styles.link, tint.link]}>{signUp ? 'Sign in' : 'Create an account'}</Text>
         </Text>
       </Pressable>
+      {!guest && (
+        <Pressable
+          onPress={continueAsGuest}
+          disabled={busy}
+          style={({ pressed }) => [styles.guestButton, pressed && styles.pressed]}
+          accessibilityRole="button"
+        >
+          <Text style={styles.guestText}>Continue as guest</Text>
+        </Pressable>
+      )}
       {devAccountsAvailable() && <DevQuickSignIn onError={setError} />}
     </View>
   );
@@ -326,6 +339,15 @@ const styles = StyleSheet.create({
   eye: { position: 'absolute', right: 12, top: 6, bottom: 0, justifyContent: 'center' },
   hint: { color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 16, marginTop: -4 },
   switch: { alignItems: 'center', paddingVertical: 4 },
+  guestButton: {
+    height: 46,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  guestText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   link: { fontSize: 14, fontWeight: '600' },
   dev: {
     marginTop: 6,

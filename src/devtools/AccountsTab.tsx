@@ -4,6 +4,7 @@ import * as Clipboard from 'expo-clipboard';
 import { AUTH_STORAGE_KEY } from '@/auth/config';
 import { TEST_ACCOUNTS, devAccountsAvailable, devAuthUrl, devDeleteAccount, devSignIn, devWipe, type TestAccount } from '@/auth/devAccounts';
 import { isTestEmail } from '@/auth/member';
+import { continueAsGuest, useGuestChosen } from '@/auth/guest';
 import { signOut, useAuth } from '@/auth/store';
 import { usernameFromEmail } from '@/auth/username';
 import { supabase } from '@/auth/supabase';
@@ -17,6 +18,7 @@ import { useDevChrome } from './chrome';
  */
 export function AccountsTab() {
   const auth = useAuth();
+  const guest = useGuestChosen();
   const [busy, setBusy] = useState<string | null>(null);
   const [note, setNote] = useState<{ text: string; error?: boolean } | null>(null);
   const now = useNow();
@@ -72,7 +74,19 @@ export function AccountsTab() {
 
       <Section title="Switch account" note={routes ? `Instant sign-in through ${devAuthUrl()}/dev/session. No password needed.` : 'Set EXPO_PUBLIC_DEV_AUTH_URL and run `npm run dev:auth`.'}>
         <View style={styles.chips}>
-          <Chip label="Guest" on={auth.status === 'guest'} busy={busy === 'Sign out'} onPress={() => run('Sign out', async () => void (await signOut()))} />
+          <Chip label="Signed out" on={auth.status === 'guest' && !guest} busy={busy === 'Sign out'} onPress={() => run('Sign out', async () => void (await signOut()))} />
+          <Chip
+            label="Local guest"
+            on={auth.status === 'guest' && guest}
+            busy={busy === 'Guest'}
+            onPress={() =>
+              run('Guest', async () => {
+                await signOut();
+                continueAsGuest();
+                return 'Continuing as a guest: saved on this device only';
+              })
+            }
+          />
           {TEST_ACCOUNTS.map((a) => (
             <Chip
               key={a}

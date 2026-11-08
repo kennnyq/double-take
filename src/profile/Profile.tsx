@@ -3,8 +3,9 @@ import { FlatList, Pressable, StyleSheet, Text, View, useWindowDimensions } from
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
-import { openSignIn, requireAccount } from '@/auth/gate';
-import { signOut, useAuth, useMe } from '@/auth/store';
+import { useGuestChosen, continueAsGuest } from '@/auth/guest';
+import { openSignIn, requireAccount, signOutToChoice } from '@/auth/gate';
+import { useAuth, useMe } from '@/auth/store';
 import { supabase } from '@/auth/supabase';
 import { openSettings } from '@/settings/store';
 import { ME, profileLink } from '@/social/me';
@@ -29,15 +30,17 @@ const MAX_WIDTH = 720;
 /** The "You" tab: header, stats, and grids of reposted / shared / liked / saved Takes. */
 export function Profile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab) => void }) {
   const { status } = useAuth();
-  if (status === 'guest' || status === 'loading') return <GuestProfile loading={status === 'loading'} />;
+  const guest = useGuestChosen();
+  // A guest who chose to continue gets the full profile, kept on this device.
+  if ((status === 'guest' && !guest) || status === 'loading') return <GuestProfile loading={status === 'loading'} />;
   return <MemberProfile tab={tab} onTab={onTab} />;
 }
 
-/** How many members follow this handle (public), or null while unknown. */
-function useFollowers(handle: string, local: boolean): number | null {
+/** How many members follow this handle (public), or null while unknown. Guests have none. */
+function useFollowers(handle: string, local: boolean, guest: boolean): number | null {
   const [n, setN] = useState<number | null>(null);
   useEffect(() => {
-    if (local || !supabase) return;
+    if (local || guest || !supabase) return;
     let live = true;
     supabase
       .from('follows')
@@ -47,16 +50,18 @@ function useFollowers(handle: string, local: boolean): number | null {
     return () => {
       live = false;
     };
-  }, [handle, local]);
-  return local ? ME.followers : n;
+  }, [handle, local, guest]);
+  return local ? ME.followers : guest ? 0 : n;
 }
 
 function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab) => void }) {
   const social = useSocial();
   const { status } = useAuth();
   const local = status === 'local';
+  // A guest's profile lives on this device: no followers, nothing to share.
+  const guest = status === 'guest';
   const me = useMe();
-  const followers = useFollowers(me.handle, local);
+  const followers = useFollowers(me.handle, local, guest);
   const [menu, setMenu] = useState(false);
   const nav = useAppNav();
   const toast = useToast();
@@ -100,8 +105,14 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
         </View>
       </View>
       <View style={styles.buttons}>
-        <ProfileButton label="Edit profile" onPress={() => soon('Editing your profile is')} />
-        <ProfileButton label="Share profile" onPress={shareProfile} />
+        {guest ? (
+          <ProfileButton label="Sign in to save across devices" onPress={() => openSignIn('Sign in to save across devices')} />
+        ) : (
+          <>
+            <ProfileButton label="Edit profile" onPress={() => soon('Editing your profile is')} />
+            <ProfileButton label="Share profile" onPress={shareProfile} />
+          </>
+        )}
       </View>
       <ProfileTabs tab={tab} onTab={onTab} />
       {tab === 'saved' && entries.length > 0 && (
@@ -146,17 +157,27 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
                 openSettings();
               }}
             />
-            {!local && (
+            {guest ? (
               <MenuItem
-                icon="log-out-outline"
-                label="Sign out"
-                tone="danger"
+                icon="log-in-outline"
+                label="Sign in"
                 onPress={() => {
                   setMenu(false);
-                  signOut();
-                  toast.show({ icon: 'log-out-outline', text: 'Signed out' });
+                  openSignIn('Sign in to save across devices');
                 }}
               />
+            ) : (
+              !local && (
+                <MenuItem
+                  icon="log-out-outline"
+                  label="Sign out"
+                  tone="danger"
+                  onPress={() => {
+                    setMenu(false);
+                    signOutToChoice();
+                  }}
+                />
+              )
             )}
           </View>
         </>
@@ -199,6 +220,9 @@ function GuestProfile({ loading }: { loading: boolean }) {
             accessibilityRole="button"
           >
             <Text style={[styles.guestButtonText, tint.guestButtonText]}>Sign in or sign up</Text>
+          </Pressable>
+          <Pressable onPress={continueAsGuest} hitSlop={6} style={({ pressed }) => [styles.guestSecondary, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+            <Text style={styles.guestSecondaryText}>Continue as guest</Text>
           </Pressable>
         </View>
       )}
@@ -321,6 +345,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 6,
   },
+  guestSecondary: { paddingVertical: 10, paddingHorizontal: 16 },
+  guestSecondaryText: { color: '#e5e5e5', fontSize: 15, fontWeight: '600' },
   guestTitle: { color: '#fff', fontSize: 22, fontWeight: '700' },
   guestText: { color: '#a8a8a8', fontSize: 15, lineHeight: 21, textAlign: 'center' },
   guestButton: {

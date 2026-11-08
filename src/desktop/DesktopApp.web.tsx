@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 import { CircleUserRound, House, LogIn, LogOut, Plus, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
-import { openSignIn, requireAccount } from '@/auth/gate';
-import { signOut, useAuth, useMe } from '@/auth/store';
+import { openSignIn, requireAccount, signOutToChoice } from '@/auth/gate';
+import { useAuth, useMe } from '@/auth/store';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import type { Clip } from '@/data/clips';
 import { Profile } from '@/profile/Profile';
@@ -118,7 +118,7 @@ export function DesktopApp({
               </button>
             )}
             {status === 'member' && (
-              <button className="rail-item" onClick={() => signOut()} aria-label={`Sign out @${me.handle}`} data-tip={`Sign out @${me.handle}`}>
+              <button className="rail-item" onClick={() => signOutToChoice()} aria-label={`Sign out @${me.handle}`} data-tip={`Sign out @${me.handle}`}>
                 <LogOut size={24} strokeWidth={1.9} />
               </button>
             )}
