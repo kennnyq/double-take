@@ -250,6 +250,8 @@ export const LANDING_PRESETS: readonly Preset<LandingTrials>[] = [
   }),
   preset('tilted', 'Tilted plane', 'A wall of clips tilted in 3D, sharp and dark; loud condensed caps.', {
     gallery: 'tilted',
+    header: 'none',
+    motion: 'coast',
     blur: 'none',
     dim: '75',
     copy: 'twice',
@@ -259,7 +261,7 @@ export const LANDING_PRESETS: readonly Preset<LandingTrials>[] = [
     accent: 'coral',
     scan: 'none',
     order: 'outward',
-    vanish: 'drop',
+    vanish: 'recede',
     grow: 'spring',
     beat: 'none',
   }),
