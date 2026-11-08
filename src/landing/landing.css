@@ -288,6 +288,19 @@
   cursor: pointer;
 }
 
+.lt-tile[data-on-board] {
+  background: transparent;
+}
+
+/* The gallery atlas, drawn under a strip of tiles (or inside one tile): see AtlasPlayer.ts. */
+.lt-board {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: block;
+  pointer-events: none;
+}
+
 .lt-tile video {
   position: absolute;
   inset: 0;

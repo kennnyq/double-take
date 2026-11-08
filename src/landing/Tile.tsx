@@ -1,4 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
+import type { Atlas } from './atlas';
+import { atlasPlayer } from './AtlasPlayer';
 
 /** One feed clip as the gallery shows it. */
 export interface GalleryClip {
@@ -9,10 +11,15 @@ export interface GalleryClip {
   /** The full clip, which the one that stays switches to as it grows. */
   video?: string;
   poster?: string;
+  /** Its cell in the gallery atlas, which then draws the tile instead of its own video. */
+  cell?: number;
 }
 
 /** The feed's clips the gallery draws from, in feed order. */
 export const GalleryClips = createContext<readonly GalleryClip[]>([]);
+
+/** The gallery atlas, once loaded, if there is one. */
+export const GalleryAtlas = createContext<Atlas | null>(null);
 
 /** Gallery clip `n`, wrapping around; null until the feed has loaded. */
 export function useGalleryClip(n: number): GalleryClip | null {
@@ -42,21 +49,26 @@ export function Tile({
       className={`lt-tile ${className}`}
       data-tile=""
       data-clip={c?.index ?? 0}
+      data-cell={c?.cell}
       data-hero-tile={hero ? '' : undefined}
       style={style}
     >
-      {c && (
-        <video
-          key={c.index}
-          src={c.tile}
-          poster={c.poster}
-          muted
-          loop
-          playsInline
-          preload="none"
-          data-tile-video={c.tile ? '' : undefined}
-        />
-      )}
+      {c &&
+        (c.cell === undefined ? (
+          <video
+            key={c.index}
+            src={c.tile}
+            poster={c.poster}
+            muted
+            loop
+            playsInline
+            preload="none"
+            data-tile-video={c.tile ? '' : undefined}
+          />
+        ) : (
+          // Drawn by the atlas (`useAtlasBoards`); the launch still moves this video and plays the full clip over it.
+          <video key={c.index} muted loop playsInline preload="none" />
+        ))}
     </div>
   );
 }
@@ -99,6 +111,20 @@ export function useTilePlayback(rootRef: RefObject<HTMLElement | null>, key: str
     root.querySelectorAll<HTMLVideoElement>('video[data-tile-video]').forEach((v) => io.observe(v));
     return () => io.disconnect();
   }, [rootRef, key, loaded]);
+}
+
+/**
+ * Has the gallery atlas draw the tiles under `rootRef` that have a cell: one
+ * canvas per `[data-board]` strip, one inside each other tile.
+ */
+export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: string) {
+  const atlas = useContext(GalleryAtlas);
+  const loaded = useContext(GalleryClips).length;
+  useEffect(() => {
+    const root = rootRef.current;
+    if (!root || !atlas || !loaded) return;
+    return atlasPlayer(atlas).mount(root);
+  }, [rootRef, key, atlas, loaded]);
 }
 
 /** The element's size, kept up to date. */

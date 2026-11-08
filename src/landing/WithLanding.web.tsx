@@ -3,15 +3,32 @@ import { RotateCcw } from 'lucide-react';
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { mediaUri } from '@/desktop/media';
+import { cellsById, parseAtlas, type Atlas } from './atlas';
 import { DEFAULT_LANDING_PRESET, LANDING_PRESETS, LANDING_STORAGE_PREFIX, LANDING_TRIALS } from './designs';
 import { Landing } from './Landing';
-import { GalleryClips, type GalleryClip } from './Tile';
+import { GalleryAtlas, GalleryClips, type GalleryClip } from './Tile';
 import { TrialAction, TrialBar } from './TrialBar';
 import { DEV, useTrials } from './trials';
 
 // Once someone has gone through the landing, a reload keeps them in the app.
 const APP_HASH = '#app';
 const GALLERY_SIZE = 24;
+
+/**
+ * The gallery atlas's manifest (`scripts/harvest/build_atlas.py`). Without
+ * one, tiles play their own `tile` copies, or show posters.
+ */
+const ATLAS_URL = process.env.EXPO_PUBLIC_GALLERY_ATLAS || '/gallery-atlas/atlas.json';
+
+async function loadAtlas(): Promise<Atlas | null> {
+  try {
+    const res = await fetch(ATLAS_URL);
+    if (!res.ok || !res.headers.get('content-type')?.includes('json')) return null;
+    return parseAtlas(await res.json(), ATLAS_URL);
+  } catch {
+    return null;
+  }
+}
 
 /** The landing, the launch (app mounted beneath the landing), then the app. */
 type Stage = 'landing' | 'launching' | 'app';
@@ -20,14 +37,16 @@ type Stage = 'landing' | 'launching' | 'app';
  * Tiles are 9:16, so the gallery uses the feed's portrait clips; a landscape
  * one would be cropped to a sliver. Bundled placeholders play their own file.
  */
-function toGallery(clips: readonly Clip[]): GalleryClip[] {
+function toGallery(clips: readonly Clip[], atlas: Atlas | null): GalleryClip[] {
+  const cells = atlas ? cellsById(atlas) : null;
   return clips
     .map((clip, index) => ({ clip, index }))
     .filter(({ clip }) => (clip.aspect ?? 9 / 16) < 1)
     .slice(0, GALLERY_SIZE)
     .map(({ clip, index }) => {
       const video = mediaUri(clip.video);
-      return { index, video, poster: mediaUri(clip.poster), tile: clip.tile ?? (clip.sourceId ? undefined : video) };
+      const cell = clip.sourceId ? cells?.get(clip.sourceId) : undefined;
+      return { index, video, poster: mediaUri(clip.poster), tile: clip.tile ?? (clip.sourceId ? undefined : video), cell };
     });
 }
 
@@ -60,7 +79,17 @@ export function WithLanding({
       live = false;
     };
   }, [ready]);
-  const gallery = useMemo(() => toGallery(clips), [clips]);
+  // Undefined while the manifest is on its way: tiles wait for it (it's small and
+  // same-origin) rather than fetching posters the atlas would make unnecessary.
+  const [atlas, setAtlas] = useState<Atlas | null | undefined>(undefined);
+  useEffect(() => {
+    let live = true;
+    void loadAtlas().then((a) => live && setAtlas(a));
+    return () => {
+      live = false;
+    };
+  }, []);
+  const gallery = useMemo(() => (atlas === undefined ? [] : toGallery(clips, atlas)), [clips, atlas]);
   const fullSrc = useCallback((i: number) => {
     const c = clipsRef.current[i];
     return c ? mediaUri(c.video) : undefined;
@@ -111,6 +140,7 @@ export function WithLanding({
       {stage !== 'landing' && children(startAt, showLanding)}
       {stage !== 'app' && (
         <GalleryClips.Provider value={gallery}>
+          <GalleryAtlas.Provider value={atlas ?? null}>
           <Landing
             key={`${landingKey}:${trials.preset.id}`}
             values={trials.values}
@@ -119,6 +149,7 @@ export function WithLanding({
             onLaunch={onLaunch}
             onDone={onDone}
           />
+          </GalleryAtlas.Provider>
         </GalleryClips.Provider>
       )}
       {DEV && (

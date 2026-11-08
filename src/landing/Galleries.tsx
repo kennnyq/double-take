@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, type CSSProperties } from 'react';
 import type { LandingValues } from './designs';
-import { rand, Tile, useBox, useTilePlayback } from './Tile';
+import { rand, Tile, useAtlasBoards, useBox, useTilePlayback } from './Tile';
 
 type Speed = LandingValues['speed'];
 const SPEED: Record<Speed, number> = { slow: 1.7, medium: 1, fast: 0.55 };
@@ -27,6 +27,7 @@ function Rows({ w, h, speed, rows, tileH: fixedH, seed = 0 }: Props & { rows?: n
         <div
           key={row}
           className="lt-row"
+          data-board=""
           style={{
             top: top + row * (tileH + GAP),
             height: tileH,
@@ -63,6 +64,7 @@ function Columns({ w, h, speed }: Props) {
         <div
           key={col}
           className="lt-col"
+          data-board=""
           style={{
             left: left + col * (tileW + GAP),
             width: tileW,
@@ -106,6 +108,7 @@ function Mosaic({ w, h, speed }: Props) {
     <div
       className="lt-plane lt-mosaic"
       data-plane=""
+      data-board=""
       style={{
         width: pw,
         height: ph,
@@ -285,6 +288,7 @@ export const Gallery = memo(function Gallery({ design, speed }: { design: Landin
   const { w, h } = useBox(ref);
   const Layout = GALLERIES[design];
   useTilePlayback(ref, `${design}:${w}x${h}`);
+  useAtlasBoards(ref, `${design}:${w}x${h}`);
   return (
     <div className="lt-gallery" data-gallery={design} ref={ref}>
       {w > 0 && <Layout w={w} h={h} speed={SPEED[speed]} />}

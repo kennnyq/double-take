@@ -1,3 +1,4 @@
+import { playerFor } from './AtlasPlayer';
 import type { LandingValues } from './designs';
 import { sendHandoff } from './handoff';
 
@@ -184,6 +185,8 @@ interface Lifted {
   planeTransform: string;
   start: Keyframe;
   small: HTMLVideoElement;
+  /** Where in its clip the small one is now. */
+  time(): number;
 }
 
 /**
@@ -193,6 +196,9 @@ interface Lifted {
  */
 function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted {
   const small = tile.querySelector('video')!;
+  // Drawn by the gallery atlas: its canvas comes along and keeps playing.
+  const board = tile.querySelector<HTMLCanvasElement>('canvas.lt-board');
+  const player = board ? playerFor(root) : null;
   const plane = tile.closest<HTMLElement>('[data-plane]');
   const clipBox = tile.closest<HTMLElement>('[data-clip-box]');
   const radius = getComputedStyle(tile).borderTopLeftRadius;
@@ -251,15 +257,17 @@ function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted
   root.append(f);
   // Moved in the same task, the video keeps playing.
   layer.append(small);
-  small.play().catch(() => {});
+  if (board) layer.append(board);
+  else small.play().catch(() => {});
   tile.style.visibility = 'hidden';
-  return { frame: f, layer, frameRect, planeTransform, start, small };
+  const time = player ? () => player.clipTime() : () => small.currentTime;
+  return { frame: f, layer, frameRect, planeTransform, start, small, time };
 }
 
 /** The full clip, at the small one's moment, faded in over it. */
 async function sharpen(lifted: Lifted, hi: HTMLVideoElement) {
   await until(() => hi.readyState >= 2, 600);
-  hi.currentTime = Math.min(lifted.small.currentTime + 0.06, (hi.duration || 8) - 0.05);
+  hi.currentTime = Math.min(lifted.time() + 0.06, (hi.duration || 8) - 0.05);
   await Promise.race([new Promise((r) => hi.addEventListener('seeked', r, { once: true })), wait(300)]);
   hi.play().catch(() => {});
   lifted.layer.append(hi);
@@ -286,6 +294,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     await until(() => root.scrollTop <= 2, 900);
   }
   root.setAttribute('data-launching', '');
+  // Tiles drawn a strip at a time by the atlas get a canvas each, so they can leave one by one.
+  const keepOnly = playerFor(root)?.separate(root);
 
   const galleryEl = root.querySelector<HTMLElement>('.lt-gallery');
   const galleryRect = galleryEl?.getBoundingClientRect() ?? new DOMRect(0, 0, innerWidth, innerHeight);
@@ -295,6 +305,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     return { el, r, seen: visibleFraction(r) };
   });
   const survivor = fromTile ?? pickSurvivor(tiles, v.pick, button, galleryRect);
+  keepOnly?.(survivor);
   const clip = Number(survivor.dataset.clip) || 0;
   hooks.mountApp(clip);
 

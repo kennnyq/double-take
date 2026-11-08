@@ -4,7 +4,7 @@ import { Logo } from '@/desktop/Logo';
 import { COPY, STEPS, TELLS } from './content';
 import type { LandingValues } from './designs';
 import { Gallery } from './Galleries';
-import { Tile, useGalleryClip, useTilePlayback } from './Tile';
+import { Tile, useAtlasBoards, useGalleryClip, useTilePlayback } from './Tile';
 import { launch } from './launch';
 import './landing.css';
 
@@ -234,6 +234,7 @@ function Below({
 }) {
   const quizRef = useRef<HTMLElement>(null);
   useTilePlayback(quizRef, design);
+  useAtlasBoards(quizRef, design);
   return (
     <>
       {(design === 'full' || design === 'steps') && (
