@@ -10,8 +10,10 @@ import { replayWindow, stepCopy, walkthroughSteps, type Replay } from '@/annotat
 import type { TellsVariant } from '@/data/clips';
 import { variantIndex } from '@/devtools/settings';
 import { useDevSettings } from '@/devtools/store';
+import { usePalette } from '@/ui/theme';
 import './devSection';
 import { cardSpot, emptierSide, estimateCardHeight, type CardSpot } from './card';
+import { useGlass } from './glass';
 import { InfoCard } from './InfoCard';
 import { planScrub, runScrub } from './scrub';
 import { Spotlight } from './Spotlight';
@@ -346,6 +348,8 @@ export function TellOverlay({ ref, ...p }: Props) {
   const inShot = !current?.shot || scrubbing || (now >= current.shot.t0 - 0.05 && now <= current.shot.t1 + 0.05);
   const area = inShot ? areaOf(current) : null;
 
+  const g = useGlass();
+  const c = usePalette();
   const closeStyle = useAnimatedStyle(() => ({ opacity: shown.value, transform: [{ scale: 0.85 + 0.15 * shown.value }] }));
 
   return (
@@ -396,13 +400,13 @@ export function TellOverlay({ ref, ...p }: Props) {
         <Pressable
           onPress={close}
           disabled={!inStep}
-          style={({ pressed }) => [styles.close, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.close, g.button, pressed && styles.pressed]}
           hitSlop={10}
           accessibilityRole="button"
           accessibilityLabel={inStep ? 'Close the walkthrough' : undefined}
           accessibilityElementsHidden={!inStep}
         >
-          <Ionicons name="close" size={18} color="rgba(255,255,255,0.9)" />
+          <Ionicons name="close" size={18} color={c.text} />
         </Pressable>
       </Animated.View>
     </>
@@ -423,9 +427,6 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(20,20,22,0.55)',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.18)',
   },
   pressed: { opacity: 0.6 },
 });

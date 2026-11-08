@@ -14,6 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import type { CardSpot } from './card';
+import { useGlass } from './glass';
 
 interface Props {
   spot: CardSpot;
@@ -52,6 +53,7 @@ export function InfoCard({ spot, text, hint, loop, leaving, onGone }: Props) {
   const pt = useSharedValue(0);
   const W = spot.width;
   const top = spot.side === 'top';
+  const g = useGlass();
 
   useEffect(() => {
     if (leaving) {
@@ -119,11 +121,11 @@ export function InfoCard({ spot, text, hint, loop, leaving, onGone }: Props) {
       accessibilityLiveRegion="polite"
     >
       <BlurView intensity={36} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={styles.tint} />
+      <View style={[styles.tint, g.glass]} />
       <Animated.View style={[styles.content, { width: W }, top ? { top: 0 } : { bottom: 0 }, content]} onLayout={onLayout}>
         <View ref={textRef}>
-          <Text style={styles.text}>{text}</Text>
-          {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+          <Text style={[styles.text, g.text]}>{text}</Text>
+          {hint ? <Text style={[styles.hint, g.hint]}>{hint}</Text> : null}
         </View>
         {loop ? <LoopLine loop={loop} /> : <View style={styles.lineSpace} />}
       </Animated.View>
@@ -133,10 +135,11 @@ export function InfoCard({ spot, text, hint, loop, leaving, onGone }: Props) {
 
 /** A short, faint line under the text that fills as the slow-mo loop plays; it restarts with the loop. */
 function LoopLine({ loop }: { loop: SharedValue<number> }) {
+  const g = useGlass();
   const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.min(1, Math.max(0, loop.value)) }] }));
   return (
-    <View style={styles.track}>
-      <Animated.View style={[styles.fill, fill]} />
+    <View style={[styles.track, g.track]}>
+      <Animated.View style={[styles.fill, g.fill, fill]} />
     </View>
   );
 }
@@ -144,16 +147,11 @@ function LoopLine({ loop }: { loop: SharedValue<number> }) {
 const LINE_W = 56;
 
 const styles = StyleSheet.create({
-  glass: {
-    position: 'absolute',
-    overflow: 'hidden',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.10)',
-  },
-  tint: { ...StyleSheet.absoluteFill, backgroundColor: 'rgba(14,14,16,0.62)' },
+  glass: { position: 'absolute', overflow: 'hidden' },
+  tint: { ...StyleSheet.absoluteFill, borderRadius: RADIUS },
   content: { position: 'absolute', paddingHorizontal: 16, paddingTop: 13, paddingBottom: 9 },
-  text: { color: 'rgba(255,255,255,0.94)', fontSize: 15, lineHeight: 20, fontWeight: '500' },
-  hint: { color: 'rgba(255,255,255,0.38)', fontSize: 12, lineHeight: 16, marginTop: 6 },
+  text: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
+  hint: { fontSize: 12, lineHeight: 16, marginTop: 6 },
   track: {
     alignSelf: 'center',
     width: LINE_W,
@@ -161,9 +159,8 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     marginTop: 9,
     overflow: 'hidden',
-    backgroundColor: 'rgba(255,255,255,0.14)',
   },
   // Scaled from its left edge: centre it on the track's left end first.
-  fill: { width: LINE_W * 2, height: 2, marginLeft: -LINE_W, backgroundColor: 'rgba(255,255,255,0.6)' },
+  fill: { width: LINE_W * 2, height: 2, marginLeft: -LINE_W },
   lineSpace: { height: 4 },
 });
