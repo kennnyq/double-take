@@ -215,14 +215,72 @@ async function desktopFlow(browser: Browser) {
   }
 }
 
+/** Check rendered text geometry: an accessible label can be complete while its text is clipped. */
+async function captionFits(page: Page, name: string) {
+  const geometry = await page.locator(HINT).evaluate((el) => {
+    const caption = el.lastElementChild as HTMLElement;
+    const text = caption.getBoundingClientRect();
+    const stage = el.getBoundingClientRect();
+    return {
+      clipped: caption.scrollWidth > caption.clientWidth,
+      offset: text.x + text.width / 2 - (stage.x + stage.width / 2),
+    };
+  });
+  check(`${name}: the full caption fits and is centered under the hand`, !geometry.clipped && Math.abs(geometry.offset) < 1, geometry);
+}
+
+/** Measure the loaded glyph's fingertip from its pixels, rather than its font box. */
+async function handContact(browser: Browser) {
+  for (const layout of ['desktop', 'phone'] as const) {
+    const page = await open(browser, layout, { reducedMotion: true, dev: { force: 'doubleTake' } });
+    await page.waitForSelector('[data-testid="gesture-hint-hand"] > *');
+    await page.waitForTimeout(600);
+    const offset = await page.evaluate(() => {
+      const glyph = document.querySelector('[data-testid="gesture-hint-hand"]')!.firstElementChild!;
+      const ring = document.querySelector('[data-testid="gesture-hint-ring"]')!.getBoundingClientRect();
+      const box = glyph.getBoundingClientRect();
+      const canvas = document.createElement('canvas');
+      canvas.width = canvas.height = 512;
+      const ctx = canvas.getContext('2d')!;
+      ctx.font = `512px ${getComputedStyle(glyph).fontFamily}`;
+      const text = glyph.textContent!;
+      ctx.fillText(text, 0, ctx.measureText(text).fontBoundingBoxAscent);
+      const pixels = ctx.getImageData(0, 0, 512, 512).data;
+      const row = (y: number) => {
+        const xs = [];
+        for (let x = 0; x < 512; x++) if (pixels[(y * 512 + x) * 4 + 3] >= 128) xs.push(x);
+        return xs;
+      };
+      let top = 0;
+      while (top < 512 && row(top).length === 0) top++;
+      // Just below the rounded cap, the upright finger has its full width.
+      const finger = row(top + 32);
+      const left = finger[0];
+      const right = finger.at(-1)! + 1;
+      return {
+        x: box.x + box.width * (left + right) / 2 / 512 - (ring.x + ring.width / 2),
+        y: box.y + box.height * (top + (right - left) / 2) / 512 - (ring.y + ring.height / 2),
+      };
+    });
+    check(`${layout}: the fingertip is centered in the hold circle`, Math.abs(offset.x) < 1 && Math.abs(offset.y) < 1, offset);
+    await page.context().close();
+  }
+}
+
 /** Is it seen, over the video: desktop (direct, from the hero, with the dev panel open) and phone. */
 async function pixels(browser: Browser) {
   for (const layout of ['desktop', 'phone'] as const) {
     const page = await open(browser, layout);
     const words = await hintWithin(page, 4000);
     await page.waitForTimeout(800);
+    await captionFits(page, layout);
     const seen = await hintPainted(page);
     check(`${layout}: the hint is painted over the video, not under it`, words !== null && seen === true, { words, seen });
+    if (layout === 'desktop') {
+      await page.setViewportSize({ width: 800, height: 500 });
+      await page.waitForTimeout(450);
+      await captionFits(page, 'compact desktop');
+    }
     await page.context().close();
   }
   // The dev settings panel floats beside the desktop card: the hint still shows, and is seen.
@@ -353,6 +411,7 @@ async function main() {
   if (process.env.FRAMES) await frames(browser, process.env.FRAMES);
   if (!process.env.FRAMES_ONLY) {
     await pixels(browser);
+    await handContact(browser);
     if (!process.env.PIXELS_ONLY) {
       await phoneFlow(browser);
       await memberFlow(browser);

@@ -187,6 +187,7 @@ function DemoView({ spec, clock, design }: { spec: Spec; clock: Animated.Value; 
               transform: [{ scale: track(clock, [[0, 0.9], [h.down - 0.04, 0.9], [h.down + 0.06, 1, springy], [h.full, 1], [h.full + 0.04, 1.08, press], [h.up, 1, springy], [1, 1]]) }],
             },
           ]}
+          testID="gesture-hint-ring"
         >
           <Ring progress={progress} />
         </Animated.View>
@@ -200,6 +201,9 @@ function DemoView({ spec, clock, design }: { spec: Spec; clock: Animated.Value; 
 // ---- the hand ---------------------------------------------------------------------
 
 const HAND = 66;
+// The bundled hand-pointing-up glyph uses a 512-unit em, ascent 448.
+// Its index finger spans x=256…299; the rounded fingertip's center is y=384.
+const HAND_TIP = { x: (256 + 299) / 2 / 512, y: (448 - 384) / 512 };
 
 /** A hand silhouette whose soft drop shadow tightens under it as it presses. */
 function Hand({ p }: { p: Anim }) {
@@ -208,10 +212,10 @@ function Hand({ p }: { p: Anim }) {
   return (
     <>
       <Animated.View style={[styles.hand, { opacity: lerp(p, 0.16, 0.3), transform: [{ translateX: lerp(p, 8, 2) }, { translateY: lerp(p, 18, 5) }, { scale }] }]}>
-        <MaterialCommunityIcons name="hand-pointing-up" size={HAND} color="#000" style={styles.wideShadow} />
+        <MaterialCommunityIcons name="hand-pointing-up" size={HAND} color="#000" style={[styles.handGlyph, styles.wideShadow]} />
       </Animated.View>
-      <Animated.View style={[styles.hand, { transform: [{ translateY: lerp(p, 8, 0) }, { scale }] }]}>
-        <MaterialCommunityIcons name="hand-pointing-up" size={HAND} color={c.text} />
+      <Animated.View testID="gesture-hint-hand" style={[styles.hand, { transform: [{ translateY: lerp(p, 8, 0) }, { scale }] }]}>
+        <MaterialCommunityIcons name="hand-pointing-up" size={HAND} color={c.text} style={styles.handGlyph} />
       </Animated.View>
     </>
   );
@@ -377,7 +381,10 @@ const styles = StyleSheet.create({
   caption: {
     position: 'absolute',
     left: (W - SCRIM) / 2,
-    right: (W - SCRIM) / 2,
+    width: SCRIM,
+    // Text's one-line web style defaults to maxWidth: '100%' of the 160px
+    // icon stage. Override it so the wider caption fits and stays centered.
+    maxWidth: SCRIM,
     bottom: 6,
     textAlign: 'center',
     fontSize: 14,
@@ -389,8 +396,17 @@ const styles = StyleSheet.create({
   },
   wideShadow: { textShadowColor: 'rgba(0,0,0,1)', textShadowOffset: { width: 0, height: 0 }, textShadowRadius: 14 },
 
-  // The glyph's fingertip sits about 0.42 across and 0.07 down its box.
-  hand: { position: 'absolute', left: TARGET.x - HAND * 0.42, top: TARGET.y - HAND * 0.07 },
+  // A zero-size anchor makes scaling pivot on the contact point, not the palm.
+  hand: { position: 'absolute', left: TARGET.x, top: TARGET.y, width: 0, height: 0 },
+  handGlyph: {
+    position: 'absolute',
+    left: -HAND * HAND_TIP.x,
+    top: -HAND * HAND_TIP.y,
+    width: HAND,
+    height: HAND,
+    lineHeight: HAND,
+    includeFontPadding: false,
+  },
 
   finger: { position: 'absolute', left: TARGET.x - FW / 2, top: TARGET.y - 4, width: FW, height: FH },
   fingerTop: { position: 'absolute', left: 0, right: 0, top: 0, height: FH * SOLID + 0.5, borderTopLeftRadius: FW / 2, borderTopRightRadius: FW / 2 },
