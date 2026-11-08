@@ -1,82 +1,61 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  FRESH,
-  DEMO_MS,
-  HINT_TIMEOUT_MS,
-  LOOPS,
-  MAX_TRIES_PER_SESSION,
-  NEW_SESSION,
-  OPENS_TO_LEARN,
-  demoCaption,
-  endHint,
-  hintTimeout,
-  parseProgress,
-  recordOpen,
-  shouldShow,
-  startHint,
+  FRESH, DEMO_MS, HINT_TIMEOUT_MS, LOOPS, MIN_VISIBLE_MS, NEW_SESSION,
+  demoCaption, endHint, hintTimeout, parseProgress, recordSeen, shouldShow,
   type ClipContext,
-  type HintProgress,
-  type HintSession,
 } from './hints.ts';
 
 const clip = (over: Partial<ClipContext> = {}): ClipContext => ({ hasTells: true, blocked: false, ...over });
+const seen = { seen: true };
 
-test('a brand-new viewer gets the gesture hint straight away: there is no swipe hint', () => {
+test('new visitors and signed-in users who have not seen the prompt get it', () => {
   assert.equal(shouldShow(FRESH, NEW_SESSION, clip()), true);
+  assert.equal(shouldShow(FRESH, NEW_SESSION, clip(), 'off', true), true);
 });
 
-test('no hint on clips without tells, or while blocked', () => {
-  assert.equal(shouldShow(FRESH, NEW_SESSION, clip({ hasTells: false })), false);
-  assert.equal(shouldShow(FRESH, NEW_SESSION, clip({ blocked: true })), false);
+test('signed-out visitors see it on every refresh even if previously seen', () => {
+  assert.equal(shouldShow(seen, NEW_SESSION, clip()), true);
+  assert.equal(shouldShow(seen, NEW_SESSION, clip(), 'off', true), false);
 });
 
-test('opening a double take ends the hint for the session', () => {
-  const session = endHint(startHint(NEW_SESSION), 'gesture');
-  assert.equal(shouldShow(FRESH, session, clip()), false);
+test('only half a second of continuous visibility counts as seen', () => {
+  assert.equal(recordSeen(FRESH, MIN_VISIBLE_MS - 1), FRESH);
+  assert.deepEqual(recordSeen(FRESH, MIN_VISIBLE_MS), seen);
+  assert.deepEqual(recordSeen(FRESH, MIN_VISIBLE_MS + 1), seen);
+  assert.equal(recordSeen(seen, MIN_VISIBLE_MS), seen);
 });
 
-test('a hint that times out is done for the session but back next session', () => {
-  const session = endHint(startHint(NEW_SESSION), 'timeout');
-  assert.equal(shouldShow(FRESH, session, clip()), false);
-  assert.equal(shouldShow(FRESH, { ...NEW_SESSION }, clip()), true, 'a new session');
-});
-
-test('a hint cut short tries again on a later clip, a few times a session', () => {
-  let session: HintSession = { ...NEW_SESSION };
-  for (let i = 0; i < MAX_TRIES_PER_SESSION; i++) {
+test('quick scrolling can retry indefinitely, until a prompt has actually been seen', () => {
+  let session = { ...NEW_SESSION };
+  for (let i = 0; i < 20; i++) {
     assert.equal(shouldShow(FRESH, session, clip()), true);
-    session = endHint(startHint(session), 'left');
+    session = endHint(session, 'left');
   }
-  assert.equal(shouldShow(FRESH, session, clip()), false);
+  session = { ...session, seen: true };
+  assert.equal(shouldShow(seen, endHint(session, 'left'), clip()), false);
 });
 
-test('after OPENS_TO_LEARN double takes the hint never shows again', () => {
-  let p: HintProgress = FRESH;
-  for (let i = 0; i < OPENS_TO_LEARN; i++) {
-    assert.equal(shouldShow(p, { ...NEW_SESSION }, clip()), true);
-    p = recordOpen(p);
+test('opening a double take or timing out ends the hint for this visit only', () => {
+  for (const why of ['gesture', 'timeout'] as const) {
+    assert.equal(shouldShow(FRESH, endHint(NEW_SESSION, why), clip()), false);
+    assert.equal(shouldShow(FRESH, NEW_SESSION, clip()), true);
   }
-  assert.equal(p.opens, OPENS_TO_LEARN);
-  assert.equal(shouldShow(p, { ...NEW_SESSION }, clip()), false);
-  assert.equal(recordOpen(p), p, 'stops counting');
 });
 
-test('the dev override shows it on every clip with tells, whatever the progress', () => {
-  const learned: HintProgress = { opens: OPENS_TO_LEARN };
-  const done: HintSession = { done: true, tries: 99 };
-  assert.equal(shouldShow(learned, done, clip(), 'doubleTake'), true);
-  assert.equal(shouldShow(learned, done, clip({ hasTells: false }), 'doubleTake'), false);
-  assert.equal(shouldShow(learned, done, clip({ blocked: true }), 'doubleTake'), false, 'still never over a double take');
+test('no hint under a covering surface or without tells, even with the dev override', () => {
+  for (const force of ['off', 'doubleTake'] as const) {
+    assert.equal(shouldShow(FRESH, NEW_SESSION, clip({ hasTells: false }), force), false);
+    assert.equal(shouldShow(FRESH, NEW_SESSION, clip({ blocked: true }), force), false);
+  }
+  assert.equal(shouldShow(seen, { done: true, seen: true }, clip(), 'doubleTake', true), true);
 });
 
-test('stored progress parses defensively, and older saves with a swipe flag still load', () => {
-  assert.deepEqual(parseProgress(null), FRESH);
-  assert.deepEqual(parseProgress('not json'), FRESH);
-  assert.deepEqual(parseProgress('[1]'), FRESH);
-  assert.deepEqual(parseProgress('{"opens":1,"swiped":true}'), { opens: 1 });
-  assert.deepEqual(parseProgress('{"opens":99}'), { opens: OPENS_TO_LEARN });
-  assert.deepEqual(parseProgress('{"opens":-3.5}'), { opens: 0 });
+test('only an explicit seen flag survives storage; legacy open counts do not hide the prompt', () => {
+  for (const raw of [null, 'not json', '[1]', '{"opens":99}', '{"seen":"true"}']) {
+    assert.deepEqual(parseProgress(raw), FRESH);
+  }
+  assert.deepEqual(parseProgress('{"seen":true}'), seen);
 });
 
 test('a hint plays its demo twice before it goes, and each demo stays short', () => {

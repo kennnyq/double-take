@@ -6,10 +6,10 @@ import {
   endHint,
   FRESH,
   NEW_SESSION,
+  MIN_VISIBLE_MS,
   parseProgress,
-  recordOpen,
+  recordSeen,
   shouldShow,
-  startHint,
   type ClipContext,
   type HintEnd,
   type HintForce,
@@ -106,10 +106,9 @@ export const hints = {
     };
   },
   /** Whether the clip should show the hint now. */
-  shouldShow: (clip: ClipContext): boolean => state.blocks === 0 && shouldShow(state.progress, state.session, clip, state.force),
-  /** The viewer opened a double take, by any gesture or the button. */
-  recordOpen: () => set({ progress: recordOpen(state.progress) }),
-  start: () => set({ session: startHint(state.session) }),
+  shouldShow: (clip: ClipContext, rememberSeen: boolean): boolean => state.blocks === 0 && shouldShow(state.progress, state.session, clip, state.force, rememberSeen),
+  /** Called only after the hint has stayed fully visible for MIN_VISIBLE_MS. */
+  seen: () => set({ progress: recordSeen(state.progress, MIN_VISIBLE_MS), session: { ...state.session, seen: true } }),
   end: (why: HintEnd) => set({ session: endHint(state.session, why) }),
   /** The hint as for a brand-new viewer, starting now. */
   reset: () => set({ progress: { ...FRESH }, session: { ...NEW_SESSION }, epoch: state.epoch + 1 }),

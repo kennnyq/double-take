@@ -1,6 +1,5 @@
 import { registerDevSection } from '@/devtools/api';
 import { closeDevSettings, DEV_TOOLS } from '@/devtools/store';
-import { OPENS_TO_LEARN } from './hints';
 import { DEV_DEFAULTS, hints, type HintState } from './store';
 
 /*
@@ -11,7 +10,7 @@ import { DEV_DEFAULTS, hints, type HintState } from './store';
  */
 
 function register(s: HintState) {
-  const { opens } = s.progress;
+  const { seen } = s.progress;
   // On phones the panel covers the clip: close it so the hint can be seen.
   const play = () => {
     closeDevSettings();
@@ -22,7 +21,7 @@ function register(s: HintState) {
     tab: 'interaction',
     title: 'Gesture hint',
     order: -10,
-    note: `The first-run hint over the feed. Double takes opened: ${opens} of ${OPENS_TO_LEARN}${opens >= OPENS_TO_LEARN ? ', so it no longer shows by itself (Show now or Reset tutorial)' : ''}.`,
+    note: `The first-run hint over the feed. ${seen ? 'Already seen; remembered for signed-in viewers.' : 'Not yet seen for half a second.'} Signed-out visitors see it again on refresh.`,
     keywords: 'tutorial hint onboarding first run gesture design style',
     rows: [
       {

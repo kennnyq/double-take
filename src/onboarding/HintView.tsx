@@ -36,8 +36,9 @@ export function HintView(props: {
   on: boolean;
   opacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
   onGone: () => void;
+  onShown: () => void;
 }) {
-  const { demo, design, still, on, onGone } = props;
+  const { demo, design, still, on, onGone, onShown } = props;
   const tint = useTint();
   const [fade] = useState(() => new Animated.Value(0));
   const [clock] = useState(() => new Animated.Value(0));
@@ -50,9 +51,11 @@ export function HintView(props: {
       easing: on ? Easing.out(Easing.cubic) : Easing.inOut(Easing.quad),
       useNativeDriver: true,
     });
-    a.start(({ finished }) => finished && !on && onGone());
+    a.start(({ finished }) => {
+      if (finished) (on ? onShown : onGone)();
+    });
     return () => a.stop();
-  }, [on, fade, onGone]);
+  }, [on, fade, onGone, onShown]);
 
   useEffect(() => {
     if (still) {

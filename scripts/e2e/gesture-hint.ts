@@ -2,7 +2,8 @@
  * Browser check for the first-run gesture hint over the feed: one hint for
  * both ways into the double take (Both is the default), "Hold or double tap"
  * on phones and "Hold spacebar or double click" on desktop (a fine pointer). It goes as soon as either gesture opens a double take, comes
- * back on reload until two have been opened, and then never again. Entering
+ * back on every signed-out reload; signed-in viewers remember half a second
+ * of visibility. Quick scrolling retries on the next clip. Entering
  * from the landing's hero, it waits for the hand-off. Reduce Motion gets a
  * still frame. Dev settings → Interaction → Gesture hint plays it now, in the
  * picked design.
@@ -45,7 +46,8 @@ const CONTEXT: Record<Layout, BrowserContextOptions> = {
 
 interface Start {
   gesture?: 'hold' | 'doubleTap' | 'both';
-  hints?: { opens: number };
+  hints?: { seen: boolean };
+  member?: boolean;
   dev?: { force?: string; design?: string; input?: string };
   reducedMotion?: boolean;
 }
@@ -54,6 +56,12 @@ interface Start {
 async function open(browser: Browser, layout: Layout, start: Start = {}) {
   const context = await browser.newContext({ ...CONTEXT[layout], reducedMotion: start.reducedMotion ? 'reduce' : 'no-preference' });
   const page = await context.newPage();
+  // A local auth fixture exercises membership without creating an account.
+  // Intercept its profile/social reads; no authenticated request leaves the browser.
+  if (start.member) await page.route('**/rest/v1/**', (route) => route.fulfill({ json: [] }));
+  const expires = Math.floor(Date.now() / 1000) + 3600;
+  const user = { id: '00000000-0000-4000-8000-000000000001', aud: 'authenticated', role: 'authenticated', email: 'hint-test@example.com', is_anonymous: false, app_metadata: {}, user_metadata: {}, created_at: new Date().toISOString() };
+  const token = [Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })).toString('base64url'), Buffer.from(JSON.stringify({ sub: user.id, exp: expires, role: 'authenticated' })).toString('base64url'), 'test-fixture'].join('.');
   await page.addInitScript(
     ([seed]) => {
       if (sessionStorage.getItem('seeded')) return;
@@ -65,6 +73,7 @@ async function open(browser: Browser, layout: Layout, start: Start = {}) {
       {
         [SETTINGS_KEY]: start.gesture ? JSON.stringify({ revealGesture: start.gesture }) : '',
         [HINTS_KEY]: start.hints ? JSON.stringify(start.hints) : '',
+        'double-take-auth': start.member ? JSON.stringify({ access_token: token, refresh_token: 'fixture', expires_at: expires, expires_in: 3600, token_type: 'bearer', user }) : '',
         [DEV_HINTS_KEY]: start.dev ? JSON.stringify(start.dev) : '',
       },
     ] as const,
@@ -122,26 +131,49 @@ async function openDoubleTake(page: Page, layout: Layout) {
   await page.waitForSelector(CLOSE_WALKTHROUGH, { timeout: 10_000 });
 }
 
+/** Signed-out refreshes always replay; opens are no longer lifetime progress. */
 async function phoneFlow(browser: Browser) {
   const page = await open(browser, 'phone');
-  check('phone, brand-new: hold then double tap (Both, the default), no swipe hint', (await hintWithin(page, 4000)) === PHONE_BOTH, await page.getAttribute(HINT, 'aria-label').catch(() => null));
+  check('phone, signed out: the gesture hint appears', (await hintWithin(page, 4000)) === PHONE_BOTH);
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? '{}').seen === true, HINTS_KEY);
+  check('phone: half a second fully visible is persisted', (await stored(page))?.seen === true);
   await openDoubleTake(page, 'phone');
   check('phone: opening a double take dismisses it', await hintGone(page, 2000));
-  check('phone: one open counted', (await stored(page))?.opens === 1, await stored(page));
+  for (let i = 0; i < 2; i++) {
+    await page.reload();
+    check(`phone: signed-out refresh ${i + 1} replays even after seeing it`, (await hintWithin(page, 5000)) === PHONE_BOTH);
+  }
+  await page.context().close();
+}
+
+async function memberFlow(browser: Browser) {
+  const page = await open(browser, 'desktop', { member: true });
+  check('signed in, unseen: the hint appears', (await hintWithin(page, 5000)) === DESKTOP_BOTH);
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? '{}').seen === true, HINTS_KEY);
   await page.reload();
-  await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
-  check('phone: back on the next session until learned', (await hintWithin(page, 4000)) === PHONE_BOTH);
-  // The other way in: a double tap on the video.
-  const v = (await page.locator('[aria-label="Pause"], [aria-label="Play"]').first().boundingBox())!;
-  await page.touchscreen.tap(v.x + v.width / 2, v.y + v.height / 3);
-  await page.waitForTimeout(80);
-  await page.touchscreen.tap(v.x + v.width / 2, v.y + v.height / 3);
-  await page.waitForSelector(CLOSE_WALKTHROUGH, { timeout: 10_000 });
-  check('phone: a double tap dismisses it too', await hintGone(page, 2000));
-  check('phone: two opens counted', (await stored(page))?.opens === 2, await stored(page));
+  check('signed in: a seen prompt stays dismissed on refresh', (await hintWithin(page, 2500)) === null);
+  await page.context().close();
+}
+
+async function quickScroll(browser: Browser) {
+  const page = await open(browser, 'desktop', { member: true });
+  const activeHint = `section.slide[aria-current="true"] ${HINT}`;
+  for (let i = 0; i < 4; i++) {
+    await page.waitForSelector(activeHint, { timeout: 5000 });
+    const active = await page.locator('section.slide[aria-current="true"]').evaluate((el) => Array.from(el.parentElement!.children).indexOf(el));
+    // Move as soon as it starts to appear, before its 500 ms viewing window.
+    await page.keyboard.press('ArrowDown');
+    await page.waitForFunction((previous) => Array.from(document.querySelector('section.slide[aria-current="true"]')!.parentElement!.children).indexOf(document.querySelector('section.slide[aria-current="true"]')!) !== previous, active);
+  }
+  await page.waitForSelector(activeHint, { timeout: 5000 });
+  check('four quick scrolls do not exhaust retries', (await page.getAttribute(activeHint, 'aria-label')) === DESKTOP_BOTH && (await stored(page))?.seen !== true);
   await page.reload();
-  await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
-  check('phone: learned, it never shows again', (await hintWithin(page, 4000)) === null);
+  check('signed in: a brief glimpse does not suppress the prompt on refresh', (await hintWithin(page, 5000)) === DESKTOP_BOTH);
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? '{}').seen === true, HINTS_KEY);
+  await page.keyboard.press('ArrowDown');
+  check('after being seen, it stays dismissed on the next reel', await hintGone(page, 2000));
+  await page.reload();
+  check('signed in: the viewing threshold also survives refresh', (await hintWithin(page, 2500)) === null);
   await page.context().close();
 }
 
@@ -207,7 +239,7 @@ async function pixels(browser: Browser) {
 
 /** Dev settings → Interaction → Gesture hint: the design picker and Show now, even once learned. */
 async function devPanel(browser: Browser) {
-  const page = await open(browser, 'desktop', { hints: { opens: 2 } });
+  const page = await open(browser, 'desktop', { hints: { seen: true }, member: true });
   check('learned: no hint by itself', (await hintWithin(page, 3000)) === null);
   await page.keyboard.press('Control+.');
   await page.getByText('Gesture hint', { exact: true }).waitFor({ timeout: 5000 });
@@ -226,11 +258,13 @@ async function fromHero(browser: Browser, layouts: readonly Layout[] = ['desktop
   for (const layout of layouts) {
     const context = await browser.newContext(CONTEXT[layout]);
     const page = await context.newPage();
-    await page.addInitScript(() => {
+    await page.addInitScript((key) => {
       if (sessionStorage.getItem('seeded')) return;
       sessionStorage.setItem('seeded', '1');
       localStorage.clear();
-    });
+      // A previous visit must not suppress entry from the hero while signed out.
+      localStorage.setItem(key, JSON.stringify({ seen: true }));
+    }, HINTS_KEY);
     await page.goto(`${BASE_URL}/`);
     const cta = page.locator('.lt-cta').first();
     await cta.waitFor({ timeout: 60_000 });
@@ -321,6 +355,8 @@ async function main() {
     await pixels(browser);
     if (!process.env.PIXELS_ONLY) {
       await phoneFlow(browser);
+      await memberFlow(browser);
+      await quickScroll(browser);
       await timesOut(browser);
       await desktopFlow(browser);
       await devPanel(browser);

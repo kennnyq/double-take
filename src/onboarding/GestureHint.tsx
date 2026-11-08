@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Platform } from 'react-native';
+import { AccessibilityInfo, Animated, AppState, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { useDevPanel } from '@/devtools/store';
+import { useAuth } from '@/auth/store';
+import { useGate } from '@/auth/gate';
 import { useAppSettings, useSettingsOpen } from '@/settings/store';
-import { hintTimeout, SHOW_DELAY_MS, type HintEnd } from './hints';
+import { hintTimeout, MIN_VISIBLE_MS, SHOW_DELAY_MS, type HintEnd } from './hints';
 import { HintView } from './HintView';
 import { hints, useHints } from './store';
 import './dev';
@@ -14,8 +16,8 @@ import './dev';
  * double take ("Hold or double tap" with Both, the default). When it shows and goes
  * is decided in `hints.ts`; this reports what happened and `HintView` draws it.
  *
- * Mount one in each clip of a feed; only the active one ever draws. It counts
- * the double takes opened on its clip from `doubleTakeOpen` going true.
+ * Mount one in each clip of a feed; only the active, uncovered one draws.
+ * Half a second fully visible counts as seen, independently of opening it.
  */
 export interface GestureHintProps {
   clipId: string;
@@ -36,6 +38,12 @@ const REQUEST_DELAY_MS = 350;
 
 export function GestureHint(p: GestureHintProps) {
   const s = useHints();
+  const { status } = useAuth();
+  const signInOpen = useGate().open;
+  const foreground = useForeground();
+  // TODO(guest onboarding): include the persisted explicit "Continue as guest"
+  // choice here when that flow exists. Browsing from the hero is not that choice.
+  const rememberSeen = status === 'member';
   const settingsOpen = useSettingsOpen();
   const devOpen = useDevPanel().open;
   const { revealGesture } = useAppSettings();
@@ -45,7 +53,7 @@ export function GestureHint(p: GestureHintProps) {
   const still = s.input === 'still' || reduceMotion;
   // The dev settings panel covers the clip on phones; on desktop it floats beside the card.
   const panelCovers = devOpen && p.layout === 'phone';
-  const covered = !p.active || p.doubleTakeOpen || !!p.blocked || settingsOpen || panelCovers || s.blocks > 0;
+  const covered = !foreground || status === 'loading' || signInOpen || !p.active || p.doubleTakeOpen || !!p.blocked || settingsOpen || panelCovers || s.blocks > 0;
   // The hand is an icon font: it loads on first use, and until it has, the
   // words would show without it. Wait for it, so the hand always leads.
   const [iconsLoaded, iconsFailed] = useFonts(MaterialCommunityIcons.font);
@@ -55,23 +63,34 @@ export function GestureHint(p: GestureHintProps) {
   const [drawn, setDrawn] = useState(false);
   const [on, setOn] = useState(false);
   const shown = useRef(false);
+  const seenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onShown = useCallback(() => {
+    if (!shown.current) return;
+    if (seenTimer.current) clearTimeout(seenTimer.current);
+    seenTimer.current = setTimeout(() => {
+      seenTimer.current = null;
+      if (shown.current) hints.seen();
+    }, MIN_VISIBLE_MS);
+  }, []);
   // A hint that ran its course here doesn't start again on the same clip.
   const doneOn = useRef<string | null>(null);
 
   const hide = (why: HintEnd) => {
     if (!shown.current) return;
     shown.current = false;
+    if (seenTimer.current) clearTimeout(seenTimer.current);
+    seenTimer.current = null;
     if (why !== 'left') doneOn.current = p.clipId;
     hints.end(why);
     setOn(false);
   };
 
-  // Opening a double take, by either gesture or the button, is what the hint
-  // asks for: it goes at once, and the open counts towards learning it.
+  // Opening a double take dismisses the hint for this visit, even if it has
+  // not yet appeared. It does not count as having seen the prompt.
   const wasOpen = useRef(p.doubleTakeOpen);
   useEffect(() => {
     if (p.doubleTakeOpen && !wasOpen.current && p.active) {
-      hints.recordOpen();
+      hints.end('gesture');
       hide('gesture');
     }
     wasOpen.current = p.doubleTakeOpen;
@@ -97,8 +116,7 @@ export function GestureHint(p: GestureHintProps) {
     const t = setTimeout(
       () => {
         if (request) hints.takeRequest(request.id);
-        else if (!hints.shouldShow({ hasTells: p.hasTells, blocked: false })) return;
-        hints.start();
+        else if (!hints.shouldShow({ hasTells: p.hasTells, blocked: false }, rememberSeen)) return;
         shown.current = true;
         setDrawn(true);
         setOn(true);
@@ -106,7 +124,7 @@ export function GestureHint(p: GestureHintProps) {
       request ? REQUEST_DELAY_MS : SHOW_DELAY_MS,
     );
     return () => clearTimeout(t);
-  }, [covered, ready, on, p.clipId, p.hasTells, request, s.epoch, s.force]);
+  }, [covered, ready, on, p.clipId, p.hasTells, request, s.epoch, s.force, rememberSeen]);
 
   // Twice through, then it goes by itself (with "Keep showing" it stays, for looking at).
   const timeout = hintTimeout(revealGesture);
@@ -137,8 +155,24 @@ export function GestureHint(p: GestureHintProps) {
       on={on}
       opacity={p.opacity}
       onGone={onGone}
+      onShown={onShown}
     />
   );
+}
+
+/** Background time never counts as seeing the prompt. */
+function useForeground(): boolean {
+  const [active, setActive] = useState(() => Platform.OS === 'web' ? typeof document === 'undefined' || !document.hidden : AppState.currentState === 'active');
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const update = () => setActive(!document.hidden);
+      document.addEventListener('visibilitychange', update);
+      return () => document.removeEventListener('visibilitychange', update);
+    }
+    const sub = AppState.addEventListener('change', (state) => setActive(state === 'active'));
+    return () => sub.remove();
+  }, []);
+  return active;
 }
 
 /** A mouse or trackpad (web, `pointer: fine`), not the screen's width. */

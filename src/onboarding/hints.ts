@@ -1,43 +1,33 @@
 /**
- * The first-run gesture hint over the feed: a demo of how to open the double
- * take ("Hold or double tap" with Both, the default), on the first clips with
- * tells, each session, until the viewer has opened a double take
- * `OPENS_TO_LEARN` times. Pure (no React Native), so it runs under
- * `node --test`; `store.ts` binds it to the device's storage and React, and
- * `GestureHint.tsx` draws it.
+ * The gesture hint returns on every page load for signed-out visitors.
+ * Signed-in viewers who have seen it for MIN_VISIBLE_MS skip it on later
+ * visits. Pure rules; store.ts persists progress and GestureHint.tsx reports
+ * actual visibility after the entrance has finished.
  */
 
-/** Opening a double take this many times teaches the gesture; the hint never comes back after. */
-export const OPENS_TO_LEARN = 2;
+/** A hint counts as seen after this long fully visible on one clip, ms. */
+export const MIN_VISIBLE_MS = 500;
 /** A settled, playing clip shows its hint after this long, ms (also counted from the landing's hand-off). */
 export const SHOW_DELAY_MS = 600;
 /** A hint stays at least this long on screen before it fades out by itself, ms. */
 export const HINT_TIMEOUT_MS = 6000;
 /** How many times a hint plays through before it fades out by itself. */
 export const LOOPS = 2;
-/** A session gives up on the hint after it started on this many clips without being seen through. */
-export const MAX_TRIES_PER_SESSION = 3;
 
-/** Kept on the device. */
+/** Kept on this device; only respected across visits for an identified viewer. */
 export interface HintProgress {
-  /** Double takes opened so far (by any gesture or the button), up to OPENS_TO_LEARN. */
-  opens: number;
+  seen: boolean;
 }
+export const FRESH: Readonly<HintProgress> = Object.freeze({ seen: false });
 
-export const FRESH: Readonly<HintProgress> = Object.freeze({ opens: 0 });
-
-/** The dev settings' "Keep showing": on every clip with tells, whatever the progress. */
 export type HintForce = 'off' | 'doubleTake';
 
-/** This app run only. */
+/** This page load/app run only. Quick glimpses never exhaust retries. */
 export interface HintSession {
-  /** The hint ran its course (timed out) or the viewer opened a double take: no more this session. */
   done: boolean;
-  /** Clips the hint started on this session. */
-  tries: number;
+  seen: boolean;
 }
-
-export const NEW_SESSION: Readonly<HintSession> = Object.freeze({ done: false, tries: 0 });
+export const NEW_SESSION: Readonly<HintSession> = Object.freeze({ done: false, seen: false });
 
 export interface ClipContext {
   hasTells: boolean;
@@ -45,47 +35,32 @@ export interface ClipContext {
   blocked: boolean;
 }
 
-/** Whether this clip should show the hint once its delay is up. */
-export function shouldShow(progress: HintProgress, session: HintSession, clip: ClipContext, force: HintForce = 'off'): boolean {
+export function shouldShow(progress: HintProgress, session: HintSession, clip: ClipContext, force: HintForce = 'off', rememberSeen = false): boolean {
   if (clip.blocked || !clip.hasTells) return false;
   if (force === 'doubleTake') return true;
-  if (progress.opens >= OPENS_TO_LEARN) return false;
-  return !session.done && session.tries < MAX_TRIES_PER_SESSION;
+  return !session.done && !session.seen && !(rememberSeen && progress.seen);
 }
 
-/** The viewer opened a double take. */
-export function recordOpen(p: HintProgress): HintProgress {
-  return p.opens >= OPENS_TO_LEARN ? p : { ...p, opens: p.opens + 1 };
+/** Visibility is continuous on one clip; brief glimpses do not add up. */
+export function recordSeen(progress: HintProgress, visibleMs: number): HintProgress {
+  return progress.seen || visibleMs < MIN_VISIBLE_MS ? progress : { seen: true };
 }
 
-/** The hint started showing on a clip. */
-export function startHint(session: HintSession): HintSession {
-  return { ...session, tries: session.tries + 1 };
-}
-
-/** Why the hint went away. */
 export type HintEnd = 'timeout' | 'gesture' | 'left';
 
-/**
- * The hint went away: it ran its course, the viewer did what it shows, or the
- * clip stopped being active or got covered. Cut short ('left'), it may come
- * back on a later clip; seen through, not this session.
- */
+/** Once seen, leaving the clip ends the hint for this visit. */
 export function endHint(session: HintSession, why: HintEnd): HintSession {
-  return why === 'left' ? session : { ...session, done: true };
+  return why === 'left' && !session.seen ? session : { ...session, done: true };
 }
 
-/** Progress from stored JSON; anything missing or malformed starts fresh. */
+/** Old open counts do not establish that the prompt was actually seen. */
 export function parseProgress(raw: string | null | undefined): HintProgress {
-  let o: Record<string, unknown> = {};
   try {
-    const v: unknown = raw ? JSON.parse(raw) : null;
-    if (v && typeof v === 'object' && !Array.isArray(v)) o = v as Record<string, unknown>;
+    const value: unknown = raw ? JSON.parse(raw) : null;
+    return { seen: !!value && typeof value === 'object' && 'seen' in value && value.seen === true };
   } catch {
-    // Corrupt storage: start over.
+    return { ...FRESH };
   }
-  const opens = typeof o.opens === 'number' && Number.isFinite(o.opens) ? Math.max(0, Math.min(OPENS_TO_LEARN, Math.floor(o.opens))) : 0;
-  return { opens };
 }
 
 /**
