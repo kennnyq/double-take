@@ -1,6 +1,11 @@
 /**
- * Browser check for the timed round, at phone size (touch) and desktop size:
- * Settings → Timed guessing → countdown → mark (double tap / double click / A)
+ * Browser check for the game, at phone size (touch) and desktop size.
+ *
+ * The Game tab: the untimed game in the feed (no countdown, no clock), marks
+ * and skips counted live, more clips dealt as it goes, the answers reaching
+ * Your skills (the Skills tab beside it).
+ *
+ * The timed round (the demo, from Dev settings → Game): countdown → mark (double tap / double click / A)
  * and skip (swipe / wheel / J) → a hidden tab freezes the clock → results →
  * every clip of the round shows, the wrong ones marked → a clip opens full
  * size with its explanation and closes back → Back to feed lands on the feed.
@@ -19,7 +24,7 @@ import { BASE_URL, findChrome } from './browser.ts';
 const GAME_DEV_KEY = 'double-take:game-dev:v1';
 
 type Guess = { clipId: string; guess: 'ai' | 'real'; truth: 'ai' | 'real'; correct: boolean };
-type Snapshot = { phase: string; index: number; shown: number; busy: boolean; remainingMs: number; deadline: number | null; guesses: Guess[]; endReason: string | null; deck: { id: string; truth: string }[] };
+type Snapshot = { timed: boolean; phase: string; index: number; shown: number; busy: boolean; remainingMs: number; deadline: number | null; guesses: Guess[]; endReason: string | null; deck: { id: string; truth: string }[] };
 
 const failures: string[] = [];
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -142,12 +147,23 @@ async function run(browser: Browser, layout: Layout) {
   // The dev builds' design trial bar sits over the phone's tab bar.
   await page.addStyleTag({ content: '[data-trial-bar] { display: none !important; }' });
 
-  // Settings → Timed guessing.
-  if (layout === 'desktop') await page.click('[aria-label="Settings"]');
-  else await page.click('[role="tab"][aria-label="Settings"]');
-  const row = page.locator('[aria-label^="Timed guessing"]').first();
-  await row.waitFor({ timeout: 15_000 });
-  await row.click();
+  const tab = (name: string) => (layout === 'desktop' ? `nav[aria-label="Main"] [aria-label="${name}"]` : `[role="tab"][aria-label="${name}"]`);
+  await untimed(page, layout, tab);
+
+  // The timed round is the demo: Dev settings → Game, not the app's own Settings.
+  if (layout === 'desktop') {
+    await page.getByRole('button', { name: 'Settings', exact: true }).click();
+    await page.waitForSelector('[role="dialog"][aria-label="Settings"]');
+    await page.waitForTimeout(500);
+    check('Settings offers no timed round', (await page.getByText(/Timed guessing/).count()) === 0);
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(600);
+  }
+  await page.keyboard.press('Control+.');
+  await page.locator('[aria-label="Find a setting"]').fill('timed round');
+  const launcher = page.getByText('Play the timed round', { exact: true }).first();
+  await launcher.waitFor({ timeout: 10_000 });
+  await launcher.click();
   await page.getByText('Start', { exact: true }).waitFor({ timeout: 30_000 });
   check('the round opens on /game', new URL(page.url()).pathname === '/game', page.url());
   await page.waitForTimeout(400);
@@ -325,7 +341,6 @@ async function run(browser: Browser, layout: Layout) {
   }
 
   // Skills is a tab of its own (the phone's tab bar, the desktop rail), and back out to Home the same way.
-  const tab = (name: string) => (layout === 'desktop' ? `nav[aria-label="Main"] [aria-label="${name}"]` : `[role="tab"][aria-label="${name}"]`);
   await clickVisible(page, tab('Skills'));
   await page.waitForURL((u) => u.pathname === '/skills', { timeout: 10_000 }).catch(() => {});
   check('the Skills tab opens Your skills', new URL(page.url()).pathname === '/skills', page.url());
@@ -337,6 +352,59 @@ async function run(browser: Browser, layout: Layout) {
   await page.waitForURL((u) => u.pathname === '/', { timeout: 10_000 }).catch(() => {});
   check('Home from the Skills tab lands on the feed', new URL(page.url()).pathname === '/' && !(await anyVisible(page, '.lt-hero')), page.url());
   await context.close();
+}
+
+/** The Game tab: the untimed game, then its answers on the Skills tab beside it, and back to Home. */
+async function untimed(page: Page, layout: Layout, tab: (name: string) => string) {
+  const order = await page.evaluate((sel) => [...document.querySelectorAll(sel)].filter((e) => (e as HTMLElement).offsetParent).map((e) => e.getAttribute('aria-label')), layout === 'desktop' ? 'nav[aria-label="Main"] [aria-label]' : '[role="tab"][aria-label]');
+  const names = order.filter((n): n is string => !!n && ['Home', 'Game', 'Skills', 'Create', 'Profile', 'You', 'Settings'].includes(n));
+  check('the tabs run Home, Game, Skills, Create…', names.slice(0, 4).join() === 'Home,Game,Skills,Create', names);
+  await clickVisible(page, tab('Game'));
+  await page.waitForURL((u) => u.pathname === '/play', { timeout: 10_000 }).catch(() => {});
+  check('the Game tab opens the game', new URL(page.url()).pathname === '/play', page.url());
+  const start = await waitFor(page, 'the game plays at once', (s) => s.timed === false && s.phase === 'playing', 30_000);
+  check('the Game tab plays untimed, with no countdown', start?.timed === false && start.phase === 'playing', start && { timed: start.timed, phase: start.phase });
+  await page.waitForTimeout(800);
+  check('the Game tab shows as the current one', await anyVisible(page, layout === 'desktop' ? `${tab('Game')}[aria-current="page"]` : `${tab('Game')}[aria-selected="true"]`));
+  check('no clock, Start or quit in the untimed game', !(await anyVisible(page, '[data-testid="game-timer"]')) && (await page.getByText('Start', { exact: true }).count()) === 0 && !(await anyVisible(page, '[aria-label="Quit round"]')));
+  check('no verdict, double take or Auto label in the untimed game', (await leaks(page)).length === 0, await leaks(page));
+  const chrome = layout === 'desktop' ? 'nav[aria-label="Main"]' : '[role="tab"][aria-label="Home"]';
+  check(`the app's ${layout === 'desktop' ? 'rail' : 'tab bar'} stays in the Game tab`, await anyVisible(page, chrome));
+
+  await doubleTap(page, layout);
+  const marked = await waitFor(page, 'the mark advances', (s) => s.guesses.length === 1 && !s.busy);
+  check('Game tab: a mark counts', marked?.guesses[0]?.guess === 'ai', marked?.guesses);
+  if (layout === 'desktop') await page.mouse.wheel(0, 240);
+  else await swipeUp(page);
+  const skipped = await waitFor(page, 'the skip advances', (s) => s.guesses.length === 2 && !s.busy);
+  check('Game tab: a skip counts', skipped?.guesses[1]?.guess === 'real', skipped?.guesses);
+  const live = await page.locator('[data-testid="game-score-live"]').last().getAttribute('aria-label');
+  check('the live score shows what was judged', /, 2 judged$/.test(live ?? ''), live);
+
+  if (layout === 'desktop') {
+    // Clip after clip: more are dealt before the deck runs out.
+    const dealt = skipped?.deck.length ?? 0;
+    for (let i = 0; i < dealt; i++) {
+      await page.keyboard.press('j');
+      const n = 3 + i;
+      await waitFor(page, `skip ${n}`, (s) => s.guesses.length === n && !s.busy, 8000);
+    }
+    const g = await game(page);
+    check('the untimed game deals more clips as it goes', (g?.deck.length ?? 0) > dealt && g?.phase === 'playing', { before: dealt, now: g?.deck.length, phase: g?.phase });
+  }
+
+  await page.waitForTimeout(500);
+  const skills = await page.evaluate(() => JSON.parse(localStorage.getItem('double-take.skills.v1') ?? '{}') as { overall?: { n?: number } });
+  check('every answer reaches Your skills', (skills.overall?.n ?? 0) >= 2, skills.overall);
+  await clickVisible(page, tab('Skills'));
+  await page.waitForURL((u) => u.pathname === '/skills', { timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  const general = await page.locator('[data-testid="general-score"]').last().innerText().catch(() => '');
+  check('the Skills tab beside it shows the score', new URL(page.url()).pathname === '/skills' && /^\d+$/.test(general.trim()), { url: page.url(), general });
+  await clickVisible(page, tab('Home'));
+  await page.waitForURL((u) => u.pathname === '/', { timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  check('Home from the Game tab lands on the feed', new URL(page.url()).pathname === '/' && !(await anyVisible(page, '.lt-hero')), page.url());
 }
 
 const browser = await chromium.launch({ executablePath: findChrome() });
