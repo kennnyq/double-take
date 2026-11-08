@@ -29,6 +29,7 @@ import { autoLabel, clipsForMode, modeFilter, modeSwitch, shownIndexOf, staleSlo
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
 import { IDLE, guardOps, opsFor, planFor, type PlaybackState, type PlayerOp, type PlayerPlan } from './playback';
 import { describeAudio } from './audioDebug';
+import type { ScrubPlan } from './scrub';
 import { shrinkGeometry } from './shrink';
 import { playWeb } from './playWeb';
 import { ClipItem } from './ClipItem';
@@ -228,18 +229,49 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
     (s: number, currentTime: number) => {
       const player = players[s];
       if (slotIndex[s] !== activeRef.current || !player.duration) return;
+      // A scrub drives the bar itself (followScrub); its updates arrive late and in bursts.
+      if (playback.current.scrub) return;
       const frac = Math.min(1, currentTime / player.duration);
+      // The real interval: the double take reports every 100 ms, the feed every 250.
+      const tick = player.timeUpdateEventInterval > 0 ? player.timeUpdateEventInterval : 0.25;
       if (frac < lastFrac.current) progress.setValue(frac); // looped
       else
         Animated.timing(progress, {
-          toValue: Math.min(1, frac + (0.25 * player.playbackRate) / player.duration),
-          duration: 250,
+          toValue: Math.min(1, frac + (tick * player.playbackRate) / player.duration),
+          duration: tick * 1000,
           easing: Easing.linear,
           useNativeDriver: true,
         }).start();
       lastFrac.current = frac;
     },
     [players, progress, slotIndex],
+  );
+
+  /**
+   * A scrub (the double take's fast-forward, a tap on the bar) is starting: run
+   * the bar along the same eased curve on the native driver, rather than wait
+   * for time updates, which come late and in bursts while seeking. The next
+   * update after the scrub resyncs it to the player.
+   */
+  const followScrub = useCallback(
+    (plan: ScrubPlan) => {
+      const { slotIndex: slots, active: at } = pool.current;
+      const player = players[slots.indexOf(at)];
+      const d = player?.duration;
+      if (!d || !(plan.ms > 0)) return;
+      const clamp = (v: number) => Math.min(1, Math.max(0, v));
+      progress.stopAnimation();
+      progress.setValue(clamp(plan.from / d));
+      Animated.timing(progress, {
+        toValue: clamp(plan.to / d),
+        duration: plan.ms,
+        // The scrub's own curve (scrub.ts `easeInOut`).
+        easing: Easing.inOut(Easing.sin),
+        useNativeDriver: true,
+      }).start();
+      lastFrac.current = clamp(plan.to / d);
+    },
+    [players, progress],
   );
   useEventListener(p0, 'timeUpdate', (e) => onTime(0, e.currentTime));
   useEventListener(p1, 'timeUpdate', (e) => onTime(1, e.currentTime));
@@ -501,8 +533,9 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
       setScrub: setScrubNow,
       setInspecting,
       setBarDrag,
+      followScrub,
     }),
-    [actions, nav, changePaused, paused, applyNow, setSlowmoNow, setScrubNow],
+    [actions, nav, changePaused, paused, applyNow, setSlowmoNow, setScrubNow, followScrub],
   );
 
   const renderItem = ({ item, index }: { item: Clip; index: number }) => {
@@ -621,4 +654,6 @@ export type FeedHandlers = {
   setInspecting: (on: boolean) => void;
   /** A drag along the progress bar started or ended (the feed doesn't scroll meanwhile). */
   setBarDrag: (on: boolean) => void;
+  /** A scrub is starting: the progress bar follows its plan. */
+  followScrub: (plan: ScrubPlan) => void;
 };

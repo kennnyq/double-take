@@ -266,6 +266,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           onInspect={onInspect}
           motion={motion}
           onSpot={setSpot}
+          onScrubPlan={h.followScrub}
         />
       )}
       {/* The reveal shows the verdict along with the reasoning, in every feed mode. */}
@@ -336,6 +337,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           enabled={p.isActive && !inspecting}
           onHold={h.setScrub}
           onDrag={h.setBarDrag}
+          onFollow={h.followScrub}
         />
       </Reanimated.View>
       {roundWithCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}

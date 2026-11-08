@@ -4,7 +4,7 @@ import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from
 import type { VideoPlayer } from 'expo-video';
 import { themed } from '@/ui/theme';
 import { alpha } from './glass';
-import { easedSeek, safeSeek, setScrubMode } from './scrub';
+import { easedSeek, planScrub, safeSeek, setScrubMode, type ScrubPlan } from './scrub';
 import { fracAt, pressIntent, timeLabel } from './seek';
 
 interface Props {
@@ -18,6 +18,8 @@ interface Props {
   onHold: (on: boolean) => void;
   /** A drag is under way: the feed stops scrolling meanwhile. */
   onDrag: (on: boolean) => void;
+  /** A tap's eased seek is starting: the bar follows its plan (see Feed's followScrub). */
+  onFollow: (plan: ScrubPlan) => void;
 }
 
 /** Seeking is a property write on the player; kept out of the component body. */
@@ -44,7 +46,7 @@ const DRAG_SEEK_MS = 40;
  *  - an up/down swipe that starts on it still moves the feed, and a press on
  *    it never reaches the clip's tap, double-tap or hold.
  */
-export function Scrubber({ player, progress, width, enabled, onHold, onDrag }: Props) {
+export function Scrubber({ player, progress, width, enabled, onHold, onDrag, onFollow }: Props) {
   const tint = useTint();
   const thick = useSharedValue(0);
   const bubbleX = useSharedValue(0);
@@ -113,8 +115,14 @@ export function Scrubber({ player, progress, width, enabled, onHold, onDrag }: P
       else if (s.mode === 'pending' && player && duration()) {
         // A tap: run there.
         s.cancel();
-        const d = duration();
-        s.cancel = easedSeek(player, fracAt(s.startX, width) * d, onHold, (t) => progress.setValue(t / d));
+        const to = fracAt(s.startX, width) * duration();
+        // Hold first (the feed then leaves the bar to the plan), then run there.
+        const plan = planScrub(player.currentTime, to);
+        if (plan.ms > 0) {
+          onHold(true);
+          onFollow(plan);
+        }
+        s.cancel = easedSeek(player, to, onHold);
       }
       s.mode = 'idle';
       press(false);
@@ -136,6 +144,7 @@ export function Scrubber({ player, progress, width, enabled, onHold, onDrag }: P
     <View style={[styles.hit, web.touch]} pointerEvents={enabled ? 'auto' : 'none'} {...handlers}>
       <Reanimated.View style={[styles.track, tint.track, track]} pointerEvents="none">
         <Animated.View
+          testID="dt-progress-fill"
           style={[
             styles.fill,
             tint.fill,
