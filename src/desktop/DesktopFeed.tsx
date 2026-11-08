@@ -21,7 +21,7 @@ import {
   Music2,
   Play,
   Repeat2,
-  ScanEye,
+  Eye,
   Send,
   Sparkles,
   Volume2,
@@ -842,7 +842,7 @@ const Slide = memo(function Slide(p: SlideProps) {
               className={`double-take ${p.inspecting ? 'on' : ''}`}
               pressed={p.inspecting}
             >
-              <ScanEye size={26} />
+              <Eye size={26} />
             </ActionBtn>
           )}
           <ActionBtn

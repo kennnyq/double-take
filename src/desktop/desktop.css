@@ -503,21 +503,27 @@
   color: var(--repost);
 }
 
-/* The double take, on: the icon on a filled disc (a ring of the same colour
-   grows it without moving the column), so "on" reads by shape, not hue.
-   It fills and empties smoothly. */
+/* Lucide's eye uses the same grid, stroke and round caps as the rail.
+   Fill its outer shape continuously, keeping the pupil legible when active. */
 .desk .action-btn.double-take svg {
-  border-radius: 50%;
-  box-shadow: 0 0 0 0 transparent;
-  transition:
-    color 0.25s ease,
-    background-color 0.25s ease,
-    box-shadow 0.25s ease;
+  transition: color 0.22s ease, opacity 0.15s, transform 0.15s;
+}
+.desk .action-btn.double-take svg path {
+  fill: currentColor;
+  fill-opacity: 0;
+  transition: fill-opacity 0.22s ease;
+}
+.desk .action-btn.double-take svg circle {
+  transition: stroke 0.22s ease;
 }
 .desk .action-btn.double-take.on svg {
-  color: var(--dt-on-tell);
-  background: var(--dt-tell);
-  box-shadow: 0 0 0 5px var(--dt-tell);
+  color: var(--dt-tell);
+}
+.desk .action-btn.double-take.on svg path {
+  fill-opacity: 1;
+}
+.desk .action-btn.double-take.on svg circle {
+  stroke: var(--dt-on-tell);
 }
 
 /* Chrome that fades out (and back) with the double take instead of popping. */

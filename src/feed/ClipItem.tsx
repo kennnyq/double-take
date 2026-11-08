@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
-import Reanimated, { interpolate, useAnimatedStyle, useDerivedValue } from 'react-native-reanimated';
+import Reanimated, { interpolate, useAnimatedStyle, useDerivedValue, useSharedValue, withTiming } from 'react-native-reanimated';
 import { VideoView, type VideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -9,7 +9,7 @@ import { formatCount, type Clip, type Verdict } from '@/data/clips';
 import { baseReposts } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
-import { themed, usePalette } from '@/ui/theme';
+import { usePalette } from '@/ui/theme';
 import { useDevSettings } from '@/devtools/store';
 import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
@@ -420,27 +420,27 @@ function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
   );
 }
 
-/**
- * "Look again": an eye in a viewfinder, the double take's mark. While the
- * walkthrough is open it sits on a filled disc, so "on" reads by shape too,
- * not only by colour.
- */
+// Same Ionicons family and 30px size as the other rail actions. Crossfade
+// outline/filled glyphs so opening and closing can retarget without a cut.
 function DoubleTakeIcon({ on }: { on: boolean }) {
   const c = usePalette();
-  const tint = useTint();
-  const color = on ? c.onTell : '#fff';
+  const active = useSharedValue(on ? 1 : 0);
+  useEffect(() => {
+    active.set(withTiming(on ? 1 : 0, { duration: 220 }));
+  }, [on, active]);
+  const outline = useAnimatedStyle(() => ({ opacity: 1 - active.value }));
+  const filled = useAnimatedStyle(() => ({ opacity: active.value }));
   return (
-    <View style={[styles.doubleTakeIcon, on && tint.doubleTakeOn]}>
-      <Ionicons name="scan-outline" size={30} color={color} style={!on && styles.iconShadow} />
-      <Ionicons name="eye" size={14} color={color} style={styles.doubleTakeEye} />
+    <View style={styles.doubleTakeIcon}>
+      <Reanimated.View style={[StyleSheet.absoluteFill, ownLayer, outline]}>
+        <Ionicons name="eye-outline" size={30} color="#fff" style={styles.iconShadow} />
+      </Reanimated.View>
+      <Reanimated.View style={[StyleSheet.absoluteFill, ownLayer, filled]}>
+        <Ionicons name="eye" size={30} color={c.tell} style={styles.iconShadow} />
+      </Reanimated.View>
     </View>
   );
 }
-
-const useTint = themed((c) => ({
-  // A ring of the same colour grows the disc past the icon without moving the rail.
-  doubleTakeOn: { borderRadius: 15, backgroundColor: c.tell, boxShadow: `0 0 0 5px ${c.tell}` },
-}));
 
 function RailButton(props: {
   icon: React.ComponentProps<typeof Ionicons>['name'] | React.ReactElement;
@@ -575,7 +575,6 @@ const styles = StyleSheet.create({
   railBtn: { alignItems: 'center', gap: 3 },
   iconShadow: { ...textShadow },
   doubleTakeIcon: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
-  doubleTakeEye: { position: 'absolute' },
   railLabel: { color: '#fff', fontSize: 12, fontWeight: '500', textAlign: 'center', ...textShadow },
   railLabelCompact: { fontSize: 11, letterSpacing: -0.2 },
   soundThumb: { width: 36, height: 36, borderRadius: 8, borderWidth: 2, borderColor: '#fff', marginTop: 4 },
