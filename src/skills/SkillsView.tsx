@@ -14,30 +14,65 @@ import { themed, usePalette } from '@/ui/theme';
 import { CATEGORY_INFO, SKILL_CATEGORIES, type SkillCategory } from './categories';
 import { SKILL_ICONS, SKILL_TIPS, milestones, weakestSkill } from './insights';
 import { toScore, type Belief } from './skill';
+import type { SkillState } from './state';
 import { Bar, CountTo } from './SkillBars';
 import { useSkillState } from './store';
 import { useScorableCategories } from './useScorable';
 
 type IconName = ComponentProps<typeof Ionicons>['name'];
 
+/** Given data to draw instead of the player's (the landing's showcase): nothing loads, and the buttons do nothing. */
+export interface SkillsDemo {
+  state: SkillState;
+  categories: readonly SkillCategory[];
+}
+
 /**
  * The Skills tab: the general score as a gauge with its likely range, how it
  * moved over your last answers, your streaks and milestones, then one row per
  * skill with a way to spot it and a clip you missed. Everything comes from
  * your own answers on this device. A button practises your weakest skill.
+ *
+ * `demo` draws given data instead (and loads nothing); a new `animate` value
+ * settles everything in again, as on first showing.
  */
-export function SkillsView() {
-  const frame = useFrame();
+export function SkillsView({ demo, animate }: { demo?: SkillsDemo; animate?: string | number } = {}) {
+  if (demo) return <SkillsBody key={animate} state={demo.state} categories={demo.categories} />;
+  return <LiveSkills key={animate} />;
+}
+
+/** The player's own skills, from this device. */
+function LiveSkills() {
   const state = useSkillState();
   const { categories, coverage } = useScorableCategories();
+  const clips = useClipsByKey();
+  return <SkillsBody state={state} categories={categories} coverage={coverage} clips={clips} live />;
+}
+
+function SkillsBody({
+  state,
+  categories,
+  coverage,
+  clips,
+  live = false,
+}: {
+  state: SkillState;
+  categories: readonly SkillCategory[];
+  coverage?: Record<SkillCategory, number>;
+  /** The feed's clips by key, for posters of clips you missed (none: no posters). */
+  clips?: Map<string, Clip>;
+  /** The player's own: the buttons go somewhere. */
+  live?: boolean;
+}) {
+  const frame = useFrame();
   const tint = useTint();
   const c = usePalette();
   const width = Math.min(frame.width, 560) - 32;
-  const unscored = SKILL_CATEGORIES.filter((k) => !categories.includes(k) && coverage[k] > 0);
+  const unscored = coverage ? SKILL_CATEGORIES.filter((k) => !categories.includes(k) && coverage[k] > 0) : [];
   const general = toScore(state.overall);
   const weakest = weakestSkill(state.skills, categories, state.overall);
   const reached = milestones(state.stats);
-  const clips = useClipsByKey();
+  const go = (to: Parameters<typeof router.push>[0]) => (live ? () => router.push(to) : undefined);
   const accuracy = state.stats.answers ? Math.round((100 * state.stats.correct) / state.stats.answers) : null;
 
   // Everything settles in once, eased.
@@ -75,11 +110,11 @@ export function SkillsView() {
 
         {state.stats.answers === 0 ? (
           <Animated.View style={rise(0.15)}>
-            <Action icon="game-controller-outline" label="Play to find out" onPress={() => router.push('/play')} />
+            <Action icon="game-controller-outline" label="Play to find out" onPress={go('/play')} />
           </Animated.View>
         ) : weakest ? (
           <Animated.View style={rise(0.15)}>
-            <Action icon={SKILL_ICONS[weakest] as IconName} label={`Practise ${CATEGORY_INFO[weakest].label}`} onPress={() => router.push({ pathname: '/play', params: { focus: weakest } })} />
+            <Action icon={SKILL_ICONS[weakest] as IconName} label={`Practise ${CATEGORY_INFO[weakest].label}`} onPress={go({ pathname: '/play', params: { focus: weakest } })} />
           </Animated.View>
         ) : null}
 
@@ -97,7 +132,7 @@ export function SkillsView() {
         {/* One row per skill: its score and range, how to spot it, and a clip you missed. */}
         <Animated.View style={[styles.card, tint.card, styles.rows, rise(0.3)]}>
           {categories.map((k, i) => (
-            <SkillRow key={k} k={k} skill={state.skills[k]} t={t} last={i === categories.length - 1} missed={(state.misses[k] ?? []).map((key) => clips.get(key)).find(Boolean)} />
+            <SkillRow key={k} k={k} skill={state.skills[k]} t={t} last={i === categories.length - 1} missed={clips && (state.misses[k] ?? []).map((key) => clips.get(key)).find(Boolean)} />
           ))}
         </Animated.View>
 
@@ -188,11 +223,11 @@ function Stat({ value, label, icon }: { value: number | string; label: string; i
   );
 }
 
-function Action({ icon, label, onPress }: { icon: IconName; label: string; onPress: () => void }) {
+function Action({ icon, label, onPress }: { icon: IconName; label: string; onPress?: () => void }) {
   const tint = useTint();
   const c = usePalette();
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ pressed }) => [styles.action, tint.action, pressed && styles.pressed]}>
+    <Pressable onPress={onPress} disabled={!onPress} accessibilityRole="button" style={({ pressed }) => [styles.action, tint.action, pressed && styles.pressed]}>
       <Ionicons name={icon} size={18} color={c.onAccent} />
       <Text style={[styles.actionText, tint.onAction]}>{label}</Text>
       <Ionicons name="chevron-forward" size={16} color={c.onAccent} />
