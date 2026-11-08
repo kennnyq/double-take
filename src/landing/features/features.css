@@ -2174,3 +2174,19 @@
 .ft[data-narrow] .ft-copy .ft-title {
   display: block;
 }
+
+/* Upload: the Create sheet, over the screen with the tab bar's Upload selected under it. */
+.ft-modal {
+  left: 0;
+  top: 0;
+  width: 393px;
+  height: 852px;
+  overflow: hidden;
+  border-radius: 22px 22px 0 0;
+  background: #000;
+  box-shadow: 0 -12px 40px rgb(0 0 0 / 0.6);
+}
+
+.ft-modal > * {
+  position: absolute;
+}
