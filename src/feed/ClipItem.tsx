@@ -330,13 +330,13 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         style={[styles.meta, wide && styles.metaWide, { opacity: p.chrome }]}
         pointerEvents={inspecting ? 'none' : 'box-none'}
       >
-        <Reanimated.View style={[styles.metaInner, ownLayer, chromeMotion]} pointerEvents="box-none">
+        <Reanimated.View style={[styles.metaInner, ownLayer, chromeMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
           {p.label && (
             <View style={styles.labelRow} pointerEvents="none">
               <VerdictBadge verdict={p.label} />
             </View>
           )}
-          <View style={styles.authorRow} pointerEvents="box-none">
+          <View style={styles.authorRow} pointerEvents={inspecting ? 'none' : 'box-none'}>
             <Avatar name={clip.author} size={32} />
             <Text style={styles.handle} numberOfLines={1}>
               @{clip.author}
@@ -367,7 +367,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
 
       {!wide && (
         <Reanimated.View style={[styles.railWrap, ownLayer, chromeMotion]} pointerEvents={inspecting || p.policy?.lockControls ? 'none' : 'box-none'}>
-          <View style={[StyleSheet.absoluteFill, p.policy?.lockControls && styles.locked]} pointerEvents="box-none">
+          <View style={[StyleSheet.absoluteFill, p.policy?.lockControls && styles.locked]} pointerEvents={inspecting || p.policy?.lockControls ? 'none' : 'box-none'}>
             <Rail {...p} onReveal={onReveal} revealing={inspecting} />
           </View>
         </Reanimated.View>
@@ -375,7 +375,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
 
       {/* The progress bar stays as it is during a double take, out of reach (the walkthrough owns the taps). */}
       <Reanimated.View style={[styles.scrubWrap, ownLayer]} pointerEvents={inspecting || p.policy?.lockControls ? 'none' : 'box-none'}>
-        <View style={[StyleSheet.absoluteFill, p.policy?.lockControls && styles.locked]} pointerEvents="box-none">
+        <View style={[StyleSheet.absoluteFill, p.policy?.lockControls && styles.locked]} pointerEvents={inspecting || p.policy?.lockControls ? 'none' : 'box-none'}>
           <Scrubber
             player={p.isActive ? p.player : null}
             progress={p.isActive ? p.progress : IDLE_PROGRESS}
