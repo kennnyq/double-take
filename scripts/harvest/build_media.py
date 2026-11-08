@@ -8,6 +8,10 @@ Usage:
 so adding clips never drops one whose source link has since died.
 --feed NAME writes feeds/NAME.json (default demo); the Worker serves it at
 /feed?name=NAME. Media is shared: a clip already built for another feed is reused.
+Every build drops clips that are the same footage under two ids (dedupe.py: same
+file, same source URL, or the same frames in order), keeping the better-annotated
+copy and logging each drop; --no-dedupe skips it. Preview what it would drop from an
+existing feed with `python3 -I scripts/harvest/dedupe.py build/feeds/demo.json`.
 --only-kept builds only the new candidates the review site marked keep (rows already
 in the feed stay). Use it for any batch that hasn't been fully reviewed, so nothing
 unreviewed reaches a deployable feed.
@@ -296,6 +300,7 @@ def main() -> None:
     ap.add_argument("--feed", default="demo", help="feed name: writes feeds/NAME.json (default demo)")
     ap.add_argument("--exclude-discarded", action="store_true", help="leave out clips the review marked discard")
     ap.add_argument("--only-kept", action="store_true", help="build only new candidates the review marked keep")
+    ap.add_argument("--no-dedupe", action="store_true", help="keep clips that are the same footage under two ids")
     ap.add_argument("--decisions", help="the review's decisions file (default: review/decisions.jsonl)")
     args = ap.parse_args()
     if not re.fullmatch(r"[\w-]+", args.feed):
@@ -350,6 +355,15 @@ def main() -> None:
     # Refresh tells for every clip, kept ones included, so --merge also picks up tells changes.
     for c in feed:
         attach_tells(c, args.out)
+    # Same footage under two ids (reposts, re-encodes): keep the better-annotated copy.
+    if not args.no_dedupe:
+        sys.path.insert(0, HERE)  # -I leaves the script's folder off the path
+        import dedupe
+        feed, groups = dedupe.dedupe(feed, args.out, os.path.join(args.out, "archive", "dedupe-cache.json"))
+        for g in groups:
+            for d in g["drop"]:
+                extra = f", {d['share']:.0%} of frames" if "share" in d else ""
+                print(f"dup  {d['id']}: {d['why']}{extra}; kept {g['keep']}", file=sys.stderr)
     # Tiles too, so --merge also makes them for clips built before tiles existed.
     with ThreadPoolExecutor(args.jobs) as ex:
         list(ex.map(lambda c: attach_tile(c, args.out), feed))
