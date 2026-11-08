@@ -56,6 +56,8 @@
     "media": "bash scripts/generate-media.sh",
     "key:check": "node scripts/annotate/annotate.ts models",
     "review": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/review/server.ts",
+    "review:publish-prepare": "python3 -I scripts/harvest/review_publish.py prepare",
+    "review:publish-deploy": "python3 -I scripts/harvest/review_publish.py deploy",
     "worktree:env": "bash scripts/worktree-env.sh",
     "check": "tsc --noEmit && expo lint && npm test && npm --prefix worker test",
     "check:prod": "cd worker && BASE_URL=\"${BASE_URL:-https://double-take-api.double-take-api.workers.dev}\" DEMO_PASSCODE=\"$(sed -n 's/^DEMO_PASSCODE=//p' .prod.vars | tr -d '\\\"')\" npm run test:e2e",

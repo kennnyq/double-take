@@ -51,3 +51,9 @@ worker/node_modules/
 
 # Python bytecode from the harvest scripts
 __pycache__/
+
+# Review publish: the candidate build, backups and the pipeline's state (logs, status, summary)
+/build-next/
+/build-prev/
+/build-prev-*/
+/.review-publish/

@@ -1,0 +1,9 @@
+{
+  "at": "2026-11-08T07:51:47.795Z",
+  "cursor": "7cbf2a12-1669-4d84-8ab9-74e67b758255",
+  "publishedAt": "2026-11-08T08:00:00Z",
+  "commit": "841ae6f25990e33f2c0cffe626c0bcbeba3bc7b2",
+  "deployVersion": null,
+  "clips": {"clips": 235, "ai": 151, "real": 84, "other": 0},
+  "seeded": "Production was deployed from 841ae6f (235 clips) before the publish pipeline existed; this marks that deploy's last decision as published."
+}
