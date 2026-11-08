@@ -48,12 +48,23 @@ One clip at a time, shown on a phone-shaped stage the way the app shows it.
 - **The app's own presentation:** the double take runs on the app's own modules: spotlight geometry and masks, info-card placement, eased scrubbing, step order, slow-motion replay windows and the palette.
   - The server serves those files type-stripped under `/app/` (`scripts/review/appModules.ts`), so the reviewer can't drift from the app.
   - `appModules.test.ts` fails if one of them starts importing something the browser can't load.
+- **Live or Step (L):** the toggle by the clock.
+  - **Live** (the default): while the clip plays, the selected run's annotations come up as their time does: the spotlight on the box and the card with the reason. They leave when the tell is over. One at a time; a boxed tell wins over one without.
+  - **Step:** nothing shows during playback; annotations appear only in the double take.
+- **Play / pause:** Space, a click or tap on the stage, or the button by the clock. A disc on the stage flashes the new state and stays up while the clip is paused. It stays hidden while the reviewer itself scrubs.
 - **Annotation runs:** the switcher under the stage picks a run (`shipped` is the feed's own tells; `claude`, `nemotron-dense`… are the alternatives). The double take, the card text and the drawer follow the selected run.
 - **Timeline:**
   - Each run has a lane, with every tell drawn over its window, so all runs' output can be compared at a glance.
   - Hover a marker to see its label.
   - Click a marker to open that tell in the double take; it scrubs there.
   - Click the track to ease to that time, or drag to scrub directly.
+- **All tells (G):** every annotation from every run for this clip, by time or by run.
+  - Open it from the grid button in the top bar, the "All tells" chip by the run switcher, or the link in the drawer's "Your marks".
+  - Each cell has the frame at the tell's focus time with its box spotlighted, the run, the time, and the tell's label and reason.
+  - ★ picks a tell as a good one; the field beside it takes a short note on that tell.
+  - Click a frame or label to jump the player there, in the double take.
+  - **P** picks the tell on screen (live or in the double take) without opening the grid.
+  - Picks and notes show on the card ("★ Picked" and the note), as a ring on the tell's timeline marker, and in the drawer.
 - **Outlines (B):** every run's boxes over the video while they apply. The selected run is solid and labelled; the others are dashed.
 - **Evidence drawer (E):** author and stats, label/tier, sources, the Community Note, the subreddit consensus, the batch evidence, each run's model and date, unplaced claims, any earlier decision, and, for the older clips from the first real batch, the AI↔real partner (pairs aren't a goal any more, and `compare` isn't shipped).
 - **Decisions:** Keep or Drop, with an optional note. A note on its own saves when the field loses focus.
@@ -84,6 +95,9 @@ One clip at a time, shown on a phone-shaped stage the way the app shows it.
 | `D` / `Enter` | double take on / off |
 | `1`–`9`, `V` | pick / cycle the annotation run |
 | `B` | outline every run's boxes |
+| `L` | annotations live while playing / only when stepping |
+| `G` | all tells: every run's annotations in a grid |
+| `P` | pick (★) the annotation on screen |
 | `A` / `X` | keep / drop (again to clear) |
 | `N` | note |
 | `U` | undo |
@@ -102,6 +116,13 @@ One clip at a time, shown on a phone-shaped stage the way the app shows it.
 {"v":1,"id":"<uuid>","at":"…","by":"kenny","key":"x-…","undo":"<id of a set event>"}
 ```
 
+- **Annotation marks:** a set event can carry `tells`, the reviewer's marks on single annotations, keyed `<run>/<tell id>`:
+  ```json
+  {"v":1,"id":"<uuid>","at":"…","by":"kenny","key":"x-…","set":{"tells":{"claude/wallpaper-pattern-switches":{"pick":true,"note":"clearest one"}}}}
+  ```
+  - Each mark merges into what's there, and `null` clears it.
+  - A mark never changes a clip's status, so `build_media.py` (which reads only `status`) ignores marks.
+  - Older readers skip the field.
 - **Folding:** the state of a clip is its set events folded in `(at, id)` order. Later fields win, an undo cancels its target, and `status: null` means unreviewed again.
 - **Merging:** `.gitattributes` marks the file `merge=union`, so two branches that both add decisions merge without conflicts and fold the same way.
 - **Two implementations:** `scripts/review/decisions.ts` and `review.py` both implement the fold. A shared fixture, `scripts/review/fixtures/`, keeps them in step.
@@ -113,6 +134,7 @@ python3 -I scripts/harvest/review.py                         # counts per status
 python3 -I scripts/harvest/review.py --status needs-work     # what to fix, with tags and notes
 python3 -I scripts/harvest/review.py --status discard --json
 python3 -I scripts/harvest/review.py --tag "wrong label"
+python3 -I scripts/harvest/review.py --picks                  # picked annotations and tell notes (--json for one per line)
 ```
 
 ## Mac-side workflow
