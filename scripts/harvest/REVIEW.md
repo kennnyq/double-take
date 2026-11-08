@@ -89,10 +89,11 @@ python3 -I scripts/harvest/review.py --tag "wrong label"
    ```bash
    git pull
    python3 -I scripts/harvest/review.py --status needs-work      # anything to fix by hand first
-   python3 -I scripts/harvest/build_media.py <candidates>.jsonl --out build --merge --exclude-discarded
+   python3 -I scripts/harvest/build_media.py <candidates>.jsonl --out build --merge --only-kept --exclude-discarded
    python3 -I scripts/harvest/build_media.py scripts/harvest/real-<date>.jsonl --out build --feed compare --merge --exclude-discarded
    ```
-   - `--exclude-discarded` leaves discarded clips out of both the new candidates and the kept feed (`--merge`). It reads `--decisions PATH` if you pass one.
+   - `--only-kept` builds only the new candidates marked keep, so a partly reviewed batch never ships its unreviewed clips. Rows already in the feed stay.
+   - `--exclude-discarded` leaves discarded clips out of both the new candidates and the kept feed (`--merge`). Both read `--decisions PATH` if you pass one.
    - In a pair feed (any `--feed` other than `demo`, such as `compare`), a discarded clip also takes its pair with it:
      - a discarded real clip drops out of its pair;
      - an AI clip whose real partners were all discarded drops out;

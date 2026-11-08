@@ -134,10 +134,14 @@ On the Mac, from the repo root with `build/` in place:
 
 ```bash
 brew install deno                       # yt-dlp needs it for YouTube downloads
-python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --feed compare --jobs 4 --exclude-discarded
-python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --merge --jobs 4 --exclude-discarded   # demo: adds the 18 real clips
+python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --feed compare --jobs 4 --only-kept --exclude-discarded
+for b in real-2026-11-07 real-2026-11-07b reddit-2026-11-07; do    # demo: only clips the review kept
+  python3 -I scripts/harvest/build_media.py scripts/harvest/$b.jsonl --out build --merge --jobs 4 --only-kept --exclude-discarded
+done
 cd worker && npm run deploy && cd .. && npm run check:prod
 ```
+
+**Nothing reaches a feed by merging a batch file.** `build/` changes only when `build_media.py` runs on a batch, and `--only-kept` builds only the clips marked keep in the review site. The new batches (`real-2026-11-07b`, `reddit-2026-11-07`) are unreviewed, so leave out `--only-kept` only after reviewing every clip.
 
 The second build reuses everything the first one downloaded. AI partners already in `demo` are never re-encoded.
 
