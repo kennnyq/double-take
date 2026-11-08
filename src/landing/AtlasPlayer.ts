@@ -129,6 +129,13 @@ export class AtlasPlayer {
   readonly mode: AtlasMode;
   private video: HTMLVideoElement | null = null;
   private still: HTMLImageElement | null = null;
+  /**
+   * The video's current frame, copied once per frame: every tile is cut from
+   * this rather than from the video. Drawing from a <video> can convert the
+   * whole frame each time (WebKit does), and boards draw hundreds of tiles.
+   */
+  private frame: CanvasRenderingContext2D | null = null;
+  private framed = false;
   private boards = new Set<Board>();
   private visible = new Set<Board>();
   /** Observed elements (canvases and gates) that are on screen. */
@@ -188,17 +195,48 @@ export class AtlasPlayer {
     } catch {
       return;
     }
-    const v = document.createElement('video');
-    Object.assign(v, { muted: true, playsInline: true, preload: 'auto' });
-    v.setAttribute('aria-hidden', 'true');
-    // Kept in the document (Safari won't play it detached) but out of sight.
-    v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;';
-    v.addEventListener('loadeddata', () => this.drawAll(), { once: true });
+    const make = () => {
+      const v = document.createElement('video');
+      Object.assign(v, { muted: true, playsInline: true, preload: 'auto' });
+      v.setAttribute('aria-hidden', 'true');
+      // Kept in the document (Safari won't play it detached) but out of sight.
+      v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;';
+      v.addEventListener(
+        'loadeddata',
+        () => {
+          this.copyFrame(v);
+          this.drawAll();
+        },
+        { once: true },
+      );
+      return v;
+    };
+    const v = make();
     const { mime, loop } = this.atlas;
-    if (!mime || !streamLoop(v, bytes, mime, loop)) {
-      v.loop = true;
-      v.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
-    }
+    // Made before streaming starts: a browser may detach the bytes it is handed.
+    const file = new Blob([bytes], { type: 'video/mp4' });
+    // The plain file, looping, on a fresh element: where Media Source isn't
+    // there, or takes the stream but can't play it (some WebKit builds fail to
+    // decode through it, and the element then stays broken).
+    const plain = (into: HTMLVideoElement) => {
+      into.loop = true;
+      into.src = URL.createObjectURL(file);
+    };
+    if (!mime || !streamLoop(v, bytes, mime, loop)) plain(v);
+    else
+      v.addEventListener(
+        'error',
+        () => {
+          const fresh = make();
+          plain(fresh);
+          v.replaceWith(fresh);
+          this.video = fresh;
+          this.wantVideo = false;
+          this.frameRequested = false;
+          this.update();
+        },
+        { once: true },
+      );
     document.body.append(v);
     this.video = v;
     this.update();
@@ -238,6 +276,7 @@ export class AtlasPlayer {
       // Where on the atlas's timeline this frame is, and when it shows.
       const t = meta?.mediaTime ?? v.currentTime;
       const shows = meta?.expectedDisplayTime ?? now;
+      this.copyFrame(v);
       this.tickReels(t, shows);
       this.visible.forEach((b) => this.draw(b));
       this.request();
@@ -246,7 +285,21 @@ export class AtlasPlayer {
     else requestAnimationFrame((now) => next(now));
   }
 
+  /** Copies the video's frame into the one canvas tiles are cut from. */
+  private copyFrame(v: HTMLVideoElement) {
+    if (v.readyState < 2 || !v.videoWidth) return;
+    if (!this.frame || this.frame.canvas.width !== v.videoWidth) {
+      const c = document.createElement('canvas');
+      c.width = v.videoWidth;
+      c.height = v.videoHeight;
+      this.frame = c.getContext('2d');
+    }
+    this.frame?.drawImage(v, 0, 0);
+    this.framed = !!this.frame;
+  }
+
   private source(): CanvasImageSource | null {
+    if (this.framed && this.frame) return this.frame.canvas;
     if (this.video && this.video.readyState >= 2) return this.video;
     if (this.still?.complete && this.still.naturalWidth) return this.still;
     return null;
