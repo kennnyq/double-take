@@ -44,6 +44,7 @@ export function Landing({
   features,
   ready,
   fullSrc,
+  preferredClip,
   onLaunch,
   onDone,
 }: {
@@ -54,6 +55,7 @@ export function Landing({
   ready: Promise<unknown>;
   /** The full clip at a feed index. */
   fullSrc(clip: number): string | undefined;
+  preferredClip(): number | undefined;
   /** Mount the app beneath, opened on this clip. */
   onLaunch(clip: number): void;
   onDone(): void;
@@ -61,9 +63,9 @@ export function Landing({
   useFonts();
   const rootRef = useRef<HTMLDivElement>(null);
   const started = useRef(false);
-  const latest = useRef({ v, ready, fullSrc, onLaunch, onDone });
+  const latest = useRef({ v, ready, fullSrc, preferredClip, onLaunch, onDone });
   useLayoutEffect(() => {
-    latest.current = { v, ready, fullSrc, onLaunch, onDone };
+    latest.current = { v, ready, fullSrc, preferredClip, onLaunch, onDone };
   });
 
   const go = useCallback((from: HTMLElement | null) => {
@@ -74,15 +76,15 @@ export function Landing({
     void latest.current.ready
       .then(nextPaint)
       .then(() => {
-        const { v, fullSrc, onLaunch, onDone } = latest.current;
-        return launch(root, v, from, { mountApp: onLaunch, done: onDone, fullSrc });
+        const { v, fullSrc, preferredClip, onLaunch, onDone } = latest.current;
+        return launch(root, v, from, { mountApp: onLaunch, done: onDone, fullSrc, preferredClip });
       })
       .catch((err: unknown) => {
         // Whatever goes wrong in the animation, the visitor still gets the app,
         // never a blank page.
         console.error('landing launch', err);
-        const { onLaunch, onDone } = latest.current;
-        onLaunch(Number(from?.closest<HTMLElement>('[data-tile]')?.dataset.clip) || 0);
+        const { onLaunch, onDone, preferredClip } = latest.current;
+        onLaunch(preferredClip() ?? (Number(from?.closest<HTMLElement>('[data-tile]')?.dataset.clip) || 0));
         onDone();
       });
   }, []);

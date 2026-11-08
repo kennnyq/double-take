@@ -23,9 +23,13 @@ export interface TellSummary {
 /** Kenny's explicit overrides, in order. Unknown/duplicate ids are ignored.
  * Overrides deliberately take priority over quality AND the real/AI interleave.
  */
-export const DEMO_PINNED_FIRST: readonly string[] = ['x-2106432142217765020'];
-/** Editorial preference: keep the opera-glove cat in the mix, below demo leads. */
-const DEMO_SCORE_ADJUSTMENTS: Readonly<Record<string, number>> = { 'x-2082309674960032067': -48 };
+export const DEMO_PINNED_FIRST: readonly string[] = ['x-1996831827357847987'];
+/** Demo editorial preferences; retain these clips below the opening candidates. */
+const DEMO_SCORE_ADJUSTMENTS: Readonly<Record<string, number>> = {
+  'x-2082309674960032067': -48, // Kenny's opera-glove cat preference.
+  'x-2106432142217765020': -48, // Bathroom/trans-topic burned-in caption.
+  'x-1902265979444375861': -48, // Burned-in claim that the Crew-9 rescue is fake.
+};
 /** Stable for this app session; callers/tests can supply a seed for replay. */
 export const DEMO_SESSION_SEED = Math.floor(Math.random() * 0xffffffff);
 export const QUALITY_TIER_WIDTH = 12;

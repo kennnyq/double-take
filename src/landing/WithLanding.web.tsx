@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { RotateCcw } from 'lucide-react';
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
+import { DEMO_PINNED_FIRST } from '@/data/rank';
 import { mediaUri } from '@/desktop/media';
 import { useBlockHints } from '@/onboarding/store';
 import { galleryPicks, parseAtlas, type Atlas } from './atlas';
@@ -109,6 +110,14 @@ export function WithLanding({
     return c ? mediaUri(c.video) : undefined;
   }, []);
 
+  const preferredClip = useCallback(() => {
+    for (const id of DEMO_PINNED_FIRST) {
+      const index = clipsRef.current.findIndex((clip) => clip.sourceId === id);
+      if (index >= 0) return index;
+    }
+    return undefined;
+  }, []);
+
   const showLanding = useCallback(() => {
     setLandingKey((k) => k + 1);
     setStage('landing');
@@ -167,6 +176,7 @@ export function WithLanding({
             features={features.values}
             ready={ready}
             fullSrc={fullSrc}
+            preferredClip={preferredClip}
             onLaunch={onLaunch}
             onDone={onDone}
           />

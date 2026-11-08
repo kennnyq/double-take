@@ -21,11 +21,12 @@ Pure API in `rank.ts`:
   walkthrough shortlist. Filter for eligible atlas cells or
   AI walkthroughs before calling. This deliberately favors quality even when the
   feed's Original option is selected.
-- Edit `DEMO_PINNED_FIRST` to force source ids first. The default pins the room
-  clip, `x-2106432142217765020`. Pins take precedence over interleaving;
+- Edit `DEMO_PINNED_FIRST` to force source ids first. The default pins the komodo
+  clip, `x-1996831827357847987`. Pins take precedence over interleaving;
   missing/duplicate ids are ignored. Kenny's editorial preference subtracts
-  48 points from the opera-glove cat (`x-2082309674960032067`), keeping it in
-  the regular mix below the demo leads and outside the preferred hero band.
+  48 points from the opera-glove cat (`x-2082309674960032067`), bathroom-caption
+  room (`x-2106432142217765020`), and fake-rescue-caption clip
+  (`x-1902265979444375861`), retaining them below the demo leads.
 
 AI scoring: phone aspect (h/w ≥ 1.6) +36, other portrait +12; 8–20 seconds +20,
 shorter +10, 20–30 +8, over 40 −35; +10 per usable boxed tell up to five, +10

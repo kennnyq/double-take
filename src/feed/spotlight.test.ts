@@ -54,8 +54,8 @@ test('padding gives the subject room; roomy is roomier', () => {
   close(rect.w, BOX.w + 2 * paddingPx('normal'));
 });
 
-test('the spotlight is subtle by default and dims less when it also blurs', () => {
-  assert.ok(spotlightStrength(2).dim <= 0.35);
+test('the spotlight defaults to half dimming and dims less when it also blurs', () => {
+  assert.equal(spotlightStrength(2).dim, 0.5);
   assert.ok(spotlightStrength(2, true).dim < spotlightStrength(2).dim);
   assert.ok(spotlightStrength(1).blurPx < spotlightStrength(2).blurPx && spotlightStrength(2).blurPx < spotlightStrength(3).blurPx);
 });

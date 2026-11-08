@@ -64,7 +64,7 @@ export function spotlightStrength(
       ? { dim: 0.22, blurPx: 2, intensity: 12, stillBlur: 3 }
       : level === 3
         ? { dim: 0.55, blurPx: 9, intensity: 45, stillBlur: 10 }
-        : { dim: 0.34, blurPx: 4, intensity: 22, stillBlur: 5 };
+        : { dim: 0.5, blurPx: 4, intensity: 22, stillBlur: 5 };
   return blurring ? { ...s, dim: s.dim * 0.7 } : s;
 }
 

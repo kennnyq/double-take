@@ -76,26 +76,28 @@ test('hero excludes weaker tiers, retains original object references and honors 
   assert.deepEqual(heroCandidates([], 10), []);
 });
 
-test('published demo: multi-box vertical candidates beat the long and 4:5 candidates', () => {
+test('published demo: komodo leads, editorial demotions remain below the preferred band', () => {
   const candidate = (id: string, duration: number, aspect = 9 / 16) => sample(id, {
     duration, aspect, tellsUrl: (DEMO_TELLS as Record<string, TellSummary>)[id].path,
   });
   const cat = candidate('x-2082309674960032067', 10.33);
   const room = candidate('x-2106432142217765020', 15.05);
+  const lead = candidate('x-1996831827357847987', 11.59);
+  const rescue = sample('x-1902265979444375861', { verdict: 'real' });
   const long = candidate('x-2025140310775366103', 63);
   const wide = candidate('x-1944501764553584892', 12, 1024 / 1280);
   assert.equal(tellSummary(cat)?.boxed, 4);
   assert.equal(tellSummary(room)?.boxed, 3);
   assert.ok(scoreClip(cat) > scoreClip(long));
-  assert.ok(scoreClip(room) > scoreClip(wide));
-  assert.ok(scoreClip(room) - scoreClip(cat) > QUALITY_TIER_WIDTH);
+  assert.ok(scoreClip(wide) - scoreClip(room) > QUALITY_TIER_WIDTH);
+  assert.ok(scoreClip(rescue) < scoreClip(sample("ordinary-real", { verdict: "real" })));
   for (const seed of [0, 1, 42, 9876]) {
-    const ranked = rankClips([cat, wide, long, room], { seed });
-    assert.equal(ranked[0], room, 'room is pinned first across sessions');
+    const ranked = rankClips([cat, wide, long, room, lead], { seed });
+    assert.equal(ranked[0], lead, 'komodo is pinned first across sessions');
     assert.ok(ranked.indexOf(cat) > ranked.indexOf(wide), 'cat remains in the lower ranked mix');
-    const leads = heroCandidates([cat, wide, long, room], 3, { seed, minimum: 0 });
-    assert.equal(leads[0], room);
-    assert.ok(!leads.includes(cat), 'cat is outside the preferred hero/showcase band');
+    const leads = heroCandidates([cat, wide, long, room, lead], 3, { seed, minimum: 0 });
+    assert.equal(leads[0], lead);
+    assert.ok(!leads.includes(cat) && !leads.includes(room), 'cat and room stay outside the preferred hero/showcase band');
   }
 });
 

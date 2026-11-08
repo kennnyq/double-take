@@ -22,6 +22,8 @@ export interface LaunchHooks {
   done(): void;
   /** The full clip at feed index `clip`, which the one that stays switches to. */
   fullSrc(clip: number): string | undefined;
+  /** Shared demo pin, resolved to the same feed indices as the gallery. */
+  preferredClip?(): number | undefined;
 }
 
 interface Rect {
@@ -471,9 +473,9 @@ function growOnCompositor(L: Lifted, frames: Keyframe[], target: Rect, targetRad
  * video as the growth began stalled Safari, and the growth's first frames
  * were lost (it leapt).
  */
-async function sharpen(lifted: Lifted, hi: HTMLVideoElement, fadeMs = 360, onCovered?: () => void) {
-  await until(() => hi.readyState >= 2, 600);
-  if (hi.paused) {
+async function sharpen(lifted: Lifted, hi: HTMLVideoElement, fadeMs = 360, onCovered?: () => void, syncTile = true) {
+  await until(() => hi.readyState >= 2, syncTile ? 600 : 2500);
+  if (hi.paused && syncTile) {
     hi.currentTime = Math.min(lifted.time() + 0.06, (hi.duration || 8) - 0.05);
     await Promise.race([new Promise((r) => hi.addEventListener('seeked', r, { once: true })), wait(300)]);
   }
@@ -695,9 +697,18 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     const r = el.getBoundingClientRect();
     return { el, r, seen: visibleFraction(r) };
   });
-  const survivor = fromTile ?? pickSurvivor(tiles, v.pick, button, galleryRect);
+  const preferred = hooks.preferredClip?.();
+  // Prefer the most visible instance of the pin, including wall CTAs that
+  // supply their own tile. Never fly an offscreen room into view.
+  const pinned = preferred === undefined ? [] : tiles.filter((t) => t.seen > 0 && Number(t.el.dataset.clip) === preferred);
+  const preferredTile = pinned.sort((a, b) => b.seen * b.r.width * b.r.height - a.seen * a.r.width * a.r.height)[0]?.el;
+  const survivor = preferredTile ?? fromTile ?? pickSurvivor(tiles, v.pick, button, galleryRect);
   release?.detach(survivor);
-  const clip = Number(survivor.dataset.clip) || 0;
+  const tileClip = Number(survivor.dataset.clip) || 0;
+  const clip = preferred ?? tileClip;
+  const replacing = clip !== tileClip;
+  // Without a visible pin, the existing sharpening fade replaces the tile's
+  // content with the room before handoff; its flight geometry stays intact.
   // Desktop mounts now to measure the growth target, as in c901688. Phones
   // keep mounting after growth so rendering cannot stall their move.
   if (deskFeed) hooks.mountApp(clip);
@@ -709,7 +720,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   {
     const player = playerFor(root);
     const cell = Number(survivor.dataset.cell);
-    if (player && !Number.isNaN(cell)) warm(hi, root, () => player.clipTime(cell));
+    if (replacing) warm(hi, root, () => hi.currentTime);
+    else if (player && !Number.isNaN(cell)) warm(hi, root, () => player.clipTime(cell));
   }
 
   if (reduce) {
@@ -979,7 +991,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     // fallback while the shared video/canvas layer grows across the screen.
     release?.freeze(survivor);
     lifted?.small?.pause();
-  } : undefined);
+  } : undefined, !replacing);
   if (v.beat === 'brackets' || v.beat === 'label') {
     const r = beatOn.getBoundingClientRect();
     beatEl = document.createElement('div');
