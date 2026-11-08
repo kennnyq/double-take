@@ -1071,7 +1071,8 @@
   background: #000;
 }
 
-.lt-lift video {
+.lt-lift video,
+.lt-lift canvas {
   position: absolute;
   inset: 0;
   width: 100%;

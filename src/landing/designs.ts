@@ -177,6 +177,8 @@ export const LANDING_TRIALS = {
     { value: '1000', label: '1 s' },
     { value: '600', label: '0.6 s' },
     { value: '2000', label: '2 s' },
+    { value: '2500', label: '2.5 s' },
+    { value: '3000', label: '3 s' },
   ]),
   growth: trial(LAUNCH, 'It grows', 'growth', [
     { value: 'medium', label: 'Steadily' },
@@ -184,9 +186,9 @@ export const LANDING_TRIALS = {
     { value: 'fast', label: 'Quickly' },
   ]),
   fade: trial(LAUNCH, 'The rest fades out', 'fade', [
-    { value: 'later', label: 'A second in' },
-    { value: 'early', label: 'As it starts' },
-    { value: 'late', label: 'Two seconds in' },
+    { value: 'slower', label: 'Slowly' },
+    { value: 'slow', label: 'Sooner' },
+    { value: 'slowest', label: 'Very slowly' },
   ]),
   pace: trial(LAUNCH, 'Leaving takes', 'pace', [
     { value: '1000', label: '1s' },
@@ -263,7 +265,7 @@ const BASE: LandingValues = {
   pace: '1800',
   start: '1400',
   growth: 'medium',
-  fade: 'later',
+  fade: 'slower',
   focus: 'gradual',
   beat: 'brackets',
   grow: 'straight',
