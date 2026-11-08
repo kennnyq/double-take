@@ -4,7 +4,7 @@ import { dampedSpring } from '@/feed/reveal';
 import { paint, px, useHost, useScene } from '../engine';
 import { GAME_CALLS, answer, isRight } from '../mock';
 import { clamp01, easeInOut, easeOut, lerp, seg } from '../timeline';
-import { AroundScreen, CANVAS_H, CANVAS_W, Canvas, Clip, OnScreen, useShown } from './parts';
+import { AppTabBar, AroundScreen, CANVAS_H, CANVAS_W, Canvas, Clip, OnScreen, useShown } from './parts';
 
 /** Each answer's beats, of the section's progress: the tap, the feedback, the swipe on. */
 const BEATS = [
@@ -151,6 +151,7 @@ export function GameScene() {
               </span>
             </span>
           </div>
+          <AppTabBar active="game" />
           <p className="ft-hint ft-a" ref={hint}>
             Tap if it’s AI · swipe on if it’s real
           </p>

@@ -3,7 +3,7 @@ import { Bookmark, Grid3x3, Heart, Repeat2 } from 'lucide-react';
 import { linesFromTops, revealFrame, revealMetrics, revealPlan, revealWords, type RevealUnit } from '@/feed/reveal';
 import { paint, px, useHost, useScene } from '../engine';
 import { clamp01, easeInOut, easeOut, lerp, plateau, seg } from '../timeline';
-import { AroundScreen, CANVAS_W, Canvas, OnScreen } from './parts';
+import { AppTabBar, AroundScreen, CANVAS_W, Canvas, OnScreen } from './parts';
 
 const NOTE = 'Three for three on hands today';
 const NOTE_METRICS = revealMetrics({ fontSize: 12, lineHeight: 15 });
@@ -218,6 +218,7 @@ export function AccountScene() {
               ))}
             </div>
           </div>
+          <AppTabBar active="you" />
         </Canvas>
       </OnScreen>
       <AroundScreen>

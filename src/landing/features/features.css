@@ -1143,7 +1143,7 @@
 .ft-hint {
   left: 0;
   right: 0;
-  bottom: 60px;
+  bottom: 112px;
   text-align: center;
   font-size: 14px;
   font-weight: 600;
@@ -1956,7 +1956,6 @@
   }
 
   .ftc-wall-grid {
-    grid-template-columns: repeat(6, 22vw);
   }
 }
 
@@ -1972,4 +1971,206 @@
   .ftc-answer small {
     display: none;
   }
+}
+
+/* ------------------------------------------------- the app's chrome (in canvas points) */
+
+/* TabBar.tsx: a floating pill on a black strip, the current tab on a lighter pill. */
+.ft-tabbar {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 8px 12px 0;
+  background: #000;
+  will-change: opacity;
+}
+
+.ft-tabpill {
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  height: 58px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #1f1f1f;
+}
+
+.ft-tab {
+  display: grid;
+  flex: 1;
+  place-items: center;
+  max-width: 84px;
+  height: 44px;
+  border-radius: 999px;
+}
+
+.ft-tab[data-on] {
+  background: #3d3d3d;
+}
+
+/* TopBar.tsx: the sound toggle, top left. */
+.ft-topbar {
+  left: 6px;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5));
+  will-change: opacity;
+}
+
+/* ClipItem.tsx's rail and meta, in points. */
+.ft-canvas .ft-chrome {
+  left: 0;
+  right: 0;
+  top: 0;
+}
+
+.ft-canvas .ft-rail {
+  right: 6px;
+  bottom: 16px;
+  width: 64px;
+  gap: 16px;
+}
+
+.ft-canvas .ft-rail small {
+  font-size: 13px;
+}
+
+.ft-canvas .ft-meta {
+  left: 14px;
+  right: 76px;
+  bottom: 14px;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.ft-canvas .ft-author b {
+  font-size: 16px;
+}
+
+.ft-canvas .ft-author em {
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: #fff;
+  color: #000;
+  font-size: 14px;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+.ft-canvas .ft-avatar {
+  width: 32px;
+  height: 32px;
+  background: linear-gradient(135deg, #79d64f, #2f9e44);
+  font-size: 14px;
+}
+
+/* The gesture hint's hand (HintView.tsx), anchored at its fingertip. */
+.ft-hand {
+  position: absolute;
+  width: 0;
+  height: 0;
+}
+
+.ft-hand-move,
+.ft-hand-at {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0;
+  height: 0;
+  will-change: transform, opacity;
+}
+
+.ft-hand-glyph {
+  position: absolute;
+  line-height: 0;
+}
+
+.ft-hand-shadow {
+  filter: blur(7px);
+}
+
+.ft-ripple {
+  position: absolute;
+  left: 0;
+  top: 0;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2px rgb(245 245 247 / 0.95), 0 0 6px rgb(0 0 0 / 0.35);
+  will-change: transform, opacity;
+}
+
+/* The card's bottom row: its pieces rise one after another (InfoCard's FooterItem). */
+.ft-status {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 12px;
+}
+
+.ft-fpart {
+  will-change: transform, opacity;
+}
+
+/* The wall: every size comes from one column width, so the gap in its middle
+   (two columns by one row) and the words in it scale together, at any screen. */
+.ftc-wall {
+  --col: min(13vw, 15vh, 170px);
+  --gap: clamp(8px, 1.2vw, 16px);
+}
+
+.ftc-wall-grid {
+  grid-template-columns: repeat(6, var(--col));
+  gap: var(--gap);
+}
+
+.ftc-wall-box {
+  position: relative;
+}
+
+.ftc-wall-words {
+  left: 50%;
+  top: 50%;
+  justify-content: center;
+  gap: calc(var(--col) * 0.12);
+  width: calc(2 * var(--col) + var(--gap));
+  max-width: none;
+  height: calc(var(--col) * 16 / 9);
+  padding: 0 calc(var(--col) * 0.06);
+  translate: -50% -50%;
+}
+
+.ftc-wall-words .lt-h2 {
+  font-size: calc(var(--col) * 0.25);
+  line-height: 0.95;
+}
+
+.ftc-wall-words .lt-cta {
+  height: calc(var(--col) * 0.3);
+  min-height: 34px;
+  padding: 0 calc(var(--col) * 0.14);
+  gap: calc(var(--col) * 0.05);
+  font-size: max(13px, calc(var(--col) * 0.1));
+}
+
+.ftc-wall-words .lt-cta svg {
+  width: 1.1em;
+  height: 1.1em;
+}
+
+@media (max-width: 760px) {
+  .ftc-wall {
+    --col: min(22vw, 13vh);
+    --gap: 8px;
+  }
+
+  .ftc-wall-words .lt-h2 {
+    font-size: calc(var(--col) * 0.26);
+  }
+}
+
+/* Phones: center stage draws no big words behind the phone, so its copy keeps its title. */
+.ft[data-narrow] .ft-copy .ft-title {
+  display: block;
 }

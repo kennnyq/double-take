@@ -59,3 +59,29 @@ export const SKILLS: SkillsMock = {
     { label: 'Real', score: 66, before: 61, low: 58, high: 74 },
   ],
 };
+
+/** A tab as the app's tab bar lists it (`src/ui/TabBar.tsx`'s TABS). */
+export interface ShowcaseTab {
+  id: string;
+  label: string;
+  icon: string;
+  iconActive: string;
+}
+
+/**
+ * The tabs the showcase's phone shows: the app's own, with Game and Skills
+ * standing in until `feat/timed-guessing` adds them (that branch's tab bar:
+ * Home, Game, Skills, Create, You; Settings moves into You). Once the app's
+ * tabs have a Game tab, they're shown exactly as they are.
+ */
+export function showcaseTabs<T extends ShowcaseTab>(tabs: readonly T[]): ShowcaseTab[] {
+  if (tabs.some((t) => t.id === 'game')) return [...tabs];
+  const home = tabs.filter((t) => t.id === 'home');
+  const rest = tabs.filter((t) => t.id !== 'home' && t.id !== 'settings');
+  return [
+    ...home,
+    { id: 'game', label: 'Game', icon: 'game-controller-outline', iconActive: 'game-controller' },
+    { id: 'skills', label: 'Skills', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
+    ...rest,
+  ];
+}

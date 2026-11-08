@@ -108,14 +108,14 @@ export function HintView(props: {
 
 type Ease = (t: number) => number;
 /** [time in the loop 0–1, value, easing into this frame]. */
-type Frame = [number, number, Ease?];
+export type Frame = [number, number, Ease?];
 type Anim = Animated.AnimatedInterpolation<number>;
 
 const smooth: Ease = Easing.inOut(Easing.cubic);
 const press: Ease = Easing.out(Easing.quad);
 const springy: Ease = Easing.out(Easing.back(2.2));
 
-interface Spec {
+export interface Spec {
   /** 0 up, 1 pressed: down, a springy half lift between taps, a springy lift off. */
   press: Frame[];
   /** When each tap lands, and how much of the loop its ripple takes. */
@@ -127,7 +127,7 @@ interface Spec {
   still: number;
 }
 
-const SPECS: Record<Demo, Spec> = {
+export const SPECS: Record<Demo, Spec> = {
   doubleTap: {
     press: [[0, 0], [0.16, 0], [0.24, 1, press], [0.31, 0.3, springy], [0.38, 1, press], [0.56, 0, springy], [1, 0]],
     taps: [0.24, 0.38],
@@ -150,6 +150,20 @@ const SPECS: Record<Demo, Spec> = {
     still: 0.66,
   },
 };
+
+/**
+ * The same keyframes read at one point `u` of the loop (0–1), for something
+ * other than a clock to drive them (the landing's scroll).
+ */
+export function frameAt(frames: Frame[], u: number): number {
+  if (u <= frames[0][0]) return frames[0][1];
+  for (let i = 1; i < frames.length; i++) {
+    const [u1, v1, ease = smooth] = frames[i];
+    const [u0, v0] = frames[i - 1];
+    if (u <= u1) return u1 === u0 ? v1 : v0 + (v1 - v0) * ease((u - u0) / (u1 - u0));
+  }
+  return frames[frames.length - 1][1];
+}
 
 /**
  * A value over the loop: keyframes sampled along each easing, so one linear
@@ -208,10 +222,10 @@ function DemoView({ spec, clock, design }: { spec: Spec; clock: Animated.Value; 
 
 // ---- the hand ---------------------------------------------------------------------
 
-const HAND = 66;
+export const HAND = 66;
 // The bundled hand-pointing-up glyph uses a 512-unit em, ascent 448.
 // Its index finger spans x=256…299; the rounded fingertip's center is y=384.
-const HAND_TIP = { x: (256 + 299) / 2 / 512, y: (448 - 384) / 512 };
+export const HAND_TIP = { x: (256 + 299) / 2 / 512, y: (448 - 384) / 512 };
 
 /** A hand silhouette whose soft drop shadow tightens under it as it presses. */
 function Hand({ p }: { p: Anim }) {
@@ -313,8 +327,8 @@ function Ripple({ clock, at, span }: { clock: Animated.Value; at: number; span: 
   return <Animated.View style={[styles.ripple, tint.ripple, { opacity, transform: [{ scale }] }]} />;
 }
 
-const RING = 54;
-const RIPPLE = RING * 0.6;
+export const RING = 54;
+export const RIPPLE = RING * 0.6;
 const STROKE = 3;
 
 /**

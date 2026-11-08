@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import { paint, px, useHost, useScene } from '../engine';
 import { SKILLS } from '../mock';
 import { easeInOut, easeOut, lerp, plateau, seg, wheels } from '../timeline';
-import { AroundScreen, CANVAS_W, Canvas, OnScreen } from './parts';
+import { AppTabBar, AroundScreen, CANVAS_W, Canvas, OnScreen } from './parts';
 
 const DIGITS = Array.from({ length: 11 }, (_, i) => i % 10);
 const ROW_H = 64;
@@ -136,6 +136,7 @@ export function SkillsScene() {
             ))}
             <p className="ft-note-sk">50 is guessing. The faint band is how sure the score is; it narrows with every answer.</p>
           </div>
+          <AppTabBar active="skills" />
         </Canvas>
       </OnScreen>
       <AroundScreen>

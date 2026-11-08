@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { follow, layoutSections, localProgress, presence, stepsAt, wheels, SECTION_SCREENS } from './timeline.ts';
 import { checkLook, dotLook, walkFrame, STEPS_FROM, STEPS_TO } from './walk.ts';
-import { GAME_CALLS, SKILLS, answer, isRight } from './mock.ts';
+import { GAME_CALLS, SKILLS, answer, isRight, showcaseTabs } from './mock.ts';
 
 test('layoutSections: end to end, scaled, skipping hidden ones', () => {
   const l = layoutSections(['scroll', 'game'], 0.5);
@@ -63,6 +63,8 @@ test('walkFrame: every motion is continuous in the scroll (no jumps)', () => {
     assert.ok(maxJump((p) => walkFrame(p, n).open) < 0.01);
     assert.ok(maxJump((p) => walkFrame(p, n).at) < 0.01, 'the step position');
     assert.ok(maxJump((p) => walkFrame(p, n).lift) < 0.02, 'the card out and back');
+    assert.ok(maxJump((p) => walkFrame(p, n).footer) < 0.02, 'the card\'s bottom row');
+    assert.ok(maxJump((p) => walkFrame(p, n).hand) < 0.01, 'the hand');
     for (let j = 0; j < n; j++) assert.ok(maxJump((p) => walkFrame(p, n).text[j]) < 0.02, `step ${j}'s text`);
   }
 });
@@ -79,6 +81,7 @@ test('walkFrame: the walkthrough is closed before and after, on each step in bet
     assert.equal(f.text[k], 1, 'its text fully in by mid-step');
   }
   assert.equal(walkFrame(0.05, 3).video, -1, 'the feed plays before it opens');
+  assert.equal(walkFrame(STEPS_FROM + span * 1.5, 3).footer, 1, 'the bottom row stays as the steps change');
 });
 
 test('dots and check: reached in order, the check only on the last step', () => {
@@ -102,4 +105,15 @@ test('mock: answers follow the clip, and the skill scores stay in range', () => 
   assert.ok(!isRight(answer('real', 'ai')));
   assert.equal(answer('real', 'ai', 'Uploaded 2016').why, 'Uploaded 2016');
   for (const r of SKILLS.rows) assert.ok(r.low <= r.score && r.score <= r.high && r.high <= 100);
+});
+
+test('showcaseTabs: Game and Skills stand in after Home until the app has them', () => {
+  const tab = (id: string) => ({ id, label: id, icon: `${id}-outline`, iconActive: id });
+  const main = [tab('home'), tab('create'), tab('you'), tab('settings')];
+  assert.deepEqual(
+    showcaseTabs(main).map((t) => t.id),
+    ['home', 'game', 'skills', 'create', 'you'],
+  );
+  const merged = [tab('home'), tab('game'), tab('skills'), tab('create'), tab('you')];
+  assert.deepEqual(showcaseTabs(merged), merged, 'the real ones, as they are');
 });

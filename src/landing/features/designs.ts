@@ -41,10 +41,10 @@ export const FEATURE_TRIALS = {
     { value: 'poster', label: 'The clip, blurred' },
   ]),
   cta: trial(LOOK, 'Last call to action', 'fcta', [
+    { value: 'wall', label: 'The wall comes back' },
     { value: 'quiz', label: 'Real or AI? on three clips' },
     { value: 'phone', label: 'The phone becomes the app' },
     { value: 'score', label: 'A score to beat' },
-    { value: 'wall', label: 'The wall comes back' },
     { value: 'plain', label: 'Heading and button' },
   ]),
   nav: trial(LOOK, 'Section index', 'fnav', [
@@ -63,7 +63,11 @@ export const FEATURE_TRIALS = {
     { value: 'direct', label: 'Exactly' },
     { value: 'floaty', label: 'Loosely' },
   ]),
-  pop: trial(MOTION, 'Cards out of the screen', 'fpop', [
+  card: trial(MOTION, 'Walkthrough card', 'fcard', [
+    { value: 'lift', label: 'Lifted a little to the side' },
+    { value: 'out', label: 'Out beside the phone' },
+  ]),
+  pop: trial(MOTION, 'Other cards out of the screen', 'fpop', [
     { value: 'full', label: 'Out beside the phone' },
     { value: 'subtle', label: 'A little' },
     { value: 'wild', label: 'Far, in 3D' },
@@ -95,10 +99,11 @@ const BASE: FeatureValues = {
   layout: 'side',
   device: 'titanium',
   glow: 'soft',
-  cta: 'quiz',
+  cta: 'wall',
   nav: 'dots',
   length: 'medium',
   follow: 'smooth',
+  card: 'lift',
   pop: 'full',
   tilt: 'some',
   steps: '3',
@@ -120,13 +125,13 @@ export const FEATURE_PRESETS: readonly Preset<FeatureTrials>[] = [
     id: 'stage',
     label: 'Center stage',
     note: 'The phone in the middle, big words behind it. Cards come out to both sides, further, in 3D.',
-    values: { ...BASE, layout: 'stage', pop: 'wild', tilt: 'more', glow: 'poster', cta: 'phone' },
+    values: { ...BASE, layout: 'stage', pop: 'wild', tilt: 'more', glow: 'poster' },
   },
   {
     id: 'rail',
     label: 'Story rail',
     note: 'Scrolling moves a row of panels sideways past the phone; cards land on the panel.',
-    values: { ...BASE, layout: 'rail', device: 'black', tilt: 'none', cta: 'wall' },
+    values: { ...BASE, layout: 'rail', device: 'black', tilt: 'none' },
   },
 ];
 

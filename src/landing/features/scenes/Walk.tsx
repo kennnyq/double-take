@@ -4,14 +4,14 @@ import { Asset } from 'expo-asset';
 import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { DEFAULT_SETTINGS } from '@/devtools/settings';
 import { cardSpot, type CardSpot } from '@/feed/card';
-import { linesFromTops, revealFrame, revealMetrics, revealPlan, revealWords, type RevealUnit } from '@/feed/reveal';
+import { SIRI, linesFromTops, revealFrame, revealMetrics, revealPlan, revealWords, type RevealUnit } from '@/feed/reveal';
 import { planScrub, runScrub, safeSeek } from '@/feed/scrub';
 import { MASK_SIZE, dimBands, holeFor, maskFor, maskPlacement, paddingPx, spotlightStrength, type Hole, type MaskName, type Rect } from '@/feed/spotlight';
 import { boxOnScreen, type DemoStep } from '../demo';
 import { paint, px, useHost, useScene, type Dims } from '../engine';
-import { clamp01, easeInOut, easeOut, lerp } from '../timeline';
+import { clamp01, easeInOut, lerp } from '../timeline';
 import { checkLook, dotLook, walkFrame } from '../walk';
-import { AroundScreen, Clip, FeedChrome, OnScreen } from './parts';
+import { AppTabBar, AppTopBar, AroundScreen, CANVAS_W, Canvas, Clip, FeedChrome, OnScreen, TapHand, tabStrip, paintHand } from './parts';
 
 /** The dimming images the app's spotlight uses: black outside a soft-edged hole. */
 const HOLE_IMAGES: Record<MaskName, number> = {
@@ -30,6 +30,18 @@ const FOOTER = 40;
 const BOTTOM = 9;
 /** How far the card travels as it comes in (InfoCard's TRAVEL). */
 const TRAVEL = 18;
+/** The bottom row's pieces rise the way InfoCard's FooterItem does. */
+const FOOTER_METRICS = { lineHeight: 20, descent: 3.6 };
+
+/** When the bottom row starts, on the card's clock: its text's last line plus one line stagger (InfoCard's footerStart). */
+function footerStart(total: number): number {
+  return Math.max(0, total - SIRI.settle) + SIRI.lineStagger;
+}
+
+/** The card's whole entrance on its clock: the text, then the bottom row's three pieces settled (InfoCard's). */
+function fullMs(total: number): number {
+  return Math.max(total, footerStart(total) + 24 + SIRI.settle);
+}
 
 interface Plan {
   units: RevealUnit[];
@@ -48,15 +60,31 @@ interface StepGeo {
   spot: CardSpot;
 }
 
+/** The feed's video area on the phone, px: the screen above the app's tab bar. */
+export function feedHeight(d: Dims): number {
+  return d.sh - tabStrip() * (d.sw / CANVAS_W);
+}
+
 function geometry(steps: DemoStep[], aspect: number, d: Dims, cardW: number, plans: Plan[]): StepGeo[] {
+  const fh = feedHeight(d);
   return steps.map((st, k) => {
-    const box = st.box ? boxOnScreen(st.box, aspect, d.sw, d.sh) : { x: d.sw * 0.25, y: d.sh * 0.35, w: d.sw * 0.5, h: d.sh * 0.2 };
-    const hole = holeFor(box, S.spotlightShape, paddingPx(S.spotlightPadding) * (d.sw / 393));
+    const box = st.box ? boxOnScreen(st.box, aspect, d.sw, fh) : { x: d.sw * 0.25, y: fh * 0.35, w: d.sw * 0.5, h: fh * 0.2 };
+    const hole = holeFor(box, S.spotlightShape, paddingPx(S.spotlightPadding) * (d.sw / CANVAS_W));
     const h = TEXT_TOP + (plans[k]?.height ?? 40) + FOOTER + BOTTOM;
-    const spot = cardSpot({ hole, subject: box, placement: 'bottom', stageW: d.sw, stageH: d.sh, cardH: h, safeTop: 56, safeBottom: 20, maxWidth: cardW });
-    const y = spot.side === 'top' ? spot.offset : d.sh - spot.offset - h;
+    const spot = cardSpot({ hole, subject: box, placement: 'bottom', stageW: d.sw, stageH: fh, cardH: h, safeTop: 56, safeBottom: 20, maxWidth: cardW });
+    const y = spot.side === 'top' ? spot.offset : fh - spot.offset - h;
     return { box, hole, x: spot.cx - spot.width / 2, y, h, spot };
   });
+}
+
+/**
+ * The card lifted a little off the screen toward `side`: a short sideways
+ * offset (past the screen's edge if it's near one), a touch nearer, a soft
+ * shadow under it. It stays parallel to the screen.
+ */
+function liftPlace(g: StepGeo, side: 1 | -1, d: Dims, w: number) {
+  const shift = Math.min(w * (d.narrow ? 0.05 : 0.11), d.narrow ? 14 : 34) * Math.min(1, d.pop || 1);
+  return { x: g.x + side * shift, y: g.y - (d.narrow ? 4 : 8), z: d.narrow ? 14 : 30, rot: 0, scale: 1.02 };
 }
 
 /** Where a card goes out to: beside the phone on `side`, level with its tell (or on the rail's panel). */
@@ -100,7 +128,10 @@ export function WalkScene() {
   const holeEl = useRef<HTMLImageElement>(null);
   const spotEl = useRef<HTMLDivElement>(null);
   const bandEls = useRef<(HTMLDivElement | null)[]>([]);
-  const rings = useRef<(HTMLElement | null)[]>([]);
+  const hand = useRef<HTMLDivElement>(null);
+  const topBar = useRef<HTMLDivElement>(null);
+  const tabBar = useRef<HTMLDivElement>(null);
+  const footerParts = useRef<(HTMLElement | null)[]>([]);
   const corners = useRef<(HTMLElement | null)[]>([]);
   const card = useRef<HTMLDivElement>(null);
   const glass = useRef<HTMLDivElement>(null);
@@ -223,13 +254,17 @@ export function WalkScene() {
     if (showA !== aPlaying) setAPlaying(showA);
 
     // The feed: the first clip slides up and away, the next comes up under it.
-    paint(clipA.current, `translate3d(0, ${px(-f.swipe * d.sh)}, 0)`, 1);
-    paint(clipB.current, `translate3d(0, ${px((1 - f.swipe) * d.sh)}, 0)`, 1);
-    paint(chromeB.current, `translate3d(0, ${px(f.open * 10)}, 0)`, 1 - f.open);
+    const fh = feedHeight(d);
+    paint(clipA.current, `translate3d(0, ${px(-f.swipe * fh)}, 0)`, 1);
+    paint(clipB.current, `translate3d(0, ${px((1 - f.swipe) * fh)}, 0)`, 1);
+    // The app's chrome fades while the double take is open (the tab bar's pill, the sound toggle, the clip's own).
+    paint(chromeB.current, 'none', 1 - f.open);
     paint(chromeA.current, 'none', 1);
+    paint(topBar.current, 'none', 1 - f.open);
+    paint(tabBar.current, 'none', 1 - f.open);
 
-    // The double tap.
-    f.tap.forEach((t, i) => paint(rings.current[i], `scale(${(0.5 + 1.1 * easeOut(t)).toFixed(4)})`, t > 0 && t < 1 ? (1 - t) * 0.9 : 0));
+    // The double tap: the gesture hint's hand, its press and lift run by the scroll.
+    paintHand(hand.current, f.hand);
 
     const g = geo.current;
     if (!g.length || !n) {
@@ -253,34 +288,47 @@ export function WalkScene() {
     // opacity on their group), so neither a light nor a dark seam shows where they meet.
     paint(spotEl.current, 'none', shade);
     paint(holeEl.current, `translate3d(${px(r.x + r.w / 2)}, ${px(r.y + r.h / 2)}, 0) scale(${(r.w / MASK_SIZE).toFixed(5)}, ${(r.h / MASK_SIZE).toFixed(5)})`, 1);
-    dimBands(d.sw, d.sh, { x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }).forEach((b, i) =>
+    dimBands(d.sw, fh, { x: r.x + 1, y: r.y + 1, w: r.w - 2, h: r.h - 2 }).forEach((b, i) =>
       paint(bandEls.current[i], `translate3d(${px(b.tx)}, ${px(b.ty)}, 0) scale(${b.sx.toFixed(5)}, ${b.sy.toFixed(5)})`, 1),
     );
 
     // The card: in from below its tell as the double take opens, then over to each next tell.
     const lift = f.lift;
     const side: 1 | -1 = d.popSide === 0 ? (k % 2 ? -1 : 1) : d.popSide;
+    const lifted = values.card === 'lift' || d.pop <= 0;
     const popScale = d.narrow ? 1 : Math.min(1.15, 1 + 0.1 * d.pop);
-    const out = popPlace(cur, side, d, cardW, popScale);
+    const out = lifted ? liftPlace(cur, side, d, cardW) : popPlace(cur, side, d, cardW, popScale);
     const L = easeInOut(lift);
     const h = mix(prev.h, cur.h);
     const x = lerp(mix(prev.x, cur.x), out.x, L);
     const y = lerp(mix(prev.y, cur.y), out.y, L) + (1 - f.open) * TRAVEL;
-    // Out along an arc: a little further forward on the way than where it lands.
-    const z = out.z * L + Math.sin(Math.PI * lift) * 26 * d.pop;
+    // Out along an arc: a little further forward on the way than where it lands (lifted: straight up off the screen).
+    const z = out.z * L + (lifted ? 0 : Math.sin(Math.PI * lift) * 26 * d.pop);
     const s = (0.96 + 0.04 * f.open) * lerp(1, out.scale, L);
     paint(card.current, `translate3d(${px(x)}, ${px(y)}, ${px(z)}) rotateY(${(out.rot * L).toFixed(3)}deg) scale(${s.toFixed(4)})`, f.open);
     paint(glass.current, `scaleY(${(h / 200).toFixed(4)})`, 1);
     paint(footer.current, `translate3d(0, ${px(h - FOOTER - BOTTOM)}, 0)`, 1);
-    paint(shadow.current, `translate3d(0, ${px(h * 0.5 + 18 * L)}, 0) scale(1, ${(h / 200).toFixed(4)})`, L * 0.9);
-    chips.current.forEach((el, j) => paint(el, `translate3d(0, ${px((1 - L) * 8)}, 0)`, j === k ? L : 0));
+    // The shadow falls away from the side it lifts toward, softly, as if lit from above.
+    paint(shadow.current, `translate3d(${px(-side * (lifted ? 10 : 0) * L)}, ${px(h * 0.5 + (lifted ? 10 : 18) * L)}, 0) scale(1, ${(h / 200).toFixed(4)})`, L * (lifted ? 0.75 : 0.9));
+    chips.current.forEach((el, j) => paint(el, `translate3d(0, ${px((1 - L) * 8)}, 0)`, !lifted && j === k ? L : 0));
+
+    // The bottom row rises after the text (the app's order: the text, then the dots and arrows, one beat apart).
+    const ref = plans.current[k];
+    if (ref) {
+      const ms = f.footer * fullMs(ref.total);
+      const start = footerStart(ref.total);
+      footerParts.current.forEach((el, i) => {
+        const fr = revealFrame('siri', ms, { move: start + 12 * i, fade: start + 12 * i }, FOOTER_METRICS);
+        paint(el, `translateY(${fr.translateY.toFixed(2)}px)`, fr.opacity);
+      });
+    }
 
     // The text: each step's words rise in line by line, and reverse out as the next comes.
     f.text.forEach((t, j) => {
       const plan = plans.current[j];
       const els = words.current[j];
       if (!plan || !els) return;
-      const ms = t * plan.total;
+      const ms = t * fullMs(plan.total);
       paint(texts.current[j], 'none', t > 0 ? 1 : 0);
       plan.units.forEach((u, w) => {
         const fr = revealFrame('siri', ms, u, TEXT);
@@ -303,15 +351,15 @@ export function WalkScene() {
     const cx0 = Math.max(10, hole.x);
     const cy0 = Math.max(10, hole.y);
     const cx1 = Math.min(d.sw - 10, hole.x + hole.w);
-    const cy1 = Math.min(d.sh - 10, hole.y + hole.h);
+    const cy1 = Math.min(fh - 10, hole.y + hole.h);
     const cs = [
       [cx0, cy0],
       [cx1, cy0],
       [cx0, cy1],
       [cx1, cy1],
     ];
-    cs.forEach(([cx, cy], i) => paint(corners.current[i], `translate3d(${px(cx)}, ${px(cy)}, ${px(L * 18 * d.pop)})`, f.open * (0.55 + 0.45 * L)));
-    if (!d.narrow && d.pop > 0) {
+    cs.forEach(([cx, cy], i) => paint(corners.current[i], `translate3d(${px(cx)}, ${px(cy)}, ${px(lifted ? 0 : L * 18 * d.pop)})`, f.open * (lifted ? 0.8 : 0.55 + 0.45 * L)));
+    if (!lifted && !d.narrow && d.pop > 0) {
       const x0 = side > 0 ? hole.x + hole.w : hole.x;
       const y0 = hole.y + hole.h / 2;
       const x1 = side > 0 ? x : x + cardW * s;
@@ -321,21 +369,27 @@ export function WalkScene() {
       paint(wire.current, `translate3d(${px(x0)}, ${px(y0)}, ${px(z * 0.5)}) rotate(${ang.toFixed(4)}rad) scaleX(${(len / 100).toFixed(4)})`, L * L);
     } else paint(wire.current, 'none', 0);
 
-    // The phone turns a little toward the card that's out.
-    return side * 6 * L * Math.min(1, d.pop);
+    // The phone turns a little toward the card that's out (lifted: hardly at all).
+    return side * (lifted ? 1.5 : 6) * L * Math.min(1, d.pop);
   });
 
+  const k = dims ? dims.sw / CANVAS_W : 1;
+  const fh = dims ? feedHeight(dims) : 0;
   const chrome = (c: typeof walk | typeof other, ref: React.RefObject<HTMLDivElement | null>) =>
-    c ? <FeedChrome author={c.author} caption={c.caption} chromeRef={ref} /> : null;
+    c ? (
+      <Canvas k={k}>
+        <FeedChrome author={c.author} caption={c.caption} chromeRef={ref} />
+      </Canvas>
+    ) : null;
 
   return (
     <>
       <OnScreen layerRef={layer}>
-          <div className="ft-clip" ref={clipA}>
+          <div className="ft-clip" ref={clipA} style={{ bottom: 'auto', height: fh }}>
             <Clip src={seen ? other?.video : undefined} poster={other?.poster} playing={aPlaying} />
             {chrome(other, chromeA)}
           </div>
-          <div className="ft-clip" ref={clipB}>
+          <div className="ft-clip" ref={clipB} style={{ bottom: 'auto', height: fh }}>
             <Clip src={seen ? walk?.video : undefined} poster={walk?.poster} playing={false} videoRef={videoB} loop={false} />
             {chrome(walk, chromeB)}
             <div className="ft-spot" ref={spotEl} style={{ opacity: 0 }} aria-hidden>
@@ -343,7 +397,7 @@ export function WalkScene() {
                 <div
                   key={i}
                   className="ft-band"
-                  style={{ width: dims?.sw, height: dims?.sh }}
+                  style={{ width: dims?.sw, height: fh }}
                   ref={(el) => {
                     bandEls.current[i] = el;
                   }}
@@ -352,20 +406,11 @@ export function WalkScene() {
               <img className="ft-hole" ref={holeEl} src={holeUri} alt="" />
             </div>
           </div>
-          <div className="ft-top">
-            <span>Following</span>
-            <b>For you</b>
-          </div>
-          {[0, 1].map((i) => (
-            <i
-              key={i}
-              className="ft-ring"
-              style={{ opacity: 0 }}
-              ref={(el) => {
-                rings.current[i] = el;
-              }}
-            />
-          ))}
+          <Canvas k={k}>
+            <AppTopBar barRef={topBar} />
+            <AppTabBar active="home" barRef={tabBar} />
+            <TapHand x={CANVAS_W / 2} y={380} handRef={hand} />
+          </Canvas>
       </OnScreen>
       <AroundScreen>
         {[0, 1, 2, 3].map((i) => (
@@ -420,6 +465,13 @@ export function WalkScene() {
             </div>
           ))}
           <div className="ft-footer" ref={footer}>
+            <span
+              className="ft-fpart ft-status"
+              style={{ opacity: 0 }}
+              ref={(el) => {
+                footerParts.current[0] = el;
+              }}
+            >
             <span className="ft-loop">
               <i ref={loopFill} />
             </span>
@@ -433,11 +485,24 @@ export function WalkScene() {
                 />
               ))}
             </span>
+            </span>
             <span className="ft-navs">
-              <span className="ft-nav-btn">
+              <span
+                className="ft-nav-btn ft-fpart"
+                style={{ opacity: 0 }}
+                ref={(el) => {
+                  footerParts.current[1] = el;
+                }}
+              >
                 <ChevronLeft size={16} />
               </span>
-              <span className="ft-nav-btn">
+              <span
+                className="ft-nav-btn ft-fpart"
+                style={{ opacity: 0 }}
+                ref={(el) => {
+                  footerParts.current[2] = el;
+                }}
+              >
                 <i className="ft-nav-fill" ref={fillOn} style={{ opacity: 0 }} />
                 <span ref={arrow} className="ft-nav-icon">
                   <ChevronRight size={16} />
