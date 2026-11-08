@@ -112,6 +112,7 @@ After the launch the address gets `#app`, so a reload stays in the app, and Back
 
 - **How usernames work:** Supabase Auth needs an email per user, so `kenny` signs up as `kenny@users.double-take.invalid`. The `.invalid` domain is reserved (RFC 2606) and never delivered, and the user never sees it. "Confirm email" is off, so sign-up signs you in at once. The database trigger makes the handle exactly the username and refuses any other kind of sign-up except dev test accounts (`supabase/migrations/20261108020000_usernames.sql`).
 - **Supabase project:** `double-take` (ref `qlcaalavfcyppczamztb`). Email provider on (it carries the password sign-in), confirm email off, anonymous sign-ins off. Passwords need 8+ characters with letters and numbers; changing one needs the current password. Apply new migrations from `supabase/migrations/` (Supabase CLI `supabase db push`, or the Management API).
+- **Profile notes** (the bubble over the avatar) stay on the device for everyone for now, one per signed-in account plus one for guests (`src/profile/note.ts`). The database has a `profiles.note` column (migration `20261108120000_profile_note.sql`) that isn't used yet.
 - **Security notes:**
   - Sign-in errors are the same for a wrong password and an unknown username. Create account says when a username is taken, which can't be avoided: handles are public anyway.
   - Sign-in and sign-up are rate limited per IP by Supabase Auth.
