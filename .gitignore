@@ -51,6 +51,3 @@ worker/node_modules/
 
 # Python bytecode from the harvest scripts
 __pycache__/
-
-# Gallery atlas built locally by scripts/harvest/build_atlas.py (published media, not source)
-/public/gallery-atlas/
