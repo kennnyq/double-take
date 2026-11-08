@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeTells, boxOnStage, cardPlacement, fitFor, parseTells, revealTime, videoRect, type Tell } from './tells.ts';
+import { activeTells, boxOnStage, fitFor, parseTells, revealTime, videoRect, type Tell } from './tells.ts';
 
 const close = (a: number, b: number) => assert.ok(Math.abs(a - b) < 1e-6, `${a} ≈ ${b}`);
 
@@ -71,12 +71,4 @@ test('revealTime lands inside the first tell window, so a paused clip shows its 
     assert.ok(activeTells(tells, t).length > 0, `nothing visible at ${t}s`);
   }
   close(revealTime([{ ...TELLS[1], t0: 1.6, t1: 2.4 }]), 1.45);
-});
-
-test('cardPlacement keeps the walkthrough card off the highlighted box', () => {
-  // iPhone stage 844 tall, card ~200, top bar ~100.
-  assert.equal(cardPlacement(null, 844, 200, 100), 'bottom');
-  assert.equal(cardPlacement({ x: 0, y: 420, w: 80, h: 150 }, 844, 200, 100), 'bottom'); // dresser, contained
-  assert.equal(cardPlacement({ x: 0, y: 650, w: 200, h: 150 }, 844, 200, 100), 'top'); // low box
-  assert.equal(cardPlacement({ x: 0, y: 50, w: 390, h: 760 }, 844, 200, 100), 'bottom'); // huge box: either covers; stay put
 });

@@ -51,18 +51,3 @@ export function revealTime(tells: Tell[]): number {
 export function parseTells(data: unknown): Tell[] {
   return readTellsFile(data).tells;
 }
-
-/**
- * Where the walkthrough card goes: at the bottom unless the highlighted box
- * would sit under it, then at the top (below `topInset`, the top bar).
- */
-export function cardPlacement(box: Box | null, stageH: number, cardH: number, topInset: number): 'top' | 'bottom' {
-  if (!box) return 'bottom';
-  const bottomCardTop = stageH - cardH - 16;
-  if (box.y + box.h <= bottomCardTop) return 'bottom';
-  const topCardBottom = topInset + cardH;
-  // Prefer whichever position covers less of the box.
-  const coverBottom = Math.max(0, box.y + box.h - bottomCardTop);
-  const coverTop = Math.max(0, topCardBottom - box.y);
-  return coverTop < coverBottom ? 'top' : 'bottom';
-}
