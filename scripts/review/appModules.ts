@@ -19,6 +19,7 @@ export const APP_MODULES = [
   'src/feed/scrub.ts',
   'src/feed/tells.ts',
   'src/feed/reveal.ts',
+  'src/feed/shrink.ts',
   'src/annotations/format.ts',
   'src/annotations/walkthrough.ts',
   'src/ui/theme/palettes.ts',
