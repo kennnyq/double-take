@@ -109,6 +109,19 @@ test('videos are fast-start (moov atom before media data)', async () => {
   }
 });
 
+test('every listed clip serves its video and poster', async () => {
+  // A feed row whose files weren't uploaded (or staged) plays as a black card.
+  const { clips } = await feed();
+  const missing: string[] = [];
+  for (const c of clips) {
+    for (const url of [c.video, c.poster]) {
+      const res = await fetch(url, { method: 'HEAD' });
+      if (res.status !== 200) missing.push(`${c.id} ${new URL(url).pathname.split('/').pop()} → ${res.status}`);
+    }
+  }
+  assert.deepEqual(missing, [], `${missing.length} of ${clips.length * 2} media files missing`);
+});
+
 test('full GET without Range returns 200 with the whole file', async () => {
   const { clips } = await feed();
   const smallest = clips.reduce((a, b) => (a.duration < b.duration ? a : b));
