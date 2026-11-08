@@ -55,3 +55,18 @@ registerDevSection({
     settingSwitch(s, 'markDrafts', 'Mark model drafts', 'Reviewers: adds “AI draft” under unreviewed tells. Never shown by default.'),
   ],
 });
+
+/* Temporary: switch pieces of the double take off one at a time, to find what closes Expo Go on entry. */
+registerDevSection({
+  id: 'double-take-check',
+  tab: 'interaction',
+  title: 'Double take: crash check',
+  note: 'Temporary. If the app closes when the double take opens, turn these off one at a time (and Spotlight → Off above) and say which one stops it.',
+  keywords: 'crash debug diagnose bisect',
+  order: 21,
+  rows: (s) => [
+    settingSwitch(s, 'dbgCornerCaps', 'Rounded corners', 'The black caps that round the inset video.'),
+    settingSwitch(s, 'dbgLineText', 'Line-by-line text', 'Off: the card’s text fades in as one block.'),
+    settingSwitch(s, 'dbgScrub', 'Fast-forward to tells', 'Off: goes straight to each tell (for this check only).'),
+  ],
+});

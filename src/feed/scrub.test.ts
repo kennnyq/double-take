@@ -60,3 +60,28 @@ test('easeInOut is clamped', () => {
   assert.equal(easeInOut(2), 1);
   assert.ok(Math.abs(easeInOut(0.5) - 0.5) < 1e-9);
 });
+
+test('safeSeek drops times that aren’t numbers, keeps inside the clip and never throws', async () => {
+  const { safeSeek } = await import('./scrub.ts');
+  const p = { currentTime: 3, duration: 10 };
+  safeSeek(p, NaN);
+  assert.equal(p.currentTime, 3);
+  safeSeek(p, Infinity);
+  assert.equal(p.currentTime, 3);
+  safeSeek(p, 50);
+  assert.equal(p.currentTime, 9.95);
+  safeSeek(p, -2);
+  assert.equal(p.currentTime, 0);
+  const unknown = { currentTime: 0, duration: NaN };
+  safeSeek(unknown, 4);
+  assert.equal(unknown.currentTime, 4);
+  const angry = {
+    get currentTime() {
+      return 0;
+    },
+    set currentTime(_v: number) {
+      throw new Error('not ready');
+    },
+  };
+  assert.doesNotThrow(() => safeSeek(angry, 1));
+});

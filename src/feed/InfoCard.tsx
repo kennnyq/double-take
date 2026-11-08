@@ -25,6 +25,8 @@ interface Props {
   loop?: SharedValue<number> | null;
   /** Live blur behind the glass (only with the spotlight's full blur: it's expensive over video). */
   blur?: boolean;
+  /** The text fades in as one block (a temporary crash check). */
+  plainText?: boolean;
   /** Set to play the exit; `onGone` follows once it's done. */
   leaving: boolean;
   onGone: () => void;
@@ -50,7 +52,7 @@ const TEXT_RISE = 6;
  * Everything animates transform and opacity only; nothing is laid out again
  * while the card moves.
  */
-export function InfoCard({ spot, text, hint, loop, blur, leaving, onGone }: Props) {
+export function InfoCard({ spot, text, hint, loop, blur, plainText, leaving, onGone }: Props) {
   const g = useGlass();
   const W = spot.width;
   const down = spot.from === 'above' ? -1 : 1;
@@ -94,7 +96,7 @@ export function InfoCard({ spot, text, hint, loop, blur, leaving, onGone }: Prop
       accessibilityLabel={hint ? `${text}. ${hint}` : text}
       accessibilityLiveRegion="polite"
     >
-      <View style={[StyleSheet.absoluteFill, styles.glass, blur && styles.clip, g.glass, blur ? g.tint : g.tintSolid]}>
+      <View style={[StyleSheet.absoluteFill, styles.glass, g.glass, blur ? g.tint : g.tintSolid]}>
         {blur ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
       </View>
       <Animated.View style={[styles.content, blockStyle]}>
@@ -105,6 +107,7 @@ export function InfoCard({ spot, text, hint, loop, blur, leaving, onGone }: Prop
           hintStyle={[styles.hint, g.hint]}
           clock={clock}
           onReady={setTotal}
+          plain={plainText}
         />
         {loop ? (
           <LoopLine loop={loop} clock={clock} total={total} />
@@ -135,9 +138,9 @@ const LINE_W = 56;
 
 const styles = StyleSheet.create({
   card: { position: 'absolute' },
-  glass: { borderRadius: 22 },
-  // Only around a blur view: a rounded clip with content costs an offscreen pass.
-  clip: { overflow: 'hidden' },
+  // Clips (it holds at most a blur view) so iOS draws its hairline border with
+  // Core Animation rather than into a bitmap.
+  glass: { borderRadius: 22, overflow: 'hidden' },
   content: { paddingHorizontal: 16, paddingTop: 13, paddingBottom: 9 },
   text: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 6 },

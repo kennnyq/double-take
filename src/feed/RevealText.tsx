@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, type TextStyle } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { lineDelays, lineProgress, revealTimes } from './reveal';
@@ -12,6 +12,8 @@ export interface RevealTextProps {
   clock: SharedValue<number>;
   /** Called once the lines are known, with the reveal's length in ms. */
   onReady: (totalMs: number) => void;
+  /** One block fading in, without measuring lines (a temporary crash check). */
+  plain?: boolean;
 }
 
 /**
@@ -20,7 +22,22 @@ export interface RevealTextProps {
  * laid out once, hidden, to learn its line breaks (`onTextLayout`), then drawn
  * a line per animated view, so only a handful of views animate.
  */
-export function RevealText({ text, hint, textStyle, hintStyle, clock, onReady }: RevealTextProps) {
+export function RevealText(p: RevealTextProps) {
+  return p.plain ? <PlainText {...p} /> : <LineText {...p} />;
+}
+
+function PlainText({ text, hint, textStyle, hintStyle, clock, onReady }: RevealTextProps) {
+  const { total } = revealTimes(1);
+  useEffect(() => onReady(total), [onReady, total]);
+  return (
+    <Line clock={clock} delay={0}>
+      <Text style={textStyle}>{text}</Text>
+      {hint ? <Text style={hintStyle}>{hint}</Text> : null}
+    </Line>
+  );
+}
+
+function LineText({ text, hint, textStyle, hintStyle, clock, onReady }: RevealTextProps) {
   const [lines, setLines] = useState<string[] | null>(null);
   const delays = lineDelays(lines?.length ?? 0);
   const { hint: hintDelay } = revealTimes(lines?.length ?? 0);

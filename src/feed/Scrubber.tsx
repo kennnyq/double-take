@@ -4,7 +4,7 @@ import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from
 import type { VideoPlayer } from 'expo-video';
 import { themed } from '@/ui/theme';
 import { alpha } from './glass';
-import { easedSeek, setScrubMode } from './scrub';
+import { easedSeek, safeSeek, setScrubMode } from './scrub';
 import { fracAt, pressIntent, timeLabel } from './seek';
 
 interface Props {
@@ -22,7 +22,7 @@ interface Props {
 
 /** Seeking is a property write on the player; kept out of the component body. */
 function seekPlayer(player: VideoPlayer, seconds: number) {
-  player.currentTime = seconds;
+  safeSeek(player, seconds);
 }
 
 /** Height of the invisible strip that takes touches, along the bottom of the clip. */

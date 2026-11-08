@@ -17,7 +17,7 @@ import { cardSpot, emptierSide, estimateCardHeight, type CardSpot } from './card
 import { useGlass } from './glass';
 import { InfoCard } from './InfoCard';
 import { ownLayer } from './layer';
-import { planScrub, runScrub } from './scrub';
+import { planScrub, runScrub, safeSeek } from './scrub';
 import { Spotlight } from './Spotlight';
 import { grow, holeFor, paddingPx, type Rect } from './spotlight';
 import { useSpotlightMotion, type SpotlightMotion } from './spotlightMotion';
@@ -107,12 +107,16 @@ function devMark(kind: 'loop' | 'scrubStart' | 'scrubEnd') {
 /** The loop restart: the one place the walkthrough sets the time directly. */
 function restartLoop(player: VideoPlayer, seconds: number) {
   devMark('loop');
-  player.currentTime = seconds;
+  safeSeek(player, seconds);
 }
 
 /** How often the player reports time: finer during the walkthrough, so the loop line moves smoothly. */
 function setTick(player: VideoPlayer, seconds: number) {
-  player.timeUpdateEventInterval = seconds;
+  try {
+    player.timeUpdateEventInterval = seconds;
+  } catch {
+    // Keeps its current rate.
+  }
 }
 const TICK_WALKTHROUGH = 0.1;
 const TICK_FEED = 0.25; // what Feed sets up
@@ -266,7 +270,10 @@ export function TellOverlay({ ref, ...p }: Props) {
     onScrub(true);
     loop.set(withTiming(0, { duration: 200 }));
     const card = cardFor(d, i);
-    cancelScrub.current = runScrub(player, planScrub(player.currentTime, r.from), () => {
+    // (A temporary crash check can go straight there instead.)
+    const plan = settings.dbgScrub ? planScrub(player.currentTime, r.from) : { from: r.from, to: r.from, ms: 0, stepMs: 33 };
+    if (!settings.dbgScrub) safeSeek(player, r.from);
+    cancelScrub.current = runScrub(player, plan, () => {
       cancelScrub.current = () => {};
       devMark('scrubEnd');
       replay.current = r;
@@ -459,6 +466,7 @@ export function TellOverlay({ ref, ...p }: Props) {
           hint={c.hint}
           loop={c.loop ? loop : null}
           blur={settings.spotlightEffect === 'fullBlur'}
+          plainText={!settings.dbgLineText}
           leaving={c.leaving}
           onGone={() => dropCard(c.key)}
         />

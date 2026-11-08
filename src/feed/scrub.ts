@@ -70,8 +70,26 @@ export function maxStep(plan: ScrubPlan): number {
 /** The slice of a player a scrub drives (expo-video's VideoPlayer and the desktop's HtmlVideoPlayer). */
 export interface Scrubbable {
   currentTime: number;
+  duration?: number;
   seekTolerance?: { toleranceBefore?: number; toleranceAfter?: number };
   scrubbingModeOptions?: { scrubbingModeEnabled?: boolean };
+}
+
+/**
+ * A seek that can't upset the player: a time that isn't a finite number is
+ * dropped, one past the end is pulled back inside the clip, and an error from
+ * the player (e.g. while it's still loading) is swallowed. Every seek the
+ * double take and the progress bar make goes through here.
+ */
+export function safeSeek(player: Scrubbable, seconds: number): void {
+  if (!Number.isFinite(seconds)) return;
+  const d = player.duration;
+  const t = Math.max(0, Number.isFinite(d) && (d as number) > 0 ? Math.min(seconds, (d as number) - 0.05) : seconds);
+  try {
+    player.currentTime = t;
+  } catch {
+    // Not seekable right now: stay where it is.
+  }
 }
 
 /** Loose seeks while scrubbing (faster on iOS), exact for the last one. */
@@ -101,7 +119,7 @@ export function runScrub(player: Scrubbable, plan: ScrubPlan, onDone: () => void
   const setMode = (on: boolean) => setScrubMode(player, on);
   const finish = () => {
     setMode(false);
-    player.currentTime = plan.to;
+    safeSeek(player, plan.to);
     onStep?.(plan.to);
     onDone();
   };
@@ -122,7 +140,7 @@ export function runScrub(player: Scrubbable, plan: ScrubPlan, onDone: () => void
     if (now - lastSeek >= plan.stepMs - 4) {
       lastSeek = now;
       const t = scrubTimeAt(plan, elapsed);
-      player.currentTime = t;
+      safeSeek(player, t);
       onStep?.(t);
     }
     raf = requestAnimationFrame(frame);
@@ -149,7 +167,7 @@ export function easedSeek(
 ): () => void {
   const plan = planScrub(player.currentTime, to);
   if (plan.ms <= 0) {
-    player.currentTime = to;
+    safeSeek(player, to);
     onStep?.(to);
     return () => {};
   }
