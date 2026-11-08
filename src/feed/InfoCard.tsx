@@ -1,9 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
-import { Platform, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
+import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
   runOnJS,
-  useAnimatedReaction,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -14,7 +13,8 @@ import { BlurView } from 'expo-blur';
 import type { CardSpot } from './card';
 import { useGlass } from './glass';
 import { ownLayer } from './layer';
-import { revealDelays, REVEAL_WORD_MS } from './reveal';
+import { REVEAL_LINE_DURATION } from './reveal';
+import { RevealText } from './RevealText';
 
 interface Props {
   spot: CardSpot;
@@ -42,10 +42,10 @@ const TEXT_RISE = 6;
  * from its side of the subject (rising from below when it sits under it,
  * dropping from above when over it) and leaves the same way, faster.
  *
- * The text resolves like Siri's answers: line by line from the top, and a
- * little left to right within a line, each word fading in from faint, slightly
- * low and (in browsers) blurred, while the block drifts up a few points. It
- * leaves in reverse, quickly. One timeline drives every word on the UI thread.
+ * The text resolves like Siri's answers: line by line from the top, each
+ * line fading in from faint and slightly low (and, in browsers, blurred),
+ * while the block drifts up a few points; it leaves in reverse, quickly. One
+ * timeline drives it on the UI thread (see RevealText).
  *
  * Everything animates transform and opacity only; nothing is laid out again
  * while the card moves.
@@ -54,18 +54,8 @@ export function InfoCard({ spot, text, hint, loop, blur, leaving, onGone }: Prop
   const g = useGlass();
   const W = spot.width;
   const down = spot.from === 'above' ? -1 : 1;
-  const words = text.split(/\s+/).filter(Boolean);
-  // Lines are known once the words are laid out; until then nothing shows.
-  const [delays, setDelays] = useState<number[] | null>(null);
-  const tops = useRef<number[]>([]);
-  const onWordLayout = (i: number, e: LayoutChangeEvent) => {
-    tops.current[i] = e.nativeEvent.layout.y;
-    if (delays || tops.current.filter((v) => v !== undefined).length < words.length) return;
-    setDelays(revealDelays(tops.current.slice(0, words.length)));
-  };
-  const lastDelay = delays ? Math.max(0, ...delays) : 0;
-  const hintDelay = lastDelay + 70;
-  const total = hintDelay + REVEAL_WORD_MS;
+  // The reveal's length, once the text's lines are known; nothing shows until then.
+  const [total, setTotal] = useState(0);
 
   const card = useSharedValue(0); // 0: away, 1: in place (springs past 1 a little)
   const shown = useSharedValue(0); // opacity
@@ -80,13 +70,13 @@ export function InfoCard({ spot, text, hint, loop, blur, leaving, onGone }: Prop
       });
       return;
     }
-    if (!delays) return;
+    if (!total) return;
     shown.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
     card.value = withSpring(1, CARD_SPRING);
     clock.value = withTiming(total, { duration: total, easing: Easing.linear });
-    // onGone is stable per card (keyed by the overlay); `total` follows `delays`.
+    // onGone is stable per card (keyed by the overlay).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [leaving, delays]);
+  }, [leaving, total]);
 
   const cardStyle = useAnimatedStyle(() => ({
     opacity: shown.value,
@@ -108,22 +98,16 @@ export function InfoCard({ spot, text, hint, loop, blur, leaving, onGone }: Prop
         {blur ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
       </View>
       <Animated.View style={[styles.content, blockStyle]}>
-        <View style={styles.words}>
-          {words.map((w, i) => (
-            <RevealWord key={i} clock={clock} delay={delays?.[i] ?? Infinity} onLayout={(e) => onWordLayout(i, e)}>
-              <Text style={[styles.text, g.text]}>{w}</Text>
-            </RevealWord>
-          ))}
-        </View>
-        {hint ? (
-          <RevealWord clock={clock} delay={delays ? hintDelay : Infinity}>
-            <Text style={[styles.hint, g.hint]}>{hint}</Text>
-          </RevealWord>
-        ) : null}
+        <RevealText
+          text={text}
+          hint={hint}
+          textStyle={[styles.text, g.text]}
+          hintStyle={[styles.hint, g.hint]}
+          clock={clock}
+          onReady={setTotal}
+        />
         {loop ? (
-          <RevealWord clock={clock} delay={delays ? hintDelay : Infinity} center>
-            <LoopLine loop={loop} />
-          </RevealWord>
+          <LoopLine loop={loop} clock={clock} total={total} />
         ) : (
           <View style={styles.lineSpace} />
         )}
@@ -132,51 +116,18 @@ export function InfoCard({ spot, text, hint, loop, blur, leaving, onGone }: Prop
   );
 }
 
-/** One word (or the hint): fades in from faint, low and blurred once the reveal's clock reaches its delay. */
-function RevealWord({
-  clock,
-  delay,
-  children,
-  onLayout,
-  center,
-}: {
-  clock: SharedValue<number>;
-  delay: number;
-  children: React.ReactNode;
-  onLayout?: (e: LayoutChangeEvent) => void;
-  center?: boolean;
-}) {
-  const style = useAnimatedStyle(() => {
-    const t = Math.min(1, Math.max(0, (clock.value - delay) / REVEAL_WORD_MS));
-    const e = 1 - (1 - t) * (1 - t) * (1 - t); // ease out
-    return { opacity: e, transform: [{ translateY: (1 - e) * 5 }, { scale: 0.97 + 0.03 * e }] };
-  });
-  // Browsers also blur it until it settles (native views have no blur filter).
-  const ref = useRef<React.ComponentRef<typeof View>>(null);
-  useAnimatedReaction(
-    () => Math.min(1, Math.max(0, (clock.value - delay) / REVEAL_WORD_MS)),
-    (t) => {
-      if (Platform.OS !== 'web') return;
-      const el = ref.current as unknown as HTMLElement | null;
-      if (el?.style) el.style.filter = t >= 0.999 ? 'none' : `blur(${((1 - t) * 4).toFixed(2)}px)`;
-    },
-    [delay],
-  );
-  return (
-    <Animated.View ref={ref} style={[center && styles.center, style]} onLayout={onLayout}>
-      {children}
-    </Animated.View>
-  );
-}
-
 /** A short, faint line under the text that fills as the slow-mo loop plays; it restarts with the loop. */
-function LoopLine({ loop }: { loop: SharedValue<number> }) {
+function LoopLine({ loop, clock, total }: { loop: SharedValue<number>; clock: SharedValue<number>; total: number }) {
   const g = useGlass();
   const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.min(1, Math.max(0, loop.value)) }] }));
+  // Appears with the last of the text.
+  const shown = useAnimatedStyle(() => ({
+    opacity: total ? Math.min(1, Math.max(0, (clock.value - (total - REVEAL_LINE_DURATION)) / REVEAL_LINE_DURATION)) : 0,
+  }));
   return (
-    <View style={[styles.track, g.track]}>
+    <Animated.View style={[styles.track, g.track, shown]}>
       <Animated.View style={[styles.fill, g.fill, fill]} />
-    </View>
+    </Animated.View>
   );
 }
 
@@ -188,11 +139,10 @@ const styles = StyleSheet.create({
   // Only around a blur view: a rounded clip with content costs an offscreen pass.
   clip: { overflow: 'hidden' },
   content: { paddingHorizontal: 16, paddingTop: 13, paddingBottom: 9 },
-  words: { flexDirection: 'row', flexWrap: 'wrap', columnGap: 4 },
   text: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 6 },
-  center: { alignSelf: 'center' },
   track: {
+    alignSelf: 'center',
     width: LINE_W,
     height: 2,
     borderRadius: 1,

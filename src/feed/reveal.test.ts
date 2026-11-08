@@ -1,17 +1,24 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { REVEAL_LINE_MS, REVEAL_WORD_STAGGER_MS, revealDelays } from './reveal.ts';
+import { REVEAL_LINE_DURATION, REVEAL_LINE_MS, lineDelays, lineProgress, revealTimes, wipeEdge } from './reveal.ts';
 
-test('revealDelays: line by line from the top, a little left to right within a line', () => {
-  // Two lines of three and two words (tops at 0 and 20).
-  const d = revealDelays([0, 0, 0, 20, 20]);
-  assert.deepEqual(d, [0, REVEAL_WORD_STAGGER_MS, 2 * REVEAL_WORD_STAGGER_MS, REVEAL_LINE_MS, REVEAL_LINE_MS + REVEAL_WORD_STAGGER_MS]);
+test('lines start one after another from the top; the hint follows the last', () => {
+  assert.deepEqual(lineDelays(3), [0, REVEAL_LINE_MS, 2 * REVEAL_LINE_MS]);
+  assert.deepEqual(lineDelays(0), []);
+  const { hint, total } = revealTimes(3);
+  assert.ok(hint > 2 * REVEAL_LINE_MS);
+  assert.equal(total, hint + REVEAL_LINE_DURATION);
 });
 
-test('revealDelays: sub-pixel tops count as one line, and a later line always starts later', () => {
-  const d = revealDelays([0.2, 0.4, 19.8, 40.1]);
-  assert.equal(d[0], 0);
-  assert.equal(d[1], REVEAL_WORD_STAGGER_MS);
-  assert.ok(d[2] > d[1] && d[3] > d[2]);
-  assert.deepEqual(revealDelays([]), []);
+test('lineProgress eases from 0 to 1 over a line’s duration', () => {
+  assert.equal(lineProgress(0, 50), 0);
+  assert.equal(lineProgress(50 + REVEAL_LINE_DURATION, 50), 1);
+  const mid = lineProgress(50 + REVEAL_LINE_DURATION / 2, 50);
+  assert.ok(mid > 0.5 && mid < 1, `${mid}`); // ease out: past half at half time
+});
+
+test('wipeEdge sweeps from above the block to past it', () => {
+  assert.ok(wipeEdge(0, 500) < 0);
+  assert.ok(wipeEdge(500, 500) > 100);
+  assert.ok(wipeEdge(250, 500) > wipeEdge(100, 500));
 });
