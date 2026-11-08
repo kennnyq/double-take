@@ -242,7 +242,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
             {p.player && (
               <VideoView
                 player={p.player}
-                style={StyleSheet.absoluteFill}
+                // Web <video> is a replaced element: opposing insets alone don't size it.
+                style={[StyleSheet.absoluteFill, { width: '100%', height: '100%' }]}
                 contentFit={videoFit}
                 nativeControls={false}
                 playsInline

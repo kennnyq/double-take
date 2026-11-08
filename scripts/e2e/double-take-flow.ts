@@ -49,7 +49,7 @@ async function run(browser: Browser, layout: Layout, single = false) {
   const context = await browser.newContext(
     layout === 'desktop'
       ? { viewport: { width: 1280, height: 800 } }
-      : { viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true },
+      : { viewport: { width: 393, height: 778 }, hasTouch: true, isMobile: true },
   );
   const page = await context.newPage();
   await page.addInitScript((single) => {
@@ -77,6 +77,17 @@ async function run(browser: Browser, layout: Layout, single = false) {
   await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
   await page.waitForTimeout(2500);
 
+  // A web <video> needs explicit dimensions; opposing absolute insets leave
+  // replaced elements at their intrinsic size (cropping the phone's stage).
+  const sizing = await page.evaluate(() => {
+    const v = [...document.querySelectorAll('video')].find((v) => !v.paused && v.videoWidth);
+    if (!v) return null;
+    // Desktop intentionally scales a portrait video a little to cover the
+    // stage. Compare layout dimensions before that visual transform.
+    return { width: v.clientWidth, height: v.clientHeight, stageWidth: v.parentElement!.clientWidth, stageHeight: v.parentElement!.clientHeight, intrinsicWidth: v.videoWidth };
+  });
+  check(layout + ': video fits its stage instead of its intrinsic size', !!sizing && Math.abs(sizing.width - sizing.stageWidth) < 1 && Math.abs(sizing.height - sizing.stageHeight) < 1, sizing);
+
   // Start far from the first tell (near the clip's end), so the scrub has a long way to go.
   const startAt = await page.evaluate(() => {
     const v = [...document.querySelectorAll('video')].find((e) => !e.paused && e.duration > 0);
@@ -90,6 +101,29 @@ async function run(browser: Browser, layout: Layout, single = false) {
   await page.waitForSelector('[aria-label="Close the walkthrough"]', { timeout: 10_000 });
   // Long enough for the scrub and a few slow-mo loops.
   await page.waitForTimeout(9000);
+  const alignment = await page.evaluate(async () => {
+    const url = performance.getEntriesByType('resource').map((r) => r.name).filter((name) => /tells[^/]*\.json/.test(name)).at(-1);
+    const v = [...document.querySelectorAll('video')].find((v) => !v.paused && v.videoWidth);
+    const dim = document.querySelector<HTMLElement>('[data-testid="dt-spot-dim"]');
+    if (!url || !v || !dim) return null;
+    const data = await (await fetch(url)).json();
+    const focus = (t: { focusT?: number; t0: number; t1: number }) => t.focusT ?? t.t0 + Math.min(0.3, (t.t1 - t.t0) / 2);
+    const box = data.tells.sort((a: Parameters<typeof focus>[0], b: Parameters<typeof focus>[0]) => focus(a) - focus(b))[0]?.box;
+    if (!box) return null;
+    const vr = v.getBoundingClientRect(), dr = dim.getBoundingClientRect(), style = getComputedStyle(dim);
+    const pos = style.maskPosition.split(',')[0].split(' ').map(parseFloat);
+    const size = style.maskSize.split(',')[0].split(' ').map(parseFloat);
+    const scale = dr.width / dim.clientWidth;
+    const ratio = v.videoWidth / v.videoHeight;
+    const w = Math.min(vr.width, vr.height * ratio), h = w / ratio;
+    const fx = vr.x + (vr.width - w) / 2, fy = vr.y + (vr.height - h) / 2;
+    const expectedX = (Math.max(dr.left, fx + box.x * w) + Math.min(dr.right, fx + (box.x + box.w) * w)) / 2;
+    const expectedY = (Math.max(dr.top, fy + box.y * h) + Math.min(dr.bottom, fy + (box.y + box.h) * h)) / 2;
+    const spotX = dr.x + (pos[0] + size[0] / 2) * scale;
+    const spotY = dr.y + (pos[1] + size[1] / 2) * scale;
+    return { errorPx: Math.hypot(spotX - expectedX, spotY - expectedY), video: [vr.width, vr.height], stage: [dr.width, dr.height] };
+  });
+  check(layout + ': spotlight centers on the tell in the rendered video', !!alignment && alignment.errorPx < 2, alignment);
   // The card: only the reason, and no labels.
   // The newest card's own text (the page holds other clips' captions too).
   const card = await page.evaluate(() => {
