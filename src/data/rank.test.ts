@@ -88,6 +88,15 @@ test('published demo: multi-box vertical candidates beat the long and 4:5 candid
   assert.equal(tellSummary(room)?.boxed, 3);
   assert.ok(scoreClip(cat) > scoreClip(long));
   assert.ok(scoreClip(room) > scoreClip(wide));
+  assert.ok(scoreClip(room) - scoreClip(cat) > QUALITY_TIER_WIDTH);
+  for (const seed of [0, 1, 42, 9876]) {
+    const ranked = rankClips([cat, wide, long, room], { seed });
+    assert.equal(ranked[0], room, 'room is pinned first across sessions');
+    assert.ok(ranked.indexOf(cat) > ranked.indexOf(wide), 'cat remains in the lower ranked mix');
+    const leads = heroCandidates([cat, wide, long, room], 3, { seed, minimum: 0 });
+    assert.equal(leads[0], room);
+    assert.ok(!leads.includes(cat), 'cat is outside the preferred hero/showcase band');
+  }
 });
 
 test('hero prefers the strict band, then fills to twelve distinct best-ranked candidates', () => {

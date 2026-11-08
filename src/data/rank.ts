@@ -23,7 +23,9 @@ export interface TellSummary {
 /** Kenny's explicit overrides, in order. Unknown/duplicate ids are ignored.
  * Overrides deliberately take priority over quality AND the real/AI interleave.
  */
-export const DEMO_PINNED_FIRST: readonly string[] = [];
+export const DEMO_PINNED_FIRST: readonly string[] = ['x-2106432142217765020'];
+/** Editorial preference: keep the opera-glove cat in the mix, below demo leads. */
+const DEMO_SCORE_ADJUSTMENTS: Readonly<Record<string, number>> = { 'x-2082309674960032067': -48 };
 /** Stable for this app session; callers/tests can supply a seed for replay. */
 export const DEMO_SESSION_SEED = Math.floor(Math.random() * 0xffffffff);
 export const QUALITY_TIER_WIDTH = 12;
@@ -63,7 +65,7 @@ export function scoreClip(clip: RankableClip, summary = tellSummary(clip)): numb
     score += Math.min(8, Math.log10(1 + Math.max(0, clip.sourceLikes ?? 0)) * 2);
     if (['real-verified', 'real-prior', 'real-agency'].includes(clip.verdictTier ?? '')) score += 8;
   }
-  return Math.round(score * 10) / 10;
+  return Math.round((score + (DEMO_SCORE_ADJUSTMENTS[clip.sourceId] ?? 0)) * 10) / 10;
 }
 
 function noise(seed: number, key: string): number {
