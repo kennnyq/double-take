@@ -3,11 +3,9 @@ import { AccessibilityInfo, Animated, AppState, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { useDevPanel } from '@/devtools/store';
-import { useGuestChosen } from '@/auth/guest';
-import { useAuth } from '@/auth/store';
+import { useHintViewer } from './viewer';
 import { useGate } from '@/auth/gate';
 import { useAppSettings, useSettingsOpen } from '@/settings/store';
-import { hintTimeout, MIN_VISIBLE_MS, SHOW_DELAY_MS, type HintEnd } from './hints';
 import { HintView } from './HintView';
 import { hints, useHints } from './store';
 import './dev';
@@ -18,7 +16,7 @@ import './dev';
  * is decided in `hints.ts`; this reports what happened and `HintView` draws it.
  *
  * Mount one in each clip of a feed; only the active, uncovered one draws.
- * Half a second fully visible counts as seen, independently of opening it.
+ * It loops until the clip is left or a double take is opened.
  */
 export interface GestureHintProps {
   clipId: string;
@@ -39,13 +37,9 @@ const REQUEST_DELAY_MS = 350;
 
 export function GestureHint(p: GestureHintProps) {
   const s = useHints();
-  const { status } = useAuth();
+  const { status } = useHintViewer();
   const signInOpen = useGate().open;
   const foreground = useForeground();
-  const guest = useGuestChosen();
-  // Members and guests who chose "Continue as guest" remember having seen it
-  // (on this device). Just browsing, signed out, from the hero is not that choice.
-  const rememberSeen = status === 'member' || (status === 'guest' && guest);
   const settingsOpen = useSettingsOpen();
   const devOpen = useDevPanel().open;
   const { revealGesture } = useAppSettings();
@@ -65,84 +59,48 @@ export function GestureHint(p: GestureHintProps) {
   const [drawn, setDrawn] = useState(false);
   const [on, setOn] = useState(false);
   const shown = useRef(false);
-  const seenTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const onShown = useCallback(() => {
-    if (!shown.current) return;
-    if (seenTimer.current) clearTimeout(seenTimer.current);
-    seenTimer.current = setTimeout(() => {
-      seenTimer.current = null;
-      if (shown.current) hints.seen();
-    }, MIN_VISIBLE_MS);
-  }, []);
-  // A hint that ran its course here doesn't start again on the same clip.
-  const doneOn = useRef<string | null>(null);
-
-  const hide = (why: HintEnd) => {
-    if (!shown.current) return;
+  const hide = useCallback(() => {
     shown.current = false;
-    if (seenTimer.current) clearTimeout(seenTimer.current);
-    seenTimer.current = null;
-    if (why !== 'left') doneOn.current = p.clipId;
-    hints.end(why);
     setOn(false);
-  };
+  }, []);
 
-  // Opening a double take dismisses the hint for this visit, even if it has
-  // not yet appeared. It does not count as having seen the prompt.
+  // The existing walkthrough-open signal covers successful hold, double tap,
+  // Space and the explicit double-take button, even before the hint appears.
   const wasOpen = useRef(p.doubleTakeOpen);
   useEffect(() => {
     if (p.doubleTakeOpen && !wasOpen.current && p.active) {
-      hints.end('gesture');
-      hide('gesture');
+      hints.recordOpen();
+      hide();
     }
     wasOpen.current = p.doubleTakeOpen;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [p.doubleTakeOpen]);
 
-  // A reset, "Show now" or "Keep showing" starts over, even on this clip.
+  // Keep the drawing mounted through its exit, including when another clip
+  // reports a successful open. Force/Show now can still preview learned hints.
   useEffect(() => {
-    doneOn.current = null;
-  }, [s.epoch]);
-
-  // Covered or left: fade out, and it may come back on a later clip.
-  useEffect(() => {
-    if (covered) hide('left');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [covered]);
+    // Animate the exit when an external screen/clip takes over.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (covered) hide();
+  }, [covered, hide]);
 
   // A clip that stays put for a moment shows the hint if it should; a dev
   // "Show now" plays on the first clip with tells, whatever the rules.
   const request = s.request && p.hasTells ? s.request : null;
   useEffect(() => {
-    if (covered || !ready || on || (!request && doneOn.current === p.clipId)) return;
+    if (covered || !ready || on) return;
     const t = setTimeout(
       () => {
         if (request) hints.takeRequest(request.id);
-        else if (!hints.shouldShow({ hasTells: p.hasTells, blocked: false }, rememberSeen)) return;
+        else if (!hints.shouldShow({ hasTells: p.hasTells, blocked: false })) return;
         shown.current = true;
         setDrawn(true);
         setOn(true);
       },
-      request ? REQUEST_DELAY_MS : SHOW_DELAY_MS,
+      request ? REQUEST_DELAY_MS : s.delayMs,
     );
     return () => clearTimeout(t);
-  }, [covered, ready, on, p.clipId, p.hasTells, request, s.epoch, s.force, rememberSeen]);
-
-  // Twice through, then it goes by itself (with "Keep showing" it stays, for looking at).
-  const timeout = hintTimeout(revealGesture);
-  useEffect(() => {
-    if (!on || s.force !== 'off') return;
-    const t = setTimeout(() => hide('timeout'), timeout);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [on, s.force, timeout]);
-
-  // Gone for good on unmount (the clip scrolled out of the list).
-  useEffect(
-    () => () => hide('left'),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [],
-  );
+  }, [covered, ready, on, p.clipId, p.hasTells, request, s.epoch, s.force, s.delayMs]);
 
   // Unmount the drawing once it has faded out, unless another hint started meanwhile.
   const onGone = useCallback(() => setDrawn(shown.current), []);
@@ -157,12 +115,11 @@ export function GestureHint(p: GestureHintProps) {
       on={on}
       opacity={p.opacity}
       onGone={onGone}
-      onShown={onShown}
     />
   );
 }
 
-/** Background time never counts as seeing the prompt. */
+/** Hide tutorials while the app or browser tab is in the background. */
 function useForeground(): boolean {
   const [active, setActive] = useState(() => Platform.OS === 'web' ? typeof document === 'undefined' || !document.hidden : AppState.currentState === 'active');
   useEffect(() => {

@@ -3,23 +3,20 @@ import { devStorage } from '@/devtools/storage';
 import { DEV_TOOLS } from '@/devtools/store';
 import { settingsStorage } from '@/settings/storage';
 import {
-  endHint,
   FRESH,
-  NEW_SESSION,
-  MIN_VISIBLE_MS,
+  SHOW_DELAY_MS,
+  HINT_DELAYS,
   parseProgress,
-  recordSeen,
+  recordOpen,
   shouldShow,
   type ClipContext,
-  type HintEnd,
   type HintForce,
   type HintProgress,
-  type HintSession,
 } from './hints';
 
 /**
  * The gesture hint's state for this device and app run: progress kept with
- * the app settings, the session in memory, and the dev overrides with the dev
+ * the app settings, and the dev overrides with the dev
  * settings. The rules are in `hints.ts`.
  */
 
@@ -40,12 +37,12 @@ const FORCES: readonly HintForce[] = ['off', 'doubleTake'];
 
 export interface HintState {
   progress: HintProgress;
-  session: HintSession;
   /** Screens that keep the hint away while they're up (the landing, the timed game), counted. */
   blocks: number;
   force: HintForce;
   design: HintDesign;
   input: HintInput;
+  delayMs: number;
   /** "Show now" from the dev settings: the next active clip with tells shows it, whatever the rules. */
   request: { id: number } | null;
   /** Bumped by a reset, so a hint on screen starts over. */
@@ -60,8 +57,8 @@ function safe<T>(fn: () => T, fallback: T): T {
   }
 }
 
-type DevPart = Pick<HintState, 'force' | 'design' | 'input'>;
-export const DEV_DEFAULTS: Readonly<DevPart> = Object.freeze({ force: 'off', design: 'hand', input: 'auto' });
+type DevPart = Pick<HintState, 'force' | 'design' | 'input' | 'delayMs'>;
+export const DEV_DEFAULTS: Readonly<DevPart> = Object.freeze({ force: 'off', design: 'hand', input: 'auto', delayMs: SHOW_DELAY_MS });
 
 function oneOf<T>(list: readonly T[], v: unknown, fallback: T): T {
   return list.includes(v as T) ? (v as T) : fallback;
@@ -74,12 +71,12 @@ function readDev(): DevPart {
     force: oneOf(FORCES, o.force, DEV_DEFAULTS.force),
     design: oneOf(HINT_DESIGNS, o.design, DEV_DEFAULTS.design),
     input: oneOf(HINT_INPUTS, o.input, DEV_DEFAULTS.input),
+    delayMs: oneOf(HINT_DELAYS, o.delayMs, SHOW_DELAY_MS),
   };
 }
 
 let state: HintState = {
   progress: parseProgress(safe(() => settingsStorage?.getItem(PROGRESS_KEY) ?? null, null)),
-  session: { ...NEW_SESSION },
   blocks: 0,
   ...readDev(),
   request: null,
@@ -91,8 +88,8 @@ function set(patch: Partial<HintState>) {
   const next = { ...state, ...patch };
   if ((Object.keys(patch) as (keyof HintState)[]).every((k) => next[k] === state[k])) return;
   if (next.progress !== state.progress) safe(() => settingsStorage?.setItem(PROGRESS_KEY, JSON.stringify(next.progress)), undefined);
-  if (next.force !== state.force || next.design !== state.design || next.input !== state.input)
-    safe(() => devStorage?.setItem(DEV_KEY, JSON.stringify({ force: next.force, design: next.design, input: next.input })), undefined);
+  if (next.force !== state.force || next.design !== state.design || next.input !== state.input || next.delayMs !== state.delayMs)
+    safe(() => devStorage?.setItem(DEV_KEY, JSON.stringify({ force: next.force, design: next.design, input: next.input, delayMs: next.delayMs })), undefined);
   state = next;
   listeners.forEach((l) => l());
 }
@@ -106,12 +103,10 @@ export const hints = {
     };
   },
   /** Whether the clip should show the hint now. */
-  shouldShow: (clip: ClipContext, rememberSeen: boolean): boolean => state.blocks === 0 && shouldShow(state.progress, state.session, clip, state.force, rememberSeen),
-  /** Called only after the hint has stayed fully visible for MIN_VISIBLE_MS. */
-  seen: () => set({ progress: recordSeen(state.progress, MIN_VISIBLE_MS), session: { ...state.session, seen: true } }),
-  end: (why: HintEnd) => set({ session: endHint(state.session, why) }),
-  /** The hint as for a brand-new viewer, starting now. */
-  reset: () => set({ progress: { ...FRESH }, session: { ...NEW_SESSION }, epoch: state.epoch + 1 }),
+  shouldShow: (clip: ClipContext): boolean => state.blocks === 0 && shouldShow(state.progress, clip, state.force),
+  recordOpen: () => set({ progress: recordOpen(state.progress) }),
+  reset: () => set({ progress: { ...FRESH }, epoch: state.epoch + 1 }),
+  setDelay: (delayMs: number) => set({ delayMs: oneOf(HINT_DELAYS, delayMs, SHOW_DELAY_MS) }),
   setForce: (force: HintForce) => set({ force, epoch: state.epoch + 1 }),
   setDesign: (design: HintDesign) => set({ design }),
   setInput: (input: HintInput) => set({ input }),

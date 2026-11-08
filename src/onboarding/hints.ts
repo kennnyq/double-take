@@ -1,63 +1,24 @@
-/**
- * The gesture hint returns on every page load for signed-out visitors.
- * Signed-in viewers who have seen it for MIN_VISIBLE_MS skip it on later
- * visits. Pure rules; store.ts persists progress and GestureHint.tsx reports
- * actual visibility after the entrance has finished.
- */
-
-/** A hint counts as seen after this long fully visible on one clip, ms. */
-export const MIN_VISIBLE_MS = 500;
-/** A settled, playing clip shows its hint after this long, ms (also counted from the landing's hand-off). */
-export const SHOW_DELAY_MS = 600;
-/** A hint stays at least this long on screen before it fades out by itself, ms. */
-export const HINT_TIMEOUT_MS = 6000;
-/** How many times a hint plays through before it fades out by itself. */
-export const LOOPS = 2;
-
-/** Kept on this device; only respected across visits for an identified viewer. */
-export interface HintProgress {
-  seen: boolean;
-}
-export const FRESH: Readonly<HintProgress> = Object.freeze({ seen: false });
-
+/** Tutorial progress is earned only by opening a double take, never by viewing the hint. */
+export const SHOW_DELAY_MS = 1800;
+export const HINT_DELAYS = [1000, 1500, 1800, 2000, 3000] as const;
+export interface HintProgress { opened: boolean }
+export const FRESH: Readonly<HintProgress> = Object.freeze({ opened: false });
 export type HintForce = 'off' | 'doubleTake';
-
-/** This page load/app run only. Quick glimpses never exhaust retries. */
-export interface HintSession {
-  done: boolean;
-  seen: boolean;
-}
-export const NEW_SESSION: Readonly<HintSession> = Object.freeze({ done: false, seen: false });
-
 export interface ClipContext {
   hasTells: boolean;
-  /** The double take is open, a sheet or screen covers the clip, the clip is paused, a game runs… */
   blocked: boolean;
 }
-
-export function shouldShow(progress: HintProgress, session: HintSession, clip: ClipContext, force: HintForce = 'off', rememberSeen = false): boolean {
-  if (clip.blocked || !clip.hasTells) return false;
-  if (force === 'doubleTake') return true;
-  return !session.done && !session.seen && !(rememberSeen && progress.seen);
+export function shouldShow(progress: HintProgress, clip: ClipContext, force: HintForce = 'off'): boolean {
+  return !clip.blocked && clip.hasTells && (force === 'doubleTake' || !progress.opened);
 }
-
-/** Visibility is continuous on one clip; brief glimpses do not add up. */
-export function recordSeen(progress: HintProgress, visibleMs: number): HintProgress {
-  return progress.seen || visibleMs < MIN_VISIBLE_MS ? progress : { seen: true };
+export function recordOpen(progress: HintProgress): HintProgress {
+  return progress.opened ? progress : { opened: true };
 }
-
-export type HintEnd = 'timeout' | 'gesture' | 'left';
-
-/** Once seen, leaving the clip ends the hint for this visit. */
-export function endHint(session: HintSession, why: HintEnd): HintSession {
-  return why === 'left' && !session.seen ? session : { ...session, done: true };
-}
-
-/** Old open counts do not establish that the prompt was actually seen. */
+/** Old visibility flags are intentionally ignored. Legacy actual open counts still qualify. */
 export function parseProgress(raw: string | null | undefined): HintProgress {
   try {
-    const value: unknown = raw ? JSON.parse(raw) : null;
-    return { seen: !!value && typeof value === 'object' && 'seen' in value && value.seen === true };
+    const value = raw ? JSON.parse(raw) : null;
+    return { opened: !!value && (value.opened === true || (typeof value.opens === 'number' && Number.isFinite(value.opens) && value.opens >= 1)) };
   } catch {
     return { ...FRESH };
   }
@@ -71,11 +32,6 @@ export type Demo = 'hold' | 'doubleTap' | 'both';
 
 /** One pass of each demo, ms: short, so the whole hint stays brief. */
 export const DEMO_MS: Readonly<Record<Demo, number>> = Object.freeze({ hold: 2600, doubleTap: 2000, both: 3800 });
-
-/** How long a hint stays before fading out by itself: LOOPS full passes, at least HINT_TIMEOUT_MS. */
-export function hintTimeout(demo: Demo): number {
-  return Math.max(HINT_TIMEOUT_MS, LOOPS * DEMO_MS[demo]);
-}
 
 /**
  * The hint's only words. `mouse`: a fine pointer, where a tap is a click and

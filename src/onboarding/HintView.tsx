@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Animated, Easing, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Animated, Easing, Platform, StyleSheet, View, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { themed, usePalette, type Palette } from '@/ui/theme';
@@ -36,9 +36,8 @@ export function HintView(props: {
   on: boolean;
   opacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
   onGone: () => void;
-  onShown: () => void;
 }) {
-  const { demo, design, still, on, onGone, onShown } = props;
+  const { demo, design, still, on, onGone } = props;
   const tint = useTint();
   const [fade] = useState(() => new Animated.Value(0));
   const [clock] = useState(() => new Animated.Value(0));
@@ -52,10 +51,10 @@ export function HintView(props: {
       useNativeDriver: true,
     });
     a.start(({ finished }) => {
-      if (finished) (on ? onShown : onGone)();
+      if (finished && !on) onGone();
     });
     return () => a.stop();
-  }, [on, fade, onGone, onShown]);
+  }, [on, fade, onGone]);
 
   useEffect(() => {
     if (still) {
@@ -64,7 +63,16 @@ export function HintView(props: {
       return;
     }
     clock.setValue(0);
-    const loop = Animated.loop(Animated.timing(clock, { toValue: 1, duration: DEMO_MS[demo], easing: Easing.linear, useNativeDriver: true }));
+    // Web has no native animation driver: requesting it makes Animated.loop
+    // delegate iterations to a fallback timing animation that only runs once.
+    const loop = Animated.loop(Animated.timing(clock, {
+      toValue: 1,
+      duration: DEMO_MS[demo],
+      easing: Easing.linear,
+      useNativeDriver: Platform.OS !== 'web',
+      // A perpetual tutorial must not hold up virtualized feed rendering.
+      isInteraction: false,
+    }));
     loop.start();
     return () => loop.stop();
   }, [clock, demo, spec, still]);

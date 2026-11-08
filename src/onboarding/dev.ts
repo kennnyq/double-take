@@ -1,5 +1,6 @@
 import { registerDevSection } from '@/devtools/api';
 import { closeDevSettings, DEV_TOOLS } from '@/devtools/store';
+import { HINT_DELAYS } from './hints';
 import { DEV_DEFAULTS, hints, type HintState } from './store';
 
 /*
@@ -10,7 +11,7 @@ import { DEV_DEFAULTS, hints, type HintState } from './store';
  */
 
 function register(s: HintState) {
-  const { seen } = s.progress;
+  const { opened } = s.progress;
   // On phones the panel covers the clip: close it so the hint can be seen.
   const play = () => {
     closeDevSettings();
@@ -21,9 +22,16 @@ function register(s: HintState) {
     tab: 'interaction',
     title: 'Gesture hint',
     order: -10,
-    note: `The first-run hint over the feed. ${seen ? 'Already seen; remembered for signed-in viewers.' : 'Not yet seen for half a second.'} Signed-out visitors see it again on refresh.`,
+    note: `Tutorial: ${opened ? 'Completed by opening a double take.' : 'Repeats on every reel until a double take is opened.'}`,
+
     keywords: 'tutorial hint onboarding first run gesture design style',
     rows: [
+      {
+        kind: 'choice', id: 'delay', label: 'Tutorial delay',
+        items: HINT_DELAYS.map((value) => ({ label: `${value / 1000} s`, value })),
+        value: s.delayMs, defaultValue: DEV_DEFAULTS.delayMs,
+        onSelect: (value) => hints.setDelay(Number(value)),
+      },
       {
         kind: 'choice',
         id: 'design',
@@ -70,8 +78,8 @@ if (DEV_TOOLS) {
   let last: HintState | null = null;
   const sync = () => {
     const s = hints.getSnapshot();
-    // Session changes (clips, tries) don't change the rows.
-    if (last && last.progress === s.progress && last.force === s.force && last.design === s.design && last.input === s.input) return;
+    // Changes unrelated to these options don't change the rows.
+    if (last && last.progress === s.progress && last.force === s.force && last.design === s.design && last.input === s.input && last.delayMs === s.delayMs) return;
     last = s;
     register(s);
   };

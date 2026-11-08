@@ -2,8 +2,8 @@
  * Browser check for the first-run gesture hint over the feed: one hint for
  * both ways into the double take (Both is the default), "Hold or double tap"
  * on phones and "Hold spacebar or double click" on desktop (a fine pointer). It goes as soon as either gesture opens a double take, comes
- * back on every signed-out reload; signed-in viewers remember half a second
- * of visibility. Quick scrolling retries on the next clip. Entering
+ * repeats on every reel until a walkthrough is actually opened, then stays
+ * dismissed across refreshes for all viewers. Entering
  * from the landing's hero, it waits for the hand-off. Reduce Motion gets a
  * still frame. Dev settings → Interaction → Gesture hint plays it now, in the
  * picked design.
@@ -22,7 +22,7 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { chromium, type Browser, type BrowserContextOptions, type Page } from 'playwright-core';
-import { BASE_URL, findChrome } from './browser.ts';
+import { BASE_URL, cacheFeed, findChrome } from './browser.ts';
 
 const SETTINGS_KEY = 'double-take.settings.v1';
 const HINTS_KEY = 'double-take.hints.v1';
@@ -46,8 +46,9 @@ const CONTEXT: Record<Layout, BrowserContextOptions> = {
 
 interface Start {
   gesture?: 'hold' | 'doubleTap' | 'both';
-  hints?: { seen: boolean };
+  hints?: { opened?: boolean; seen?: boolean };
   member?: boolean;
+  guest?: boolean;
   dev?: { force?: string; design?: string; input?: string };
   reducedMotion?: boolean;
 }
@@ -56,6 +57,7 @@ interface Start {
 async function open(browser: Browser, layout: Layout, start: Start = {}) {
   const context = await browser.newContext({ ...CONTEXT[layout], reducedMotion: start.reducedMotion ? 'reduce' : 'no-preference' });
   const page = await context.newPage();
+  await cacheFeed(page);
   // A local auth fixture exercises membership without creating an account.
   // Intercept its profile/social reads; no authenticated request leaves the browser.
   if (start.member) await page.route('**/rest/v1/**', (route) => route.fulfill({ json: [] }));
@@ -73,6 +75,7 @@ async function open(browser: Browser, layout: Layout, start: Start = {}) {
       {
         [SETTINGS_KEY]: start.gesture ? JSON.stringify({ revealGesture: start.gesture }) : '',
         [HINTS_KEY]: start.hints ? JSON.stringify(start.hints) : '',
+        'double-take.guest.v1': start.guest ? '1' : '',
         'double-take-auth': start.member ? JSON.stringify({ access_token: token, refresh_token: 'fixture', expires_at: expires, expires_in: 3600, token_type: 'bearer', user }) : '',
         [DEV_HINTS_KEY]: start.dev ? JSON.stringify(start.dev) : '',
       },
@@ -131,56 +134,42 @@ async function openDoubleTake(page: Page, layout: Layout) {
   await page.waitForSelector(CLOSE_WALKTHROUGH, { timeout: 10_000 });
 }
 
-/** Signed-out refreshes always replay; opens are no longer lifetime progress. */
-async function phoneFlow(browser: Browser) {
-  const page = await open(browser, 'phone');
-  check('phone, signed out: the gesture hint appears', (await hintWithin(page, 4000)) === PHONE_BOTH);
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? '{}').seen === true, HINTS_KEY);
-  check('phone: half a second fully visible is persisted', (await stored(page))?.seen === true);
-  await openDoubleTake(page, 'phone');
-  check('phone: opening a double take dismisses it', await hintGone(page, 2000));
-  for (let i = 0; i < 2; i++) {
-    await page.reload();
-    check(`phone: signed-out refresh ${i + 1} replays even after seeing it`, (await hintWithin(page, 5000)) === PHONE_BOTH);
-  }
-  await page.context().close();
-}
-
-async function memberFlow(browser: Browser) {
-  const page = await open(browser, 'desktop', { member: true });
-  check('signed in, unseen: the hint appears', (await hintWithin(page, 5000)) === DESKTOP_BOTH);
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? '{}').seen === true, HINTS_KEY);
-  await page.reload();
-  check('signed in: a seen prompt stays dismissed on refresh', (await hintWithin(page, 2500)) === null);
-  await page.context().close();
-}
-
-async function quickScroll(browser: Browser) {
-  const page = await open(browser, 'desktop', { member: true });
-  const activeHint = `section.slide[aria-current="true"] ${HINT}`;
-  for (let i = 0; i < 4; i++) {
-    await page.waitForSelector(activeHint, { timeout: 5000 });
-    const active = await page.locator('section.slide[aria-current="true"]').evaluate((el) => Array.from(el.parentElement!.children).indexOf(el));
-    // Move as soon as it starts to appear, before its 500 ms viewing window.
+/** Viewing, scrolling and refreshing never complete the tutorial. Only opening does. */
+async function repeatUntilOpened(browser: Browser) {
+  for (const label of ['visitor', 'guest', 'member']) {
+    const page = await open(browser, 'desktop', { member: label === 'member', guest: label === 'guest', hints: { seen: true } });
+    check(`${label}: legacy seen flag does not hide the hint`, (await hintWithin(page, 5000)) === DESKTOP_BOTH);
+    // Run beyond the former 7.6 s timeout, then observe another full animation
+    // cycle. A visible but frozen hand must fail as well as an absent hint.
+    await page.waitForTimeout(8000);
+    const poses = new Set<string>();
+    for (let frame = 0; frame < 21; frame++) {
+      poses.add(await page.locator('[data-testid="gesture-hint-hand"]').evaluate((el) => getComputedStyle(el).transform));
+      await page.waitForTimeout(200);
+    }
+    check(`${label}: animation keeps looping after the old timeout`, poses.size > 4, { poses: poses.size });
+    check(`${label}: watching does not save completion`, (await stored(page))?.opened !== true);
     await page.keyboard.press('ArrowDown');
-    await page.waitForFunction((previous) => Array.from(document.querySelector('section.slide[aria-current="true"]')!.parentElement!.children).indexOf(document.querySelector('section.slide[aria-current="true"]')!) !== previous, active);
+    await page.waitForTimeout(400);
+    check(`${label}: scrolling fades out the previous hint`, await hintGone(page, 500));
+    check(`${label}: the next reel gets the hint after its delay`, (await hintWithin(page, 3500)) === DESKTOP_BOTH);
+    await page.reload();
+    check(`${label}: unseen walkthrough still prompts after refresh`, (await hintWithin(page, 5000)) === DESKTOP_BOTH);
+    await page.keyboard.down('Space');
+    await page.waitForTimeout(700);
+    await page.keyboard.up('Space');
+    await page.waitForSelector(CLOSE_WALKTHROUGH, { timeout: 10000 });
+    check(`${label}: successful hold dismisses and persists completion`, await hintGone(page, 2000) && (await stored(page))?.opened === true);
+    await page.reload();
+    check(`${label}: completion survives refresh`, (await hintWithin(page, 3000)) === null);
+    await page.context().close();
   }
-  await page.waitForSelector(activeHint, { timeout: 5000 });
-  check('four quick scrolls do not exhaust retries', (await page.getAttribute(activeHint, 'aria-label')) === DESKTOP_BOTH && (await stored(page))?.seen !== true);
+  const page = await open(browser, 'phone');
+  check('phone: hint shows after the delay', (await hintWithin(page, 5000)) === PHONE_BOTH);
+  await openDoubleTake(page, 'phone');
+  check('phone: opening the walkthrough dismisses and completes the tutorial', await hintGone(page, 2000) && (await stored(page))?.opened === true);
   await page.reload();
-  check('signed in: a brief glimpse does not suppress the prompt on refresh', (await hintWithin(page, 5000)) === DESKTOP_BOTH);
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) ?? '{}').seen === true, HINTS_KEY);
-  await page.keyboard.press('ArrowDown');
-  check('after being seen, it stays dismissed on the next reel', await hintGone(page, 2000));
-  await page.reload();
-  check('signed in: the viewing threshold also survives refresh', (await hintWithin(page, 2500)) === null);
-  await page.context().close();
-}
-
-async function timesOut(browser: Browser) {
-  const page = await open(browser, 'phone', { gesture: 'hold' });
-  check('phone hold: just the hold', (await hintWithin(page, 4000)) === 'Hold');
-  check('it fades out on its own after a couple of loops', await hintGone(page, 12_000));
+  check('phone: completion survives refresh', (await hintWithin(page, 3000)) === null);
   await page.context().close();
 }
 
@@ -297,7 +286,7 @@ async function pixels(browser: Browser) {
 
 /** Dev settings → Interaction → Gesture hint: the design picker and Show now, even once learned. */
 async function devPanel(browser: Browser) {
-  const page = await open(browser, 'desktop', { hints: { seen: true }, member: true });
+  const page = await open(browser, 'desktop', { hints: { opened: true }, member: true });
   check('learned: no hint by itself', (await hintWithin(page, 3000)) === null);
   await page.keyboard.press('Control+.');
   await page.getByText('Gesture hint', { exact: true }).waitFor({ timeout: 5000 });
@@ -316,6 +305,7 @@ async function fromHero(browser: Browser, layouts: readonly Layout[] = ['desktop
   for (const layout of layouts) {
     const context = await browser.newContext(CONTEXT[layout]);
     const page = await context.newPage();
+    await cacheFeed(page);
     await page.addInitScript((key) => {
       if (sessionStorage.getItem('seeded')) return;
       sessionStorage.setItem('seeded', '1');
@@ -347,7 +337,7 @@ async function fromHero(browser: Browser, layouts: readonly Layout[] = ['desktop
       const seen = await hintPainted(page);
       check(`${layout}: from the hero, the hint is painted over the video`, words === want && seen === true, { words, seen });
     } else {
-      check(`${layout}: from the hero, the hint waits for the hand-off, then shows (${after} ms)`, !underLanding && words === want && after < 2000, { underLanding, words, after });
+      check(`${layout}: from the hero, the hint waits for the hand-off, then shows (${after} ms)`, !underLanding && words === want && after < 3000, { underLanding, words, after });
     }
     await context.close();
   }
@@ -413,10 +403,7 @@ async function main() {
     await pixels(browser);
     await handContact(browser);
     if (!process.env.PIXELS_ONLY) {
-      await phoneFlow(browser);
-      await memberFlow(browser);
-      await quickScroll(browser);
-      await timesOut(browser);
+      await repeatUntilOpened(browser);
       await desktopFlow(browser);
       await devPanel(browser);
       await fromHero(browser);
