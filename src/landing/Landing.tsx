@@ -3,6 +3,8 @@ import { ArrowDown, ArrowRight, Play } from 'lucide-react';
 import { Logo } from '@/desktop/Logo';
 import { COPY, STEPS, TELLS } from './content';
 import type { LandingValues } from './designs';
+import type { FeatureValues } from './features/designs';
+import { Features } from './features/Features';
 import { Gallery } from './Galleries';
 import { Tile, useAtlasBoards, useGalleryClip, useTilePlayback } from './Tile';
 import { launch } from './launch';
@@ -38,12 +40,15 @@ const ACCENTS: Record<LandingValues['accent'], [string, string]> = {
  */
 export function Landing({
   values: v,
+  features,
   ready,
   fullSrc,
   onLaunch,
   onDone,
 }: {
   values: LandingValues;
+  /** The features below the hero (the phone pinned while the page scrolls); none without. */
+  features?: FeatureValues;
   /** Settles once the feed's clips are in; a press before then launches when it does. */
   ready: Promise<unknown>;
   /** The full clip at a feed index. */
@@ -196,7 +201,13 @@ export function Landing({
         </div>
       </section>
 
-      {v.below !== 'none' && <Below design={v.below} press={press} pressTile={pressTile} button={words.button} />}
+      {features && <Features rootRef={rootRef} values={features} />}
+
+      {v.below !== 'none' ? (
+        <Below design={v.below} press={press} pressTile={pressTile} button={words.button} />
+      ) : (
+        features && <Closing press={press} button={words.button} />
+      )}
     </div>
   );
 }
@@ -334,6 +345,15 @@ function Below({
         </section>
       )}
 
+      <Closing press={press} button={button} />
+    </>
+  );
+}
+
+/** The last call to open the app (the same launch as the hero's button), and the footer. */
+function Closing({ press, button }: { press(e: MouseEvent<HTMLElement>): void; button: string }) {
+  return (
+    <>
       <section className="lt-section lt-final" data-exit="">
         <h2 className="lt-h2">Ready for a double take?</h2>
         <button type="button" className="lt-cta" onClick={press}>

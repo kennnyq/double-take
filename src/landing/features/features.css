@@ -1,0 +1,725 @@
+/* ============================================================== features
+   Prefixed `ft-`. A tall track with a pinned stage; every per-frame change is
+   a transform or an opacity (engine.ts `paint`), each moving piece on its own
+   layer. */
+
+.ft {
+  position: relative;
+  --ft-glass: rgb(28 28 30 / 0.8);
+  --ft-line: rgb(245 245 247 / 0.1);
+  --ft-text: rgb(245 245 247 / 0.94);
+  --ft-dim: rgb(152 152 159 / 0.85);
+  --ft-tell: #f5f5f7;
+}
+
+.ft-stage {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  height: 100svh;
+  overflow: hidden;
+  contain: layout paint;
+}
+
+.ft [data-copy],
+.ft [data-word],
+.ft [data-nav-fill],
+.ft [data-glow],
+.ft-layer,
+.ft-clip,
+.ft-card,
+.ft-corner,
+.ft-wire,
+.ft-ring,
+.ft-band,
+.ft-hole,
+
+.ft-pop {
+  will-change: transform, opacity;
+}
+
+/* ------------------------------------------------------------ copy */
+
+.ft-copies {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ft-copy {
+  position: absolute;
+  left: var(--lt-pad);
+  top: 50%;
+  width: min(440px, 40vw);
+  margin-top: -110px;
+  visibility: hidden;
+}
+
+.ft-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--accent, #4f9cf9);
+  font: 700 13px/1 'JetBrains Mono', ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.ft-num {
+  color: rgb(255 255 255 / 0.4);
+}
+
+.ft-title {
+  margin-top: 16px !important;
+  font-family: var(--lt-display);
+  font-weight: var(--lt-weight);
+  font-size: clamp(38px, 4.4vw, 68px);
+  line-height: 1;
+  letter-spacing: var(--lt-track);
+  text-transform: var(--lt-case);
+}
+
+.ft-body {
+  margin-top: 18px !important;
+  max-width: 30em;
+  color: rgb(255 255 255 / 0.68);
+  font-size: 18px;
+  line-height: 1.55;
+}
+
+/* Center stage: the words behind the phone, big; the copy small at the bottom left. */
+.ft[data-layout='stage'] .ft-copy {
+  top: auto;
+  bottom: 56px;
+  width: min(340px, 26vw);
+  margin: 0;
+}
+
+.ft[data-layout='stage'] .ft-copy .ft-title {
+  display: none;
+}
+
+.ft-words {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.ft-words span {
+  grid-area: 1 / 1;
+  max-width: 96vw;
+  text-align: center;
+  white-space: nowrap;
+  font-family: var(--lt-display);
+  font-weight: var(--lt-weight);
+  font-size: clamp(64px, 11.5vw, 210px);
+  line-height: 0.9;
+  letter-spacing: var(--lt-track);
+  text-transform: var(--lt-case);
+  color: rgb(255 255 255 / 0.9);
+}
+
+/* The rail: panels side by side, the row moving left as the page scrolls. */
+.ft-copies[data-rail] {
+  left: 50%;
+}
+
+.ft-copies[data-rail] .ft-copy {
+  left: 0;
+  top: 15%;
+  width: min(460px, 40vw);
+  margin: 0;
+  padding: 28px 30px 32px;
+  border-radius: 28px;
+  background: linear-gradient(160deg, rgb(255 255 255 / 0.07), rgb(255 255 255 / 0.02));
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.08);
+  visibility: visible;
+}
+
+.ft-copies[data-rail] .ft-copy::after {
+  content: '';
+  display: block;
+  height: 34vh;
+}
+
+/* ------------------------------------------------------------ device */
+
+.ft-glow {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.ft-glow::before,
+.ft-glow img {
+  content: '';
+  position: absolute;
+  left: -40vh;
+  top: -50vh;
+  width: 80vh;
+  height: 100vh;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--accent, #4f9cf9) 26%, transparent), transparent);
+}
+
+.ft-glow img {
+  object-fit: cover;
+  filter: blur(60px) saturate(1.3);
+  opacity: 0.55;
+}
+
+.ft-glow[data-kind='poster']::before {
+  display: none;
+}
+
+.ft-scene {
+  position: absolute;
+  inset: 0;
+  perspective: 1600px;
+  pointer-events: none;
+}
+
+.ft-device {
+  position: absolute;
+  transform-style: preserve-3d;
+  will-change: transform;
+}
+
+.ft-bezel {
+  position: absolute;
+  inset: -12px;
+  border-radius: calc(var(--r) + 12px);
+  background: linear-gradient(145deg, #8d8f93, #3d3f43 18%, #2a2b2e 50%, #55575b 82%, #9a9ca0);
+  box-shadow:
+    inset 0 0 0 1.5px rgb(255 255 255 / 0.22),
+    inset 0 0 0 5px #0b0b0c,
+    0 40px 90px -30px rgb(0 0 0 / 0.9),
+    0 0 0 1px rgb(0 0 0 / 0.7);
+}
+
+.ft[data-device='black'] .ft-bezel {
+  background: linear-gradient(145deg, #3a3b3e, #151517 20%, #0d0d0f 50%, #1b1b1d 80%, #3e3f42);
+}
+
+.ft-bezel::before,
+.ft-bezel::after {
+  /* the side buttons */
+  content: '';
+  position: absolute;
+  top: 22%;
+  width: 4px;
+  height: 9%;
+  border-radius: 2px;
+  background: inherit;
+}
+
+.ft-bezel::before {
+  left: -3px;
+}
+
+.ft-bezel::after {
+  right: -3px;
+  top: 27%;
+  height: 13%;
+}
+
+.ft-screen {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: #000;
+  isolation: isolate;
+}
+
+.ft-island {
+  position: absolute;
+  left: 50%;
+  top: 2.2%;
+  width: 31%;
+  height: 3.6%;
+  translate: -50% 0;
+  border-radius: 999px;
+  background: #000;
+}
+
+.ft-pops {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  pointer-events: none;
+}
+
+.ft-island {
+  transform: translateZ(0.5px);
+}
+
+.ft-pops > * {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+/* ------------------------------------------------------------ screen */
+
+.ft-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: var(--r);
+  background: #000;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.ft-clip {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  background: #000;
+}
+
+.ft-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ft-top {
+  position: absolute;
+  top: 7.5%;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  gap: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+}
+
+.ft-top span {
+  opacity: 0.6;
+}
+
+.ft-chrome {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.55);
+}
+
+.ft-chrome svg {
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5));
+}
+
+.ft-rail {
+  position: absolute;
+  right: 6px;
+  bottom: 16px;
+  width: 52px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.ft-rail span {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+}
+
+.ft-rail small {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.ft-meta {
+  position: absolute;
+  left: 12px;
+  right: 64px;
+  bottom: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.ft-meta p {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.ft-author {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ft-author b {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+}
+
+.ft-author em {
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: rgb(255 255 255 / 0.18);
+  font: 600 11px/1 inherit;
+  font-style: normal;
+}
+
+.ft-avatar {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #5b6cff, #c86bfa);
+  font: 800 12px/1 inherit;
+  font-style: normal;
+}
+
+.ft-audio {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #ddd;
+  font-size: 12px;
+}
+
+.ft-ring {
+  position: absolute;
+  left: calc(50% - 36px);
+  top: calc(44% - 36px);
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 2.5px rgb(255 255 255 / 0.95);
+  background: rgb(255 255 255 / 0.12);
+}
+
+/* The spotlight: the hole image and four plain bands (transforms only). */
+.ft-spot {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: opacity;
+}
+
+.ft-band {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: #000;
+}
+
+.ft-hole {
+  position: absolute;
+  left: -256px;
+  top: -256px;
+  width: 512px;
+  height: 512px;
+  max-width: none;
+}
+
+/* ------------------------------------------------------------ the card */
+
+.ft-card {
+  height: 200px;
+  transform-origin: 50% 40px;
+  color: var(--ft-text);
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+.ft-glass {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 200px;
+  transform-origin: top;
+  border-radius: 22px;
+  background: var(--ft-glass);
+  box-shadow: inset 0 0 0 0.5px var(--ft-line);
+  will-change: transform;
+}
+
+.ft-card-shadow {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: -100px;
+  height: 200px;
+  border-radius: 50%;
+  background: rgb(0 0 0 / 0.55);
+  filter: blur(22px);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.ft-chip {
+  position: absolute;
+  left: 4px;
+  top: -34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 11px;
+  border-radius: 999px;
+  background: var(--ft-tell);
+  color: #000;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  will-change: transform, opacity;
+}
+
+.ft-chip b {
+  font-variant-numeric: tabular-nums;
+  font-weight: 800;
+}
+
+.ft-text {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 13px;
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+}
+
+.ft-word {
+  display: inline-block;
+  opacity: 0;
+}
+
+.ft-footer {
+  position: absolute;
+  left: 16px;
+  right: 16px;
+  top: 0;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 10px;
+  will-change: transform;
+}
+
+.ft-loop {
+  position: relative;
+  width: 56px;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: rgb(245 245 247 / 0.14);
+}
+
+.ft-loop i {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  transform: scaleX(0);
+  background: rgb(245 245 247 / 0.6);
+  will-change: transform;
+}
+
+.ft-dots {
+  display: flex;
+  gap: 5px;
+  flex: 1;
+}
+
+.ft-dots i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #f5f5f7;
+  opacity: 0.22;
+  will-change: transform, opacity;
+}
+
+.ft-navs {
+  display: flex;
+  gap: 6px;
+}
+
+.ft-nav-btn {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 30px;
+  border-radius: 15px;
+  background: rgb(245 245 247 / 0.1);
+  color: rgb(245 245 247 / 0.85);
+}
+
+.ft-nav-fill {
+  position: absolute;
+  inset: 0;
+  border-radius: 15px;
+  background: var(--ft-tell);
+}
+
+.ft-nav-icon {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+.ft-nav-check {
+  color: #000;
+}
+
+.ft-corner {
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  border-color: var(--ft-tell);
+  border-style: solid;
+  border-width: 0;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.5));
+}
+
+.ft-corner[data-corner='0'] {
+  border-width: 2.5px 0 0 2.5px;
+  border-top-left-radius: 6px;
+  translate: 8px 8px;
+}
+
+.ft-corner[data-corner='1'] {
+  border-width: 2.5px 2.5px 0 0;
+  border-top-right-radius: 6px;
+  translate: -8px 8px;
+}
+
+.ft-corner[data-corner='2'] {
+  border-width: 0 0 2.5px 2.5px;
+  border-bottom-left-radius: 6px;
+  translate: 8px -8px;
+}
+
+.ft-corner[data-corner='3'] {
+  border-width: 0 2.5px 2.5px 0;
+  border-bottom-right-radius: 6px;
+  translate: -8px -8px;
+}
+
+.ft-wire {
+  width: 100px;
+  height: 1.5px;
+  transform-origin: 0 50%;
+  background: linear-gradient(90deg, rgb(245 245 247 / 0.9), rgb(245 245 247 / 0.35));
+}
+
+/* ------------------------------------------------------------ index */
+
+.ft-nav {
+  position: absolute;
+  left: 50%;
+  bottom: 22px;
+  display: flex;
+  gap: 6px;
+  translate: -50% 0;
+  pointer-events: auto;
+}
+
+.ft-nav button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 7px;
+  width: 92px;
+  padding: 6px 4px;
+  color: #fff;
+  font: 600 12px/1 var(--lt-body);
+  letter-spacing: 0.01em;
+}
+
+.ft-nav i {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 2px;
+  overflow: hidden;
+  border-radius: 1px;
+  background: rgb(255 255 255 / 0.16);
+}
+
+.ft-nav b {
+  position: absolute;
+  inset: 0;
+  transform-origin: left;
+  transform: scaleX(0);
+  background: #fff;
+}
+
+/* ------------------------------------------------------------ phones */
+
+.ft[data-narrow] .ft-copy {
+  left: 0;
+  right: 0;
+  top: max(14px, env(safe-area-inset-top));
+  width: auto;
+  margin: 0;
+  padding: 0 20px;
+  text-align: center;
+}
+
+.ft[data-narrow] .ft-eyebrow {
+  justify-content: center;
+  font-size: 11px;
+}
+
+.ft[data-narrow] .ft-title {
+  display: block;
+  margin-top: 10px !important;
+  font-size: clamp(28px, 8.4vw, 40px);
+}
+
+.ft[data-narrow] .ft-body {
+  margin: 8px auto 0 !important;
+  max-width: 26em;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.ft[data-narrow] .ft-nav {
+  display: none;
+}
+
+.ft[data-narrow] .ft-bezel {
+  inset: -8px;
+  border-radius: calc(var(--r) + 8px);
+}
+
+/* ------------------------------------------------------------ dev */
+
+.ft-meter {
+  position: fixed;
+  z-index: 1001;
+  left: 12px;
+  bottom: 12px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.75);
+  color: #9f9;
+  font: 600 12px/1.2 'JetBrains Mono', ui-monospace, monospace;
+  pointer-events: none;
+}

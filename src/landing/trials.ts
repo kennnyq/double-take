@@ -5,7 +5,8 @@ import { choosePreset } from './presetChoice';
  * Designs on trial: a page's design decisions as named axes ("trials"), plus
  * whole designs ("presets") that set every axis at once. Development only.
  *
- * - `?design=<preset>` picks a preset; `?<param>=<value>` overrides one axis.
+ * - `?design=<preset>` picks a preset (another set of trials on the same page
+ *   names its own, e.g. `?fdesign=`); `?<param>=<value>` overrides one axis.
  *   The address only ever holds what differs from the preset, so a copied
  *   link opens exactly the same design.
  * - Without a `?design=` in the address, the last design shown (saved in
@@ -85,6 +86,7 @@ function initialState<T extends Trials>(
   presets: readonly Preset<T>[],
   prefix: string,
   defaultId: string | undefined,
+  presetParam: string,
 ): State<T> {
   if (!DEV) {
     const preset = choosePreset(presets, { fallback: defaultId });
@@ -92,8 +94,8 @@ function initialState<T extends Trials>(
   }
 
   const url = new URLSearchParams(window.location.search);
-  const fromUrl = url.get(PRESET_PARAM);
-  const preset = choosePreset(presets, { fromUrl, stored: read(`${prefix}${PRESET_PARAM}`), fallback: defaultId });
+  const fromUrl = url.get(presetParam);
+  const preset = choosePreset(presets, { fromUrl, stored: read(`${prefix}${presetParam}`), fallback: defaultId });
   const values = { ...preset.values };
 
   for (const key of Object.keys(trials) as (keyof T)[]) {
@@ -105,9 +107,9 @@ function initialState<T extends Trials>(
   return { preset: preset.id, values };
 }
 
-function syncUrl<T extends Trials>(trials: T, preset: Preset<T>, values: TrialValues<T>) {
+function syncUrl<T extends Trials>(trials: T, preset: Preset<T>, values: TrialValues<T>, presetParam: string) {
   const url = new URL(window.location.href);
-  url.searchParams.set(PRESET_PARAM, preset.id);
+  url.searchParams.set(presetParam, preset.id);
   for (const key of Object.keys(trials) as (keyof T)[]) {
     const { param } = trials[key];
     if (values[key] === preset.values[key]) url.searchParams.delete(param);
@@ -129,14 +131,18 @@ export interface TrialsApi<T extends Trials> {
   step(offset: number): void;
 }
 
-/** `defaultId` names the preset shown when nothing else picks one (default: the first). */
+/**
+ * `defaultId` names the preset shown when nothing else picks one (default: the
+ * first); `presetParam` the query parameter that picks a preset (default `design`).
+ */
 export function useTrials<T extends Trials>(
   trials: T,
   presets: readonly Preset<T>[],
   prefix: string,
   defaultId?: string,
+  presetParam = PRESET_PARAM,
 ): TrialsApi<T> {
-  const [state, setState] = useState(() => initialState(trials, presets, prefix, defaultId));
+  const [state, setState] = useState(() => initialState(trials, presets, prefix, defaultId, presetParam));
   const presetIndex = Math.max(
     0,
     presets.findIndex((p) => p.id === state.preset),
@@ -148,11 +154,11 @@ export function useTrials<T extends Trials>(
       setState(next);
       if (!DEV) return;
       const p = presets.find((x) => x.id === next.preset) ?? presets[0];
-      write(`${prefix}${PRESET_PARAM}`, p.id);
+      write(`${prefix}${presetParam}`, p.id);
       for (const key of Object.keys(trials) as (keyof T)[]) write(`${prefix}${trials[key].param}`, next.values[key]);
-      syncUrl(trials, p, next.values);
+      syncUrl(trials, p, next.values, presetParam);
     },
-    [prefix, presets, trials],
+    [prefix, presets, trials, presetParam],
   );
 
   const select = useCallback(

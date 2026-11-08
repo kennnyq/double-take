@@ -200,3 +200,39 @@
   opacity: 0.6;
   font-variant-numeric: tabular-nums;
 }
+
+/* The tabs along the bottom: which set of designs the pill and panel are for. */
+.tb-tabs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: #2f3131;
+  border-radius: 9999px;
+  box-shadow: 0 8px 24px -8px rgb(0 0 0 / 50%), 0 0 0 1px rgb(255 255 255 / 8%);
+}
+
+.tb-tab {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  color: #afafaf;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tb-tab:hover {
+  color: #fff;
+}
+
+.tb-tab[aria-selected='true'] {
+  background: rgb(255 255 255 / 14%);
+  color: #fff;
+}
+
+.tb-jumps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

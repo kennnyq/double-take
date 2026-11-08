@@ -8,6 +8,15 @@ import { galleryPicks, parseAtlas, type Atlas } from './atlas';
 import { DEFAULT_LANDING_PRESET, LANDING_PRESETS, LANDING_STORAGE_PREFIX, LANDING_TRIALS } from './designs';
 import { Landing } from './Landing';
 import { GalleryAtlas, GalleryClips, type GalleryClip } from './Tile';
+import {
+  FEATURE_PRESETS,
+  FEATURE_TRIALS,
+  FEATURES_PRESET_PARAM,
+  FEATURES_STORAGE_PREFIX,
+  GLOBAL_PRESETS,
+  GLOBAL_TRIALS,
+} from './features/designs';
+import { DevAids } from './features/DevAids';
 import { TrialAction, TrialBar } from './TrialBar';
 import { DEV, useTrials } from './trials';
 
@@ -60,6 +69,9 @@ export function WithLanding({
   const [startAt, setStartAt] = useState<number | undefined>();
   const [landingKey, setLandingKey] = useState(0);
   const trials = useTrials(LANDING_TRIALS, LANDING_PRESETS, LANDING_STORAGE_PREFIX, DEFAULT_LANDING_PRESET);
+  // The features below the hero have their own designs (`?fdesign=`), and the page its own aids.
+  const features = useTrials(FEATURE_TRIALS, FEATURE_PRESETS, FEATURES_STORAGE_PREFIX, undefined, FEATURES_PRESET_PARAM);
+  const global = useTrials(GLOBAL_TRIALS, GLOBAL_PRESETS, FEATURES_STORAGE_PREFIX, undefined, 'fglobal');
   // The feed's first-run hint waits until the launch has handed over to it.
   useBlockHints(stage !== 'app');
 
@@ -142,6 +154,7 @@ export function WithLanding({
           <Landing
             key={`${landingKey}:${trials.preset.id}`}
             values={trials.values}
+            features={features.values}
             ready={ready}
             fullSrc={fullSrc}
             onLaunch={onLaunch}
@@ -150,9 +163,14 @@ export function WithLanding({
           </GalleryAtlas.Provider>
         </GalleryClips.Provider>
       )}
+      {DEV && stage !== 'app' && global.values.meter === 'on' && <DevAids.Meter />}
       {DEV && stage !== 'app' && (
         <TrialBar
-          api={trials}
+          tabs={[
+            { id: 'hero', label: 'Hero', api: trials },
+            { id: 'features', label: 'Features', api: features },
+            { id: 'global', label: 'Global', api: global, extra: <DevAids.Jumps /> },
+          ]}
           actions={
             <TrialAction label="Replay the landing" onClick={showLanding}>
               <RotateCcw size={18} />
