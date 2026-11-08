@@ -83,6 +83,22 @@ const WORD_EXITS: Record<LandingValues['words'], (from: string) => Keyframe[]> =
   blur: (o) => [{ opacity: o, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(12px)' }],
 };
 
+const SINK_DEPTH: Record<LandingValues['depth'], number> = { shallow: 450, medium: 900, deep: 1600 };
+
+function recedeFrames(o: string, deep: boolean, px: number): Keyframe[] {
+  // A slow sink: it starts to fade a third of the way down.
+  return [
+    { opacity: o, translate: '0 0 0', scale: '1' },
+    { offset: 0.35, opacity: o },
+    { opacity: 0, translate: deep ? `0 0 -${px}px` : '0 0 0', scale: deep ? '1' : String(Math.max(0.3, 1 - px / 1800)) },
+  ];
+}
+
+/** The recede exit with the design's own length and depth. */
+function recede(v: LandingValues): (typeof VANISH)['recede'] {
+  return { ...VANISH.recede, ms: Number(v.sink), frames: (o, _f, deep) => recedeFrames(o, deep, SINK_DEPTH[v.depth]) };
+}
+
 /** How a tile leaves. `deep`: it sits on a plane kept in 3D for the launch, so it can move along the plane's own depth. */
 const VANISH: Record<
   LandingValues['vanish'],
@@ -115,14 +131,11 @@ const VANISH: Record<
   },
   // Back, away from the viewer, along the normal of the plane it lives on,
   // fading as it goes; on a flat gallery, the same depth read as shrinking.
+  // How long and how far are designs on trial (`sink`, `depth`: see recede()).
   recede: {
-    ms: 1050,
-    easing: 'cubic-bezier(.45,0,.25,1)',
-    frames: (o, _f, deep) => [
-      { opacity: o, translate: '0 0 0', scale: '1' },
-      { offset: 0.3, opacity: o },
-      { opacity: 0, translate: deep ? '0 0 -900px' : '0 0 0', scale: deep ? '1' : '0.5' },
-    ],
+    ms: 3000,
+    easing: 'cubic-bezier(.35,0,.25,1)',
+    frames: (o, _f, deep) => recedeFrames(o, deep, 900),
   },
   flip: {
     ms: 520,
@@ -300,6 +313,42 @@ const GROW: Record<LandingValues['grow'], { ms: number; easing: string }> = {
   slow: { ms: 1500, easing: 'cubic-bezier(.65,0,.25,1)' },
 };
 
+/**
+ * Replaces a strip's endless drift (a CSS animation from 0 to -50% of its
+ * length, possibly reversed) with one eased glide to a stop: as far as the
+ * slowdown's speed curve carries it (`stop.rate` = (1-t)^2 covers a third of
+ * the full-speed distance), on the curve whose speed is that (ease-out cubic).
+ * Kept within one copy of its tiles, where the picture is the same.
+ */
+function glideToStop(strip: HTMLElement, run: Animation, stop: { ms: number }): boolean {
+  const timing = run.effect?.getTiming();
+  const period = Number(timing?.duration);
+  if (!period || !Number.isFinite(period)) return false;
+  const y = strip.classList.contains('lt-col');
+  const half = (y ? strip.offsetHeight : strip.offsetWidth) / 2;
+  const m = new DOMMatrix(getComputedStyle(strip).transform);
+  let from = y ? m.m42 : m.m41;
+  const sign = timing?.direction === 'reverse' ? 1 : -1;
+  const by = (sign * (half / period) * stop.ms) / 3;
+  let to = from + by;
+  if (to < -half) {
+    from += half;
+    to += half;
+  } else if (to > 0) {
+    from -= half;
+    to -= half;
+  }
+  const move = (at: number) => (y ? `translateY(${at}px)` : `translateX(${at}px)`);
+  run.cancel();
+  strip.style.transform = move(from);
+  strip.animate([{ transform: move(from) }, { transform: move(to) }], {
+    duration: stop.ms,
+    easing: 'cubic-bezier(0.33, 1, 0.68, 1)',
+    fill: 'forwards',
+  });
+  return true;
+}
+
 export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElement | null, hooks: LaunchHooks) {
   const alive = () => root.isConnected;
   const fromTile = from?.closest<HTMLElement>('[data-tile]') ?? null;
@@ -311,9 +360,9 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     await until(() => root.scrollTop <= 2, 900);
   }
   root.setAttribute('data-launching', '');
-  // Tiles drawn a strip at a time by the atlas get a canvas each, so they can
-  // leave one by one, still playing until each has gone.
-  const freeze = playerFor(root)?.separate(root);
+  // Tiles drawn a strip at a time by the atlas get a canvas of their own as
+  // they leave, one by one, and keep playing until each has gone.
+  const release = playerFor(root)?.release(root);
 
   const galleryEl = root.querySelector<HTMLElement>('.lt-gallery');
   const galleryRect = galleryEl?.getBoundingClientRect() ?? new DOMRect(0, 0, innerWidth, innerHeight);
@@ -323,6 +372,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     return { el, r, seen: visibleFraction(r) };
   });
   const survivor = fromTile ?? pickSurvivor(tiles, v.pick, button, galleryRect);
+  release?.detach(survivor);
   const clip = Number(survivor.dataset.clip) || 0;
   hooks.mountApp(clip);
 
@@ -343,15 +393,31 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     el.getAnimations({ subtree: true }),
   );
   if (v.motion === 'freeze') moving.forEach((a) => a.pause());
-  const stop = slowdown(v.motion, Number(v.pace));
+  // ---- The others' timing: a long exit (a slow sink) is staggered over most
+  // of its own length, and the one that stays starts to grow before the last go.
+  const vanish = v.vanish === 'recede' ? recede(v) : VANISH[v.vanish];
+  const pace = Number(v.pace);
+  const long = vanish.ms >= 1500;
+  const spread = Math.max(pace - vanish.ms, long ? vanish.ms * 0.6 : 0);
+  const stop = slowdown(v.motion, Math.max(pace, spread + vanish.ms));
   if (stop) {
+    // Strips glide to a stop in one animation each, on the compositor: from
+    // where they are to where the slowdown would leave them. Changing their
+    // playback rate every frame from script instead stalled them whenever the
+    // page was busy, and in WebKit cost so much the exit ran at ~1 fps.
+    const glided = new Set<Animation>();
+    for (const strip of root.querySelectorAll<HTMLElement>('.lt-row, .lt-col')) {
+      const run = strip.getAnimations()[0];
+      if (run && glideToStop(strip, run, stop)) glided.add(run);
+    }
+    const rest = moving.filter((a) => !glided.has(a));
     const t0 = performance.now();
     const slow = () => {
       const t = Math.min(1, (performance.now() - t0) / stop.ms);
-      moving.forEach((a) => (t >= 1 ? a.pause() : a.updatePlaybackRate(stop.rate(t))));
-      if (t < 1 && alive()) requestAnimationFrame(slow);
+      rest.forEach((a) => (t >= 1 ? a.pause() : a.updatePlaybackRate(stop.rate(t))));
+      if (t < 1 && rest.length && alive()) requestAnimationFrame(slow);
     };
-    requestAnimationFrame(slow);
+    if (rest.length) requestAnimationFrame(slow);
   }
   root.querySelectorAll<HTMLElement>('.lt-scan').forEach((el) => el.remove());
 
@@ -373,32 +439,60 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const lateFilter = `blur(${blurPx}px) brightness(${(1 - dim * 0.7).toFixed(2)})`;
   // Inside something that is leaving now (the phone), or the gallery keeps
   // moving: lift it out straight away so it stays put.
-  const liftNow = v.motion === 'flow' || survivor.closest('[data-exit]') !== null;
+  // The lighter tier (tier.ts) lifts it out at once too: whole strips leave around it.
+  const light = root.dataset.tier === 'phone';
+  const liftNow = v.motion === 'flow' || survivor.closest('[data-exit]') !== null || light;
   let lifted: Lifted | null = liftNow ? lift(root, survivor, survivor.closest('.lt-front') ? 'none' : lateFilter) : null;
 
   // ---- The others leave, one by one.
-  const vanish = VANISH[v.vanish];
-  const pace = Number(v.pace);
-  const spread = Math.max(0, pace - vanish.ms);
   const others = tiles.filter((t) => t.el !== survivor);
   const shown = others.filter((t) => t.seen > 0);
   others.filter((t) => t.seen === 0).forEach((t) => {
     t.el.style.opacity = '0';
-    freeze?.(t.el);
+    release?.hide(t.el);
   });
   const origin = center(survivor.getBoundingClientRect());
-  const order = turns(shown, v.order, origin);
-  shown.forEach((t, i) => {
-    const cs = getComputedStyle(t.el);
-    const deep = t.el.closest('.lt-tilted') !== null;
-    const leaving = t.el.animate(vanish.frames(cs.opacity, cs.filter, deep), {
-      delay: 140 + order[i] * spread,
-      duration: vanish.ms,
-      easing: vanish.easing,
-      fill: 'both',
-    });
-    // Its clip plays on until it has gone.
-    void leaving.finished.then(() => freeze?.(t.el), () => {});
+  // The lighter tier: each strip leaves whole, in turn (a few animations and no
+  // new canvases, rather than one of each per tile), flat rather than into depth.
+  const strip = (t: Measured) => (light ? t.el.closest<HTMLElement>('.lt-row, .lt-col') : null);
+  const strips = [...new Set(shown.map(strip).filter((el): el is HTMLElement => el !== null))].map((el) => ({
+    el,
+    r: el.getBoundingClientRect(),
+    seen: 1,
+  }));
+  const stripOrder = turns(strips, v.order, origin);
+  strips.forEach((s, i) => {
+    window.setTimeout(() => {
+      if (!alive()) return;
+      const cs = getComputedStyle(s.el);
+      const leaving = s.el.animate(vanish.frames(cs.opacity, cs.filter, false), {
+        duration: vanish.ms,
+        easing: vanish.easing,
+        fill: 'forwards',
+      });
+      void leaving.finished.then(
+        () => s.el.querySelectorAll<HTMLElement>('[data-tile]').forEach((t) => release?.hide(t)),
+        () => {},
+      );
+    }, 140 + stripOrder[i] * spread);
+  });
+  const single = shown.filter((t) => strip(t) === null);
+  const order = turns(single, v.order, origin);
+  single.forEach((t, i) => {
+    // At its turn it gets its own canvas and starts to go, in one step.
+    window.setTimeout(() => {
+      if (!alive()) return;
+      release?.detach(t.el);
+      const cs = getComputedStyle(t.el);
+      const deep = t.el.closest('.lt-tilted') !== null;
+      const leaving = t.el.animate(vanish.frames(cs.opacity, cs.filter, deep), {
+        duration: vanish.ms,
+        easing: vanish.easing,
+        fill: 'forwards',
+      });
+      // Its clip plays on until it has gone.
+      void leaving.finished.then(() => release?.freeze(t.el), () => {});
+    }, 140 + order[i] * spread);
   });
 
   // ---- The shade and blur lift off, now or as the others go.
@@ -408,7 +502,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (v.focus === 'early' || liftNow) clearOverlays(450, 100);
   else if (v.focus === 'gradual') clearOverlays(pace, 140);
 
-  await wait(140 + spread + vanish.ms);
+  // A long exit overlaps the one that stays: it starts once most have gone.
+  await wait(long ? 140 + spread * 0.7 + vanish.ms * 0.45 : 140 + spread + vanish.ms);
   if (!alive()) return;
 
   // ---- Alone, a beat. Lifted out first (once the gallery has stopped), so

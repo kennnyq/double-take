@@ -146,6 +146,17 @@ export const LANDING_TRIALS = {
     { value: 'recede', label: 'Sinking back into the plane' },
     { value: 'flip', label: 'Flipping over' },
   ]),
+  sink: trial(LAUNCH, 'Sinking takes', 'sink', [
+    { value: '3000', label: '3 s' },
+    { value: '4500', label: '4.5 s' },
+    { value: '2000', label: '2 s' },
+    { value: '1000', label: '1 s' },
+  ]),
+  depth: trial(LAUNCH, 'Sinks how far', 'depth', [
+    { value: 'medium', label: 'Well back' },
+    { value: 'shallow', label: 'A little' },
+    { value: 'deep', label: 'Far away' },
+  ]),
   pace: trial(LAUNCH, 'Leaving takes', 'pace', [
     { value: '1000', label: '1s' },
     { value: '1800', label: '1.8s' },
@@ -213,6 +224,8 @@ const BASE: LandingValues = {
   pick: 'center',
   order: 'random',
   vanish: 'fade',
+  sink: '3000',
+  depth: 'medium',
   pace: '1800',
   focus: 'gradual',
   beat: 'brackets',

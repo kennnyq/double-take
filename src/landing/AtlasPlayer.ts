@@ -59,6 +59,8 @@ interface Board {
   swipes: (Swipe | undefined)[];
   /** Each tile's key for swiping: a strip's two copies of a tile share one, and swipe together. */
   keys: string[];
+  /** Tiles no longer drawn here (gone to a canvas of their own, or left): their place stays clear. */
+  hidden: boolean[];
 }
 
 let boardIds = 0;
@@ -311,6 +313,7 @@ export class AtlasPlayer {
     const { ctx, plan, corners } = b;
     const which = only ?? plan.draws.map((_, i) => i);
     for (const i of which) {
+      if (b.hidden[i]) continue;
       const d = plan.draws[i];
       if (!src) {
         ctx.fillStyle = EMPTY;
@@ -383,7 +386,7 @@ export class AtlasPlayer {
     for (const b of this.visible) {
       if (!b.gate || b.frozen) continue;
       b.tiles.forEach((el, i) => {
-        if (el.hasAttribute('data-hero-tile')) return;
+        if (el.hasAttribute('data-hero-tile') || b.hidden[i]) return;
         const key = b.keys[i];
         const swipe = b.swipes[i];
         if (swipe && wallAt(t) < swipe.start + SWIPE_MS) return;
@@ -509,6 +512,7 @@ export class AtlasPlayer {
       cells: placed.map((t) => t.cell),
       swipes: tiles.map(() => undefined),
       keys: tiles.map((t, i) => `${id}:${t.dataset.twin ?? i}`),
+      hidden: tiles.map(() => false),
     };
     container.prepend(canvas);
     tiles.forEach((t) => t.setAttribute('data-on-board', ''));
@@ -634,15 +638,15 @@ export class AtlasPlayer {
   }
 
   /**
-   * For the launch, which moves and fades tiles one by one: every tile on a
-   * shared board that is on screen gets a board of its own, and the shared
-   * boards go. Returns a function that leaves one tile on its last frame,
-   * for when it has gone, so the redraws dwindle as the tiles leave.
+   * For the launch, which moves and fades tiles one by one. No new swipes
+   * start (ones not begun are called off, ones under way finish). Each tile
+   * on a shared strip is given a canvas of its own only as it begins to leave
+   * (`detach`): making all ~70 at the press stalled the screen for up to
+   * 150 ms. `hide` takes a tile off its strip without one (it isn't seen
+   * leaving), and `freeze` leaves a tile on its last frame once it's gone.
    */
-  separate(root: HTMLElement): (tile: HTMLElement) => void {
+  release(root: HTMLElement) {
     this.prune();
-    // No new swipes while the gallery leaves; ones not begun yet are called off
-    // (their tiles keep the clip they show), and ones under way finish.
     this.held = true;
     const now = performance.now();
     for (const b of this.boards) {
@@ -656,31 +660,46 @@ export class AtlasPlayer {
         if (clip !== undefined) el.dataset.clip = String(clip);
       });
     }
-    const shared = [...this.boards].filter((b) => !b.own && root.contains(b.canvas));
-    for (const b of shared) {
-      const onScreen = b.tiles.flatMap((t, i) => {
-        const r = t.getBoundingClientRect();
-        return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth ? [i] : [];
-      });
-      this.removeBoard(b, false);
-      for (const i of onScreen) {
-        const own = this.addBoard(b.tiles[i], [b.tiles[i]]);
-        const swipe = b.swipes[i];
+    const on = (tile: HTMLElement) => {
+      for (const b of this.boards) {
+        if (b.own || !root.contains(b.canvas)) continue;
+        const i = b.tiles.indexOf(tile);
+        if (i >= 0 && !b.hidden[i]) return { b, i };
+      }
+      return null;
+    };
+    const takeOff = (b: Board, i: number) => {
+      b.hidden[i] = true;
+      const d = b.plan.draws[i];
+      b.ctx.clearRect(Math.floor(d.dx) - 1, Math.floor(d.dy) - 1, Math.ceil(d.dw) + 2, Math.ceil(d.dh) + 2);
+      if (b.hidden.every(Boolean)) this.removeBoard(b, false);
+    };
+    return {
+      detach: (tile: HTMLElement) => {
+        const at = on(tile);
+        if (!at) return;
+        const own = this.addBoard(tile, [tile]);
+        const swipe = at.b.swipes[at.i];
         if (own && swipe) {
           own.swipes[0] = swipe;
           this.swiping.add(own);
+          this.animateSwipes();
         }
-      }
-    }
-    this.animateSwipes();
-    return (tile) => {
-      for (const b of this.boards) {
-        if (!b.own || b.tiles[0] !== tile) continue;
-        // Stays on the page as it is (the landing's unmounting takes it down), no longer redrawn.
-        b.frozen = true;
-        this.visible.delete(b);
-      }
-      this.update();
+        takeOff(at.b, at.i);
+      },
+      hide: (tile: HTMLElement) => {
+        const at = on(tile);
+        if (at) takeOff(at.b, at.i);
+      },
+      freeze: (tile: HTMLElement) => {
+        for (const b of this.boards) {
+          if (!b.own || b.tiles[0] !== tile) continue;
+          // Stays on the page as it is (the landing's unmounting takes it down), no longer redrawn.
+          b.frozen = true;
+          this.visible.delete(b);
+        }
+        this.update();
+      },
     };
   }
 }
