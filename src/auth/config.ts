@@ -13,6 +13,6 @@ export const AUTH_OPTIONS = {
   storageKey: AUTH_STORAGE_KEY,
   autoRefreshToken: true,
   persistSession: true,
-  // Email codes need no redirect, so there's never a session in the URL.
+  // Username + password sign-in has no redirect, so there's never a session in the URL.
   detectSessionInUrl: false,
 } as const;

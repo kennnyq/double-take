@@ -5,6 +5,7 @@ import { AUTH_STORAGE_KEY } from '@/auth/config';
 import { TEST_ACCOUNTS, devAccountsAvailable, devAuthUrl, devDeleteAccount, devSignIn, devWipe, type TestAccount } from '@/auth/devAccounts';
 import { isTestEmail } from '@/auth/member';
 import { signOut, useAuth } from '@/auth/store';
+import { usernameFromEmail } from '@/auth/username';
 import { supabase } from '@/auth/supabase';
 import { reloadSocial } from '@/social/SocialSync';
 
@@ -55,7 +56,7 @@ export function AccountsTab() {
             >
               <Info label="User id" value={`${user.id.slice(0, 8)}…  (tap to copy)`} />
             </Pressable>
-            <Info label="Email" value={email ?? '—'} />
+            <Info label={usernameFromEmail(email) ? 'Username' : 'Email'} value={usernameFromEmail(email) ?? email ?? '—'} />
             <Info label="Provider" value={String(user.app_metadata?.provider ?? '—')} />
             <Info label="Anonymous" value={user.is_anonymous ? 'yes' : 'no'} />
             <Info label="Test account" value={testAccount ? 'yes' : 'no'} />
@@ -68,7 +69,7 @@ export function AccountsTab() {
         />
       </Section>
 
-      <Section title="Switch account" note={routes ? `Instant sign-in through ${devAuthUrl()}/dev/session. No email is sent.` : 'Set EXPO_PUBLIC_DEV_AUTH_URL and run `npm run dev:auth`.'}>
+      <Section title="Switch account" note={routes ? `Instant sign-in through ${devAuthUrl()}/dev/session. No password needed.` : 'Set EXPO_PUBLIC_DEV_AUTH_URL and run `npm run dev:auth`.'}>
         <View style={styles.chips}>
           <Chip label="Guest" on={auth.status === 'guest'} busy={busy === 'Sign out'} onPress={() => run('Sign out', async () => void (await signOut()))} />
           {TEST_ACCOUNTS.map((a) => (

@@ -3,6 +3,7 @@ import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { ME } from '@/social/me';
 import { isMember } from './member';
 import { supabase } from './supabase';
+import { usernameFromEmail } from './username';
 
 /**
  * - local: no Supabase configured; actions stay in memory and nothing is gated
@@ -124,6 +125,6 @@ export function useMe(): { handle: string; name: string } {
   const { status, profile, session } = useAuth();
   if (status === 'local') return { handle: ME.handle, name: ME.name };
   if (profile) return { handle: profile.handle, name: profile.displayName ?? profile.handle };
-  const local = session?.user.email?.split('@')[0] ?? 'you';
+  const local = usernameFromEmail(session?.user.email) ?? session?.user.email?.split('@')[0] ?? 'you';
   return { handle: local, name: local };
 }

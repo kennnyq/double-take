@@ -16,14 +16,20 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { TEST_ACCOUNTS, devAccountsAvailable, devSignIn, type TestAccount } from './devAccounts';
 import { closeSignIn, useGate } from './gate';
-import { CODE_LENGTH, looksLikeEmail, parseOtpInput } from './otp';
 import { supabase } from './supabase';
-
-type Step = { kind: 'email' } | { kind: 'code'; email: string };
+import {
+  PASSWORD_MIN,
+  USERNAME_MAX,
+  authErrorMessage,
+  normalizeUsername,
+  passwordProblem,
+  usernameEmail,
+  usernameProblem,
+} from './username';
 
 /**
- * Sign in or create an account with a one-time email code (they're the same
- * flow). A bottom sheet on phones, a centred dialog on wide screens. Opened by
+ * Sign in or create an account with a username and password. A bottom sheet
+ * on phones, a centred dialog on wide screens. Opened by
  * the auth gate when a guest tries to act, or by a "Log in" button; after
  * sign-in the gate runs whatever the guest was trying to do.
  */
@@ -67,7 +73,7 @@ export function SignInSheet() {
               <Ionicons name="close" size={22} color="#fff" />
             </Pressable>
           </View>
-          {/* Keyed on open, so every opening starts at the email step. */}
+          {/* Mounted while open, so every opening starts fresh. */}
           {open && <SignInBody key="body" reason={reason} />}
         </View>
       </KeyboardAvoidingView>
@@ -75,96 +81,143 @@ export function SignInSheet() {
   );
 }
 
+type Mode = 'signIn' | 'signUp';
+
 function SignInBody({ reason }: { reason: string | null }) {
-  const [step, setStep] = useState<Step>({ kind: 'email' });
-  const [value, setValue] = useState('');
+  const [mode, setMode] = useState<Mode>('signIn');
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const input = useRef<TextInputInstance>(null);
+  const [taken, setTaken] = useState<string | null>(null);
+  const userInput = useRef<TextInputInstance>(null);
+  const passInput = useRef<TextInputInstance>(null);
 
   useEffect(() => {
-    const t = setTimeout(() => input.current?.focus(), 250);
+    const t = setTimeout(() => userInput.current?.focus(), 250);
     return () => clearTimeout(t);
-  }, [step.kind]);
+  }, []);
 
-  const sendCode = async (email: string) => {
-    if (!supabase) return;
-    setBusy(true);
+  const name = normalizeUsername(username);
+  const signUp = mode === 'signUp';
+  // While creating an account, say what's wrong with the username as it's typed.
+  const nameHint = signUp && name ? (usernameProblem(name) ?? (taken === name ? 'That username is taken.' : null)) : null;
+
+  /** Whether the handle is free (profiles are public, so this reveals nothing new). */
+  const isTaken = async (u: string) => {
+    if (!supabase) return false;
+    const { data } = await supabase.from('profiles').select('id').eq('handle', u).maybeSingle();
+    return !!data;
+  };
+
+  const submit = async () => {
+    if (busy || !supabase) return;
     setError(null);
-    const { error: e } = await supabase.auth.signInWithOtp({ email, options: { shouldCreateUser: true } });
-    setBusy(false);
-    if (e) {
-      setError(e.status === 429 ? 'Too many emails sent. Wait a bit and try again.' : e.message);
+    const problem = signUp ? (usernameProblem(name) ?? passwordProblem(password)) : !name || !password ? 'Enter your username and password.' : null;
+    if (problem) {
+      setError(problem);
       return;
     }
-    setStep({ kind: 'code', email });
-    setValue('');
-  };
-
-  const verify = async (email: string, raw: string) => {
-    if (!supabase) return;
-    const parsed = parseOtpInput(raw);
-    if (!parsed) {
-      setError(`Enter the ${CODE_LENGTH}-digit code from the email, or paste its sign-in link.`);
+    setBusy(true);
+    if (signUp && (await isTaken(name))) {
+      setTaken(name);
+      setError('That username is taken.');
+      setBusy(false);
       return;
     }
-    setBusy(true);
-    setError(null);
-    const { error: e } =
-      parsed.kind === 'code'
-        ? await supabase.auth.verifyOtp({ email, token: parsed.token, type: 'email' })
-        : await supabase.auth.verifyOtp({ token_hash: parsed.tokenHash, type: parsed.type });
+    const email = usernameEmail(name);
+    const { error: e } = signUp
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
-    // On success the auth store sees SIGNED_IN; the app loads your state and closes this.
-    if (e) setError(e.message.includes('expired') || e.message.includes('invalid') ? 'That code is wrong or has expired.' : e.message);
+    // On success the auth store sees SIGNED_IN; the app loads your state, runs
+    // what you were doing, and closes this.
+    if (e) setError(authErrorMessage(e, mode));
   };
 
-  const submit = () => {
-    if (busy) return;
-    if (step.kind === 'email') {
-      const email = value.trim().toLowerCase();
-      if (!looksLikeEmail(email)) {
-        setError('Enter a valid email address.');
-        return;
-      }
-      sendCode(email);
-    } else {
-      verify(step.email, value);
-    }
+  const switchMode = (m: Mode) => {
+    setMode(m);
+    setError(null);
   };
 
-  const isEmail = step.kind === 'email';
   return (
     <View style={styles.body}>
       <Text style={styles.title} role="heading">
-        {isEmail ? (reason ?? 'Sign in to Double Take') : 'Check your email'}
+        {reason ?? (signUp ? 'Create your account' : 'Sign in to Double Take')}
       </Text>
-      <Text style={styles.sub}>
-        {isEmail
-          ? 'Use your email to sign in or create an account. Your likes, saves and reposts stay with you.'
-          : `We sent a code to ${step.email}. Enter it below, or paste the sign-in link from the email.`}
-      </Text>
+      <View style={styles.modes} role="tablist">
+        {(['signIn', 'signUp'] as const).map((m) => (
+          <Pressable
+            key={m}
+            onPress={() => switchMode(m)}
+            style={[styles.mode, mode === m && styles.modeOn]}
+            role="tab"
+            aria-selected={mode === m}
+            accessibilityState={{ selected: mode === m }}
+          >
+            <Text style={[styles.modeText, mode === m && styles.modeTextOn]}>{m === 'signIn' ? 'Sign in' : 'Create account'}</Text>
+          </Pressable>
+        ))}
+      </View>
       <TextInput
-        ref={input}
-        value={value}
+        ref={userInput}
+        value={username}
         onChangeText={(t) => {
-          setValue(t);
+          setUsername(t);
           if (error) setError(null);
         }}
-        onSubmitEditing={submit}
-        placeholder={isEmail ? 'you@example.com' : `${CODE_LENGTH}-digit code or link`}
+        onBlur={() => {
+          if (signUp && name && !usernameProblem(name)) isTaken(name).then((t) => t && setTaken(name));
+        }}
+        onSubmitEditing={() => passInput.current?.focus()}
+        placeholder="Username"
         placeholderTextColor="#777"
         style={styles.input}
-        keyboardType={isEmail ? 'email-address' : 'default'}
-        textContentType={isEmail ? 'emailAddress' : 'oneTimeCode'}
-        autoComplete={isEmail ? 'email' : 'one-time-code'}
+        textContentType="username"
+        autoComplete={signUp ? 'username-new' : 'username'}
         autoCapitalize="none"
         autoCorrect={false}
-        returnKeyType={isEmail ? 'next' : 'done'}
+        maxLength={USERNAME_MAX + 1}
+        returnKeyType="next"
         keyboardAppearance="dark"
         editable={!busy}
-        accessibilityLabel={isEmail ? 'Email' : 'Code'}
+        accessibilityLabel="Username"
       />
+      {nameHint ? <Text style={styles.hint}>{nameHint}</Text> : null}
+      <View>
+        <TextInput
+          ref={passInput}
+          value={password}
+          onChangeText={(t) => {
+            setPassword(t);
+            if (error) setError(null);
+          }}
+          onSubmitEditing={submit}
+          placeholder="Password"
+          placeholderTextColor="#777"
+          style={[styles.input, styles.passwordInput]}
+          secureTextEntry={!showPassword}
+          textContentType={signUp ? 'newPassword' : 'password'}
+          autoComplete={signUp ? 'new-password' : 'current-password'}
+          autoCapitalize="none"
+          autoCorrect={false}
+          returnKeyType="go"
+          keyboardAppearance="dark"
+          editable={!busy}
+          accessibilityLabel="Password"
+        />
+        <Pressable
+          onPress={() => setShowPassword((v) => !v)}
+          hitSlop={8}
+          style={styles.eye}
+          accessibilityRole="button"
+          accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+        >
+          <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#aaa" />
+        </Pressable>
+      </View>
+      {signUp && <Text style={styles.hint}>{PASSWORD_MIN}+ characters with letters and numbers. There’s no password reset yet, so keep it somewhere safe.</Text>}
       {error && (
         <Text style={styles.error} role="alert">
           {error}
@@ -176,26 +229,14 @@ function SignInBody({ reason }: { reason: string | null }) {
         style={({ pressed }) => [styles.primary, (pressed || busy) && styles.pressed]}
         accessibilityRole="button"
       >
-        {busy ? <ActivityIndicator color="#111" /> : <Text style={styles.primaryText}>{isEmail ? 'Continue' : 'Sign in'}</Text>}
+        {busy ? <ActivityIndicator color="#111" /> : <Text style={styles.primaryText}>{signUp ? 'Create account' : 'Sign in'}</Text>}
       </Pressable>
-      {!isEmail && (
-        <View style={styles.links}>
-          <Pressable onPress={() => sendCode(step.email)} disabled={busy} hitSlop={6} accessibilityRole="button">
-            <Text style={styles.link}>Send a new code</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => {
-              setStep({ kind: 'email' });
-              setValue(step.email);
-              setError(null);
-            }}
-            hitSlop={6}
-            accessibilityRole="button"
-          >
-            <Text style={styles.link}>Use another email</Text>
-          </Pressable>
-        </View>
-      )}
+      <Pressable onPress={() => switchMode(signUp ? 'signIn' : 'signUp')} hitSlop={6} accessibilityRole="button" style={styles.switch}>
+        <Text style={styles.sub}>
+          {signUp ? 'Have an account? ' : 'New here? '}
+          <Text style={styles.link}>{signUp ? 'Sign in' : 'Create an account'}</Text>
+        </Text>
+      </Pressable>
       {devAccountsAvailable() && <DevQuickSignIn onError={setError} />}
     </View>
   );
@@ -272,7 +313,15 @@ const styles = StyleSheet.create({
   error: { color: '#ff6961', fontSize: 13 },
   primary: { height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: ACCENT },
   primaryText: { color: '#111', fontSize: 16, fontWeight: '700' },
-  links: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
+  modes: { flexDirection: 'row', padding: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)' },
+  mode: { flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  modeOn: { backgroundColor: 'rgba(255,255,255,0.14)' },
+  modeText: { color: '#aaa', fontSize: 14, fontWeight: '600' },
+  modeTextOn: { color: '#fff' },
+  passwordInput: { paddingRight: 46 },
+  eye: { position: 'absolute', right: 12, top: 6, bottom: 0, justifyContent: 'center' },
+  hint: { color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 16, marginTop: -4 },
+  switch: { alignItems: 'center', paddingVertical: 4 },
   link: { color: '#8ab4ff', fontSize: 14, fontWeight: '600' },
   dev: {
     marginTop: 6,
