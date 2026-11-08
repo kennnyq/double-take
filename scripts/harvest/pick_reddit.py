@@ -209,7 +209,9 @@ def from_capture(paths: list[str], sub: str) -> tuple[dict[str, dict], dict[str,
                     continue
                 o = json.loads(line)
                 if o.get("thread"):
-                    comments[o["thread"].removeprefix("t3_")] = [comment_from_capture(c) for c in o.get("comments", [])]
+                    # A page that rendered no comments (rate limited, or still loading) isn't a capture.
+                    if o.get("comments"):
+                        comments[o["thread"].removeprefix("t3_")] = [comment_from_capture(c) for c in o["comments"]]
                 elif o.get("permalink", "").lower().startswith(f"/r/{sub.lower()}/"):
                     p = post_from_capture(o)
                     posts.setdefault(p["id"], p)
