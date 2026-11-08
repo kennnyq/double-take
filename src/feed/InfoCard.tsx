@@ -14,6 +14,7 @@ import Animated, {
 import { BlurView } from 'expo-blur';
 import type { EndCue } from '@/devtools/settings';
 import { themed, usePalette } from '@/ui/theme';
+import { pointerVerb } from '@/ui/pointer';
 import type { CardSpot } from './card';
 import { alpha, useGlass } from './glass';
 import { ownLayer } from './layer';
@@ -226,26 +227,34 @@ function Footer({ nav, loop, clock, start }: { nav: CardNav; loop: SharedValue<n
   const c = usePalette();
   const last = nav.step + 1 >= nav.count;
   const done = last && nav.cue === 'done';
+  const single = nav.count === 1;
   return (
     <View style={styles.footer} pointerEvents="box-none">
       <View style={styles.statusSpace} pointerEvents="none">
         <FooterItem clock={clock} start={start}>
           <View style={styles.status}>
             <LoopLine loop={loop} />
-            {nav.cue === 'dots' ? (
+            {!single && nav.cue === 'dots' ? (
               <View style={styles.dots}>
                 {Array.from({ length: nav.count }, (_, i) => (
                   <View key={i} style={[styles.dot, i <= nav.step ? t.dotOn : t.dot, i === nav.step && styles.dotNow]} />
                 ))}
               </View>
             ) : null}
-            {nav.cue === 'count' ? <Text style={[styles.count, t.count]}>{`${nav.step + 1} / ${nav.count}`}</Text> : null}
+            {!single && nav.cue === 'count' ? <Text style={[styles.count, t.count]}>{`${nav.step + 1} / ${nav.count}`}</Text> : null}
           </View>
         </FooterItem>
       </View>
-      <View style={styles.arrows} pointerEvents="box-none">
+      {single ? (
         <FooterItem clock={clock} start={start + 12}>
-          <NavButton icon="chevron-back" label="Previous tell" disabled={nav.step === 0} onPress={nav.onBack} />
+          <Pressable onPress={nav.onNext} accessibilityRole="button" accessibilityLabel="Finish the walkthrough" style={styles.finishPrompt}
+            hitSlop={{ top: 7, bottom: 7, left: 4, right: 4 }}>
+            <Text style={[styles.hint, t.count, styles.finishText]}>{pointerVerb()} to finish</Text>
+          </Pressable>
+        </FooterItem>
+      ) : <View style={styles.arrows} pointerEvents="box-none">
+        <FooterItem clock={clock} start={start + 12}>
+          <NavButton icon="chevron-back" label={nav.step === 0 ? "Replay this annotation" : "Previous tell"} onPress={nav.onBack} />
         </FooterItem>
         <FooterItem clock={clock} start={start + 24}>
           <NavButton
@@ -256,7 +265,7 @@ function Footer({ nav, loop, clock, start }: { nav: CardNav; loop: SharedValue<n
             color={done ? c.onTell : undefined}
           />
         </FooterItem>
-      </View>
+      </View>}
     </View>
   );
 }
@@ -358,6 +367,8 @@ const styles = StyleSheet.create({
   footer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },
   statusSpace: { flex: 1 },
   status: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
+  finishPrompt: { height: 30, justifyContent: 'center' },
+  finishText: { marginTop: 0 },
   arrows: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   navBtn: { width: 44, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   navIcon: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },

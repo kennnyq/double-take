@@ -22,12 +22,20 @@ try {
     await page.goto(BASE_URL + '/#app');
     await page.locator('[aria-label^="Double take"]').first().click({ timeout: 90000 });
     const card = page.getByTestId('dt-card');
-    await card.getByText('First', { exact: true }).waitFor({ timeout: 15000 });
+    await card.getByText('First', { exact: true }).filter({ visible: true }).waitFor({ timeout: 15000 });
     await page.waitForTimeout(1400);
+    const replay = card.getByRole('button', { name: 'Replay this annotation' });
+    assert.ok(await replay.isEnabled());
+    const scrubCount = await page.evaluate(() => (window as any).__dtMarks.filter((m: any) => m.kind === 'scrubStart').length);
+    await replay.click();
+    await page.waitForTimeout(1200);
+    const afterReplay = await page.evaluate(() => (window as any).__dtMarks.filter((m: any) => m.kind === 'scrubStart').length);
+    assert.equal(afterReplay, scrubCount + 1, 'first back arrow scrubs to the current loop start');
+    await card.getByText('First', { exact: true }).filter({ visible: true }).waitFor();
     await card.evaluate((el) => {
       const w = window as any;
       w.savedCard = el;
-      w.savedBack = el.querySelector('[aria-label="Previous tell"]');
+      w.savedBack = el.querySelector('[aria-label="Replay this annotation"]');
       w.savedFooter = w.savedBack.parentElement;
       w.footerSamples = [];
       el.addEventListener('click', () => { w.inputAt = performance.now(); }, { once: true, capture: true });
@@ -85,13 +93,15 @@ try {
     await card.getByRole('button', { name: 'Previous tell' }).click();
     await page.waitForTimeout(100);
     // This rapid reversal targets the second tell again before the first has settled.
-    await page.getByRole('button', { name: 'Next tell', exact: true }).first().click({ force: true });
+    // Dispatch to the chosen control: a forced coordinate click can hit the
+    // moving back arrow instead as the card crosses the tap zone.
+    await card.getByRole('button', { name: 'Next tell', exact: true }).evaluate((el) => (el as HTMLElement).click());
     await card.getByText('Second', { exact: true }).filter({ visible: true }).waitFor();
     await page.waitForTimeout(1500);
     assert.equal(await card.count(), 1);
     const restoredHeight = await card.getByTestId('dt-card-glass').evaluate((el) => el.getBoundingClientRect().height);
     const settled = result.samples.at(-1);
-    assert.ok(Math.abs(restoredHeight - (settled.bottom - settled.top)) < 1, 'reversal restores the visible text height');
+    assert.ok(Math.abs(restoredHeight - (settled.bottom - settled.top)) < 1, 'reversal restores the visible text height: ' + restoredHeight + ' vs ' + (settled.bottom - settled.top));
     await card.getByRole('button', { name: 'Next tell', exact: true }).click();
     await page.waitForTimeout(100);
     await page.getByRole('button', { name: 'Close the walkthrough' }).click();

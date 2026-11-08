@@ -248,7 +248,7 @@ export function TellOverlay({ ref, ...p }: Props) {
     const last = i + 1 >= n;
     // Only the reason, and the buttons. The faint "Tap to continue / finish" line
     // is one of the dev settings' end cues; reviewers can mark model drafts (off by default).
-    const tap = settings.endCue === 'text' ? `${pointerVerb()} to ${last ? 'finish' : 'continue'}` : '';
+    const tap = n > 1 && settings.endCue === 'text' ? `${pointerVerb()} to ${last ? 'finish' : 'continue'}` : '';
     const step = { index: i, count: n };
     const tell = d.steps[i];
     if (tell) {
@@ -389,7 +389,11 @@ export function TellOverlay({ ref, ...p }: Props) {
     nextRef.current = next;
   });
   const back = () => {
-    if (data && step !== null && step > 0 && !settling.current) goTo(step - 1, data);
+    if (data && step !== null && step >= 0 && !settling.current) {
+      // On the first annotation, back replays its loop through the normal
+      // eased scrub path. The card and its text remain mounted.
+      goTo(Math.max(0, step - 1), data);
+    }
   };
   const backRef = useRef(back);
   useEffect(() => {

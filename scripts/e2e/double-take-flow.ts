@@ -90,9 +90,10 @@ async function run(browser: Browser, layout: Layout) {
     return cards.length ? cards[cards.length - 1].innerText : '';
   });
   const finish = await page.evaluate(() => document.querySelectorAll('[aria-label="Finish the walkthrough"]').length);
+  check(layout + ': single annotation has no navigation arrows', await page.getByTestId('dt-card').getByRole('button').count() === 1, {});
   if (layout === 'desktop') {
-    // Default end cue: this one-tell clip's card ends with a "finish" (check) button.
-    check('desktop: the card carries no labels and offers a finish button', finish >= 2 && !/AI draft|Slow-mo|slow mo|Not shown on screen|to (continue|finish)/i.test(card), {
+    // A single annotation uses a finish prompt regardless of the end-cue setting.
+    check('desktop: the card carries no labels and offers a finish button', finish >= 2 && /Click to finish/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
       card: card.slice(0, 300),
       finish,
     });
@@ -106,7 +107,7 @@ async function run(browser: Browser, layout: Layout) {
     check('phone: the card says "Tap to …" and carries no labels', /Tap to (continue|finish)/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
       card: card.slice(0, 300),
     });
-    await page.click('[aria-label="Close the walkthrough"]');
+    await page.getByTestId('dt-card').getByRole('button', { name: 'Finish the walkthrough' }).click();
   }
   await page.waitForTimeout(1500);
   const { samples, marks } = await page.evaluate(() => {
