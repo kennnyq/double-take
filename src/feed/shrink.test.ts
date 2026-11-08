@@ -13,11 +13,23 @@ test('displayCornerRadius knows current iPhones, either orientation', () => {
   assert.ok(displayCornerRadius(412, 915, 'android') > 0);
 });
 
-test('inspectInset: same gap at the sides and top, corners concentric with the display', () => {
-  const { scale, dy, radius } = inspectInset(430, 860, 55, 12);
-  close(430 * scale, 430 - 24);
-  // Top edge after scaling about the centre, then moving by dy.
-  close(860 / 2 - (860 * scale) / 2 + dy, 12);
-  close(radius * scale, 55 - 12);
+test('inspectInset: centred below the Dynamic Island, clear of every edge, corners following the display', () => {
+  const W = 430;
+  const H = 858;
+  const safeTop = 59;
+  const { scale, dy, radius } = inspectInset(W, H, 55, safeTop, 12);
+  const top = H / 2 - (H * scale) / 2 + dy;
+  const bottom = H / 2 + (H * scale) / 2 + dy;
+  close(top, safeTop + 12);
+  close(bottom, H - 12);
+  const side = (W - W * scale) / 2;
+  assert.ok(side >= 12, `side gap ${side}`);
+  close(radius * scale, 55 - side);
   assert.deepEqual(inspectInset(0, 0, 55), { scale: 1, dy: 0, radius: 0 });
+});
+
+test('inspectInset: without a notch it’s centred with equal gaps', () => {
+  const { scale, dy } = inspectInset(400, 800, 0, 0, 12);
+  close(400 * scale, 400 - 24);
+  close(dy, 0);
 });

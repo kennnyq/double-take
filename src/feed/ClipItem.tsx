@@ -132,7 +132,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const stageH = wide ? height - cardTop - 14 : height;
   const stageW = wide ? Math.round((stageH * 9) / 16) : width;
   // The walkthrough's Close button row: under the status bar once the video has inset.
-  const walkthroughTop = wide ? 12 : Math.max(12, insets.top - 2);
+  // (The inset card already sits below the status bar and Dynamic Island.)
+  const walkthroughTop = wide ? 12 : 14;
   // Landscape and square clips are shown whole over a blurred fill. So is any
   // clip during the walkthrough, so no highlighted region is cropped off screen.
   const baseFit = fitFor(clip.aspect);
@@ -149,7 +150,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const mode = useModeProgress(inspecting);
   const chromeOut = useFadeProgress(!inspecting, inspecting ? 180 : 320);
   const screen = useWindowDimensions();
-  const inset = inspectInset(stageW, stageH, displayCornerRadius(screen.width, screen.height, Platform.OS));
+  const inset = inspectInset(stageW, stageH, displayCornerRadius(screen.width, screen.height, Platform.OS), insets.top);
   // Browsers round the inset stage itself; the apps cap its corners instead
   // (see CornerCaps: a rounded clip over video costs iOS an offscreen pass per frame).
   const roundWithCaps = Platform.OS !== 'web' && !wide;
@@ -175,21 +176,21 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const zoomMotion = useAnimatedStyle(() => ({
     transform: [{ scale: interpolate(mode.value, [0, 1], [coverScale, 1]) }],
   }));
-  const fillMotion = useAnimatedStyle(() => ({ opacity: zoomOut ? Math.min(1, Math.max(0, mode.value)) : 1 }));
+  // Landscape clips' blurred fill fades out in the walkthrough: plain dark bands there, no blur.
+  const fillMotion = useAnimatedStyle(() => ({ opacity: 1 - Math.min(1, Math.max(0, mode.value)) }));
   const chromeMotion = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
   const verdictMotion = useAnimatedStyle(() => ({ opacity: 1 - chromeOut.value }));
   const barMotion = useAnimatedStyle(() => ({ opacity: BAR_DIMMED + (1 - BAR_DIMMED) * chromeOut.value }));
 
   const stage = (
     <Reanimated.View style={[styles.stage, ownLayer, { width: stageW, height: stageH }, stageMotion]}>
-      {zoomOut ? (
-        p.isActive && (
-          <Reanimated.View style={[StyleSheet.absoluteFill, ownLayer, fillMotion]} pointerEvents="none">
-            <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={40} />
-          </Reanimated.View>
-        )
+      {/* Portrait clips zoom out to dark bands; landscape ones show a blurred fill outside the walkthrough. */}
+      {baseFit === 'contain' ? (
+        <Reanimated.View style={[StyleSheet.absoluteFill, p.isActive && ownLayer, p.isActive && fillMotion]} pointerEvents="none">
+          <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={40} />
+        </Reanimated.View>
       ) : (
-        <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={baseFit === 'contain' ? 40 : 0} />
+        !zoomOut && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" />
       )}
       {cheap && p.player && spot.stillAt !== null && (
         <BlurredStill player={p.player} at={spot.stillAt} blur={spotlightStrength(strength, true).stillBlur} m={motion} />
@@ -514,7 +515,7 @@ const IDLE_PROGRESS = new Animated.Value(0);
 
 const styles = StyleSheet.create({
   page: { backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  stage: { overflow: 'hidden', backgroundColor: '#111' },
+  stage: { overflow: 'hidden', backgroundColor: '#000' },
   clip: { overflow: 'hidden' },
   wideRow: { flexDirection: 'row', alignItems: 'flex-end' },
   wideRail: { marginLeft: 14, marginBottom: 18 },

@@ -56,15 +56,26 @@ export function displayCornerRadius(screenW: number, screenH: number, os: string
 }
 
 /**
- * The double take insets the video like a card: scaled down about its centre
- * so it sits `gap` points in from the sides and the top of the screen, with
- * corners concentric with the display's (radius minus the gap). The radius is
- * returned in unscaled points, since it's set on the view being scaled.
+ * The double take insets the video like a card, centred in the part of the
+ * screen it can use: below the status bar, notch or Dynamic Island (`safeTop`)
+ * and above the bottom of the stage (the tab bar sits below it), `gap` points
+ * clear of each edge, scaled the same both ways. Its corners follow the
+ * display's (radius minus the side gap). The radius is returned in unscaled
+ * points, since it's set on the view being scaled; `dy` moves the scaled
+ * stage's centre down to the middle of that space.
  */
-export function inspectInset(stageW: number, stageH: number, displayRadius: number, gap = 12): { scale: number; dy: number; radius: number } {
+export function inspectInset(
+  stageW: number,
+  stageH: number,
+  displayRadius: number,
+  safeTop = 0,
+  gap = 12,
+): { scale: number; dy: number; radius: number } {
   if (stageW <= 0 || stageH <= 0) return { scale: 1, dy: 0, radius: 0 };
-  const scale = (stageW - 2 * gap) / stageW;
-  const dy = gap - (stageH * (1 - scale)) / 2;
-  const visible = Math.max(12, displayRadius - gap);
+  const top = Math.max(0, safeTop) + gap;
+  const scale = Math.min((stageW - 2 * gap) / stageW, (stageH - top - gap) / stageH);
+  const dy = (top + stageH - gap) / 2 - stageH / 2;
+  const side = (stageW * (1 - scale)) / 2;
+  const visible = Math.max(18, displayRadius - side);
   return { scale, dy, radius: visible / scale };
 }
