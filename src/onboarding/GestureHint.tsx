@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Platform } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useFonts } from 'expo-font';
 import { useDevPanel } from '@/devtools/store';
 import { useAppSettings, useSettingsOpen } from '@/settings/store';
 import { hintTimeout, SHOW_DELAY_MS, type HintEnd } from './hints';
@@ -44,6 +46,10 @@ export function GestureHint(p: GestureHintProps) {
   // The dev settings panel covers the clip on phones; on desktop it floats beside the card.
   const panelCovers = devOpen && p.layout === 'phone';
   const covered = !p.active || p.doubleTakeOpen || !!p.blocked || settingsOpen || panelCovers || s.blocks > 0;
+  // The hand is an icon font: it loads on first use, and until it has, the
+  // words would show without it. Wait for it, so the hand always leads.
+  const [iconsLoaded, iconsFailed] = useFonts(MaterialCommunityIcons.font);
+  const ready = iconsLoaded || !!iconsFailed || s.design !== 'hand';
 
   // Whether it's drawn (kept through the fade-out), and whether it's on its way in.
   const [drawn, setDrawn] = useState(false);
@@ -87,7 +93,7 @@ export function GestureHint(p: GestureHintProps) {
   // "Show now" plays on the first clip with tells, whatever the rules.
   const request = s.request && p.hasTells ? s.request : null;
   useEffect(() => {
-    if (covered || on || (!request && doneOn.current === p.clipId)) return;
+    if (covered || !ready || on || (!request && doneOn.current === p.clipId)) return;
     const t = setTimeout(
       () => {
         if (request) hints.takeRequest(request.id);
@@ -100,7 +106,7 @@ export function GestureHint(p: GestureHintProps) {
       request ? REQUEST_DELAY_MS : SHOW_DELAY_MS,
     );
     return () => clearTimeout(t);
-  }, [covered, on, p.clipId, p.hasTells, request, s.epoch, s.force]);
+  }, [covered, ready, on, p.clipId, p.hasTells, request, s.epoch, s.force]);
 
   // Twice through, then it goes by itself (with "Keep showing" it stays, for looking at).
   const timeout = hintTimeout(revealGesture);
