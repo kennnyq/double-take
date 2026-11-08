@@ -8,6 +8,7 @@ For an agent picking up the clip-harvesting work. Read the repo `README.md` (tel
 - AI candidate batches live in this folder: `spot_test.jsonl`, `batch-2026-11-07*.jsonl`. Each row carries the Community Note that flagged the clip.
 - **Real clips:** the first batch is `real-2026-11-07.jsonl` (18 real clips plus the 10 AI clips they pair with), and the curation log is `real-2026-11-07.md`. It's built into `feeds/compare.json` and is ready to merge into `demo.json`; see "Shipping real clips" below. It is not deployed yet.
 - `scripts/annotate/notes.jsonl` holds the notes the tells pipeline reads. It's for AI clips only: real clips' notes stay in their batch rows, so the tells pipeline never drafts "AI tells" from a "this is not AI" note.
+- **Review:** `npm run review` (on kenny-wsl, port 8090 over the tailnet) shows every clip from both Workers and all the batches, with AI↔real pairs side by side. Decisions go to `review/decisions.jsonl`, and `build_media.py --exclude-discarded` acts on them. See [`REVIEW.md`](REVIEW.md).
 - Every AI clip so far comes from X Community Notes. YouTube comment mining was tried in the spot test and was much noisier; Reddit needs OAuth and was never set up.
 
 ## Tools
@@ -132,8 +133,8 @@ On the Mac, from the repo root with `build/` in place:
 
 ```bash
 brew install deno                       # yt-dlp needs it for YouTube downloads
-python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --feed compare --jobs 4
-python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --merge --jobs 4   # demo: adds the 18 real clips
+python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --feed compare --jobs 4 --exclude-discarded
+python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --merge --jobs 4 --exclude-discarded   # demo: adds the 18 real clips
 cd worker && npm run deploy && cd .. && npm run check:prod
 ```
 

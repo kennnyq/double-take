@@ -18,7 +18,7 @@ All of these are merged into one list, with one item per clip key (`build_media.
 | Source | What | Config |
 | --- | --- | --- |
 | `prod` | the deployed Worker's `/feed?name=demo` and `compare` | `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_DEMO_PASSCODE` from `.env.local` |
-| `local` | a `wrangler dev` Worker serving a local `build/` (`http://localhost:8787`) | `DEMO_PASSCODE` from `worker/.dev.vars` |
+| `local` | a `wrangler dev` Worker serving a local `build/` (`http://localhost:8787`, also reachable at `kenny-wsl…:8787`): `demo` has 10 AI + 18 real clips, and in `compare` each AI clip is followed by its real ones | `DEMO_PASSCODE` from `worker/.dev.vars` |
 | batches | every `scripts/harvest/*.jsonl` (`spot_test`, `batch-*`, `real-*`) | none |
 | notes | `scripts/annotate/notes.jsonl`, attached to X clips | none |
 
