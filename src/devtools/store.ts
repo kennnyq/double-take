@@ -15,7 +15,7 @@ export const DEV_TOOLS = __DEV__;
 // ---- the panel's open state and tab, so a clip's badge can open it on a tab ----------
 
 /** The built-in tabs (`builtins.tsx`); others come from `registerDevTab`. */
-export const BUILT_IN_TABS = ['interaction', 'model', 'colors', 'accounts', 'panel'] as const;
+export const BUILT_IN_TABS = ['interaction', 'model', 'colors', 'flows', 'accounts', 'panel'] as const;
 export type DevTab = (typeof BUILT_IN_TABS)[number] | (string & {});
 /** @deprecated The panel's tabs now come from the registry (`useDevTabs`); kept for callers of the old API. */
 export const DEV_TABS: readonly DevTab[] = BUILT_IN_TABS;

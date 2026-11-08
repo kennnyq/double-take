@@ -34,8 +34,8 @@ export default function Home() {
           {(startAt, showLanding) => (
             <>
               {desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} /> : <Screen startAt={startAt} />}
-              {/* Dev builds (and web with ?dev): a launcher for the tabbed dev settings. */}
-              <DevSettings desktop={desktop} />
+              {/* Dev builds: a launcher for the tabbed dev settings. */}
+              <DevSettings desktop={desktop} onShowLanding={showLanding} />
               {/* Opened by the auth gate when a guest tries to act, or by a log-in button. */}
               <SignInSheet />
             </>

@@ -8,7 +8,7 @@ import { signOut, useAuth } from '@/auth/store';
 import { usernameFromEmail } from '@/auth/username';
 import { supabase } from '@/auth/supabase';
 import { reloadSocial } from '@/social/SocialSync';
-import { useDevTint } from './tint';
+import { useDevChrome } from './chrome';
 
 /**
  * Dev builds: who you are signed in as, one-tap switching between guest and
@@ -191,7 +191,7 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function Chip({ label, on, busy, disabled, onPress }: { label: string; on?: boolean; busy?: boolean; disabled?: boolean; onPress: () => void }) {
-  const tint = useDevTint();
+  const tint = useDevChrome();
   return (
     <Pressable
       onPress={onPress}
@@ -239,10 +239,10 @@ const styles = StyleSheet.create({
   },
   chipText: { color: '#eee', fontSize: 13, fontWeight: '600' },
   action: { height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
-  actionDanger: { backgroundColor: 'rgba(255,69,58,0.14)' },
+  actionDanger: { backgroundColor: 'transparent', borderWidth: 1, borderColor: 'rgba(255,255,255,0.14)' },
   actionText: { color: '#fff', fontSize: 14, fontWeight: '600' },
-  actionTextDanger: { color: '#ff6961' },
+  actionTextDanger: { color: '#fff' },
   dim: { opacity: 0.6 },
   note: { color: 'rgba(255,255,255,0.75)', fontSize: 12, lineHeight: 16 },
-  noteError: { color: '#ff6961' },
+  noteError: { color: '#fff', fontWeight: '700' },
 });
