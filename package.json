@@ -39,6 +39,7 @@
     "@types/react": "~19.3.0",
     "eslint": "^9.0.0",
     "eslint-config-expo": "~58.0.4",
+    "playwright-core": "^1.65.0",
     "typescript": "~6.0.3"
   },
   "scripts": {
@@ -56,7 +57,8 @@
     "review": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/review/server.ts",
     "worktree:env": "bash scripts/worktree-env.sh",
     "check": "tsc --noEmit && expo lint && npm test && npm --prefix worker test",
-    "check:prod": "cd worker && BASE_URL=\"${BASE_URL:-https://double-take-api.double-take-api.workers.dev}\" DEMO_PASSCODE=\"$(sed -n 's/^DEMO_PASSCODE=//p' .prod.vars | tr -d '\\\"')\" npm run test:e2e"
+    "check:prod": "cd worker && BASE_URL=\"${BASE_URL:-https://double-take-api.double-take-api.workers.dev}\" DEMO_PASSCODE=\"$(sed -n 's/^DEMO_PASSCODE=//p' .prod.vars | tr -d '\\\"')\" npm run test:e2e",
+    "e2e:space": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/hold-space.ts"
   },
   "private": true
 }
