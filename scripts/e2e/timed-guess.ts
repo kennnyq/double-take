@@ -478,30 +478,51 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   const held = await waitFor(page, 'the hold marks', (s) => s.guesses.length === 3 && !s.busy);
   check(`Game tab: ${layout === 'desktop' ? 'holding Space' : 'a hold'} marks AI`, held?.guesses[2]?.guess === 'ai', held?.guesses);
 
-  // Looking back at a judged clip: its answer shows, and its double take opens when it has one.
+  // Looking back at an AI clip marked AI: its double take walkthrough opens by itself, to learn from.
+  // (The untimed game deals only AI clips that have one.) Skip on to an AI clip, mark it, let the feed move on, then scroll back.
+  for (let k = 0; k < 12; k++) {
+    const g = await game(page);
+    if (!g || g.deck[g.index]?.truth === 'ai') break;
+    if (layout === 'desktop') await page.mouse.wheel(0, 240);
+    else await swipeUp(page);
+    await waitFor(page, 'skip to an AI clip', (s) => s.guesses.length === g.guesses.length + 1 && !s.busy, 8000);
+    await page.waitForTimeout(400);
+  }
+  const before = await game(page);
+  const aiAt = before?.index ?? -1;
+  check('the untimed game deals an AI clip within a few', before?.deck[aiAt]?.truth === 'ai', before && { index: aiAt, truth: before.deck[aiAt]?.truth });
+  await doubleTap(page, layout);
+  await waitFor(page, 'the AI mark moves on', (s) => s.guesses.length === aiAt + 1 && s.shown === aiAt + 1 && !s.busy, 8000);
+  await page.waitForTimeout(500);
   await scrollBack(page, layout);
-  const back = await waitFor(page, 'looking back', (s) => s.shown === s.index - 1 && !!s.reviewing, 8000);
-  await page.waitForTimeout(1800);
+  const back = await waitFor(page, 'looking back', (s) => s.shown === aiAt && !!s.reviewing, 8000);
+  const opened = await page.waitForSelector('[aria-label="Close the walkthrough"]', { timeout: 6000 }).then(() => true).catch(() => false);
   const look = await page.evaluate(() => ({
+    card: !!document.querySelector('[data-testid="dt-card"]'),
     pill: !!document.querySelector('[data-testid="review-truth"]'),
-    walkthrough: !!document.querySelector('[aria-label="Close the walkthrough"]'),
+    inspecting: (window as unknown as { __dtGame?: { inspecting?: boolean } }).__dtGame?.inspecting,
   }));
-  check('looking back at a judged clip shows its answer, or opens its double take', !!back && (look.pill || look.walkthrough), { back: back && { shown: back.shown, index: back.index }, ...look });
-  if (look.walkthrough) {
-    await page.click('[aria-label="Close the walkthrough"]');
-    await page.waitForTimeout(1000);
+  check('looking back at a clip marked AI opens its double take walkthrough by itself', !!back && opened && !!look.inspecting, { back: back && { shown: back.shown, index: back.index }, opened, ...look });
+  if (opened) {
+    // Its Close moves with the walkthrough as it settles in.
+    await page.waitForTimeout(1200);
+    await page.locator('[aria-label="Close the walkthrough"]').first().click({ force: true });
+    await page.waitForSelector('[aria-label="Close the walkthrough"]', { state: 'detached', timeout: 8000 }).catch(() => {});
+    await page.waitForTimeout(800);
   }
   if (layout === 'desktop') await page.mouse.wheel(0, 240);
   else await swipeUp(page);
   const resumed = await waitFor(page, 'back to the game', (s) => s.shown === s.index && !s.busy, 8000);
-  check('moving on returns to the clip being judged, nothing judged on the way', resumed?.guesses.length === 3, resumed && { guesses: resumed.guesses.length, shown: resumed.shown, index: resumed.index });
+  check('moving on returns to the clip being judged, nothing judged on the way', resumed?.guesses.length === aiAt + 1, resumed && { guesses: resumed.guesses.length, shown: resumed.shown, index: resumed.index });
 
   if (layout === 'desktop') {
     // Clip after clip: more are dealt before the deck runs out.
-    const dealt = (await game(page))?.deck.length ?? 0;
-    for (let i = 0; i < dealt; i++) {
+    const start = await game(page);
+    const dealt = start?.deck.length ?? 0;
+    const judged = start?.guesses.length ?? 0;
+    for (let i = 0; i < dealt - judged; i++) {
       await page.keyboard.press('j');
-      const n = 4 + i;
+      const n = judged + 1 + i;
       await waitFor(page, `skip ${n}`, (s) => s.guesses.length === n && !s.busy, 8000);
     }
     const g = await game(page);
