@@ -69,7 +69,7 @@ export function SkillBars({ skills, before, categories, touched, delay = 0, gene
   );
 }
 
-function Bar({ t, from, to, low, high, empty }: { t: Animated.Value; from: number; to: number; low: number; high: number; empty: boolean }) {
+export function Bar({ t, from, to, low, high, empty }: { t: Animated.Value; from: number; to: number; low: number; high: number; empty: boolean }) {
   const tint = useTint();
   const [w, setW] = useState(0);
   const x = (v: number) => (w * v) / 100;
@@ -99,7 +99,7 @@ function Delta({ value }: { value: number }) {
 }
 
 /** A number that counts from one value to another, continuously. */
-function CountTo({ from, to, delay, style, label }: { from: number; to: number; delay: number; style: object; label: string }) {
+export function CountTo({ from, to, delay, style, label }: { from: number; to: number; delay: number; style: object; label: string }) {
   const [shown, setShown] = useState(from);
   useEffect(() => {
     const v = new Animated.Value(from);
