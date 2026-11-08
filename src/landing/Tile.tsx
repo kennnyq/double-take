@@ -131,11 +131,9 @@ export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: stri
     const root = rootRef.current;
     if (!root || !atlas || !loaded) return;
     const player = atlasPlayer(atlas);
-    const unmount = player.mount(root);
-    if (reels !== undefined) {
-      const clipOfCell = new Map(clips.flatMap((c) => (c.cell === undefined ? [] : [[c.cell, c.index] as const])));
-      player.setReels(reels, clipOfCell);
-    }
+    const clipOfCell = new Map(clips.flatMap((c) => (c.cell === undefined ? [] : [[c.cell, c.index] as const])));
+    const unmount = player.mount(root, clipOfCell);
+    if (reels !== undefined) player.setReels(reels, clipOfCell);
     return () => {
       if (reels !== undefined) player.setReels(null, new Map());
       unmount();

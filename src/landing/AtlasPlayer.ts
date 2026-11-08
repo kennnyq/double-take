@@ -1,6 +1,7 @@
 import { atlasMode, cellRect, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
 import { streamLoop } from './atlasStream';
 import { nextGap, pickSwipe, snap, SWIPE_MS, swipeSlices, type ReelPace, type ReelTile } from './reels';
+import { spreadCells, stripLoops, stripSequence, type Spot } from './spread';
 
 /**
  * Draws the gallery atlas onto "boards": one canvas under each strip of tiles
@@ -146,6 +147,8 @@ export class AtlasPlayer {
   private swipeFrame = 0;
   /** The feed index of the clip in each cell, for the tile's `data-clip`. */
   private clipOfCell = new Map<number, number>();
+  /** Each strip's set of clips (spread.ts: stripLoops), which its swipes keep to. */
+  private stripSets = new WeakMap<Element, readonly number[]>();
 
   constructor(readonly atlas: Atlas) {
     this.mode = visitorMode();
@@ -434,9 +437,10 @@ export class AtlasPlayer {
    * Boards under `root`: each `[data-board]` with its tiles, and each other
    * tile on its own. Returns a function that takes them down again.
    */
-  mount(root: HTMLElement): () => void {
+  mount(root: HTMLElement, clipOfCell?: Map<number, number>): () => void {
     const made: Board[] = [];
     const tiles = [...root.querySelectorAll<HTMLElement>('[data-tile][data-cell]')];
+    if (clipOfCell && root.closest('.lt-gallery')) this.spread(tiles, clipOfCell);
     const groups = new Map<HTMLElement, HTMLElement[]>();
     for (const t of tiles) {
       const owner = t.parentElement?.closest<HTMLElement>('[data-board]') ?? t;
@@ -450,6 +454,68 @@ export class AtlasPlayer {
       made.forEach((b) => this.boards.has(b) && this.removeBoard(b));
       this.prune();
     };
+  }
+
+  /**
+   * Deals the gallery's clips out afresh so that the same clip, and clips that
+   * look alike, sit as far apart as they can (spread.ts): rows and columns
+   * from two alternating loops, so strips sliding past each other never meet
+   * their own clips; any other tiles by where they are. A strip's two copies
+   * of a tile count as one.
+   */
+  private spread(tiles: HTMLElement[], clipOfCell: Map<number, number>) {
+    const gallery = tiles[0]?.closest<HTMLElement>('.lt-gallery');
+    if (!gallery) return;
+    const deal = (members: HTMLElement[], cell: number) => {
+      for (const t of members) {
+        t.dataset.cell = String(cell);
+        const clip = clipOfCell.get(cell);
+        if (clip !== undefined) t.dataset.clip = String(clip);
+      }
+    };
+    const strips = new Map<HTMLElement, Map<string, HTMLElement[]>>();
+    const loose: HTMLElement[] = [];
+    for (const t of tiles) {
+      if (t.hasAttribute('data-hero-tile')) continue;
+      const strip = t.parentElement?.closest<HTMLElement>('.lt-row, .lt-col');
+      if (!strip || t.dataset.twin === undefined) {
+        loose.push(t);
+        continue;
+      }
+      const byTwin = strips.get(strip) ?? new Map<string, HTMLElement[]>();
+      byTwin.set(t.dataset.twin, [...(byTwin.get(t.dataset.twin) ?? []), t]);
+      strips.set(strip, byTwin);
+    }
+    // Strips and planes laid out flat for a moment: where things are, without
+    // the tilt or how far each strip has slid.
+    const flat = [...gallery.querySelectorAll<HTMLElement>('[data-plane], [data-board]')];
+    const saved = flat.map((el) => [el.style.getPropertyValue('transform'), el.style.getPropertyPriority('transform')] as const);
+    flat.forEach((el) => el.style.setProperty('transform', 'none', 'important'));
+    const g = gallery.getBoundingClientRect();
+    const order = [...strips.keys()]
+      .map((el) => ({ el, r: el.getBoundingClientRect(), col: el.classList.contains('lt-col') }))
+      .sort((a, b) => (a.col ? a.r.left - b.r.left : a.r.top - b.r.top));
+    const spots: Spot[] = loose.map((t, i) => {
+      const r = t.getBoundingClientRect();
+      return { key: String(i), x: r.left + r.width / 2, y: r.top + r.height / 2, size: Math.min(r.width, r.height) };
+    });
+    flat.forEach((el, i) => {
+      const [value, priority] = saved[i];
+      if (value) el.style.setProperty('transform', value, priority);
+      else el.style.removeProperty('transform');
+    });
+    const n = this.atlas.ids.length;
+    const loops = stripLoops(n, this.atlas.distances);
+    order.forEach(({ el }, k) => {
+      this.stripSets.set(el, loops[k % 2]);
+      const byTwin = strips.get(el)!;
+      const seq = stripSequence(loops, k, byTwin.size, this.atlas.distances);
+      byTwin.forEach((members, twin) => deal(members, seq[Number(twin) % seq.length]));
+    });
+    if (spots.length) {
+      const cells = spreadCells(spots, n, this.atlas.distances, { x: g.left + g.width / 2, y: g.top + g.height / 2 });
+      cells.forEach((cell, key) => deal([loose[Number(key)]], cell));
+    }
   }
 
   /** Drops boards whose canvas has left the page (a launch's, once the landing is gone). */
