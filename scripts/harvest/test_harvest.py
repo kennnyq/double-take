@@ -12,6 +12,8 @@ import unittest
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_media import COMPARE_FIELDS, clip_id, reuse  # noqa: E402
+from consensus import consensus, flair_verdict, flatten, stance, summary  # noqa: E402
+from pick_reddit import media_of, row_for, skip_reason  # noqa: E402
 from pick_real import LABEL_FOR_TIER, classify, harmless, real_links  # noqa: E402
 from resolve import keep  # noqa: E402
 from search_real import overlap, subject_query, tier_for  # noqa: E402
@@ -149,6 +151,134 @@ class Reuse(unittest.TestCase):
         self.assertFalse(any(k in out for k in COMPARE_FIELDS))
         out = reuse(row, {"url": "u", "label": "real", "tier": "real-prior", "pairOf": "x-2"})
         self.assertEqual((out["label"], out["tier"], out["pairOf"]), ("real", "real-prior", "x-2"))
+
+
+def thread(*comments, flair=None, op="asker"):
+    post = {"author": op, "link_flair_text": flair}
+    return post, [{"author": f"u{i}", "body": b, "score": sc, "permalink": f"/r/x/comments/1/_/c{i}/", **extra}
+                  for i, (b, sc, *rest) in enumerate(comments) for extra in [rest[0] if rest else {}]]
+
+
+class Consensus(unittest.TestCase):
+    def test_stance(self):
+        for text, want in [
+            ("AI", "ai"), ("Real.", "real"), ("100% AI slop", "ai"), ("Not real", "ai"),
+            ("It's not AI, I saw this video in 2019", "real"), ("This is AI, look at the hands", "ai"),
+            ("The original video is on YouTube", "real"), ("Sora watermark at 0:03", "ai"),
+            ("is this real?", None), ("lol", None), ("Not AI. Not real either, it's CGI", None),
+        ]:
+            self.assertEqual(stance(text), want, text)
+
+    def test_flair(self):
+        self.assertEqual(flair_verdict("AI Generated"), "ai")
+        self.assertEqual(flair_verdict("Confirmed AI"), "ai")
+        self.assertEqual(flair_verdict("Not AI"), "real")
+        self.assertEqual(flair_verdict("Real"), "real")
+        self.assertEqual(flair_verdict("Unsure"), None)
+        self.assertEqual(flair_verdict("Photoshopped"), None)
+        self.assertEqual(flair_verdict(None), None)
+
+    def test_score_weighting_beats_head_count(self):
+        # One +400 "real" outweighs three +1 "AI" comments (sqrt weights: ~20 vs ~4.2).
+        post, cs = thread(("This is real, posted back in 2018", 400), ("AI", 1), ("fake", 1), ("ai slop", 1))
+        c = consensus(post, cs)
+        self.assertEqual(c["verdict"], "real")
+        self.assertGreater(c["confidence"], 0.6)
+        self.assertEqual(c["evidence"][0]["score"], 400)
+
+    def test_split_thread_is_unsure(self):
+        post, cs = thread(("AI", 10), ("Real", 10), ("ai for sure", 9), ("definitely real", 9))
+        self.assertEqual(consensus(post, cs)["verdict"], "unsure")
+
+    def test_too_few_votes_is_unsure_without_flair(self):
+        post, cs = thread(("AI", 50), ("lol", 3))
+        self.assertEqual(consensus(post, cs)["verdict"], "unsure")
+        post["link_flair_text"] = "AI"
+        self.assertEqual(consensus(post, cs)["verdict"], "ai")
+
+    def test_flair_settles_a_split_thread_but_not_a_landslide(self):
+        post, cs = thread(("Real", 4), ("AI", 1), ("ai", 1), flair="AI Generated")
+        c = consensus(post, cs)
+        self.assertEqual((c["verdict"], c["flairVerdict"]), ("ai", "ai"))
+        # Against a unanimous thread the flair only gets it to unsure.
+        post, cs = thread(*[("AI", 100)] * 4, flair="Not AI")
+        self.assertEqual(consensus(post, cs)["verdict"], "unsure")
+
+    def test_mods_count_more_and_bots_and_op_not_at_all(self):
+        post, cs = thread(("Real", 5), ("real", 5), ("This is AI, removing.", 1, {"distinguished": "moderator"}),
+                          ("Please vote", 100, {"author": "AutoModerator"}))
+        cs.append({"author": "asker", "body": "it's real!!", "score": 500})
+        c = consensus(post, cs)
+        self.assertEqual(c["voters"], 3)
+        self.assertEqual(c["verdict"], "unsure")  # mod ~7.1 vs real ~4.9
+        self.assertTrue(any(e.get("mod") for e in consensus(post, cs, evidence_n=5)["evidence"]))
+
+    def test_tells_and_summary(self):
+        post, cs = thread(("It's AI, the hands morph at 0:04", 30), ("AI - text on the sign is gibberish", 20),
+                          ("ai, extra fingers on the hands", 5))
+        c = consensus(post, cs)
+        self.assertEqual(c["verdict"], "ai")
+        self.assertEqual(c["tells"][0], {"tell": "hands", "count": 2})
+        text = summary("isthisAI", c)
+        self.assertTrue(text.startswith("r/isthisAI consensus: AI (1.00, 3 votes)"), text)
+        self.assertIn("(+30)", text)
+        self.assertIn("Tells cited: hands", text)
+
+    def test_flatten_walks_replies(self):
+        tree = {"kind": "Listing", "data": {"children": [
+            {"kind": "t1", "data": {"body": "a", "replies": {"kind": "Listing", "data": {"children": [
+                {"kind": "t1", "data": {"body": "b", "replies": ""}}]}}}},
+            {"kind": "more", "data": {}}]}}
+        self.assertEqual([c["body"] for c in flatten(tree)], ["a", "b"])
+
+
+class RedditRows(unittest.TestCase):
+    POST = {"id": "1abc", "permalink": "/r/isthisAI/comments/1abc/goat/", "title": "Goat on a cliff?",
+            "score": 120, "num_comments": 40, "created_utc": 1767225600, "link_flair_text": "Not AI"}
+
+    def test_media_of(self):
+        hosted = {**self.POST, "url": "https://v.redd.it/xyz9", "secure_media": {"reddit_video": {
+            "hls_url": "https://v.redd.it/xyz9/HLSPlaylist.m3u8?a=1&f=sd", "duration": 21}}}
+        m = media_of(hosted)
+        self.assertEqual(m["url"], "https://www.reddit.com/r/isthisAI/comments/1abc/goat/")
+        self.assertEqual(m["download"], "https://v.redd.it/xyz9/HLSPlaylist.m3u8")
+        self.assertEqual(clip_id(m["url"]), "rd-1abc")
+        linked = {**self.POST, "url": "https://x.com/someone/status/123?s=20"}
+        self.assertEqual(media_of(linked), {"url": "https://x.com/someone/status/123", "hosted": False})
+        self.assertIsNone(media_of({**self.POST, "url": "https://i.redd.it/photo.jpeg"}))
+        cross = {**self.POST, "url": "/r/x/comments/9", "crosspost_parent_list": [hosted]}
+        self.assertTrue(media_of(cross)["hosted"])
+
+    def test_curation(self):
+        self.assertEqual(skip_reason({**self.POST, "over_18": True}, False), "nsfw")
+        self.assertEqual(skip_reason({**self.POST, "title": "Police officer throws woman"}, False), "off-genre")
+        self.assertIsNone(skip_reason({**self.POST, "title": "Police officer throws woman"}, True))
+        self.assertIsNone(skip_reason(self.POST, False))
+
+    def test_labels(self):
+        media = {"url": "https://www.reddit.com/r/isthisAI/comments/1abc/goat/", "download": "d", "hosted": True}
+        real = row_for("isthisAI", self.POST, media, {"verdict": "real", "confidence": 0.9, "voters": 5, "flair": "Not AI",
+                                                      "evidence": [], "tells": []})
+        self.assertEqual((real["label"], real["tier"], real["how"]), ("real", "real-consensus", "reddit-consensus"))
+        self.assertIn(real["label"], APP_REAL)
+        ai = row_for("isthisAI", self.POST, media, {"verdict": "ai", "confidence": 0.9, "voters": 5, "flair": None,
+                                                    "evidence": [], "tells": []})
+        self.assertEqual(ai["label"], "confirmed")
+        self.assertNotIn("tier", ai)
+
+    def test_committed_reddit_batches(self):
+        for path in sorted(glob.glob(os.path.join(HERE, "reddit-*.jsonl"))):
+            with open(path) as f:
+                rows = [json.loads(line) for line in f if line.strip()]
+            self.assertTrue(rows, path)
+            for r in rows:
+                c = r["consensus"]
+                where = f"{os.path.basename(path)}: {r['url']}"
+                self.assertIn(c["verdict"], ("ai", "real"), where)
+                self.assertGreaterEqual(c["confidence"], 0.6, where)
+                self.assertEqual(r["label"], "confirmed" if c["verdict"] == "ai" else "real", where)
+                self.assertEqual(r.get("tier"), None if c["verdict"] == "ai" else "real-consensus", where)
+                self.assertTrue(r["evidence"].startswith(f"r/{r['thread']['sub']} consensus"), where)
 
 
 if __name__ == "__main__":
