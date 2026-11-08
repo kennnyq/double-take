@@ -41,7 +41,9 @@ export function GestureHint(p: GestureHintProps) {
   const reduceMotion = useReduceMotion();
   const mouse = s.input === 'mouse' || (s.input === 'auto' && fine);
   const still = s.input === 'still' || reduceMotion;
-  const covered = !p.active || p.doubleTakeOpen || !!p.blocked || settingsOpen || devOpen || s.blocks > 0;
+  // The dev settings panel covers the clip on phones; on desktop it floats beside the card.
+  const panelCovers = devOpen && p.layout === 'phone';
+  const covered = !p.active || p.doubleTakeOpen || !!p.blocked || settingsOpen || panelCovers || s.blocks > 0;
 
   // Whether it's drawn (kept through the fade-out), and whether it's on its way in.
   const [drawn, setDrawn] = useState(false);
