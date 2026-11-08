@@ -592,11 +592,13 @@ function glideToStop(strip: HTMLElement, run: Animation, stop: { ms: number }): 
   const move = (at: number) => (y ? `translateY(${at}px)` : `translateX(${at}px)`);
   run.cancel();
   strip.style.transform = move(from);
-  strip.animate([{ transform: move(from) }, { transform: move(to) }], {
+  const glide = strip.animate([{ transform: move(from) }, { transform: move(to) }], {
     duration: stop.ms,
     easing: GLIDE_EASING,
     fill: 'forwards',
   });
+  // Started now, not on the next frame, which held every strip still for a frame at the press.
+  glide.startTime = document.timeline.currentTime;
   return y ? { x: 0, y: to - from } : { x: to - from, y: 0 };
 }
 
@@ -737,6 +739,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
           fill: 'forwards',
         })
       : null;
+  // In step with its strip's glide, which started at the press.
+  if (gliding) gliding.startTime = document.timeline.currentTime;
   // It clears as the others go (`focus`), or as it grows.
   const focusing =
     lifted && atPress && v.focus !== 'late'
