@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Animated, Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions, type GestureResponderEvent } from 'react-native';
-import Reanimated, { interpolate, useAnimatedStyle } from 'react-native-reanimated';
+import Reanimated, { interpolate, useAnimatedStyle, useDerivedValue } from 'react-native-reanimated';
 import { VideoView, type VideoPlayer } from 'expo-video';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -180,7 +180,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const fillMotion = useAnimatedStyle(() => ({ opacity: 1 - Math.min(1, Math.max(0, mode.value)) }));
   const chromeMotion = useAnimatedStyle(() => ({ opacity: chromeOut.value }));
   const verdictMotion = useAnimatedStyle(() => ({ opacity: 1 - chromeOut.value }));
-  const barMotion = useAnimatedStyle(() => ({ opacity: BAR_DIMMED + (1 - BAR_DIMMED) * chromeOut.value }));
+  // The clip's corner radius right now, in stage px: the progress bar's ends sit that far in.
+  const cornerRadius = useDerivedValue(() => (wide ? 14 : interpolate(mode.value, [0, 1], [0, inset.radius])));
 
   const stage = (
     <Reanimated.View style={[styles.stage, ownLayer, { width: stageW, height: stageH }, stageMotion]}>
@@ -328,8 +329,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         </Reanimated.View>
       )}
 
-      {/* The progress bar stays during a double take, dimmed and out of reach (the walkthrough owns the taps). */}
-      <Reanimated.View style={[styles.scrubWrap, ownLayer, barMotion]} pointerEvents={inspecting ? 'none' : 'box-none'}>
+      {/* The progress bar stays as it is during a double take, out of reach (the walkthrough owns the taps). */}
+      <Reanimated.View style={[styles.scrubWrap, ownLayer]} pointerEvents={inspecting ? 'none' : 'box-none'}>
         <Scrubber
           player={p.isActive ? p.player : null}
           progress={p.isActive ? p.progress : IDLE_PROGRESS}
@@ -338,6 +339,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           onHold={h.setScrub}
           onDrag={h.setBarDrag}
           onFollow={h.followScrub}
+          endInset={cornerRadius}
         />
       </Reanimated.View>
       {roundWithCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
@@ -508,9 +510,6 @@ const textShadow = {
   textShadowOffset: { width: 0, height: 1 },
   textShadowRadius: 2,
 };
-
-/** The progress bar's opacity during a double take. */
-const BAR_DIMMED = 0.4;
 
 /** The bar of a clip that isn't playing: empty. */
 const IDLE_PROGRESS = new Animated.Value(0);

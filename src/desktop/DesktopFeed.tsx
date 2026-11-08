@@ -817,7 +817,7 @@ const Slide = memo(function Slide(p: SlideProps) {
                 <VerdictBadge verdict={clip.verdict} />
               </div>
             )}
-            <DeskScrubber player={isActive ? p.player : null} dimmed={p.inspecting} onHold={h.setScrubbing} />
+            <DeskScrubber player={isActive ? p.player : null} inert={p.inspecting} onHold={h.setScrubbing} />
             {isActive && (
               <button
                 className={`mute-btn fades ${p.inspecting ? 'faded' : ''}`}
