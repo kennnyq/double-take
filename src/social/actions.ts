@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import * as Crypto from 'expo-crypto';
 import * as Haptics from 'expo-haptics';
 import { requireAccount } from '@/auth/gate';
 import type { Clip } from '@/data/clips';
+import { uuid } from '@/lib/uuid';
 import { useToast } from '@/ui/Toast';
 import { clipKey, isPersistable } from './clipRefs';
 import { useAppNav } from './nav';
@@ -134,7 +134,7 @@ export function useSocialActions() {
           const saved = persisting() && persistableRef(clipId);
           const comment = {
             // Saved comments get a real uuid up front, so nothing changes after the insert.
-            id: saved ? Crypto.randomUUID() : `me-${Date.now()}-${++commentSeq}`,
+            id: saved ? uuid() : `me-${Date.now()}-${++commentSeq}`,
             clipId,
             text,
             parentId,
