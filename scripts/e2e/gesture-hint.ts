@@ -1,7 +1,7 @@
 /**
  * Browser check for the first-run gesture hint over the feed: one hint for
  * both ways into the double take (Both is the default), "Hold or double tap"
- * on phones and "Hold or double-click" on desktop (a fine pointer). It goes as soon as either gesture opens a double take, comes
+ * on phones and "Hold spacebar or double click" on desktop (a fine pointer). It goes as soon as either gesture opens a double take, comes
  * back on reload until two have been opened, and then never again. Entering
  * from the landing's hero, it waits for the hand-off. Reduce Motion gets a
  * still frame. Dev settings → Interaction → Gesture hint plays it now, in the
@@ -28,7 +28,7 @@ const HINTS_KEY = 'double-take.hints.v1';
 const DEV_HINTS_KEY = 'double-take:dev-hints:v1';
 const HINT = '[data-testid="gesture-hint"]';
 const CLOSE_WALKTHROUGH = '[aria-label="Close the walkthrough"]';
-const DESKTOP_BOTH = 'Hold or double-click';
+const DESKTOP_BOTH = 'Hold spacebar or double click';
 const PHONE_BOTH = 'Hold or double tap';
 
 const failures: string[] = [];
@@ -154,8 +154,8 @@ async function timesOut(browser: Browser) {
 
 async function desktopFlow(browser: Browser) {
   for (const [gesture, words] of [
-    ['hold', 'Hold'],
-    ['doubleTap', 'Double-click'],
+    ['hold', 'Hold spacebar'],
+    ['doubleTap', 'Double click'],
     [undefined, DESKTOP_BOTH],
   ] as const) {
     const page = await open(browser, 'desktop', { gesture });

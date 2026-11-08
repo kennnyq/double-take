@@ -19,7 +19,7 @@ import type { HintDesign } from './store';
  * - fingertip: the same finger with only its shadows and a pressed glow that
  *   swells while it holds
  *
- * Desktop shows the same hand; only the words change ("double-click").
+ * Desktop shows the same hand; the words name the spacebar and double click.
  */
 
 /** The demo is drawn in a W×H box; the fingertip lands on TARGET. */
@@ -373,8 +373,8 @@ const styles = StyleSheet.create({
   scrim: { position: 'absolute', width: SCRIM, height: SCRIM, borderRadius: SCRIM / 2 },
   caption: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: (W - SCRIM) / 2,
+    right: (W - SCRIM) / 2,
     bottom: 6,
     textAlign: 'center',
     fontSize: 14,

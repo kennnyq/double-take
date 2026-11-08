@@ -103,12 +103,13 @@ export function hintTimeout(demo: Demo): number {
 }
 
 /**
- * The hint's only words. `mouse`: a fine pointer, where a tap is a click (a
- * click and hold opens it too, so "Hold" stays true on desktop).
+ * The hint's only words. `mouse`: a fine pointer, where a tap is a click and
+ * the keyboard hold gesture uses the spacebar.
  */
 export function demoCaption(demo: Demo, input: { mouse: boolean }): string {
-  const twice = input.mouse ? 'double-click' : 'double tap';
-  if (demo === 'both') return `Hold or ${twice}`;
-  if (demo === 'doubleTap') return input.mouse ? 'Double-click' : 'Double tap';
-  return 'Hold';
+  const hold = input.mouse ? 'Hold spacebar' : 'Hold';
+  const twice = input.mouse ? 'double click' : 'double tap';
+  if (demo === 'both') return `${hold} or ${twice}`;
+  if (demo === 'doubleTap') return input.mouse ? 'Double click' : 'Double tap';
+  return hold;
 }

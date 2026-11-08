@@ -88,12 +88,12 @@ test('a hint plays its demo twice before it goes, and each demo stays short', ()
 
 test('Both is one hint with one caption: hold or double tap', () => {
   assert.equal(demoCaption('both', { mouse: false }), 'Hold or double tap');
-  assert.equal(demoCaption('both', { mouse: true }), 'Hold or double-click');
+  assert.equal(demoCaption('both', { mouse: true }), 'Hold spacebar or double click');
 });
 
 test('a single gesture gets a word or two, worded for the input', () => {
   assert.equal(demoCaption('hold', { mouse: false }), 'Hold');
-  assert.equal(demoCaption('hold', { mouse: true }), 'Hold');
+  assert.equal(demoCaption('hold', { mouse: true }), 'Hold spacebar');
   assert.equal(demoCaption('doubleTap', { mouse: false }), 'Double tap');
-  assert.equal(demoCaption('doubleTap', { mouse: true }), 'Double-click');
+  assert.equal(demoCaption('doubleTap', { mouse: true }), 'Double click');
 });

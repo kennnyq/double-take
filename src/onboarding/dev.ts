@@ -43,7 +43,7 @@ function register(s: HintState) {
         id: 'input',
         label: 'Input',
         items: [
-          { label: 'Auto', value: 'auto', note: 'The same hand everywhere; with a fine pointer the words say double-click.' },
+          { label: 'Auto', value: 'auto', note: 'The same hand everywhere; with a fine pointer the words say hold spacebar or double click.' },
           { label: 'Touch', value: 'touch' },
           { label: 'Mouse', value: 'mouse' },
           { label: 'Still', value: 'still', note: 'As with Reduce Motion on: a still icon and its caption.' },
