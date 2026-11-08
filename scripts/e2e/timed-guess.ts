@@ -264,9 +264,22 @@ async function run(browser: Browser, layout: Layout) {
     await waitFor(page, 'J skips', (s) => s.guesses.length === 4 && !s.busy);
     const k = await game(page);
     check('A marks AI and J skips', k?.guesses[2]?.guess === 'ai' && k?.guesses[3]?.guess === 'real', k?.guesses);
+    // The feed's Space (one press plays/pauses, two open the double take, holding opens it too) is off in a round.
+    await page.keyboard.press(' ');
+    await page.waitForTimeout(120);
     await page.keyboard.press(' ');
     await page.waitForTimeout(400);
-    check('Space does nothing', (await game(page))?.guesses.length === 4);
+    await page.keyboard.down(' ');
+    await page.waitForTimeout(900);
+    await page.keyboard.up(' ');
+    await page.waitForTimeout(400);
+    const sp = await game(page);
+    const space = await page.evaluate(() => ({
+      walkthrough: !!document.querySelector('[aria-label="Close the walkthrough"], [data-testid="dt-card"]'),
+      pausedIcon: !!document.querySelector('.paused-icon'),
+    }));
+    check('Space does nothing', sp?.guesses.length === 4 && sp?.phase === 'playing', { guesses: sp?.guesses.length, phase: sp?.phase });
+    check('Space (single, double or held) neither pauses the clip nor opens the double take', !space.walkthrough && !space.pausedIcon, space);
   }
 
   // A hidden tab freezes the clock.
