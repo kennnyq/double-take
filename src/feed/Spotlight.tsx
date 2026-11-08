@@ -49,8 +49,8 @@ const SIDE = MASK_SIZE + 2 * BORDER;
  */
 export function Spotlight(p: SpotlightProps) {
   if (p.effect === 'off') return null;
-  const { dim, intensity } = spotlightStrength(p.strength);
   const fullBlur = p.effect === 'fullBlur' && Platform.OS === 'ios';
+  const { dim, intensity } = spotlightStrength(p.strength, fullBlur || p.effect === 'cheapBlur');
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
       {fullBlur && [0, 1, 2, 3].map((i) => <BlurBand key={i} index={i} m={p.motion} stageW={p.stageW} stageH={p.stageH} intensity={intensity} />)}

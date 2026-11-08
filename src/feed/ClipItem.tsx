@@ -16,7 +16,7 @@ import { useAppSettings } from '@/settings/store';
 import type { FeedHandlers } from './Feed';
 import { BlurredStill, CornerCaps, useCheapClip } from './InspectStage';
 import { ownLayer } from './layer';
-import { spotlightStrength } from './spotlight';
+import { paddingPx, spotlightStrength } from './spotlight';
 import { useSpotlightMotion } from './spotlightMotion';
 import { TellOverlay, type SpotState, type TellOverlayHandle } from './TellOverlay';
 import { useFadeProgress, useModeProgress } from './motion';
@@ -57,7 +57,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const longPressed = useRef(false);
   const tells = useRef<TellOverlayHandle>(null);
   const { revealGesture } = useAppSettings();
-  const { holdMs, spotlightEffect, spotlightShape, spotlightStrength: strength } = useDevSettings();
+  const { holdMs, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength } = useDevSettings();
   const hasTells = !!clip.tellsUrl && p.isActive;
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
@@ -167,7 +167,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   // The spotlight's motion lives here, so the apps' cheap blur can clip the
   // live video to the area (the overlay draws the dimming with the same values).
   const [spot, setSpot] = useState<SpotState>({ area: null, stillAt: null });
-  const motion = useSpotlightMotion(spot.area, spotlightShape);
+  const motion = useSpotlightMotion(spot.area, spotlightShape, paddingPx(spotlightPadding));
   const cheap = Platform.OS !== 'web' && spotlightEffect === 'cheapBlur' && inspecting;
   const cheapOn = useFadeProgress(cheap, 1);
   const cheapClip = useCheapClip(motion, cheapOn, stageW, stageH);
@@ -190,7 +190,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={baseFit === 'contain' ? 40 : 0} />
       )}
       {cheap && p.player && spot.stillAt !== null && (
-        <BlurredStill player={p.player} at={spot.stillAt} blur={spotlightStrength(strength).stillBlur} m={motion} />
+        <BlurredStill player={p.player} at={spot.stillAt} blur={spotlightStrength(strength, true).stillBlur} m={motion} />
       )}
       {/* Always the same three wrappers, so the video never remounts; they're identity unless the cheap blur clips it. */}
       <Reanimated.View style={[StyleSheet.absoluteFill, styles.clip, cheapClip.outer]} pointerEvents="none">

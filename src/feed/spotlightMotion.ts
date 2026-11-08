@@ -1,27 +1,29 @@
 import { useEffect } from 'react';
-import { Easing, useSharedValue, withSpring, withTiming, type SharedValue } from 'react-native-reanimated';
+import { Easing, useSharedValue, withDelay, withSequence, withTiming, type SharedValue } from 'react-native-reanimated';
 import { holeFor, type Rect, type SpotlightShape } from './spotlight';
 
-/** Moving between areas: quick, settles without a visible bounce. */
-export const HOLE_SPRING = { stiffness: 190, damping: 26, mass: 1 };
+/** Fading the spotlight out, and back in. */
+const FADE_OUT_MS = 180;
+const FADE_IN_MS = 320;
 
 export interface SpotlightMotion {
-  /** The hole's animated rectangle (stage px), eased between areas. */
+  /** The hole's rectangle (stage px). */
   x: SharedValue<number>;
   y: SharedValue<number>;
   w: SharedValue<number>;
   h: SharedValue<number>;
-  /** 0: no spotlight, 1: on the area. The hole fades in and out where it is. */
+  /** 0: no spotlight, 1: on the area. */
   on: SharedValue<number>;
 }
 
 /**
- * Springs the spotlight's hole toward the area's (in stage px) and fades it
- * out when there is none. A new area retargets from wherever the hole is.
- * Everything runs on the UI thread; nothing re-renders while it moves.
+ * The spotlight only fades: in on an area, out when there is none, and from
+ * one area to the next by fading out, moving while it's invisible, and fading
+ * back in (no sliding, no closing in from the edges). A change mid-fade
+ * carries on from the current opacity. Everything runs on the UI thread.
  */
-export function useSpotlightMotion(area: Rect | null, shape: SpotlightShape): SpotlightMotion {
-  const target = area ? holeFor(area, shape) : null;
+export function useSpotlightMotion(area: Rect | null, shape: SpotlightShape, pad?: number): SpotlightMotion {
+  const target = area ? holeFor(area, shape, pad) : null;
   const x = useSharedValue(target?.x ?? 0);
   const y = useSharedValue(target?.y ?? 0);
   const w = useSharedValue(target?.w ?? 100);
@@ -30,20 +32,22 @@ export function useSpotlightMotion(area: Rect | null, shape: SpotlightShape): Sp
   const key = target ? [target.x, target.y, target.w, target.h].map(Math.round).join() : '';
 
   useEffect(() => {
+    const out = { duration: FADE_OUT_MS, easing: Easing.out(Easing.quad) };
+    const fadeIn = { duration: FADE_IN_MS, easing: Easing.out(Easing.cubic) };
     if (!target) {
-      on.value = withTiming(0, { duration: 320, easing: Easing.out(Easing.cubic) });
+      on.value = withTiming(0, out);
       return;
     }
-    // Off (or nearly): start on the new area and fade in there, rather than sliding in from the last one.
-    const jumpIn = on.value < 0.05;
-    const set = (sv: SharedValue<number>, v: number) => {
-      sv.value = jumpIn ? v : withSpring(v, HOLE_SPRING);
+    const place = (sv: SharedValue<number>, v: number, after: number) => {
+      sv.value = after ? withDelay(after, withTiming(v, { duration: 0 })) : v;
     };
-    set(x, target.x);
-    set(y, target.y);
-    set(w, target.w);
-    set(h, target.h);
-    on.value = withTiming(1, { duration: 420, easing: Easing.out(Easing.cubic) });
+    // Already (nearly) invisible: move there now and fade in. Else fade out first.
+    const wait = on.value < 0.05 ? 0 : Math.round(FADE_OUT_MS * on.value);
+    place(x, target.x, wait);
+    place(y, target.y, wait);
+    place(w, target.w, wait);
+    place(h, target.h, wait);
+    on.value = wait ? withSequence(withTiming(0, { ...out, duration: wait }), withTiming(1, fadeIn)) : withTiming(1, fadeIn);
     // `key` stands for the target's numbers.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key]);

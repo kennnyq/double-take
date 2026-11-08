@@ -6,16 +6,18 @@ const STAGE = { stageW: 430, stageH: 860, safeTop: 100, safeBottom: 24, cardH: 1
 
 test('cardSpot: without an area, the card goes to the asked side', () => {
   const top = cardSpot({ ...STAGE, hole: null, placement: 'top' });
-  assert.deepEqual(top, { side: 'top', offset: 100, cx: 215, width: 320 });
+  assert.deepEqual(top, { side: 'top', offset: 100, cx: 215, width: 320, from: 'above' });
   const bottom = cardSpot({ ...STAGE, hole: null, placement: 'bottom' });
   assert.equal(bottom.side, 'bottom');
   assert.equal(bottom.offset, 24);
+  assert.equal(bottom.from, 'below');
 });
 
 test('cardSpot: just below the area when it fits, centred on it within the stage', () => {
   const s = cardSpot({ ...STAGE, hole: { x: 300, y: 200, w: 100, h: 80 }, placement: 'top' });
   assert.equal(s.side, 'top');
-  assert.equal(s.offset, 292);
+  assert.equal(s.offset, 300); // 20 px under the area
+  assert.equal(s.from, 'below');
   // Centred on 350 would run off the right edge: pulled in.
   assert.equal(s.cx, 430 - 12 - 160);
 });
@@ -23,7 +25,8 @@ test('cardSpot: just below the area when it fits, centred on it within the stage
 test('cardSpot: above the area when there is no room below', () => {
   const s = cardSpot({ ...STAGE, hole: { x: 100, y: 650, w: 100, h: 150 }, placement: 'bottom' });
   assert.equal(s.side, 'bottom');
-  assert.equal(s.offset, 860 - 650 + 12);
+  assert.equal(s.offset, 860 - 650 + 20);
+  assert.equal(s.from, 'above');
 });
 
 test('cardSpot: both fit, the tell placement decides unless below is much roomier', () => {
@@ -56,4 +59,15 @@ test('emptierSide: full-frame clips avoid the other tells, else the top', () => 
   assert.equal(emptierSide(frame, 860, [{ x: 10, y: 600, w: 50, h: 50 }]), 'top');
   assert.equal(emptierSide(frame, 860, [{ x: 10, y: 100, w: 50, h: 50 }]), 'bottom');
   assert.equal(emptierSide(frame, 860, []), 'top');
+});
+
+test('cardSpot: never covers the subject when only its padding is in the way', () => {
+  // The padded area leaves no room for the card, the box itself does.
+  const subject = { x: 100, y: 240, w: 200, h: 300 };
+  const hole = { x: 60, y: 200, w: 280, h: 380 };
+  const s = cardSpot({ ...STAGE, hole, subject, placement: 'bottom', cardH: 260 });
+  assert.equal(s.side, 'top');
+  assert.equal(s.offset, 550);
+  if (s.side === 'top') assert.ok(s.offset >= subject.y + subject.h, `below the subject: ${s.offset}`);
+  else assert.ok(STAGE.stageH - s.offset <= subject.y, `above the subject: ${s.offset}`);
 });

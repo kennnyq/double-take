@@ -13,6 +13,8 @@ import {
   holeFor,
   maskFor,
   maskPlacement,
+  paddingPx,
+  spotlightStrength,
 } from './spotlight.ts';
 
 const close = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
@@ -39,6 +41,22 @@ test('holeFor: circle is round, rect is sharp, tiny boxes grow', () => {
   assert.equal(holeFor(BOX, 'rect').feather, 0);
   const tiny = holeFor({ x: 10, y: 10, w: 4, h: 4 }, 'rect');
   assert.ok(tiny.w >= 44 && tiny.h >= 44);
+});
+
+test('padding gives the subject room; roomy is roomier', () => {
+  for (const shape of SPOTLIGHT_SHAPES) {
+    const tight = holeFor(BOX, shape, paddingPx('tight'));
+    const roomy = holeFor(BOX, shape, paddingPx('roomy'));
+    assert.ok(roomy.w > tight.w && roomy.h > tight.h, shape);
+  }
+  const rect = holeFor(BOX, 'rect', paddingPx('normal'));
+  close(rect.w, BOX.w + 2 * paddingPx('normal'));
+});
+
+test('the spotlight is subtle by default and dims less when it also blurs', () => {
+  assert.ok(spotlightStrength(2).dim <= 0.35);
+  assert.ok(spotlightStrength(2, true).dim < spotlightStrength(2).dim);
+  assert.ok(spotlightStrength(1).blurPx < spotlightStrength(2).blurPx && spotlightStrength(2).blurPx < spotlightStrength(3).blurPx);
 });
 
 test('grow keeps the centre', () => {

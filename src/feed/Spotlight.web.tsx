@@ -32,7 +32,7 @@ const STILL_W = 180;
  */
 export function Spotlight(p: SpotlightProps) {
   const { motion: m, stageW, stageH, effect } = p;
-  const { dim, blurPx, stillBlur } = spotlightStrength(p.strength);
+  const { dim, blurPx, stillBlur } = spotlightStrength(p.strength, effect === 'cheapBlur' || effect === 'fullBlur');
   const dimEl = useRef<HTMLDivElement>(null);
   const blurEl = useRef<HTMLDivElement>(null);
   const stillEl = useRef<HTMLCanvasElement>(null);

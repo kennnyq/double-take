@@ -47,6 +47,11 @@ registerDevSection({
       { label: 'Feathered', value: 'feather', note: 'A padded rounded rectangle that fades out.' },
       { label: 'Blob', value: 'blob', note: 'A roomy soft oval with a very soft edge.' },
     ]),
+    settingChoice(s, 'spotlightPadding', 'Room around the tell', [
+      { label: 'Tight', value: 'tight', note: 'Close around the tell’s box.' },
+      { label: 'Normal', value: 'normal', note: 'A comfortable margin around the box; the card keeps clear of it.' },
+      { label: 'Roomy', value: 'roomy', note: 'Plenty of context around the box.' },
+    ]),
     settingSwitch(s, 'markDrafts', 'Mark model drafts', 'Reviewers: adds “AI draft” under unreviewed tells. Never shown by default.'),
   ],
 });

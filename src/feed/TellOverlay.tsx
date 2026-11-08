@@ -19,7 +19,7 @@ import { InfoCard } from './InfoCard';
 import { ownLayer } from './layer';
 import { planScrub, runScrub } from './scrub';
 import { Spotlight } from './Spotlight';
-import { grow, holeFor, type Rect } from './spotlight';
+import { grow, holeFor, paddingPx, type Rect } from './spotlight';
 import { useSpotlightMotion, type SpotlightMotion } from './spotlightMotion';
 import { boxOnStage, videoRect, type Fit, type Tell } from './tells';
 
@@ -191,12 +191,14 @@ export function TellOverlay({ ref, ...p }: Props) {
     const tell = d.steps[i];
     const area = areaOf(tell);
     // Keep the card clear of the spotlight's soft edge too.
-    const hole = area ? grow(holeFor(area, settings.spotlightShape), holeFor(area, settings.spotlightShape).feather / 2) : null;
+    const padded = area ? holeFor(area, settings.spotlightShape, paddingPx(settings.spotlightPadding)) : null;
+    const hole = padded ? grow(padded, padded.feather / 2) : null;
     const others = d.steps.map(areaOf).filter((r): r is Rect => !!r);
     const placement = tell?.placement ?? emptierSide(frame, p.stageH, others);
     const width = Math.min(320, p.stageW - 24);
     return cardSpot({
       hole,
+      subject: area,
       placement,
       stageW: p.stageW,
       stageH: p.stageH,
@@ -399,7 +401,7 @@ export function TellOverlay({ ref, ...p }: Props) {
   // across a cut, so it lets go outside that shot.
   const inShot = !current?.shot || scrubbing || inShotNow;
   const area = inShot ? areaOf(current) : null;
-  const ownMotion = useSpotlightMotion(p.motion ? null : area, settings.spotlightShape);
+  const ownMotion = useSpotlightMotion(p.motion ? null : area, settings.spotlightShape, paddingPx(settings.spotlightPadding));
   const motion = p.motion ?? ownMotion;
   // Tell the clip (it springs the shared motion, and blurs the still for the cheap blur).
   const { onSpot } = p;

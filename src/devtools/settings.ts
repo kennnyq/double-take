@@ -6,14 +6,16 @@
 
 import {
   SPOTLIGHT_EFFECTS,
+  SPOTLIGHT_PADDINGS,
   SPOTLIGHT_SHAPES,
   SPOTLIGHT_STRENGTHS,
   type SpotlightEffect,
+  type SpotlightPadding,
   type SpotlightShape,
   type SpotlightStrength,
 } from '../feed/spotlight.ts';
 
-export { SPOTLIGHT_EFFECTS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRENGTHS };
+export { SPOTLIGHT_EFFECTS, SPOTLIGHT_PADDINGS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRENGTHS };
 
 /** How long a press must last to count as a hold, in ms. */
 export const HOLD_DELAYS = [250, 350, 500] as const;
@@ -43,6 +45,8 @@ export interface DevSettings {
   spotlightEffect: SpotlightEffect;
   spotlightStrength: SpotlightStrength;
   spotlightShape: SpotlightShape;
+  /** Room around the tell's box (and so between the subject and the card). */
+  spotlightPadding: SpotlightPadding;
   /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
   markDrafts: boolean;
 }
@@ -56,6 +60,7 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightEffect: 'darken',
   spotlightStrength: 2,
   spotlightShape: 'feather',
+  spotlightPadding: 'normal',
   markDrafts: false,
 });
 
@@ -82,6 +87,7 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     spotlightEffect: oneOf(SPOTLIGHT_EFFECTS, o.spotlightEffect, d.spotlightEffect),
     spotlightStrength: oneOf(SPOTLIGHT_STRENGTHS, o.spotlightStrength, d.spotlightStrength),
     spotlightShape: oneOf(SPOTLIGHT_SHAPES, o.spotlightShape, d.spotlightShape),
+    spotlightPadding: oneOf(SPOTLIGHT_PADDINGS, o.spotlightPadding, d.spotlightPadding),
     markDrafts: typeof o.markDrafts === 'boolean' ? o.markDrafts : d.markDrafts,
   };
 }

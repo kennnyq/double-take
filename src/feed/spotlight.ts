@@ -24,6 +24,15 @@ export type SpotlightEffect = (typeof SPOTLIGHT_EFFECTS)[number];
 export const SPOTLIGHT_SHAPES = ['rect', 'rounded', 'ellipse', 'circle', 'feather', 'blob'] as const;
 export type SpotlightShape = (typeof SPOTLIGHT_SHAPES)[number];
 
+/** Breathing room around the tell's box, so the subject isn't hemmed in. */
+export const SPOTLIGHT_PADDINGS = ['tight', 'normal', 'roomy'] as const;
+export type SpotlightPadding = (typeof SPOTLIGHT_PADDINGS)[number];
+
+/** Padding on each side of the box, px. */
+export function paddingPx(p: SpotlightPadding): number {
+  return p === 'tight' ? 8 : p === 'roomy' ? 36 : 22;
+}
+
 /** 1: light, 2: medium, 3: strong. */
 export const SPOTLIGHT_STRENGTHS = [1, 2, 3] as const;
 export type SpotlightStrength = (typeof SPOTLIGHT_STRENGTHS)[number];
@@ -41,54 +50,59 @@ export interface Hole extends Rect {
   feather: number;
 }
 
-/** How dark the outside gets (0..1), and how much it's blurred (CSS px on web, expo-blur intensity / expo-image radius on devices). */
-export function spotlightStrength(level: SpotlightStrength): { dim: number; blurPx: number; intensity: number; stillBlur: number } {
-  if (level === 1) return { dim: 0.32, blurPx: 4, intensity: 22, stillBlur: 6 };
-  if (level === 3) return { dim: 0.66, blurPx: 14, intensity: 65, stillBlur: 16 };
-  return { dim: 0.5, blurPx: 8, intensity: 40, stillBlur: 10 };
+/**
+ * How dark the outside gets (0..1), and how much it's blurred (CSS px on web,
+ * expo-blur intensity and expo-image radius on devices). Subtle by default:
+ * the outside should recede, not disappear. With a blur on too, it dims less.
+ */
+export function spotlightStrength(
+  level: SpotlightStrength,
+  blurring = false,
+): { dim: number; blurPx: number; intensity: number; stillBlur: number } {
+  const s =
+    level === 1
+      ? { dim: 0.22, blurPx: 2, intensity: 12, stillBlur: 3 }
+      : level === 3
+        ? { dim: 0.55, blurPx: 9, intensity: 45, stillBlur: 10 }
+        : { dim: 0.34, blurPx: 4, intensity: 22, stillBlur: 5 };
+  return blurring ? { ...s, dim: s.dim * 0.7 } : s;
 }
 
 /** The smallest hole drawn, so a tiny box still reads as a spotlight. */
 const MIN_SIDE = 44;
 
-/** The hole around a tell's box (stage px) for a shape. Centred on the box; never smaller than MIN_SIDE. */
-export function holeFor(box: Rect, shape: SpotlightShape): Hole {
+/** The hole around a tell's box (stage px) for a shape, `pad` px roomier on each side. Centred on the box; never smaller than MIN_SIDE. */
+export function holeFor(box: Rect, shape: SpotlightShape, pad = paddingPx('normal')): Hole {
   const cx = box.x + box.w / 2;
   const cy = box.y + box.h / 2;
-  let w = box.w;
-  let h = box.h;
+  let w = box.w + 2 * pad;
+  let h = box.h + 2 * pad;
   let feather = 0;
   switch (shape) {
     case 'rect':
-      w += 8;
-      h += 8;
       break;
     case 'rounded':
-      w += 16;
-      h += 16;
       feather = 4;
       break;
     case 'ellipse':
-      // Through the box's corners, a little loose.
-      w = w * Math.SQRT2 + 8;
-      h = h * Math.SQRT2 + 8;
+      // Through the box's corners, then the padding.
+      w = box.w * Math.SQRT2 + 1.4 * pad;
+      h = box.h * Math.SQRT2 + 1.4 * pad;
       feather = 14;
       break;
     case 'circle': {
-      const d = Math.hypot(w, h) + 8;
+      const d = Math.hypot(box.w, box.h) + 1.4 * pad;
       w = d;
       h = d;
       feather = 10;
       break;
     }
     case 'feather':
-      w += 24;
-      h += 24;
       feather = 28;
       break;
     case 'blob':
-      w += 40;
-      h += 40;
+      w += 20;
+      h += 20;
       feather = 40;
       break;
   }

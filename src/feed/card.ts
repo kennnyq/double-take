@@ -19,11 +19,15 @@ export interface CardSpot {
   /** Horizontal centre and width of the card. */
   cx: number;
   width: number;
+  /** Where the card comes in from (and leaves to): from below when it sits under the subject, from above when over it. */
+  from: 'above' | 'below';
 }
 
 export interface CardSpotInput {
-  /** The highlighted area in stage px, if the tell has one. */
+  /** The highlighted area in stage px (with its padding), if the tell has one. */
   hole: Rect | null;
+  /** The tell's own box: the card never covers it if there's any way not to. */
+  subject?: Rect | null;
   /** Where a tell without an area goes (see `emptierSide`). */
   placement: Side;
   stageW: number;
@@ -40,27 +44,39 @@ export interface CardSpotInput {
 }
 
 export function cardSpot(i: CardSpotInput): CardSpot {
-  const gap = i.gap ?? 12;
+  const gap = i.gap ?? 20;
   const margin = i.margin ?? 12;
   const width = Math.max(0, Math.min(i.maxWidth ?? 320, i.stageW - 2 * margin));
   const centre = (x: number) => Math.min(i.stageW - margin - width / 2, Math.max(margin + width / 2, x));
   const { hole } = i;
   if (!hole) {
-    return { side: i.placement, offset: i.placement === 'top' ? i.safeTop : i.safeBottom, cx: i.stageW / 2, width };
+    const top = i.placement === 'top';
+    return { side: i.placement, offset: top ? i.safeTop : i.safeBottom, cx: i.stageW / 2, width, from: top ? 'above' : 'below' };
   }
   const cx = centre(hole.x + hole.w / 2);
-  const below = i.stageH - i.safeBottom - (hole.y + hole.h + gap);
-  const above = hole.y - gap - i.safeTop;
-  const fitsBelow = below >= i.cardH;
-  const fitsAbove = above >= i.cardH;
-  // Both fit: the tell's preferred side. One fits: that one. Neither: the roomier side, kept on stage.
-  const goBelow = fitsBelow && fitsAbove ? i.placement === 'bottom' || below >= above * 1.5 : fitsBelow ? true : fitsAbove ? false : below >= above;
-  if (goBelow) {
-    const top = Math.max(i.safeTop, Math.min(hole.y + hole.h + gap, i.stageH - i.safeBottom - i.cardH));
-    return { side: 'top', offset: top, cx, width };
+  const below = (r: Rect, g: number) => ({ top: r.y + r.h + g, room: i.stageH - i.safeBottom - (r.y + r.h + g) });
+  const above = (r: Rect, g: number) => ({ bottom: i.stageH - r.y + g, room: r.y - g - i.safeTop });
+  const at = (side: 'below' | 'above', offset: number): CardSpot =>
+    side === 'below' ? { side: 'top', offset, cx, width, from: 'below' } : { side: 'bottom', offset, cx, width, from: 'above' };
+  // Clear of the padded area with a comfortable gap; failing that, at least clear of the subject itself.
+  for (const [r, g] of [
+    [hole, gap],
+    [i.subject ?? hole, Math.min(gap, 10)],
+  ] as const) {
+    const b = below(r, g);
+    const a = above(r, g);
+    const fitsBelow = b.room >= i.cardH;
+    const fitsAbove = a.room >= i.cardH;
+    if (fitsBelow && fitsAbove) return i.placement === 'bottom' || b.room >= a.room * 1.5 ? at('below', b.top) : at('above', a.bottom);
+    if (fitsBelow) return at('below', b.top);
+    if (fitsAbove) return at('above', a.bottom);
   }
-  const bottom = Math.max(i.safeBottom, Math.min(i.stageH - hole.y + gap, i.stageH - i.safeTop - i.cardH));
-  return { side: 'bottom', offset: bottom, cx, width };
+  // The subject fills the stage: the roomier side, kept on stage.
+  const r = i.subject ?? hole;
+  const b = below(r, 10);
+  const a = above(r, 10);
+  if (b.room >= a.room) return at('below', Math.max(i.safeTop, Math.min(b.top, i.stageH - i.safeBottom - i.cardH)));
+  return at('above', Math.max(i.safeBottom, Math.min(a.bottom, i.stageH - i.safeTop - i.cardH)));
 }
 
 /** A card's height from its text, before it's laid out (15/20 type, 14px padding, the hint and progress line). */
