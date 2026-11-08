@@ -57,7 +57,8 @@ interface Measured {
 
 function pickSurvivor(tiles: Measured[], pick: LandingValues['pick'], button: DOMRect | null, gallery: DOMRect): HTMLElement {
   // A phone in front (or any tile marked as the hero) wins: the one most in view.
-  const heroes = tiles.filter((t) => t.el.hasAttribute('data-hero-tile'));
+  // Only one that's on screen: a tile further down the page never takes over the launch.
+  const heroes = tiles.filter((t) => t.el.hasAttribute('data-hero-tile') && t.seen > 0);
   if (heroes.length) {
     const box = heroes[0].el.closest('[data-clip-box]')?.getBoundingClientRect();
     const shown = (r: DOMRect) =>

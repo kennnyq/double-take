@@ -312,7 +312,8 @@ function PhoneCta({ rootRef, launchFrom }: Props) {
       </h2>
       <div className="ftc-stage">
         <div className="ftc-phone-body" ref={phone} onClick={go}>
-          <Tile clip={n} hero />
+          {/* Not marked as the hero tile: that would make the hero's own button launch from down here. Its button passes it to the launch itself. */}
+          <Tile clip={n} />
           <i className="ftc-island" />
         </div>
       </div>
