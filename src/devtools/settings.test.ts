@@ -24,6 +24,17 @@ test('parseSettings falls back to the defaults for missing, corrupt or invalid v
   assert.deepEqual(s, DEFAULT_SETTINGS);
 });
 
+test('parseSettings reads the double take spotlight settings', () => {
+  const s = parseSettings(JSON.stringify({ spotlight: 'blur', spotlightStrength: 3, spotlightShape: 'ellipse' }));
+  assert.equal(s.spotlight, 'blur');
+  assert.equal(s.spotlightStrength, 3);
+  assert.equal(s.spotlightShape, 'ellipse');
+  const bad = parseSettings(JSON.stringify({ spotlight: 'glow', spotlightStrength: 9, spotlightShape: 'star' }));
+  assert.equal(bad.spotlight, DEFAULT_SETTINGS.spotlight);
+  assert.equal(bad.spotlightStrength, DEFAULT_SETTINGS.spotlightStrength);
+  assert.equal(bad.spotlightShape, DEFAULT_SETTINGS.spotlightShape);
+});
+
 test('parseSettings keeps valid values', () => {
   const s = parseSettings(JSON.stringify({ revealGesture: 'doubleTap', holdMs: 500, pipeline: 'claude', launcher: 'topLeft' }));
   assert.equal(s.holdMs, 500);
