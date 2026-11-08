@@ -5,6 +5,7 @@ Usage:
         [--listing top:year --listing top:all --listing new] [--pages 5] [--cache DIR]
         [--min-confidence 0.6] [--all-genres] [--exclude FILE.jsonl ...]
     python3 -I scripts/harvest/pick_reddit.py OUT.jsonl --offline --cache DIR   # re-score saved JSON
+    python3 -I scripts/harvest/pick_reddit.py OUT.jsonl --public --fetch-only --cache DIR   # see below
 
 Reddit blocks unauthenticated JSON from many networks ("blocked by network
 security"), so this reads the API with app-only OAuth: a "script" app's
@@ -12,6 +13,12 @@ client_id:client_secret in FILE (or REDDIT_CREDENTIALS_FILE), client_credentials
 grant, read-only, no Reddit account password. Requests are spaced at least 1.1 s
 apart and follow Reddit's X-Ratelimit headers. Every raw response is saved under
 --cache, so --offline re-scores without touching the network.
+
+Where Reddit doesn't block the network (a home connection, say), --public reads the
+public JSON endpoints instead, with no credentials, at the same pace and into the
+same cache. --fetch-only stops after filling the cache (listings, plus the comment
+trees of video posts that pass curation). Copy that cache to the harvest machine
+and run --offline there.
 
 For each video post (Reddit-hosted, or linking X / YouTube / TikTok / Instagram):
   - curation: no NSFW, removed posts, or off-genre titles (pick_real.OFF_GENRE);
@@ -24,6 +31,8 @@ Rows are build_media.py candidates: `url` is the clip's identity (the linked pos
 or the Reddit thread for Reddit-hosted video), `download` the media to fetch.
 AI → label "confirmed"; real → label "real", tier "real-consensus".
 """
+from __future__ import annotations
+
 import argparse
 import base64
 import json
@@ -55,8 +64,9 @@ VREDDIT = re.compile(r"https?://v\.redd\.it/(\w+)")
 class Reddit:
     """Tiny OAuth client: app-only token, polite pacing, raw responses cached."""
 
-    def __init__(self, creds_file: str | None, cache: str, offline: bool = False, min_gap: float = 1.1):
-        self.cache, self.offline, self.min_gap = cache, offline, min_gap
+    def __init__(self, creds_file: str | None, cache: str, offline: bool = False, min_gap: float = 1.1,
+                 public: bool = False):
+        self.cache, self.offline, self.min_gap, self.public = cache, offline, min_gap, public
         self.token: str | None = None
         self.last = 0.0
         self.creds_file = creds_file
@@ -89,13 +99,15 @@ class Reddit:
                 return json.load(f)
         if self.offline:
             raise FileNotFoundError(cached)
-        url = f"https://oauth.reddit.com{path}?" + urllib.parse.urlencode({**params, "raw_json": 1})
+        query = urllib.parse.urlencode({**params, "raw_json": 1})
+        url = f"https://www.reddit.com{path}.json?{query}" if self.public else f"https://oauth.reddit.com{path}?{query}"
         for attempt in range(4):
             wait = self.min_gap - (time.monotonic() - self.last)
             if wait > 0:
                 time.sleep(wait)
             self.last = time.monotonic()
-            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, "Authorization": f"Bearer {self._auth()}"})
+            auth = {} if self.public else {"Authorization": f"Bearer {self._auth()}"}
+            req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT, **auth})
             try:
                 with urllib.request.urlopen(req, timeout=30) as r:
                     body = json.load(r)
@@ -105,7 +117,7 @@ class Reddit:
                         time.sleep(reset + 1)
                 break
             except urllib.error.HTTPError as e:
-                if e.code == 401 and attempt == 0:
+                if e.code == 401 and attempt == 0 and not self.public:
                     self.token = None  # expired token: fetch a new one
                     continue
                 if e.code in (429, 500, 502, 503) and attempt < 3:
@@ -205,6 +217,8 @@ def main() -> None:
     ap.add_argument("--pages", type=int, default=5, help="pages of 100 posts per listing")
     ap.add_argument("--cache", default="reddit-cache", help="raw API responses (keep out of the repo)")
     ap.add_argument("--offline", action="store_true")
+    ap.add_argument("--public", action="store_true", help="public JSON endpoints, no credentials")
+    ap.add_argument("--fetch-only", action="store_true", help="fill --cache and stop (no scoring, no yt-dlp)")
     ap.add_argument("--min-confidence", type=float, default=0.6)
     ap.add_argument("--min-duration", type=float, default=3)
     ap.add_argument("--max-duration", type=float, default=90)
@@ -216,7 +230,8 @@ def main() -> None:
 
     from resolve import probe  # yt-dlp; imported late so --offline scoring needs no yt-dlp
 
-    r = Reddit(args.creds, args.cache, args.offline)
+    r = Reddit(args.creds, args.cache, args.offline, public=args.public)
+    fetched = 0
     have = {clip_id(u) for u in _urls(args.exclude)}
     seen: set[str] = set()
     tally: dict[str, int] = {}
@@ -249,6 +264,9 @@ def main() -> None:
             except FileNotFoundError:
                 drop("comments not cached")
                 continue
+            if args.fetch_only:
+                fetched += 1
+                continue
             c = consensus(post, flatten(tree[1] if isinstance(tree, list) and len(tree) > 1 else tree))
             if c["verdict"] == "unsure" or c["confidence"] < args.min_confidence:
                 drop("no clear consensus")
@@ -269,6 +287,9 @@ def main() -> None:
             kept.append(row_for(sub, post, media, c))
             print(f"keep {key}: {c['verdict']} {c['confidence']:.2f} ({c['voters']} votes) {post.get('title', '')[:60]!r}", file=sys.stderr)
 
+    if args.fetch_only:
+        print(f"cached {fetched} video threads in {args.cache}; dropped {tally}", file=sys.stderr)
+        return
     kept.sort(key=lambda row: (-row["consensus"]["confidence"], -(row["thread"]["score"] or 0)))
     with open(args.out, "w") as f:
         for row in kept:
