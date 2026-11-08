@@ -102,7 +102,7 @@ async function takeDealt(queue: Dealt[], want: number): Promise<Dealt[]> {
 }
 
 /**
- * A game in the feed: the timed round (60 s, the demo, from Dev settings) or,
+ * A game in the feed: the timed round (30 s, the demo, from Dev settings) or,
  * with `timed={false}`, the untimed game of the Game tab: no countdown and no
  * clock, clip after clip, every answer going to Your skills.
  */

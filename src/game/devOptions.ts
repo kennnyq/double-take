@@ -12,6 +12,8 @@ import { DEFAULT_DESIGNS, parseDesigns, type GameDesigns } from './designs';
  */
 export interface GameDev {
   roundMs: number;
+  /** The round's length was picked in Dev settings (else it follows the default). */
+  roundPicked?: boolean;
   showTruth: boolean;
   designs: GameDesigns;
   /** Deal clips near the player's skill (adaptive difficulty) instead of a plain shuffle. */
@@ -22,7 +24,9 @@ export interface GameDev {
   review: boolean;
 }
 
-export const ROUND_LENGTHS = [60_000, 20_000, 8_000] as const;
+export const ROUND_LENGTHS = [30_000, 60_000, 20_000, 8_000] as const;
+/** The round's old default: saved with every other dev setting, so on its own it says nothing about a choice. */
+const OLD_DEFAULT_MS = 60_000;
 const KEY = 'double-take:game-dev:v1';
 const DEFAULTS: GameDev = { roundMs: GAME.roundMs, showTruth: false, designs: DEFAULT_DESIGNS, adaptive: false, rankFeed: false, review: true };
 
@@ -31,7 +35,10 @@ function read(): GameDev {
   try {
     const o = JSON.parse(devStorage?.getItem(KEY) ?? 'null') as Partial<GameDev> | null;
     return {
-      roundMs: ROUND_LENGTHS.includes(o?.roundMs as (typeof ROUND_LENGTHS)[number]) ? o!.roundMs! : DEFAULTS.roundMs,
+      // A saved length counts when it was picked; a saved 60 s from before then was just the old default.
+      roundMs:
+        ROUND_LENGTHS.includes(o?.roundMs as (typeof ROUND_LENGTHS)[number]) && (o?.roundPicked || o?.roundMs !== OLD_DEFAULT_MS) ? o!.roundMs! : DEFAULTS.roundMs,
+      roundPicked: o?.roundPicked === true,
       showTruth: o?.showTruth === true,
       designs: parseDesigns(o?.designs),
       adaptive: o?.adaptive === true,

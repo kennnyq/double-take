@@ -7,8 +7,8 @@
 export const GAME_TAB_LABEL = 'Game';
 
 export const GAME = {
-  /** How long a round lasts. Dev builds can shorten it (Dev settings → Game). */
-  roundMs: 60_000,
+  /** How long the timed round (the demo) lasts. Dev settings → Game can change it. */
+  roundMs: 30_000,
   /** The 3-2-1 before a round starts, and again after a pause. */
   countdownMs: 3_000,
   /** At most this many clips in a round's deck. */

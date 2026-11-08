@@ -2,6 +2,7 @@ import { router } from 'expo-router';
 import { registerDevSection, registerDevTab } from '@/devtools/api';
 import type { DevRow } from '@/devtools/registry';
 import { DEV_TOOLS, closeDevSettings } from '@/devtools/store';
+import { GAME } from './config';
 import { GAME_DESIGNS, GAME_ELEMENTS } from './designs';
 import { ROUND_LENGTHS, gameDev, setGameDesign } from './devOptions';
 import { gameIntro } from './intro';
@@ -26,7 +27,7 @@ function rows(): DevRow[] {
       items: ROUND_LENGTHS.map((ms) => ({ label: `${ms / 1000} s`, value: ms })),
       value: s.roundMs,
       defaultValue: gameDev.defaults.roundMs,
-      onSelect: (v) => gameDev.set({ roundMs: Number(v) }),
+      onSelect: (v) => gameDev.set({ roundMs: Number(v), roundPicked: true }),
     },
     {
       kind: 'switch',
@@ -63,7 +64,7 @@ function rows(): DevRow[] {
     {
       kind: 'action',
       label: 'Play the timed round',
-      note: 'The 60 s demo round. The Game tab plays untimed.',
+      note: `The ${GAME.roundMs / 1000} s demo round. The Game tab plays untimed.`,
       run: () => {
         closeDevSettings();
         router.push('/game');
