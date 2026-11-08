@@ -416,7 +416,7 @@ function growOnCompositor(L: Lifted, frames: Keyframe[], target: Rect, targetRad
  * video as the growth began stalled Safari, and the growth's first frames
  * were lost (it leapt).
  */
-async function sharpen(lifted: Lifted, hi: HTMLVideoElement, fadeMs = 360) {
+async function sharpen(lifted: Lifted, hi: HTMLVideoElement, fadeMs = 360, onCovered?: () => void) {
   await until(() => hi.readyState >= 2, 600);
   if (hi.paused) {
     hi.currentTime = Math.min(lifted.time() + 0.06, (hi.duration || 8) - 0.05);
@@ -426,7 +426,10 @@ async function sharpen(lifted: Lifted, hi: HTMLVideoElement, fadeMs = 360) {
   // Moved in the same task, it keeps playing.
   lifted.layer.append(hi);
   hi.play().catch(() => {});
-  hi.animate([{ opacity: 0 }, { opacity: 1 }], { duration: fadeMs, easing: 'ease-in-out', fill: 'forwards' });
+  const revealing = hi.animate([{ opacity: 0 }, { opacity: 1 }], { duration: fadeMs, easing: 'ease-in-out', fill: 'forwards' });
+  void revealing.finished.then(() => {
+    if (hi.isConnected && hi.readyState >= 2) onCovered?.();
+  }, () => {});
 }
 
 /** Starts the full clip early, out of sight and in step with the tile's own clip, so it is playing by the time it shows. */
@@ -621,6 +624,10 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   }
   const deskFeed = innerWidth >= 760 && innerHeight >= 480;
   const startMs = v.start === 'auto' ? 1400 : Number(v.start);
+  // Opt-in Safari experiment: reuse the phone's equivalent plane projection
+  // without changing desktop timing, clip playback, order or fade curves.
+  const flatExit = root.dataset.tier === 'phone' || (__DEV__ && new URLSearchParams(location.search).get('launchPlane') === 'flat');
+  if (flatExit) root.setAttribute('data-flat-exit', '');
   root.setAttribute('data-launching', '');
   // Tiles drawn a strip at a time by the atlas get a canvas of their own as
   // they leave, one by one, and keep playing until each has gone.
@@ -820,19 +827,23 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // whole plane when it got one, a pop): there a tile sinks back along the
   // plane's normal drawn flat (sinkOnPlane), which looks the same.
   const plane = survivor.closest<HTMLElement>('[data-plane]');
-  const eye = light && plane ? eyeOnPlane(plane) : null;
+  const eye = flatExit && plane ? eyeOnPlane(plane) : null;
   const order = turns(shown, v.order, origin);
   const desktopExits: Promise<void>[] = [];
   shown.forEach((t, i) => {
     // At its turn it gets its own canvas and starts to go, in one step.
     const leave = async () => {
       if (!alive()) return;
-      release?.detach(t.el);
+      // Read geometry and style before inserting the tile's new canvas, so
+      // its departure doesn't force a second synchronous layout.
       const cs = getComputedStyle(t.el);
-      const deep = !light && t.el.closest('.lt-tilted') !== null;
+      const opacity = cs.opacity;
+      const filter = cs.filter;
+      const deep = !flatExit && t.el.closest('.lt-tilted') !== null;
       const sunk = eye && t.el.closest('[data-plane]') === plane ? sinkOnPlane(t.el, eye, SINK_DEPTH[v.depth]) : null;
+      const exitFrames = vanish.frames(opacity, filter, deep, sunk?.scale);
+      release?.detach(t.el);
       if (sunk) t.el.style.transformOrigin = sunk.origin;
-      const exitFrames = vanish.frames(cs.opacity, cs.filter, deep, sunk?.scale);
       // Restore c901688's per-card exit/fade on desktop. Phones retain their
       // independent wall fade and existing displacement schedule.
       const leaving = t.el.animate(deskFeed ? exitFrames : exitFrames.map(({ opacity: _opacity, ...frame }) => frame), {
@@ -888,7 +899,12 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (!lifted) lifted = lift(root, survivor, v.focus === 'late' ? lateFilter : tileFilter);
   const beatOn = lifted.layer;
   let beatEl: HTMLElement | null = null;
-  const sharpening = sharpen(lifted, hi, deskFeed ? 180 : 360);
+  const sharpening = sharpen(lifted, hi, deskFeed ? 180 : 360, deskFeed ? () => {
+    // The opaque full video now covers this canvas. Stop redrawing its hidden
+    // fallback while the shared video/canvas layer grows across the screen.
+    release?.freeze(survivor);
+    lifted?.small.pause();
+  } : undefined);
   if (v.beat === 'brackets' || v.beat === 'label') {
     const r = beatOn.getBoundingClientRect();
     beatEl = document.createElement('div');
@@ -1014,6 +1030,30 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
 
   const phone: { video: HTMLVideoElement | null } = { video: null };
   const feedVideo = stage?.querySelector('video') ?? null;
+  let concealedFeed: Animation | undefined;
+  const revealChrome = async () => {
+    if (!alive()) return;
+    if (deskFeed) {
+      concealedFeed = feedVideo?.animate([{ opacity: 0 }, { opacity: 0 }], { duration: 1, fill: 'both' });
+      // A slower focus setting may still have a veil up. Finish its opacity
+      // fade with the background reveal so it cannot linger over the reels.
+      for (const el of overlays) {
+        const opacity = Number(getComputedStyle(el).opacity);
+        if (opacity > 0) el.animate([{ opacity }, { opacity: 0 }], { duration: 260, easing: 'ease-out', fill: 'forwards' });
+      }
+    } else {
+      hastenFade();
+    }
+    arriveChrome(v.arrive);
+    await root.animate([{ backgroundColor: getComputedStyle(root).backgroundColor }, { backgroundColor: 'transparent' }], {
+      duration: 260,
+      fill: 'forwards',
+    }).finished.catch(() => {});
+  };
+  // Advance only the desktop UI by 300 ms. The growing card keeps its path
+  // and duration, and its video handoff still waits until it has landed.
+  const desktopReveal = deskFeed ? wait(Math.max(0, grow.ms - 300)).then(revealChrome) : null;
+
   // The feed's own video takes the same moment, just before the growth ends.
   await wait(Math.max(0, grow.ms - 260));
   if (feedVideo) feedVideo.currentTime = Math.min(hi.currentTime + 0.26, (hi.duration || 8) - 0.05);
@@ -1029,20 +1069,14 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     }, 2500);
     if (!alive()) return;
   }
-  // Desktop returns to c901688's handoff immediately after growth. Phones
-  // retain their existing fade-relative wait and smooth fade acceleration.
+  // Phones retain their existing fade-relative wait and reveal.
   if (!deskFeed) {
     const arriveIn = fade.start + Math.max(0, FADE[v.fade] * ARRIVE_THROUGH - ARRIVE_LEAD_MS) - performance.now();
     if (arriveIn > 0) await wait(arriveIn);
     if (!alive()) return;
   }
   root.style.pointerEvents = 'none';
-  arriveChrome(v.arrive);
-  if (!deskFeed) hastenFade();
-  await root.animate([{ backgroundColor: getComputedStyle(root).backgroundColor }, { backgroundColor: 'transparent' }], {
-    duration: 260,
-    fill: 'forwards',
-  }).finished.catch(() => {});
+  await (desktopReveal ?? revealChrome());
   if (!alive()) return;
   // On a phone the feed's video waits (paused) until the landing has gone, so it
   // is brought to this moment now: it would start from the top, and the swap
@@ -1053,6 +1087,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     await Promise.race([new Promise((r) => pv.addEventListener('seeked', r, { once: true })), wait(300)]);
     if (!alive()) return;
   }
+  concealedFeed?.cancel();
   sendHandoff({ muted: v.sound === 'muted' });
   hi.muted = true;
   await L.frame.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }).finished;
