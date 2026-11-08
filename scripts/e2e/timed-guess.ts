@@ -15,7 +15,7 @@
  *   npm run e2e:game                                    (dev server on 8081)
  *   BASE_URL=http://localhost:8092 npm run e2e:game
  *
- * Plays an 8 s round (Dev settings → Game), so the dev server must be a dev build.
+ * Plays a 20 s round (Dev settings → Game), so the dev server must be a dev build.
  * Needs a Chromium (see browser.ts).
  */
 import { chromium, type Browser, type Page } from 'playwright-core';
@@ -140,7 +140,7 @@ async function run(browser: Browser, layout: Layout) {
   page.on('pageerror', (e) => check(`no page error (${e.message.slice(0, 80)})`, false));
   await page.addInitScript((key) => {
     localStorage.clear();
-    localStorage.setItem(key, JSON.stringify({ roundMs: 8000 }));
+    localStorage.setItem(key, JSON.stringify({ roundMs: 20000 }));
   }, GAME_DEV_KEY);
   await page.goto(`${BASE_URL}/#app`);
   await page.waitForSelector('video', { timeout: 90_000 });
@@ -200,21 +200,7 @@ async function run(browser: Browser, layout: Layout) {
   });
   check('the clip’s buttons are dimmed and out of reach', !!locked && locked.opacity < 0.6 && locked.off, locked);
   // The feed's first-run gesture hint (it teaches the double take, which a round turns off) stays away.
-  const hintShown = await page.evaluate(() =>
-    [...document.querySelectorAll('[data-testid="gesture-hint"]')].some((el) => {
-      let e: Element | null = el;
-      let opacity = 1;
-      while (e) {
-        const st = getComputedStyle(e);
-        if (st.display === 'none' || st.visibility === 'hidden') return false;
-        opacity *= Number(st.opacity);
-        e = e.parentElement;
-      }
-      const r = el.getBoundingClientRect();
-      return opacity > 0.05 && r.width > 0 && r.height > 0;
-    }),
-  );
-  check('no gesture hint during the round', !hintShown);
+  check('no gesture hint during the round', !(await hintShown(page)));
   const chrome = layout === 'desktop' ? 'nav[aria-label="Main"]' : '[role="tab"][aria-label="Home"]';
   check(`the app's ${layout === 'desktop' ? 'rail' : 'tab bar'} stays during the round`, await anyVisible(page, chrome));
   check('the clip on screen and the next one load (no broken posters)', (await brokenImages(page, '[data-testid="game-stage"]')) === 0, await brokenImages(page, '[data-testid="game-stage"]'));
@@ -254,6 +240,9 @@ async function run(browser: Browser, layout: Layout) {
   const deadlines = new Set(frames.map((f) => f.deadline).concat(before?.deadline ?? null));
   check('moving between clips leaves the timer where it is', frames.length > 10 && drift <= 1, { frames: frames.length, drift });
   check('moving between clips leaves the round’s time alone', deadlines.size === 1, [...deadlines]);
+  // The hint comes back on every reel after a second until the double take is opened: still none in a round.
+  await page.waitForTimeout(1600);
+  check('no gesture hint on the next clip, a second and more in', !(await hintShown(page)));
   const afterSkip = await game(page);
   check(`${layout === 'desktop' ? 'wheel' : 'swipe up'} skips (counts as real)`, afterSkip?.guesses[1]?.guess === 'real', afterSkip?.guesses);
 
@@ -293,7 +282,7 @@ async function run(browser: Browser, layout: Layout) {
   await waitFor(page, 'playing again', (s) => s.phase === 'playing');
 
   // Let time run out.
-  const over = await waitFor(page, 'time up', (s) => s.phase === 'over', 15_000);
+  const over = await waitFor(page, 'time up', (s) => s.phase === 'over', 25_000);
   check('the round ends on time', over?.endReason === 'time', over?.endReason);
   await page.waitForURL((u) => u.pathname === '/game/results', { timeout: 10_000 }).catch(() => {});
   check('results open', new URL(page.url()).pathname === '/game/results', page.url());
@@ -367,6 +356,24 @@ async function run(browser: Browser, layout: Layout) {
   await context.close();
 }
 
+/** Whether the feed's gesture hint is on screen. */
+function hintShown(page: Page) {
+  return page.evaluate(() =>
+    [...document.querySelectorAll('[data-testid="gesture-hint"]')].some((el) => {
+      let e: Element | null = el;
+      let opacity = 1;
+      while (e) {
+        const st = getComputedStyle(e);
+        if (st.display === 'none' || st.visibility === 'hidden') return false;
+        opacity *= Number(st.opacity);
+        e = e.parentElement;
+      }
+      const r = el.getBoundingClientRect();
+      return opacity > 0.05 && r.width > 0 && r.height > 0;
+    }),
+  );
+}
+
 /** The Game tab: the untimed game, then its answers on the Skills tab beside it, and back to Home. */
 async function untimed(page: Page, layout: Layout, tab: (name: string) => string) {
   const order = await page.evaluate((sel) => [...document.querySelectorAll(sel)].filter((e) => (e as HTMLElement).offsetParent).map((e) => e.getAttribute('aria-label')), layout === 'desktop' ? 'nav[aria-label="Main"] [aria-label]' : '[role="tab"][aria-label]');
@@ -391,6 +398,8 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   else await swipeUp(page);
   const skipped = await waitFor(page, 'the skip advances', (s) => s.guesses.length === 2 && !s.busy);
   check('Game tab: a skip counts', skipped?.guesses[1]?.guess === 'real', skipped?.guesses);
+  await page.waitForTimeout(1600);
+  check('no gesture hint in the Game tab, a second and more on a clip', !(await hintShown(page)));
   const live = await page.locator('[data-testid="game-score-live"]').last().getAttribute('aria-label');
   check('the live score shows what was judged', /, 2 judged$/.test(live ?? ''), live);
 
