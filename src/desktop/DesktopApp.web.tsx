@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
+import { useIsFocused } from 'expo-router';
 import { CircleUserRound, CloudUpload, House, LogIn, LogOut, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
 import { openSignIn, signOutToChoice } from '@/auth/gate';
 import { useAuth, useMe } from '@/auth/store';
@@ -52,6 +53,8 @@ export function DesktopApp({
   const [sheetProgress] = useState(() => new Animated.Value(0));
   const current = NAV.find((n) => n.id === tab)!;
   const settingsOpen = useSettingsOpen();
+  // Another route (the timed round) is on top: the feed pauses and lets go of the wheel and keys.
+  const focused = useIsFocused();
   const { status } = useAuth();
   const me = useMe();
 
@@ -147,7 +150,7 @@ export function DesktopApp({
         <main className="desk-main">
           {/* The feed stays mounted so its position survives tab switches; it pauses when hidden. */}
           <div className="tab-pane" hidden={tab !== 'home'}>
-            <DesktopFeed ref={feedRef} visible={tab === 'home' && !uploadOpen} scrollEnabled={sheet === null && !settingsOpen} />
+            <DesktopFeed ref={feedRef} visible={tab === 'home' && focused && !uploadOpen} scrollEnabled={sheet === null && !settingsOpen} />
           </div>
           {tab === 'profile' && (
             <div className="desk-profile">
