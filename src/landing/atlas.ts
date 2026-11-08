@@ -26,6 +26,10 @@ export interface AtlasManifest {
   lead: number;
   /** The clip in each cell, in cell order: the Worker's clip ids. */
   ids: string[];
+  /** Each cell's own loop starts this many seconds into the atlas's, so cells don't all loop at once. */
+  phases?: number[];
+  /** Its MIME type with codecs, for Media Source (the atlas is a fragmented MP4). */
+  mime?: string;
 }
 
 /** A manifest with its media resolved to absolute URLs. */
@@ -49,8 +53,14 @@ export function parseAtlas(json: unknown, url: string): Atlas | null {
     const u = new URL(p, absolute ? url : new URL(url, 'http://local/'));
     return absolute ? u.href : u.pathname + u.search;
   };
+  const phases =
+    Array.isArray(m.phases) && m.phases.length === m.ids.length && m.phases.every((p) => typeof p === 'number')
+      ? m.phases
+      : undefined;
   return {
     ...(m as AtlasManifest),
+    phases,
+    mime: typeof m.mime === 'string' ? m.mime : undefined,
     lead: typeof m.lead === 'number' && m.lead >= 0 ? m.lead : 0,
     srcUrl: abs(m.src),
     posterUrl: typeof m.poster === 'string' ? abs(m.poster) : undefined,
@@ -67,9 +77,10 @@ export function cellRect(atlas: Pick<AtlasManifest, 'cols' | 'cellW' | 'cellH'>,
   return { sx: (n % atlas.cols) * atlas.cellW, sy: Math.floor(n / atlas.cols) * atlas.cellH, sw: atlas.cellW, sh: atlas.cellH };
 }
 
-/** The moment in the clip itself that the atlas shows at `t`, for picking up the full clip there. */
-export function clipTime(atlas: Pick<AtlasManifest, 'lead' | 'loop'>, t: number): number {
-  return atlas.lead + (((t % atlas.loop) + atlas.loop) % atlas.loop);
+/** The moment in the clip itself that `cell` shows at atlas time `t`, for picking up the full clip there. */
+export function clipTime(atlas: Pick<AtlasManifest, 'lead' | 'loop' | 'phases'>, t: number, cell = 0): number {
+  const at = t + (atlas.phases?.[cell] ?? 0);
+  return atlas.lead + (((at % atlas.loop) + atlas.loop) % atlas.loop);
 }
 
 /** A tile on a board, in CSS pixels from the board's top left. */

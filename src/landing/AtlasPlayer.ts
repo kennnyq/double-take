@@ -177,9 +177,9 @@ export class AtlasPlayer {
     this.boards.forEach((b) => this.draw(b));
   }
 
-  /** The moment in its clip a tile on a board shows now. */
-  clipTime(): number {
-    return clipTime(this.atlas, this.video?.currentTime ?? 0);
+  /** The moment in its clip the tile in `cell` shows now. */
+  clipTime(cell: number): number {
+    return clipTime(this.atlas, this.video?.currentTime ?? 0, cell);
   }
 
   /**

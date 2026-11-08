@@ -260,7 +260,8 @@ function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted
   if (board) layer.append(board);
   else small.play().catch(() => {});
   tile.style.visibility = 'hidden';
-  const time = player ? () => player.clipTime() : () => small.currentTime;
+  const cell = Number(tile.dataset.cell);
+  const time = player ? () => player.clipTime(cell) : () => small.currentTime;
   return { frame: f, layer, frameRect, planeTransform, start, small, time };
 }
 

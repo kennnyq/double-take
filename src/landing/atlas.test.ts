@@ -34,6 +34,14 @@ test('parseAtlas rejects what is not a manifest', () => {
   assert.equal(parseAtlas({ ...MANIFEST, lead: undefined }, '/a.json')?.lead, 0);
 });
 
+test('parseAtlas keeps per-cell phases and the codec, and drops phases that do not fit', () => {
+  const a = parseAtlas({ ...MANIFEST, phases: [0, 4.4, 1.6], mime: 'video/mp4; codecs="avc1.64001f"' }, '/a.json');
+  assert.deepEqual(a?.phases, [0, 4.4, 1.6]);
+  assert.equal(a?.mime, 'video/mp4; codecs="avc1.64001f"');
+  assert.equal(parseAtlas({ ...MANIFEST, phases: [0, 1] }, '/a.json')?.phases, undefined);
+  assert.equal(parseAtlas({ ...MANIFEST, phases: [0, 'x', 1] }, '/a.json')?.phases, undefined);
+});
+
 test('cells are found by clip id and laid out row by row', () => {
   assert.deepEqual([...cellsById(MANIFEST)], [['a', 0], ['b', 1], ['c', 2]]);
   assert.deepEqual(cellRect(MANIFEST, 0), { sx: 0, sy: 0, sw: 144, sh: 256 });
@@ -44,6 +52,16 @@ test('clipTime maps the loop back onto the clip', () => {
   assert.equal(clipTime(MANIFEST, 0), 0.5);
   assert.equal(clipTime(MANIFEST, 3), 3.5);
   assert.equal(clipTime(MANIFEST, 7.25), 0.75);
+  // An endless timeline (Media Source) just keeps counting.
+  assert.equal(clipTime(MANIFEST, 70 + 3), 3.5);
+});
+
+test("clipTime follows each cell's own loop", () => {
+  const phased = { ...MANIFEST, phases: [0, 4, 6.5] };
+  assert.equal(clipTime(phased, 1, 0), 1.5);
+  assert.equal(clipTime(phased, 1, 1), 5.5);
+  // Past its loop's end, back to its start.
+  assert.equal(clipTime(phased, 1, 2), 1);
 });
 
 test('planBoard draws at the atlas resolution, not the screen', () => {
