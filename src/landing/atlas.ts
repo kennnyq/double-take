@@ -135,10 +135,12 @@ export function planBoard(
       sy: sy + (sh - ch) / 2,
       sw: cw,
       sh: ch,
-      dx: Math.round(t.x * scale),
-      dy: Math.round(t.y * scale),
-      dw: Math.round(t.w * scale),
-      dh: Math.round(t.h * scale),
+      // Unrounded: a strip's second half must sit exactly one half along, or the
+      // picture shifts by a pixel each time the scroll wraps.
+      dx: t.x * scale,
+      dy: t.y * scale,
+      dw: t.w * scale,
+      dh: t.h * scale,
     };
   });
   return { width: Math.ceil(boardW * scale), height: Math.ceil(boardH * scale), scale, draws };

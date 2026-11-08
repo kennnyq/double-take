@@ -52,6 +52,34 @@ function visitorMode(): AtlasMode {
   });
 }
 
+/** The tiles' color while nothing is drawn yet, so they read as tiles, not holes. */
+const EMPTY = '#15161a';
+
+/**
+ * Where `tiles` sit in `container`, to the fraction of a pixel. Offsets are
+ * whole pixels, and a tilted plane's projected boxes aren't flat, so the
+ * transforms from the container up to the gallery are lifted for a moment.
+ */
+function measureFlat(container: HTMLElement, tiles: HTMLElement[]) {
+  const lifted: [HTMLElement, string, string][] = [];
+  for (let el: HTMLElement | null = container; el && !el.classList.contains('lt-gallery'); el = el.parentElement) {
+    lifted.push([el, el.style.getPropertyValue('transform'), el.style.getPropertyPriority('transform')]);
+    el.style.setProperty('transform', 'none', 'important');
+    if (el === document.body) break;
+  }
+  const base = container.getBoundingClientRect();
+  const rects = tiles.map((t) => t.getBoundingClientRect());
+  for (const [el, value, priority] of lifted) {
+    if (value) el.style.setProperty('transform', value, priority);
+    else el.style.removeProperty('transform');
+  }
+  return {
+    w: Math.max(base.width, container.scrollWidth),
+    h: Math.max(base.height, container.scrollHeight),
+    tiles: rects.map((r) => ({ x: r.left - base.left, y: r.top - base.top, w: r.width, h: r.height })),
+  };
+}
+
 /** What lies outside each tile's rounded corners, inside its box. Null when the tiles are square. */
 function cornerMask(plan: BoardPlan, tiles: HTMLElement[]): HTMLCanvasElement | null {
   const radii = tiles.map((t) => (parseFloat(getComputedStyle(t).borderTopLeftRadius) || 0) * plan.scale);
@@ -163,9 +191,12 @@ export class AtlasPlayer {
 
   private draw(b: Board) {
     const src = this.source();
-    if (!src) return;
     const { ctx, plan, corners } = b;
-    for (const d of plan.draws) ctx.drawImage(src, d.sx, d.sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
+    if (src) for (const d of plan.draws) ctx.drawImage(src, d.sx, d.sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
+    else {
+      ctx.fillStyle = EMPTY;
+      for (const d of plan.draws) ctx.fillRect(d.dx, d.dy, d.dw, d.dh);
+    }
     if (corners) {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.drawImage(corners, 0, 0);
@@ -188,14 +219,11 @@ export class AtlasPlayer {
    */
   addBoard(container: HTMLElement, tiles: HTMLElement[]): Board | null {
     const own = tiles.length === 1 && tiles[0] === container;
-    const placed: PlacedTile[] = tiles.map((t) =>
-      own
-        ? { cell: Number(t.dataset.cell), x: 0, y: 0, w: t.offsetWidth, h: t.offsetHeight }
-        : { cell: Number(t.dataset.cell), x: t.offsetLeft, y: t.offsetTop, w: t.offsetWidth, h: t.offsetHeight },
-    );
-    const w = own ? container.offsetWidth : container.scrollWidth;
-    const h = own ? container.offsetHeight : container.scrollHeight;
-    const plan = planBoard(this.atlas, w, h, placed);
+    const box = own
+      ? { w: container.offsetWidth, h: container.offsetHeight, tiles: [{ x: 0, y: 0, w: container.offsetWidth, h: container.offsetHeight }] }
+      : measureFlat(container, tiles);
+    const placed: PlacedTile[] = tiles.map((t, i) => ({ cell: Number(t.dataset.cell), ...box.tiles[i] }));
+    const plan = planBoard(this.atlas, box.w, box.h, placed);
     const ctx0 = plan && document.createElement('canvas').getContext('2d');
     if (!plan || !ctx0) return null;
     const canvas = ctx0.canvas;
@@ -203,8 +231,12 @@ export class AtlasPlayer {
     canvas.height = plan.height;
     canvas.className = 'lt-board';
     canvas.setAttribute('aria-hidden', 'true');
-    // A tile's own board fills it, so it grows with the tile at the launch.
-    Object.assign(canvas.style, own ? { width: '100%', height: '100%' } : { width: `${w}px`, height: `${h}px` });
+    // A tile's own board fills it, so it grows with the tile at the launch. A
+    // strip's is sized from its canvas, so canvas and CSS pixels keep one ratio.
+    Object.assign(
+      canvas.style,
+      own ? { width: '100%', height: '100%' } : { width: `${plan.width / plan.scale}px`, height: `${plan.height / plan.scale}px` },
+    );
     const corners = own ? null : cornerMask(plan, tiles);
     const gate = container.closest('.lt-gallery');
     const board: Board = { canvas, ctx: ctx0, plan, corners, own, tiles, gate, frozen: false };

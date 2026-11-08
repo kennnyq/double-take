@@ -72,8 +72,16 @@ test('planBoard draws at the atlas resolution, not the screen', () => {
   ])!;
   assert.ok(Math.abs(plan.scale - 256 / 234) < 1e-9);
   assert.equal(plan.height, 256);
-  assert.equal(plan.draws[1].dx, Math.round(144 * plan.scale));
+  assert.equal(plan.draws[1].dx, 144 * plan.scale);
   assert.equal(Math.round(plan.draws[1].sy), 256);
+});
+
+test('planBoard keeps sub-pixel positions, so a strip\'s halves stay exactly a half apart', () => {
+  const tiles = [0, 1, 2, 3].map((i) => ({ cell: i, x: i * 143.4375, y: 0, w: 131.4375, h: 233.67 }));
+  const plan = planBoard(MANIFEST, 4 * 143.4375, 233.67, tiles)!;
+  const half = 2 * 143.4375 * plan.scale;
+  assert.ok(Math.abs(plan.draws[2].dx - plan.draws[0].dx - half) < 1e-9);
+  assert.ok(Math.abs(plan.draws[3].dx - plan.draws[1].dx - half) < 1e-9);
 });
 
 test('planBoard crops cells to the tile like object-fit: cover', () => {
