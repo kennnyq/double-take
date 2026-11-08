@@ -1,12 +1,11 @@
 /**
  * The feed modes as the viewer sees them. Pure, so it runs under `node --test`.
  *
- * The reveal's wording follows the dev setting for how the double take opens
- * (hold or double tap), so the copy never promises a gesture that does
- * something else.
+ * The reveal's wording names the Double take button and the gestures the
+ * viewer picked, so the copy never promises a gesture that does something else.
  */
-import type { RevealGesture } from '../devtools/settings.ts';
-import type { FeedMode } from './settings.ts';
+import { revealHow } from './gesture.ts';
+import type { FeedMode, RevealGesture } from './settings.ts';
 
 export interface FeedModeOption {
   id: FeedMode;
@@ -16,25 +15,20 @@ export interface FeedModeOption {
   icon: 'eye-off-outline' | 'pricetag-outline' | 'sparkles-outline' | 'videocam-outline';
 }
 
-/** "Hold", "Double-tap", "Click and hold" or "Double-click". */
-export function revealVerb(gesture: RevealGesture, desktop: boolean): string {
-  if (gesture === 'hold') return desktop ? 'Click and hold' : 'Hold';
-  return desktop ? 'Double-click' : 'Double-tap';
-}
-
 export function feedModeOptions(gesture: RevealGesture, desktop: boolean): FeedModeOption[] {
-  const verb = revealVerb(gesture, desktop);
+  const how = revealHow(gesture, desktop);
+  const press = desktop ? 'Click' : 'Tap';
   return [
     {
       id: 'default',
       title: 'Default',
-      description: `No labels. ${verb} a clip to see the AI verdict and the reasoning.`,
+      description: `No labels. ${press} Double take, or ${how}, to see the AI verdict and the reasoning.`,
       icon: 'eye-off-outline',
     },
     {
       id: 'autoLabel',
       title: 'Auto label',
-      description: `Every clip says AI or Not AI up front. ${verb} to see the reasoning.`,
+      description: `Every clip says AI or Not AI up front. ${press} Double take, or ${how}, for the reasoning.`,
       icon: 'pricetag-outline',
     },
     {

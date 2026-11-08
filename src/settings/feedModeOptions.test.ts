@@ -1,14 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FEED_MODES } from './settings.ts';
-import { feedModeOptions, revealVerb } from './feedModeOptions.ts';
-
-test('revealVerb follows the dev gesture and the layout', () => {
-  assert.equal(revealVerb('hold', false), 'Hold');
-  assert.equal(revealVerb('hold', true), 'Click and hold');
-  assert.equal(revealVerb('doubleTap', false), 'Double-tap');
-  assert.equal(revealVerb('doubleTap', true), 'Double-click');
-});
+import { feedModeOptions } from './feedModeOptions.ts';
 
 test('feedModeOptions lists every mode once, in order', () => {
   assert.deepEqual(
@@ -17,11 +10,10 @@ test('feedModeOptions lists every mode once, in order', () => {
   );
 });
 
-test('the reveal wording follows the gesture', () => {
+test('the reveal wording names the button and the picked gestures for the layout', () => {
   const [hold, holdAuto] = feedModeOptions('hold', false);
-  assert.match(hold.description, /^No labels\. Hold a clip /);
-  assert.match(holdAuto.description, /Hold to see the reasoning/);
-  const [tap, tapAuto] = feedModeOptions('doubleTap', true);
-  assert.match(tap.description, /Double-click a clip /);
-  assert.match(tapAuto.description, /Double-click to see the reasoning/);
+  assert.match(hold.description, /^No labels\. Tap Double take, or hold a clip, /);
+  assert.match(holdAuto.description, /or hold a clip, for the reasoning/);
+  const [both] = feedModeOptions('both', true);
+  assert.match(both.description, /or hold Space or double-click, to see/);
 });

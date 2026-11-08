@@ -28,7 +28,6 @@ import {
 import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { avatarHue, formatCount, makeClips, type Clip, type Verdict } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
-import { gestureAction, isDoubleTap, type Tap } from '@/devtools/gesture';
 import { useDevSettings } from '@/devtools/store';
 import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf, VERDICT_TEXT } from '@/feed/feedMode';
 import { TellOverlay, type TellOverlayHandle } from '@/feed/TellOverlay';
@@ -39,7 +38,9 @@ import { useSocialActions } from '@/social/actions';
 import { baseReposts, clipKey } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { useAppNav } from '@/social/nav';
+import { gestureAction, isDoubleTap, spaceWaitsForHold, type Tap } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
+import type { RevealGesture } from '@/settings/settings';
 import { useSocial } from '@/social/store';
 import { useToast } from '@/ui/Toast';
 import { HtmlVideoPlayer } from './HtmlVideoPlayer';
@@ -86,7 +87,10 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   // The feed mode (Settings) may keep only AI or only real clips; that feed ends
   // (placeholders have no verdict). Otherwise the feed is endless once loaded:
   // the list below always reaches AHEAD past the active clip.
-  const { feedMode } = useAppSettings();
+  const { feedMode, revealGesture } = useAppSettings();
+  const { holdMs } = useDevSettings();
+  // The active clip's walkthrough (only the active slide mounts one), for Space and the slides' gestures.
+  const reveal = useRef<TellOverlayHandle>(null);
   const filter = modeFilter(feedMode);
   const filtered = useMemo(() => (base && filter ? clipsForMode(base, feedMode) : null), [base, filter, feedMode]);
   const { active, goTo, next, prev } = useFeedScroller(
@@ -229,24 +233,57 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     }
   }, [safePlay]);
 
-  // Space = play/pause, M = mute (arrows, Page keys and J/K live in the scroller).
+  // Space = play/pause, or held = the double take; M = mute (arrows, Page keys and
+  // J/K live in the scroller). When holding Space opens the active clip's double
+  // take, a quick press plays/pauses on release, so a hold never pauses first;
+  // otherwise Space plays/pauses on press, as always.
+  const space = useRef({ down: false, waiting: false, held: false, timer: 0 });
   useEffect(() => {
     if (!visible || !scrollEnabled) return;
+    const sp = space.current;
+    const reset = () => {
+      window.clearTimeout(sp.timer);
+      sp.down = sp.waiting = sp.held = false;
+    };
     const onKey = (e: KeyboardEvent) => {
-      if (e.altKey || e.ctrlKey || e.metaKey || e.repeat) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) return;
       const t = e.target as HTMLElement | null;
       if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(t.tagName))) return;
       if (t?.closest?.('[aria-modal="true"]')) return;
       if (e.key === ' ') {
-        e.preventDefault();
-        togglePause();
-      } else if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault(); // never scroll the page, repeats included
+        if (e.repeat || sp.down) return;
+        sp.down = true;
+        if (spaceWaitsForHold(revealGesture, !!reveal.current)) {
+          sp.waiting = true;
+          sp.timer = window.setTimeout(() => {
+            sp.held = true;
+            reveal.current?.open();
+          }, holdMs);
+        } else {
+          togglePause();
+        }
+      } else if ((e.key === 'm' || e.key === 'M') && !e.repeat) {
         toggleMute();
       }
     };
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key !== ' ' || !sp.down) return;
+      e.preventDefault();
+      const tap = sp.waiting && !sp.held;
+      reset();
+      if (tap) togglePause();
+    };
     window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [visible, scrollEnabled, togglePause, toggleMute]);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', reset);
+    return () => {
+      reset();
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', reset);
+    };
+  }, [visible, scrollEnabled, togglePause, toggleMute, revealGesture, holdMs]);
 
   // ---- feed mode switch ------------------------------------------------------
   // Stay on the same clip, or the nearest one after it.
@@ -306,9 +343,12 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       toggleMute,
       setSlowmo,
       setInspecting,
+      reveal,
+      revealGesture,
+      holdMs,
       soon: (what) => toast.show({ icon: 'time-outline', text: `${what} coming soon` }),
     }),
-    [togglePause, actions, nav, toggleMute, toast],
+    [togglePause, actions, nav, toggleMute, toast, revealGesture, holdMs],
   );
 
   const cardH = Math.max(0, feedH - CARD_MARGIN);
@@ -410,6 +450,10 @@ interface SlideHandlers {
   toggleMute: () => void;
   setSlowmo: (on: boolean) => void;
   setInspecting: (on: boolean) => void;
+  /** The active clip's walkthrough. */
+  reveal: React.RefObject<TellOverlayHandle | null>;
+  revealGesture: RevealGesture;
+  holdMs: number;
   soon: (what: string) => void;
 }
 
@@ -449,8 +493,7 @@ const Slide = memo(function Slide(p: SlideProps) {
   const { clip, isActive, h } = p;
   const [bursts, setBursts] = useState<Burst[]>([]);
   const gesture = useRef({ x: 0, y: 0, moved: false, held: false, timer: 0, last: null as Tap | null });
-  const tells = useRef<TellOverlayHandle>(null);
-  const { revealGesture, holdMs } = useDevSettings();
+  const { reveal: tells, revealGesture, holdMs } = h;
   const hasTells = !!clip.tellsUrl && isActive;
   const poster = mediaUri(clip.poster);
 
@@ -465,7 +508,7 @@ const Slide = memo(function Slide(p: SlideProps) {
     g.moved = false;
     g.held = false;
     cancelHold();
-    // Click and hold starts the double take when that's the gesture (desktop has no 2x hold).
+    // Click and hold counts as a hold too, like holding Space (desktop has no 2x hold).
     if (isActive && gestureAction('hold', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
       g.timer = window.setTimeout(() => {
         g.held = true;
@@ -586,7 +629,6 @@ const Slide = memo(function Slide(p: SlideProps) {
             {isActive && clip.tellsUrl && p.card.h > 0 && (
               <TellOverlay
                 ref={tells}
-                desktop
                 variants={clip.tellsVariants ?? [{ name: 'main', url: clip.tellsUrl }]}
                 player={p.player?.asVideoPlayer() ?? null}
                 stageW={p.card.w}

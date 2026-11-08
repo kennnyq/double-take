@@ -7,9 +7,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { readTellsFile, type UnplacedClaim } from '@/annotations/format';
 import { boxShownAt, replayWindow, stepCopy, walkthroughSteps, type Replay } from '@/annotations/walkthrough';
 import type { TellsVariant } from '@/data/clips';
-import { revealHint } from '@/devtools/gesture';
 import { variantIndex } from '@/devtools/settings';
-import { DEV_TOOLS, openDevSettings, useDevSettings } from '@/devtools/store';
+import { DEV_TOOLS, useDevSettings } from '@/devtools/store';
 import { boxOnStage, cardPlacement, videoRect, type Box, type Fit, type Tell } from './tells';
 
 /** Lets the clip's own gesture (hold or double tap, a dev setting) start the walkthrough. */
@@ -27,10 +26,8 @@ interface Props {
   aspect: number;
   /** How the video is fitted right now (the walkthrough asks for `contain`). */
   fit: Fit;
-  /** Distance of the hint and close chips from the top of the stage. */
+  /** Distance of the Close chip from the top of the stage. */
   top: number;
-  /** Desktop words its hint for a mouse ("click and hold", "double-click"). */
-  desktop?: boolean;
   paused: boolean;
   onPause: () => void;
   onPlay: () => void;
@@ -222,6 +219,9 @@ export function TellOverlay({ ref, ...p }: Props) {
   const placement = cardPlacement(spot, p.stageH, cardH, p.top + 44);
   const cardStyle = placement === 'top' ? { top: p.top + 44 } : { bottom: 16 };
   const last = inStep && step + 1 >= count;
+  // Dev builds: which model's tells these are, and whether this clip fell back to main.
+  const shown = p.variants[variant]?.name;
+  const devSource = !DEV_TOOLS ? '' : ` · ${shown}${shown !== settings.pipeline ? ` (no ${settings.pipeline})` : ''}`;
 
   return (
     <>
@@ -257,7 +257,7 @@ export function TellOverlay({ ref, ...p }: Props) {
               title={current.label}
               body={current.detail}
               tag={tagFor(current, step, count)}
-              hint={`Slow-mo replay · tap to ${last ? 'finish' : 'continue'}`}
+              hint={`Slow-mo replay · tap to ${last ? 'finish' : 'continue'}${devSource}`}
               style={cardStyle}
             />
           )}
@@ -268,7 +268,7 @@ export function TellOverlay({ ref, ...p }: Props) {
               title="Also noted"
               lines={unplaced.slice(0, 3).map((u) => u.quote)}
               tag="AI draft"
-              hint="Not shown on screen · tap to finish"
+              hint={`Not shown on screen · tap to finish${devSource}`}
               style={{ bottom: 16 }}
             />
           )}
@@ -287,31 +287,7 @@ export function TellOverlay({ ref, ...p }: Props) {
           <Ionicons name={step === -1 ? 'eye-off-outline' : 'close'} size={15} color="#111" />
           <Text style={[styles.pillText, styles.pillTextOn]}>{step === -1 ? 'No tells found' : 'Close'}</Text>
         </Pressable>
-      ) : (
-        settings.gestureHint && (
-          <View style={[styles.pill, styles.pillLeft, styles.gestureHint, { top: p.top }]} pointerEvents="none">
-            <Ionicons name={settings.revealGesture === 'hold' ? 'finger-print-outline' : 'scan-outline'} size={14} color="#fff" />
-            <Text style={styles.pillText}>{revealHint(settings.revealGesture, !!p.desktop)}</Text>
-          </View>
-        )
-      )}
-
-      {DEV_TOOLS && settings.pipelineBadge && (
-        <Pressable
-          onPress={() => openDevSettings('model')}
-          style={({ pressed }) => [styles.pill, styles.devChip, { top: p.top }, pressed && styles.pressed]}
-          hitSlop={8}
-          accessibilityRole="button"
-          accessibilityLabel={`Tells from ${p.variants[variant]?.name}; open the model settings`}
-        >
-          <Ionicons name="git-compare-outline" size={14} color="#fff" />
-          <Text style={styles.pillText}>
-            {p.variants[variant]?.name}
-            {p.variants[variant]?.name !== settings.pipeline ? ` (no ${settings.pipeline})` : ''}
-            {data ? ` · ${data.steps.length}` : ''}
-          </Text>
-        </Pressable>
-      )}
+      ) : null}
     </>
   );
 }
@@ -398,8 +374,6 @@ const styles = StyleSheet.create({
   },
   pillOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   pillLeft: { left: 12 },
-  gestureHint: { backgroundColor: 'rgba(0,0,0,0.38)', borderColor: 'rgba(255,255,255,0.22)', height: 28 },
-  devChip: { right: 12, borderStyle: 'dashed' },
   pressed: { opacity: 0.7 },
   pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
   pillTextOn: { color: '#111' },

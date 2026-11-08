@@ -11,8 +11,17 @@
 export const FEED_MODES = ['default', 'autoLabel', 'onlyAi', 'onlyReal'] as const;
 export type FeedMode = (typeof FEED_MODES)[number];
 
+/**
+ * How a clip's double take (its tells walkthrough) opens, besides its button:
+ * hold (long-press on phones, holding Space on desktop), double tap
+ * (double-click on desktop), or either.
+ */
+export const REVEAL_GESTURES = ['hold', 'doubleTap', 'both'] as const;
+export type RevealGesture = (typeof REVEAL_GESTURES)[number];
+
 export interface AppSettings {
   feedMode: FeedMode;
+  revealGesture: RevealGesture;
 }
 
 interface Field<T> {
@@ -27,6 +36,7 @@ const oneOf =
 
 export const SCHEMA: { [K in keyof AppSettings]: Field<AppSettings[K]> } = {
   feedMode: { default: 'default', valid: oneOf(FEED_MODES) },
+  revealGesture: { default: 'hold', valid: oneOf(REVEAL_GESTURES) },
 };
 
 export const DEFAULT_SETTINGS: AppSettings = Object.freeze(
@@ -42,14 +52,31 @@ export interface KeyValue {
   setItem(key: string, value: string): void;
 }
 
-/** Parse a saved blob, keeping only known, valid keys. Never throws. */
-export function readSettings(raw: string | null | undefined): AppSettings {
-  let saved: Record<string, unknown> = {};
+/**
+ * The dev settings' blob. The double take's gesture used to be a dev setting;
+ * a saved pick there carries over until the viewer picks one here.
+ */
+export const LEGACY_DEV_STORAGE_KEY = 'double-take:dev-settings:v1';
+
+function parseObject(raw: string | null | undefined): Record<string, unknown> {
   try {
     const parsed: unknown = raw ? JSON.parse(raw) : null;
-    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) saved = parsed as Record<string, unknown>;
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) return parsed as Record<string, unknown>;
   } catch {
     // Corrupt blob: start from the defaults.
+  }
+  return {};
+}
+
+/**
+ * Parse a saved blob, keeping only known, valid keys. Never throws. `legacyDev`
+ * is the dev settings' blob, read only for a gesture this blob doesn't have yet.
+ */
+export function readSettings(raw: string | null | undefined, legacyDev?: string | null): AppSettings {
+  const saved = parseObject(raw);
+  if (!SCHEMA.revealGesture.valid(saved.revealGesture) && legacyDev) {
+    const legacy = parseObject(legacyDev).revealGesture;
+    if (SCHEMA.revealGesture.valid(legacy)) saved.revealGesture = legacy;
   }
   const out: Record<string, unknown> = {};
   for (const [key, field] of Object.entries(SCHEMA) as [keyof AppSettings, Field<unknown>][]) {
@@ -70,8 +97,14 @@ export interface SettingsStore {
  * on every change; with no storage (or a failing one) settings last the session.
  */
 export function createSettingsStore(storage: KeyValue | null): SettingsStore {
-  let current = readSettings(safe(() => storage?.getItem(STORAGE_KEY) ?? null, null));
+  const raw = safe(() => storage?.getItem(STORAGE_KEY) ?? null, null);
+  let current = readSettings(raw, safe(() => storage?.getItem(LEGACY_DEV_STORAGE_KEY) ?? null, null));
   const listeners = new Set<() => void>();
+  // A gesture carried over from the dev settings is saved here at once: the dev
+  // blob drops it the next time a dev setting changes.
+  if (!SCHEMA.revealGesture.valid(parseObject(raw).revealGesture) && current.revealGesture !== DEFAULT_SETTINGS.revealGesture) {
+    safe(() => storage?.setItem(STORAGE_KEY, JSON.stringify(current)), undefined);
+  }
 
   const commit = (next: AppSettings) => {
     current = next;

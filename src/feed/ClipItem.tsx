@@ -8,8 +8,9 @@ import { formatCount, type Clip, type Verdict } from '@/data/clips';
 import { baseReposts } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
-import { gestureAction, isDoubleTap, type Tap } from '@/devtools/gesture';
 import { useDevSettings } from '@/devtools/store';
+import { gestureAction, isDoubleTap, type Tap } from '@/settings/gesture';
+import { useAppSettings } from '@/settings/store';
 import type { FeedHandlers } from './Feed';
 import { TellOverlay, type TellOverlayHandle } from './TellOverlay';
 import { fitFor } from './tells';
@@ -49,7 +50,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const lastTap = useRef<Tap | null>(null);
   const longPressed = useRef(false);
   const tells = useRef<TellOverlayHandle>(null);
-  const { revealGesture, holdMs } = useDevSettings();
+  const { revealGesture } = useAppSettings();
+  const { holdMs } = useDevSettings();
   const hasTells = !!clip.tellsUrl && p.isActive;
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
@@ -58,8 +60,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const onInspect = useCallback((on: boolean) => setInspectOn(on), []);
 
   // Tap toggles pause immediately (no waiting to rule out a double tap); a
-  // second tap within DOUBLE_TAP_MS likes (or starts the double take, per the
-  // dev settings) and always leaves the clip playing, whether the first tap
+  // second tap within DOUBLE_TAP_MS likes (or opens the double take, per the
+  // viewer's gesture setting) and always leaves the clip playing, whether the first tap
   // paused it or resumed it.
   const onPress = (e: GestureResponderEvent) => {
     if (!p.isActive) return;
@@ -82,7 +84,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
     h.togglePause();
   };
 
-  // Holding plays at 2x until released, or starts the double take (which stays
+  // Holding plays at 2x until released, or opens the double take (which stays
   // open after release: it's a tap-through walkthrough).
   const onLongPress = () => {
     if (!p.isActive) return;

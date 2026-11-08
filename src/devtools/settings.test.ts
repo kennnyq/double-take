@@ -20,19 +20,16 @@ test('parseSettings falls back to the defaults for missing, corrupt or invalid v
   assert.deepEqual(parseSettings(null), DEFAULT_SETTINGS);
   assert.deepEqual(parseSettings('{not json'), DEFAULT_SETTINGS);
   assert.deepEqual(parseSettings('[1,2]'), DEFAULT_SETTINGS);
-  const s = parseSettings(
-    JSON.stringify({ revealGesture: 'swipe', holdMs: 999, gestureHint: 'yes', pipeline: '../x y', launcher: 'middle' }),
-  );
+  const s = parseSettings(JSON.stringify({ holdMs: 999, pipeline: '../x y', launcher: 'middle' }));
   assert.deepEqual(s, DEFAULT_SETTINGS);
 });
 
 test('parseSettings keeps valid values', () => {
-  const s = parseSettings(JSON.stringify({ revealGesture: 'doubleTap', holdMs: 500, gestureHint: false, pipeline: 'claude' }));
-  assert.equal(s.revealGesture, 'doubleTap');
+  const s = parseSettings(JSON.stringify({ revealGesture: 'doubleTap', holdMs: 500, pipeline: 'claude', launcher: 'topLeft' }));
   assert.equal(s.holdMs, 500);
-  assert.equal(s.gestureHint, false);
   assert.equal(s.pipeline, 'claude');
-  assert.deepEqual(changedKeys(s).sort(), ['gestureHint', 'holdMs', 'pipeline', 'revealGesture']);
+  assert.equal('revealGesture' in s, false, 'the gesture is a user setting now');
+  assert.deepEqual(changedKeys(s).sort(), ['holdMs', 'launcher', 'pipeline']);
 });
 
 test('the store reads saved settings, saves changes and notifies', () => {
@@ -43,25 +40,25 @@ test('the store reads saved settings, saves changes and notifies', () => {
   let calls = 0;
   const off = store.subscribe(() => calls++);
   const before = store.getSnapshot();
-  store.set({ revealGesture: 'doubleTap' });
+  store.set({ holdMs: 500 });
   assert.equal(calls, 1);
   assert.notEqual(store.getSnapshot(), before, 'a new snapshot so React re-renders');
-  assert.equal(JSON.parse(kv.data[STORAGE_KEY]).revealGesture, 'doubleTap');
+  assert.equal(JSON.parse(kv.data[STORAGE_KEY]).holdMs, 500);
 
-  store.set({ revealGesture: 'doubleTap' }); // no change, no notification
+  store.set({ holdMs: 500 }); // no change, no notification
   assert.equal(calls, 1);
   off();
-  store.set({ revealGesture: 'hold' });
+  store.set({ holdMs: 250 });
   assert.equal(calls, 1);
 });
 
 test('the store rejects invalid values and resets keys or everything', () => {
   const store = createSettingsStore(memory());
-  store.set({ holdMs: 123 as never, pipeline: 'claude', gestureHint: false });
+  store.set({ holdMs: 123 as never, pipeline: 'claude', launcher: 'topLeft' });
   assert.equal(store.getSnapshot().holdMs, DEFAULT_SETTINGS.holdMs);
   store.reset(['pipeline']);
   assert.equal(store.getSnapshot().pipeline, 'main');
-  assert.equal(store.getSnapshot().gestureHint, false);
+  assert.equal(store.getSnapshot().launcher, 'topLeft');
   store.reset();
   assert.deepEqual(store.getSnapshot(), DEFAULT_SETTINGS);
 });

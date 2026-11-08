@@ -4,10 +4,6 @@
  * `node --test`; `store.ts` binds it to the device's storage and React.
  */
 
-/** How the double take (the tells walkthrough) is started on a clip. */
-export const REVEAL_GESTURES = ['hold', 'doubleTap'] as const;
-export type RevealGesture = (typeof REVEAL_GESTURES)[number];
-
 /** How long a press must last to count as a hold, in ms. */
 export const HOLD_DELAYS = [250, 350, 500] as const;
 export type HoldDelay = (typeof HOLD_DELAYS)[number];
@@ -19,26 +15,22 @@ export type LauncherCorner = (typeof LAUNCHER_CORNERS)[number];
 /** The published tells file; alternatives are named after their pipeline (e.g. `claude`). */
 export const MAIN_PIPELINE = 'main';
 
+/**
+ * Settings on trial. How the double take opens is the viewer's choice
+ * (`revealGesture` in `src/settings/`); only how long a hold lasts stays here.
+ */
 export interface DevSettings {
-  revealGesture: RevealGesture;
   holdMs: HoldDelay;
-  /** A small "Hold for a double take" hint on clips that have tells. */
-  gestureHint: boolean;
   /** The tells pipeline ("model") every clip shows; clips without it fall back to main. */
   pipeline: string;
-  /** Show which pipeline a clip's tells come from, at its top right. */
-  pipelineBadge: boolean;
   launcher: LauncherCorner;
 }
 
 export type DevSettingKey = keyof DevSettings;
 
 export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
-  revealGesture: 'hold',
   holdMs: 350,
-  gestureHint: true,
   pipeline: MAIN_PIPELINE,
-  pipelineBadge: true,
   launcher: 'auto',
 });
 
@@ -58,13 +50,9 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     // Corrupt storage: start over from the defaults.
   }
   const d = DEFAULT_SETTINGS;
-  const bool = (v: unknown, fallback: boolean) => (typeof v === 'boolean' ? v : fallback);
   return {
-    revealGesture: oneOf(REVEAL_GESTURES, o.revealGesture, d.revealGesture),
     holdMs: oneOf(HOLD_DELAYS, o.holdMs, d.holdMs),
-    gestureHint: bool(o.gestureHint, d.gestureHint),
     pipeline: typeof o.pipeline === 'string' && /^[\w.-]{1,40}$/.test(o.pipeline) ? o.pipeline : d.pipeline,
-    pipelineBadge: bool(o.pipelineBadge, d.pipelineBadge),
     launcher: oneOf(LAUNCHER_CORNERS, o.launcher, d.launcher),
   };
 }

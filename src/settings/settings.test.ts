@@ -1,6 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_SETTINGS, STORAGE_KEY, createSettingsStore, readSettings, type KeyValue } from './settings.ts';
+import {
+  DEFAULT_SETTINGS,
+  LEGACY_DEV_STORAGE_KEY,
+  STORAGE_KEY,
+  createSettingsStore,
+  readSettings,
+  type KeyValue,
+} from './settings.ts';
 
 function memory(initial?: string): KeyValue & { data: Map<string, string> } {
   const data = new Map<string, string>(initial === undefined ? [] : [[STORAGE_KEY, initial]]);
@@ -15,7 +22,7 @@ test('readSettings falls back to defaults for missing, corrupt or invalid blobs'
 });
 
 test('readSettings keeps valid keys and drops unknown ones', () => {
-  assert.deepEqual(readSettings('{"feedMode":"onlyAi","retired":true}'), { feedMode: 'onlyAi' });
+  assert.deepEqual(readSettings('{"feedMode":"onlyAi","retired":true}'), { ...DEFAULT_SETTINGS, feedMode: 'onlyAi' });
 });
 
 test('the store loads what was saved', () => {
@@ -32,7 +39,7 @@ test('set persists, notifies and changes the snapshot identity', () => {
   store.set('feedMode', 'onlyReal');
   assert.equal(calls, 1);
   assert.notEqual(store.getSnapshot(), before);
-  assert.deepEqual(JSON.parse(kv.data.get(STORAGE_KEY)!), { feedMode: 'onlyReal' });
+  assert.deepEqual(JSON.parse(kv.data.get(STORAGE_KEY)!), { ...DEFAULT_SETTINGS, feedMode: 'onlyReal' });
   // A reload sees the change.
   assert.equal(createSettingsStore(kv).getSnapshot().feedMode, 'onlyReal');
   off();
@@ -74,4 +81,32 @@ test('works without storage, or with storage that throws', () => {
   assert.equal(store.getSnapshot().feedMode, 'default');
   store.set('feedMode', 'autoLabel');
   assert.equal(store.getSnapshot().feedMode, 'autoLabel');
+});
+
+test('the double take opens with a hold by default, and takes any of the three gestures', () => {
+  assert.equal(DEFAULT_SETTINGS.revealGesture, 'hold');
+  for (const g of ['hold', 'doubleTap', 'both'] as const) {
+    assert.equal(readSettings(JSON.stringify({ revealGesture: g })).revealGesture, g);
+  }
+  assert.equal(readSettings('{"revealGesture":"swipe"}').revealGesture, 'hold');
+});
+
+test('a gesture saved in the dev settings carries over until one is saved here', () => {
+  const dev = JSON.stringify({ revealGesture: 'doubleTap', holdMs: 350 });
+  assert.equal(readSettings(null, dev).revealGesture, 'doubleTap');
+  assert.equal(readSettings('{"feedMode":"onlyAi"}', dev).revealGesture, 'doubleTap');
+  assert.equal(readSettings('{"revealGesture":"both"}', dev).revealGesture, 'both', 'the user setting wins');
+  assert.equal(readSettings(null, '{"revealGesture":"wiggle"}').revealGesture, 'hold');
+  assert.equal(readSettings(null, '{broken').revealGesture, 'hold');
+});
+
+test('the store migrates the dev gesture and saves it as a user setting', () => {
+  const kv = memory();
+  kv.data.set(LEGACY_DEV_STORAGE_KEY, JSON.stringify({ revealGesture: 'doubleTap' }));
+  const store = createSettingsStore(kv);
+  assert.equal(store.getSnapshot().revealGesture, 'doubleTap');
+  assert.equal(JSON.parse(kv.data.get(STORAGE_KEY)!).revealGesture, 'doubleTap', 'saved at once');
+  // The dev blob loses the key later; the user setting stays.
+  kv.data.set(LEGACY_DEV_STORAGE_KEY, JSON.stringify({ holdMs: 500 }));
+  assert.equal(createSettingsStore(kv).getSnapshot().revealGesture, 'doubleTap');
 });

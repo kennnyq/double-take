@@ -1,8 +1,9 @@
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useDevSettings } from '@/devtools/store';
 import { feedModeOptions } from './feedModeOptions';
+import { gestureOptions } from './gesture';
+import type { RevealGesture } from './settings';
 import { appSettings, closeSettings, useAppSettings, useSettingsOpen } from './store';
 
 /**
@@ -12,13 +13,13 @@ import { appSettings, closeSettings, useAppSettings, useSettingsOpen } from './s
  */
 export function SettingsScreen() {
   const open = useSettingsOpen();
-  const { feedMode } = useAppSettings();
+  const { feedMode, revealGesture } = useAppSettings();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const wide = width >= 760;
-  // The reveal's wording follows the dev setting for the double take's gesture.
-  const { revealGesture } = useDevSettings();
+  // The reveal's wording follows the gesture picked below.
   const options = feedModeOptions(revealGesture, wide);
+  const gestures = gestureOptions(wide);
 
   return (
     <Modal
@@ -85,6 +86,41 @@ export function SettingsScreen() {
                 );
               })}
             </View>
+
+            <Text style={[styles.sectionTitle, styles.sectionGap]}>Double take</Text>
+            <Text style={styles.sectionHint}>
+              {wide
+                ? 'The Double take button beside each clip opens it. Pick the shortcut too.'
+                : 'The Double take button on each clip opens it. Pick the gesture too.'}
+            </Text>
+            <View style={styles.group} role="radiogroup" aria-label="Double take gesture">
+              {gestures.map((o, i) => {
+                const on = revealGesture === o.id;
+                return (
+                  <Pressable
+                    key={o.id}
+                    onPress={() => appSettings.set('revealGesture', o.id)}
+                    style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
+                      styles.row,
+                      i > 0 && styles.rowDivider,
+                      (pressed || hovered) && styles.rowPressed,
+                    ]}
+                    role="radio"
+                    aria-checked={on}
+                    accessibilityLabel={`${o.title}. ${o.description}`}
+                  >
+                    <View style={[styles.icon, on && styles.iconOn]}>
+                      <Ionicons name={GESTURE_ICONS[o.id]} size={18} color={on ? '#111' : '#fff'} />
+                    </View>
+                    <View style={styles.rowText}>
+                      <Text style={styles.rowTitle}>{o.title}</Text>
+                      <Text style={styles.rowDesc}>{o.description}</Text>
+                    </View>
+                    <View style={[styles.radio, on && styles.radioOn]}>{on && <View style={styles.radioDot} />}</View>
+                  </Pressable>
+                );
+              })}
+            </View>
           </ScrollView>
         </View>
       </View>
@@ -93,6 +129,12 @@ export function SettingsScreen() {
 }
 
 const ACCENT = '#FFD60A'; // the tells walkthrough's highlight
+
+const GESTURE_ICONS: Record<RevealGesture, React.ComponentProps<typeof Ionicons>['name']> = {
+  hold: 'finger-print-outline',
+  doubleTap: 'hand-left-outline',
+  both: 'git-merge-outline',
+};
 
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
@@ -139,6 +181,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginLeft: 4,
   },
+  sectionGap: { marginTop: 22 },
   sectionHint: { color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4, marginBottom: 10, marginLeft: 4 },
   group: { borderRadius: 14, backgroundColor: '#26282d', overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },

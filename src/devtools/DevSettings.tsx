@@ -54,8 +54,8 @@ const TAB_META: Record<DevTab, { label: string; icon: IconName }> = {
 
 /** Settings shown on each tab, so the tab can count and reset its own changes. */
 const TAB_KEYS: Record<DevTab, DevSettingKey[]> = {
-  interaction: ['revealGesture', 'holdMs', 'gestureHint'],
-  model: ['pipeline', 'pipelineBadge'],
+  interaction: ['holdMs'],
+  model: ['pipeline'],
   accounts: [],
   panel: ['launcher'],
 };
@@ -81,37 +81,18 @@ function groupsFor(tab: DevTab, s: Settings, pipelines: Record<string, number>, 
   // The Accounts tab renders its own live view (AccountsTab).
   if (tab === 'accounts') return [];
   if (tab === 'interaction') {
-    const hold = desktop ? 'Click and hold' : 'Hold';
-    const twice = desktop ? 'Double-click' : 'Double tap';
+    const hold = desktop ? 'Holding Space (or the mouse button)' : 'A press';
     return [
       {
         title: 'Double take',
-        note: 'How you open the tells walkthrough on a clip. The other gesture keeps its usual job.',
+        note: 'Which gesture opens it is a user setting (Settings → Double take). The Double take button always works.',
         rows: [
-          {
-            kind: 'choice',
-            key: 'revealGesture',
-            label: 'Gesture',
-            items: [
-              {
-                label: hold,
-                value: 'hold',
-                note: `${hold} the video to open it; it stays open until you tap through or close it. ${twice} still likes.`,
-              },
-              {
-                label: twice,
-                value: 'doubleTap',
-                note: `${twice} the video to open it. Liking moves to the heart button${desktop ? '' : '; hold still plays at 2x'}.`,
-              },
-            ],
-          },
           {
             kind: 'choice',
             key: 'holdMs',
             label: 'Hold length',
-            items: HOLD_DELAYS.map((ms) => ({ label: `${ms} ms`, value: ms })),
+            items: HOLD_DELAYS.map((ms) => ({ label: `${ms} ms`, value: ms, note: `${hold} this long counts as a hold.` })),
           },
-          { kind: 'switch', key: 'gestureHint', label: 'Hint on clips', note: 'A small label naming the gesture on clips that have tells.' },
         ],
       },
     ];
@@ -137,7 +118,6 @@ function groupsFor(tab: DevTab, s: Settings, pipelines: Record<string, number>, 
                   : `On ${pipelines[n] ?? 0} of ${withTells} clips with tells.`,
             })),
           },
-          { kind: 'switch', key: 'pipelineBadge', label: 'Badge on clips', note: 'Shows the model and its tell count; tap it to come back here.' },
         ],
       },
     ];
