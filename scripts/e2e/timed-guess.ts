@@ -24,7 +24,7 @@ import { BASE_URL, findChrome } from './browser.ts';
 const GAME_DEV_KEY = 'double-take:game-dev:v1';
 
 type Guess = { clipId: string; guess: 'ai' | 'real'; truth: 'ai' | 'real'; correct: boolean };
-type Snapshot = { timed: boolean; phase: string; index: number; shown: number; busy: boolean; remainingMs: number; deadline: number | null; guesses: Guess[]; endReason: string | null; deck: { id: string; truth: string }[] };
+type Snapshot = { timed: boolean; reviewing?: boolean; inspecting?: boolean; intro?: boolean; phase: string; index: number; shown: number; busy: boolean; remainingMs: number; deadline: number | null; guesses: Guess[]; endReason: string | null; deck: { id: string; truth: string }[] };
 
 const failures: string[] = [];
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -119,6 +119,46 @@ async function doubleTap(page: Page, layout: Layout) {
     await page.waitForTimeout(80);
     await page.touchscreen.tap(x, y);
   }
+}
+
+/** The double take's hold: a held touch (phone) or held Space (desktop), longer than the hold delay. */
+async function hold(page: Page, layout: Layout) {
+  if (layout === 'desktop') {
+    // Space belongs to the feed only while nothing else (a rail button) has the keyboard focus.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+    await page.keyboard.down(' ');
+    await page.waitForTimeout(1000);
+    await page.keyboard.up(' ');
+    return;
+  }
+  const cdp = await page.context().newCDPSession(page);
+  const { x, y } = await stageCenter(page);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y: y + 120 }] });
+  await page.waitForTimeout(1000);
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await cdp.detach();
+}
+
+/** Back up to the clip before: the wheel (desktop) or a swipe down (phone). */
+async function scrollBack(page: Page, layout: Layout) {
+  if (layout === 'desktop') {
+    await page.mouse.wheel(0, -240);
+    return;
+  }
+  const cdp = await page.context().newCDPSession(page);
+  const { x } = await stageCenter(page);
+  const h = page.viewportSize()!.height;
+  const from = Math.round(h * 0.15);
+  const to = Math.round(h * 0.88);
+  const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', ty: number) =>
+    cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y: ty }] });
+  await touch('touchStart', from);
+  for (let ty = from + 30; ty <= to; ty += 30) {
+    await touch('touchMove', ty);
+    await page.waitForTimeout(12);
+  }
+  await touch('touchEnd', to);
+  await cdp.detach();
 }
 
 async function setHidden(page: Page, hidden: boolean) {
@@ -253,22 +293,23 @@ async function run(browser: Browser, layout: Layout) {
     await waitFor(page, 'J skips', (s) => s.guesses.length === 4 && !s.busy);
     const k = await game(page);
     check('A marks AI and J skips', k?.guesses[2]?.guess === 'ai' && k?.guesses[3]?.guess === 'real', k?.guesses);
-    // The feed's Space (one press plays/pauses, two open the double take, holding opens it too) is off in a round.
+    // Space works as it does on the feed, but for the round: one press does nothing (no pause),
+    // a double press marks AI (the double take's gesture) instead of opening the double take.
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
     await page.keyboard.press(' ');
-    await page.waitForTimeout(120);
+    await page.waitForTimeout(600);
+    const one = await game(page);
+    check('one press of Space does nothing', one?.guesses.length === 4 && one?.phase === 'playing', { guesses: one?.guesses.length, phase: one?.phase });
     await page.keyboard.press(' ');
-    await page.waitForTimeout(400);
-    await page.keyboard.down(' ');
-    await page.waitForTimeout(900);
-    await page.keyboard.up(' ');
-    await page.waitForTimeout(400);
-    const sp = await game(page);
+    await page.waitForTimeout(90);
+    await page.keyboard.press(' ');
+    const two = await waitFor(page, 'double Space marks', (s) => s.guesses.length === 5 && !s.busy);
     const space = await page.evaluate(() => ({
       walkthrough: !!document.querySelector('[aria-label="Close the walkthrough"], [data-testid="dt-card"]'),
       pausedIcon: !!document.querySelector('.paused-icon'),
     }));
-    check('Space does nothing', sp?.guesses.length === 4 && sp?.phase === 'playing', { guesses: sp?.guesses.length, phase: sp?.phase });
-    check('Space (single, double or held) neither pauses the clip nor opens the double take', !space.walkthrough && !space.pausedIcon, space);
+    check('a double press of Space marks AI', two?.guesses[4]?.guess === 'ai', two?.guesses.length);
+    check('Space neither pauses the clip nor opens the double take in a round', !space.walkthrough && !space.pausedIcon, space);
   }
 
   // A hidden tab freezes the clock.
@@ -360,6 +401,8 @@ async function run(browser: Browser, layout: Layout) {
 function hintShown(page: Page) {
   return page.evaluate(() =>
     [...document.querySelectorAll('[data-testid="gesture-hint"]')].some((el) => {
+      // The Game tab's intro draws the same hand; it isn't the feed's hint.
+      if (el.closest('[data-testid="game-intro"]')) return false;
       let e: Element | null = el;
       let opacity = 1;
       while (e) {
@@ -390,10 +433,13 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   check('no verdict, double take or Auto label in the untimed game', (await leaks(page)).length === 0, await leaks(page));
   const chrome = layout === 'desktop' ? 'nav[aria-label="Main"]' : '[role="tab"][aria-label="Home"]';
   check(`the app's ${layout === 'desktop' ? 'rail' : 'tab bar'} stays in the Game tab`, await anyVisible(page, chrome));
+  const introUp = await waitFor(page, 'the intro', (s) => s.intro === true, 5000);
+  check('the Game tab opens with a short intro the first time', !!introUp && (await anyVisible(page, '[data-testid="game-intro"]')));
 
   await doubleTap(page, layout);
   const marked = await waitFor(page, 'the mark advances', (s) => s.guesses.length === 1 && !s.busy);
-  check('Game tab: a mark counts', marked?.guesses[0]?.guess === 'ai', marked?.guesses);
+  check('Game tab: a double tap marks AI (the double take’s gesture)', marked?.guesses[0]?.guess === 'ai', marked?.guesses);
+  check('the first answer puts the intro away', marked?.intro === false);
   if (layout === 'desktop') await page.mouse.wheel(0, 240);
   else await swipeUp(page);
   const skipped = await waitFor(page, 'the skip advances', (s) => s.guesses.length === 2 && !s.busy);
@@ -403,12 +449,35 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   const live = await page.locator('[data-testid="game-score-live"]').last().getAttribute('aria-label');
   check('the live score shows what was judged', /, 2 judged$/.test(live ?? ''), live);
 
+  // A hold is the double take's gesture too (the setting is both by default): it marks AI.
+  await hold(page, layout);
+  const held = await waitFor(page, 'the hold marks', (s) => s.guesses.length === 3 && !s.busy);
+  check(`Game tab: ${layout === 'desktop' ? 'holding Space' : 'a hold'} marks AI`, held?.guesses[2]?.guess === 'ai', held?.guesses);
+
+  // Looking back at a judged clip: its answer shows, and its double take opens when it has one.
+  await scrollBack(page, layout);
+  const back = await waitFor(page, 'looking back', (s) => s.shown === s.index - 1 && !!s.reviewing, 8000);
+  await page.waitForTimeout(1800);
+  const look = await page.evaluate(() => ({
+    pill: !!document.querySelector('[data-testid="review-truth"]'),
+    walkthrough: !!document.querySelector('[aria-label="Close the walkthrough"]'),
+  }));
+  check('looking back at a judged clip shows its answer, or opens its double take', !!back && (look.pill || look.walkthrough), { back: back && { shown: back.shown, index: back.index }, ...look });
+  if (look.walkthrough) {
+    await page.click('[aria-label="Close the walkthrough"]');
+    await page.waitForTimeout(1000);
+  }
+  if (layout === 'desktop') await page.mouse.wheel(0, 240);
+  else await swipeUp(page);
+  const resumed = await waitFor(page, 'back to the game', (s) => s.shown === s.index && !s.busy, 8000);
+  check('moving on returns to the clip being judged, nothing judged on the way', resumed?.guesses.length === 3, resumed && { guesses: resumed.guesses.length, shown: resumed.shown, index: resumed.index });
+
   if (layout === 'desktop') {
     // Clip after clip: more are dealt before the deck runs out.
-    const dealt = skipped?.deck.length ?? 0;
+    const dealt = (await game(page))?.deck.length ?? 0;
     for (let i = 0; i < dealt; i++) {
       await page.keyboard.press('j');
-      const n = 3 + i;
+      const n = 4 + i;
       await waitFor(page, `skip ${n}`, (s) => s.guesses.length === n && !s.busy, 8000);
     }
     const g = await game(page);
