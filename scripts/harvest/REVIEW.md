@@ -44,7 +44,7 @@ All of these are merged into one list, with one item per clip key (`build_media.
 One clip at a time, shown on a phone-shaped stage the way the app shows it.
 
 - **Layout:**
-  - In a wide window the stage takes the full height. The controls sit in a column beside it: the bar, the evidence (open by default, since it costs the video nothing there) and the dock.
+  - In a wide window the stage takes the full height. The controls sit in a column beside it: the bar, one line about the clip with icon tabs, and the dock (run switcher, timeline, Keep / Drop and note), which always stays in view.
   - On a phone the stage fills the width, with compact controls under it.
 - **All clips (G):** a grid of every clip, from the grid button in the top bar.
   - **Group by:** decision, AI/real, batch or feed, who reviewed it (worker-vetted or a reviewer), tell count, or tell category. Tell counts load in the background from each clip's shipped run.
@@ -80,7 +80,13 @@ One clip at a time, shown on a phone-shaped stage the way the app shows it.
   - **P** picks the tell on screen (live or in the double take) without opening the grid.
   - Picks and notes show on the card ("★ Picked" and the note), as a ring on the tell's timeline marker, and in the drawer.
 - **Outlines (B):** every run's boxes over the video while they apply. The selected run is solid and labelled; the others are dashed.
-- **Evidence drawer (E):** author and stats, label/tier, sources, the Community Note, the subreddit consensus, the batch evidence, each run's model and date, unplaced claims, any earlier decision, and, for the older clips from the first real batch, the AI↔real partner (pairs aren't a goal any more, and `compare` isn't shipped).
+- **Clip info (E):** behind compact icon tabs, all collapsed by default; the last one you open is remembered.
+  - **Evidence:** the Community Note, the subreddit consensus, or the batch evidence.
+  - **Clip:** stats, label/tier, sources, any earlier decision, and the AI↔real partner for the older paired clips.
+  - **Runs:** each annotation run's model and date, and its unplaced claims.
+  - **Your marks:** picked tells and tell notes.
+  - A dot on a tab means it has something.
+  - Wide windows show the tabs in the side column, with each panel scrolling inside its own space. Phones show them in a sheet from the info button.
 - **Decisions:** Keep or Drop, with an optional note. A note on its own saves when the field loses focus.
   - Deciding moves on to the next clip.
   - **U** undoes, step by step.
