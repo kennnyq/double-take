@@ -247,6 +247,19 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
     const y = e.nativeEvent.contentOffset.y;
     if (isOnPage(y, size.h) && !e.nativeEvent.velocity?.y) settleAt(y);
   };
+  // Browsers have no drag-end or momentum-end events (React Native Web never
+  // fires them), so a swipe never changed the active clip: the first clip kept
+  // playing, with its sound, under the ones scrolled to. Settle once scrolling
+  // has rested on a page instead (CSS scroll snapping puts it there).
+  const webSettle = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  useEffect(() => () => clearTimeout(webSettle.current), []);
+  const onWebScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const y = e.nativeEvent.contentOffset.y;
+    clearTimeout(webSettle.current);
+    webSettle.current = setTimeout(() => {
+      if (isOnPage(y, size.h)) settleAt(y);
+    }, WEB_SETTLE_MS);
+  };
 
   // Rotation / iPad window resize: keep the same item in view.
   const onLayout = (e: LayoutChangeEvent) => {
@@ -434,6 +447,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
           contentInsetAdjustmentBehavior="never"
           onMomentumScrollEnd={onMomentumEnd}
           onScrollEndDrag={onDragEnd}
+          onScroll={Platform.OS === 'web' ? onWebScroll : undefined}
           onEndReached={onEndReached}
           onEndReachedThreshold={3}
           initialNumToRender={3}
@@ -449,6 +463,9 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
     </View>
   );
 }
+
+/** Quiet time after the last scroll event before a browser's swipe counts as settled. */
+const WEB_SETTLE_MS = 120;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#000' },
