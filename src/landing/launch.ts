@@ -32,6 +32,7 @@ interface Rect {
 }
 
 const wait = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));
+const nextFrame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 const frame = () => new Promise<void>((r) => requestAnimationFrame(() => r()));
 const center = (r: Rect) => ({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
 
@@ -197,6 +198,19 @@ function arriveChrome(style: LandingValues['arrive']) {
 }
 
 /** The feed's video box for `clip` once the app has jumped to it. */
+/**
+ * The phone feed's video on screen, under the landing: the top one at the
+ * middle of the screen (the feed keeps a pool of full-screen players, stacked).
+ */
+function phoneFeedVideo(root: HTMLElement): HTMLVideoElement | null {
+  for (const el of document.elementsFromPoint(innerWidth / 2, innerHeight / 2)) {
+    if (root.contains(el)) continue;
+    const x = el instanceof HTMLVideoElement ? el : el.querySelector('video');
+    if (x && !x.hasAttribute('data-atlas')) return x;
+  }
+  return null;
+}
+
 function feedStage(clip: number): HTMLElement | null {
   const slot = [...document.querySelectorAll<HTMLElement>('.pool-slot')].find(
     (s) => !s.hidden && s.style.getPropertyValue('--i').trim() === String(clip),
@@ -308,6 +322,11 @@ async function sharpen(lifted: Lifted, hi: HTMLVideoElement) {
 
 // ---- The launch --------------------------------------------------------
 
+/** How soon after the press the one that stays starts to grow, at the latest (ms). */
+const GROW_AFTER = 650;
+/** How much faster the tiles still leaving go, once it does. */
+const HURRY = 2.5;
+
 const GROW: Record<LandingValues['grow'], { ms: number; easing: string }> = {
   straight: { ms: 850, easing: 'cubic-bezier(.2,.8,.2,1)' },
   lift: { ms: 1250, easing: 'linear' },
@@ -376,7 +395,12 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const survivor = fromTile ?? pickSurvivor(tiles, v.pick, button, galleryRect);
   release?.detach(survivor);
   const clip = Number(survivor.dataset.clip) || 0;
-  hooks.mountApp(clip);
+  // The app's desktop layout shows the clip in a card the growth aims for, so it
+  // mounts now. On a phone the feed fills the screen: the growth needs nothing
+  // from it, and the app mounts once it's done, when its first render (heavy on
+  // a phone) can't jolt the animation.
+  const deskFeed = innerWidth >= 760 && innerHeight >= 480;
+  if (deskFeed) hooks.mountApp(clip);
 
   const hi = document.createElement('video');
   Object.assign(hi, { src: hooks.fullSrc(clip) ?? '', muted: true, loop: true, playsInline: true, preload: 'auto' });
@@ -384,6 +408,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   hi.load();
 
   if (reduce) {
+    if (!deskFeed) hooks.mountApp(clip);
     await until(() => feedStage(clip) !== null, 1500);
     await root.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 250, fill: 'forwards' }).finished;
     if (alive()) hooks.done();
@@ -446,6 +471,17 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const liftNow = v.motion === 'flow' || survivor.closest('[data-exit]') !== null || light;
   let lifted: Lifted | null = liftNow ? lift(root, survivor, survivor.closest('.lt-front') ? 'none' : lateFilter) : null;
 
+  // Everything leaving, so the stragglers can be hurried once the one that stays grows.
+  const leavingAll: Animation[] = [];
+  const pending = new Set<number>();
+  const later = (ms: number, go: () => void) => {
+    const id = window.setTimeout(() => {
+      pending.delete(id);
+      go();
+    }, ms);
+    pending.add(id);
+  };
+
   // ---- The others leave, one by one.
   const others = tiles.filter((t) => t.el !== survivor);
   const shown = others.filter((t) => t.seen > 0);
@@ -455,7 +491,10 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   });
   const origin = center(survivor.getBoundingClientRect());
   // The lighter tier: each strip leaves whole, in turn (a few animations and no
-  // new canvases, rather than one of each per tile), flat rather than into depth.
+  // new canvases, rather than one of each per tile), sinking back along the
+  // plane like the tiles do on the full tier (only the plane is kept in 3D),
+  // or, on a flat gallery, shrinking toward the middle of the screen: never
+  // sideways (a strip is twice the screen's width, so its own middle is off it).
   const strip = (t: Measured) => (light ? t.el.closest<HTMLElement>('.lt-row, .lt-col') : null);
   const strips = [...new Set(shown.map(strip).filter((el): el is HTMLElement => el !== null))].map((el) => ({
     el,
@@ -463,26 +502,30 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     seen: 1,
   }));
   const stripOrder = turns(strips, v.order, origin);
+  const stripSpread = Math.min(spread, 900);
   strips.forEach((s, i) => {
-    window.setTimeout(() => {
+    later(140 + stripOrder[i] * stripSpread, () => {
       if (!alive()) return;
       const cs = getComputedStyle(s.el);
-      const leaving = s.el.animate(vanish.frames(cs.opacity, cs.filter, false), {
+      const deep = s.el.closest('.lt-tilted') !== null;
+      if (!deep) s.el.style.transformOrigin = `${innerWidth / 2 - s.r.left}px ${innerHeight / 2 - s.r.top}px`;
+      const leaving = s.el.animate(vanish.frames(cs.opacity, cs.filter, deep), {
         duration: vanish.ms,
         easing: vanish.easing,
         fill: 'forwards',
       });
+      leavingAll.push(leaving);
       void leaving.finished.then(
         () => s.el.querySelectorAll<HTMLElement>('[data-tile]').forEach((t) => release?.hide(t)),
         () => {},
       );
-    }, 140 + stripOrder[i] * spread);
+    });
   });
   const single = shown.filter((t) => strip(t) === null);
   const order = turns(single, v.order, origin);
   single.forEach((t, i) => {
     // At its turn it gets its own canvas and starts to go, in one step.
-    window.setTimeout(() => {
+    later(140 + order[i] * spread, () => {
       if (!alive()) return;
       release?.detach(t.el);
       const cs = getComputedStyle(t.el);
@@ -492,9 +535,10 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
         easing: vanish.easing,
         fill: 'forwards',
       });
+      leavingAll.push(leaving);
       // Its clip plays on until it has gone.
       void leaving.finished.then(() => release?.freeze(t.el), () => {});
-    }, 140 + order[i] * spread);
+    });
   });
 
   // ---- The shade and blur lift off, now or as the others go.
@@ -504,8 +548,9 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (v.focus === 'early' || liftNow) clearOverlays(450, 100);
   else if (v.focus === 'gradual') clearOverlays(pace, 140);
 
-  // A long exit overlaps the one that stays: it starts once most have gone.
-  await wait(long ? 140 + spread * 0.7 + vanish.ms * 0.45 : 140 + spread + vanish.ms);
+  // The one that stays starts forward soon after the press, over the coast and
+  // the others leaving (it waited for most to go: ~3 s, which read as late).
+  await wait(Math.min(GROW_AFTER, 140 + spread + vanish.ms));
   if (!alive()) return;
 
   // ---- Alone, a beat. Lifted out first (once the gallery has stopped), so
@@ -550,13 +595,26 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   } else if (v.beat === 'pulse') {
     beatOn.animate([{ scale: '1' }, { scale: '1.07' }, { scale: '1' }], { duration: beatMs, easing: 'ease-in-out' });
   }
-  await Promise.all([wait(beatMs), sharpening]);
+  // The full clip fades in over it whenever it's ready; the growth doesn't wait.
+  await Promise.all([wait(beatMs), Promise.race([sharpening, wait(250)])]);
   if (!alive() || !lifted) return;
   const L: Lifted = lifted;
 
-  // ---- It grows onto the feed's video.
-  await until(() => feedStage(clip) !== null, 1200);
-  const stage = feedStage(clip);
+  // ---- Stragglers hurry: those going go faster, and the rest of the gallery
+  // (the one that stays is out of it) fades as a whole, in one animation,
+  // rather than each still to go starting now (dozens of canvases in a frame).
+  pending.forEach((id) => window.clearTimeout(id));
+  pending.clear();
+  for (const a of leavingAll) if (a.playState === 'running') a.updatePlaybackRate(HURRY);
+  galleryEl?.animate([{ opacity: getComputedStyle(galleryEl).opacity }, { opacity: 0 }], {
+    duration: 600,
+    easing: 'cubic-bezier(.4,0,.2,1)',
+    fill: 'forwards',
+  });
+
+  // ---- It grows onto the feed's video (on a phone, the whole screen).
+  if (deskFeed) await until(() => feedStage(clip) !== null, 1200);
+  const stage = deskFeed ? feedStage(clip) : null;
   const target: Rect = stage?.getBoundingClientRect() ?? { left: 0, top: 0, width: innerWidth, height: innerHeight };
   const targetRadius = stage ? getComputedStyle(stage).borderTopLeftRadius : '0px';
   const end: Keyframe = {
@@ -617,6 +675,18 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   await growing.finished.catch(() => {});
   if (!alive()) return;
   if (feedVideo && Math.abs(feedVideo.currentTime - hi.currentTime) > 0.15) feedVideo.currentTime = hi.currentTime;
+  const phone: { video: HTMLVideoElement | null } = { video: null };
+  if (!deskFeed) {
+    // The full-screen clip plays on while the app mounts beneath, until the
+    // feed's video for it has loaded.
+    hooks.mountApp(clip);
+    await nextFrame();
+    await until(() => {
+      phone.video = phoneFeedVideo(root);
+      return !!phone.video && phone.video.readyState >= 1;
+    }, 2500);
+    if (!alive()) return;
+  }
 
   // ---- Arrive: the page behind goes, the app's pieces come in, the feed's
   // video takes over under the one that grew.
@@ -627,6 +697,15 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     fill: 'forwards',
   }).finished;
   if (!alive()) return;
+  // On a phone the feed's video waits (paused) until the landing has gone, so it
+  // is brought to this moment now: it would start from the top, and the swap
+  // showed a different frame of the clip.
+  const pv = phone.video;
+  if (pv && hi.readyState >= 2) {
+    pv.currentTime = Math.min(hi.currentTime + 0.16, (pv.duration || 8) - 0.05);
+    await Promise.race([new Promise((r) => pv.addEventListener('seeked', r, { once: true })), wait(300)]);
+    if (!alive()) return;
+  }
   sendHandoff({ muted: v.sound === 'muted' });
   hi.muted = true;
   await L.frame.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }).finished;

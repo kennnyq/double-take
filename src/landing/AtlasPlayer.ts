@@ -208,6 +208,7 @@ export class AtlasPlayer {
       const v = document.createElement('video');
       Object.assign(v, { muted: true, playsInline: true, preload: 'auto' });
       v.setAttribute('aria-hidden', 'true');
+      v.dataset.atlas = '';
       // Kept in the document (Safari won't play it detached) but out of sight.
       v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;';
       v.addEventListener(
