@@ -29,7 +29,6 @@ function Editor({ note, handle, onClose }: { note: string | null; handle: string
 
   const done = () => {
     onClose();
-    // Members' notes save in the background; a failure puts the old one back.
     if (text.trim() !== (note ?? '')) setMyNote(text);
   };
 

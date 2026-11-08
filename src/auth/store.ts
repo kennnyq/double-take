@@ -19,8 +19,6 @@ export interface Profile {
   id: string;
   handle: string;
   displayName: string | null;
-  /** The profile note (the bubble over the avatar), or null. */
-  note: string | null;
 }
 
 export interface AuthState {
@@ -59,11 +57,11 @@ export const currentUserId = () => (state.status === 'member' ? (state.session?.
 
 async function loadProfile(userId: string) {
   if (!supabase) return;
-  const { data, error } = await supabase.from('profiles').select('id, handle, display_name, note').eq('id', userId).maybeSingle();
+  const { data, error } = await supabase.from('profiles').select('id, handle, display_name').eq('id', userId).maybeSingle();
   if (error) console.warn(`[auth] profile: ${error.message}`);
   // Ignore a late answer for someone who has since signed out or switched.
   if (currentUserId() !== userId) return;
-  set({ profile: data ? { id: data.id, handle: data.handle, displayName: data.display_name, note: data.note ?? null } : null });
+  set({ profile: data ? { id: data.id, handle: data.handle, displayName: data.display_name } : null });
 }
 
 function apply(session: Session | null, event: AuthChangeEvent | 'INITIAL') {
@@ -105,22 +103,6 @@ export async function signOut() {
     // The local session is cleared even when the server call fails; follow it.
     apply(null, 'SIGNED_OUT');
   }
-}
-
-/**
- * Set the signed-in member's note: shown at once, saved to their profile, and
- * put back if saving fails. Returns whether it saved.
- */
-export async function saveMemberNote(note: string | null): Promise<boolean> {
-  const id = currentUserId();
-  const before = state.profile;
-  if (!supabase || !id || !before) return false;
-  set({ profile: { ...before, note } });
-  const { error } = await supabase.from('profiles').update({ note }).eq('id', id);
-  if (!error) return true;
-  console.warn(`[auth] note: ${error.message}`);
-  if (currentUserId() === id) set({ profile: { ...(state.profile ?? before), note: before.note } });
-  return false;
 }
 
 export function refreshProfile() {
