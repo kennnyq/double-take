@@ -31,7 +31,7 @@ interface Props {
   blur?: boolean;
   /** Back and forward buttons along the bottom (walkthrough steps). */
   nav?: CardNav;
-  /** How the text comes in (dev settings → Double take → Text); a word wave by default. */
+  /** How the text comes in (dev settings → Double take → Text); word by word by default. */
   revealVariant?: RevealVariant;
   /** Set to play the exit; `onGone` follows once it's done. */
   leaving: boolean;
@@ -52,7 +52,7 @@ export interface CardNav {
 const TRAVEL = 18;
 /** Bubbly but quick: a little overshoot, settled in about 400 ms. */
 const CARD_SPRING = { stiffness: 260, damping: 17, mass: 1 };
-/** The text's wave starts this long into the card's entrance, while the card is still settling. */
+/** The text starts this long into the card's entrance, while the card is still settling. */
 const TEXT_START_MS = 140;
 /** The buttons and loop line fade in over the last of the text. */
 const FOOTER_FADE_MS = 300;
@@ -62,10 +62,10 @@ const FOOTER_FADE_MS = 300;
  * from its side of the subject (rising from below when it sits under it,
  * dropping from above when over it) and leaves the same way, faster.
  *
- * The text comes in the way Apple's answer cards do: word by word in a quick
- * wave in reading order, each word fading in (from a blur, in browsers) while
- * it rises a few points, on a spring with no overshoot. The wave starts while
- * the card is still settling, and leaves in reverse. One timeline drives it
+ * The text comes in the way Apple's WWDC24 text transition does: word by word
+ * in reading order, each word fading in while it drops from just above into
+ * place (see reveal.ts). It starts while the card is still settling, and
+ * leaves in reverse. One timeline drives it
  * on the UI thread (see RevealText and reveal.ts).
  *
  * Everything animates transform and opacity only; nothing is laid out again
@@ -84,7 +84,7 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, revealVariant, lea
 
   useEffect(() => {
     if (leaving) {
-      // The wave runs back (last words first), gently, as the card goes.
+      // The text runs back (last words first), gently, as the card goes.
       clock.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) });
       card.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.cubic) });
       shown.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) }, (done) => {

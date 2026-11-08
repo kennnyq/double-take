@@ -53,9 +53,9 @@ registerDevSection({
       { label: 'Roomy', value: 'roomy', note: 'Plenty of context around the box.' },
     ]),
     settingChoice(s, 'textReveal', 'Text', [
-      { label: 'Wave', value: 'wave', note: 'Word by word, ~28 ms apart, each dropping into place out of a blur (Apple’s WWDC24 TextRenderer demo, per word).' },
-      { label: 'Soft', value: 'soft', note: 'Slower (~42 ms apart), each word rising from below, closer to Siri’s card.' },
-      { label: 'Lines', value: 'lines', note: 'A line at a time, as in Apple’s first demo.' },
+      { label: 'Words', value: 'words', note: 'Apple’s WWDC24 text transition, word by word: each drops into place from just above as it fades in; 0.9 s in all.' },
+      { label: 'Lines', value: 'lines', note: 'The same, a line at a time (Apple’s first demo).' },
+      { label: 'Letters', value: 'letters', note: 'The same, a letter at a time (Apple’s final demo). Heaviest.' },
     ]),
     settingChoice(s, 'endCue', 'Last step', [
       { label: 'Check', value: 'done', note: 'On the last tell, the forward button turns into a check.' },

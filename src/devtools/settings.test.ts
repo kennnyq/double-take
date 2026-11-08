@@ -38,9 +38,9 @@ test('parseSettings reads the double take spotlight settings', () => {
 });
 
 test('the text reveal defaults to the word wave, and reads the others', () => {
-  assert.equal(DEFAULT_SETTINGS.textReveal, 'wave');
+  assert.equal(DEFAULT_SETTINGS.textReveal, 'words');
   assert.equal(parseSettings(JSON.stringify({ textReveal: 'lines' })).textReveal, 'lines');
-  assert.equal(parseSettings(JSON.stringify({ textReveal: 'typewriter' })).textReveal, 'wave');
+  assert.equal(parseSettings(JSON.stringify({ textReveal: 'typewriter' })).textReveal, 'words');
 });
 
 test('the end cue defaults to the check, and reads the others', () => {

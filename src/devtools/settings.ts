@@ -59,7 +59,7 @@ export interface DevSettings {
   /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
   markDrafts: boolean;
   endCue: EndCue;
-  /** How the double take card's text comes in: a word wave (default), a softer slower wave, or by lines. */
+  /** How the double take card's text comes in: Apple's text transition by words (default), lines or letters. */
   textReveal: RevealVariant;
 }
 
@@ -75,7 +75,7 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightPadding: 'normal',
   markDrafts: false,
   endCue: 'done',
-  textReveal: 'wave',
+  textReveal: 'words',
 });
 
 export const STORAGE_KEY = 'double-take:dev-settings:v1';
