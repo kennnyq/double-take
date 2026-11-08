@@ -136,3 +136,48 @@ export class DecisionLog {
     return event;
   }
 }
+
+/**
+ * This checkout's log plus read-only logs from other checkouts (e.g. the harvest
+ * worker's, which vets clips into its own copy of decisions.jsonl). Both copies
+ * live at the same repo path and git merges them as a union, so folding them
+ * together shows the state the merged file will have. Writes only go to `own`.
+ */
+export class MergedLog {
+  readonly own: DecisionLog;
+  readonly others: DecisionLog[];
+  constructor(own: string, others: string[] = []) {
+    this.own = new DecisionLog(own);
+    this.others = others.filter((p) => p && p !== own).map((p) => new DecisionLog(p));
+  }
+
+  read(): { events: ReviewEvent[]; skipped: number; logs: { path: string; writable: boolean; events: number }[] } {
+    const parts = [this.own, ...this.others].map((l) => ({ l, r: l.read() }));
+    // The same event in two copies (a log copied or merged between checkouts) counts once.
+    const seen = new Set<string>();
+    const events: ReviewEvent[] = [];
+    for (const { r } of parts) for (const e of r.events) if (!seen.has(e.id)) seen.add(e.id) && events.push(e);
+    return {
+      events,
+      skipped: parts.reduce((n, p) => n + p.r.skipped, 0),
+      logs: parts.map(({ l, r }) => ({ path: l.path, writable: l === this.own, events: r.events.length })),
+    };
+  }
+
+  states(): Map<string, ClipState> {
+    return fold(this.read().events);
+  }
+}
+
+/** Reviewer name (and tag) the harvest worker stamps on clips it has vetted. */
+export const WORKER_VETTED = 'worker-vetted';
+
+/** Keys with a live (not undone) set event by the harvest worker, or tagged as vetted by it. */
+export function vettedKeys(events: ReviewEvent[], by = WORKER_VETTED): Set<string> {
+  const undone = new Set<string>();
+  for (const e of events) if ('undo' in e) undone.add(e.undo);
+  const out = new Set<string>();
+  for (const e of events)
+    if ('set' in e && !undone.has(e.id) && (e.by === by || (Array.isArray(e.set.tags) && e.set.tags.includes(by)))) out.add(e.key);
+  return out;
+}

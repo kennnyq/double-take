@@ -19,6 +19,12 @@
  * Each serves feeds demo and compare; a missing feed or Worker is shown, not fatal.
  * Overrides: REVIEW_SOURCES=prod,local  REVIEW_FEEDS=demo,compare
  *            REVIEW_PROD_URL / REVIEW_PROD_PASSCODE  REVIEW_LOCAL_URL / REVIEW_LOCAL_PASSCODE
+ *            REVIEW_LOCAL_DEV_VARS=<path>   read the local Worker's DEMO_PASSCODE from another
+ *                                           checkout's worker/.dev.vars (never printed)
+ *
+ * Decisions: appended to this checkout's scripts/harvest/review/decisions.jsonl.
+ * REVIEW_ALSO_DECISIONS=<path>[,<path>] folds other checkouts' logs in read-only
+ * (e.g. the harvest worker's, whose clips show as worker-vetted).
  *
  * /app/<path> serves the app's pure double take modules type-stripped (appModules.ts),
  * so the page presents clips exactly the way the app does.
@@ -28,7 +34,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { extname, join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { Catalog, batchFiles, batchName, readJsonl, rehost, type Item } from './catalog.ts';
-import { DecisionLog, checkPatch, fold, type Patch } from './decisions.ts';
+import { MergedLog, checkPatch, fold, vettedKeys, type Patch } from './decisions.ts';
 import { appFile, readModule } from './appModules.ts';
 
 const ROOT = resolve(import.meta.dirname, '..', '..');
@@ -62,7 +68,7 @@ function dotenv(path: string): Record<string, string> {
 
 const appEnv = dotenv(join(ROOT, '.env.local'));
 const prodVars = dotenv(join(ROOT, 'worker', '.prod.vars'));
-const devVars = dotenv(join(ROOT, 'worker', '.dev.vars'));
+const devVars = dotenv(process.env.REVIEW_LOCAL_DEV_VARS || join(ROOT, 'worker', '.dev.vars'));
 const list = (v: string | undefined, d: string) =>
   (v ?? d)
     .split(',')
@@ -94,7 +100,14 @@ const ALL_SOURCES: Source[] = [
 const wanted = list(process.env.REVIEW_SOURCES, 'prod,local');
 const SOURCES = ALL_SOURCES.filter((s) => wanted.includes(s.name)).map((s) => ({ ...s, url: s.url.replace(/\/+$/, '') }));
 
-const log = new DecisionLog(join(REVIEW_DIR, 'decisions.jsonl'));
+const log = new MergedLog(
+  join(REVIEW_DIR, 'decisions.jsonl'),
+  (process.env.REVIEW_ALSO_DECISIONS ?? '')
+    .split(',')
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .map((x) => resolve(x)),
+);
 
 interface FeedStatus {
   source: string;
@@ -172,8 +185,8 @@ function readTags(): string[] {
 }
 
 function decisionsBody() {
-  const { events, skipped } = log.read();
-  return { states: Object.fromEntries(fold(events)), events: events.length, skipped };
+  const { events, skipped, logs } = log.read();
+  return { states: Object.fromEntries(fold(events)), vetted: [...vettedKeys(events)], events: events.length, skipped, logs };
 }
 
 const TYPES: Record<string, string> = {
@@ -226,15 +239,16 @@ async function handle(req: IncomingMessage, res: ServerResponse) {
     const by = cleanBy(body.by);
     let event;
     if (typeof body.undo === 'string') {
-      const { events } = log.read();
+      // Only this checkout's own changes can be undone here.
+      const { events } = log.own.read();
       const target = events.find((e) => e.id === body.undo);
       if (!target || !('set' in target) || target.key !== key) return send(res, 400, { error: 'nothing to undo' });
       if (events.some((e) => 'undo' in e && e.undo === target.id)) return send(res, 409, { error: 'already undone' });
-      event = log.append({ key, by, undo: target.id });
+      event = log.own.append({ key, by, undo: target.id });
     } else {
       const err = checkPatch(body.set);
       if (err) return send(res, 400, { error: err });
-      event = log.append({ key, by, set: body.set as Patch, ...(typeof body.url === 'string' ? { url: body.url } : {}) });
+      event = log.own.append({ key, by, set: body.set as Patch, ...(typeof body.url === 'string' ? { url: body.url } : {}) });
     }
     const state = log.states().get(key) ?? null;
     return send(res, 200, { event, state });
@@ -267,5 +281,5 @@ createServer((req, res) => {
     if (!res.headersSent) send(res, 500, { error: String(e) });
   });
 }).listen(Number(args.port), args.host, () => {
-  console.log(`clip review on http://${args.host}:${args.port}/  (sources: ${SOURCES.map((x) => x.name).join(', ')}; feeds: ${FEEDS.join(', ')}; decisions: ${log.path})`);
+  console.log(`clip review on http://${args.host}:${args.port}/  (sources: ${SOURCES.map((x) => x.name).join(', ')}; feeds: ${FEEDS.join(', ')}; decisions: ${log.own.path}${log.others.length ? ` + ${log.others.length} read-only` : ''})`);
 });

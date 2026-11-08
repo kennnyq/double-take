@@ -61,3 +61,34 @@ test('checkPatch accepts decisions, tags and notes and rejects the rest', () => 
   assert.match(String(checkPatch({ other: 1 })), /unknown/);
   assert.match(String(checkPatch({})), /empty/);
 });
+
+test('MergedLog folds other checkouts read-only, counts shared events once, and writes only its own', async () => {
+  const { MergedLog, vettedKeys } = await import('./decisions.ts');
+  const dir = mkdtempSync(join(tmpdir(), 'review-'));
+  const own = join(dir, 'own.jsonl');
+  const other = join(dir, 'other.jsonl');
+  const vet = { v: 1, id: 'w1', at: '2026-11-08T07:00:00.000Z', by: 'worker-vetted', key: 'x-1', set: { status: 'keep', tags: ['worker-vetted'] } };
+  writeFileSync(other, JSON.stringify(vet) + '\n');
+  writeFileSync(own, JSON.stringify(vet) + '\n'); // the same event, already merged into this checkout
+  const log = new MergedLog(own, [other, own]);
+  assert.equal(log.others.length, 1);
+  assert.equal(log.read().events.length, 1);
+  assert.deepEqual(log.read().logs.map((l) => l.writable), [true, false]);
+  log.own.append({ key: 'x-1', by: 'kenny', set: { status: 'discard', note: 'mushy' } }, new Date('2026-11-08T08:00:00.000Z'));
+  assert.equal(log.states().get('x-1')?.status, 'discard', 'a later decision here overrides the worker');
+  assert.equal(readFileSync(other, 'utf8').trim().split('\n').length, 1, 'the other log is never written');
+  assert.deepEqual([...vettedKeys(log.read().events)], ['x-1']);
+});
+
+test('vettedKeys ignores undone vetting and other reviewers', async () => {
+  const { vettedKeys } = await import('./decisions.ts');
+  const ev = (id: string, key: string, by: string, extra: object = {}): ReviewEvent => ({ v: 1, id, at: id, by, key, set: { status: 'keep' }, ...extra });
+  const events: ReviewEvent[] = [
+    ev('1', 'a', 'worker-vetted'),
+    ev('2', 'b', 'worker-vetted'),
+    { v: 1, id: '3', at: '3', by: 'kenny', key: 'b', undo: '2' },
+    ev('4', 'c', 'kenny'),
+    ev('5', 'd', 'bot', { set: { tags: ['worker-vetted'] } }),
+  ];
+  assert.deepEqual([...vettedKeys(events)].sort(), ['a', 'd']);
+});
