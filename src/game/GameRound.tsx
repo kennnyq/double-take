@@ -5,7 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
 import { signals } from '@/engagement/store';
-import type { FeedMode, PressEvent, StageRect } from '@/feed/mode';
+import type { FeedMode, StageRect } from '@/feed/mode';
 import { revealHow } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
 import { CATEGORY_INFO, type SkillCategory } from '@/skills/categories';
@@ -26,7 +26,7 @@ import { safeClip } from './leaks';
 import { GameIntro } from './GameIntro';
 import { gameIntro, useGameIntroSeen } from './intro';
 import { MarkStamp } from './MarkStamp';
-import { PressRing, Ripple } from './PressRing';
+import { Ripple } from './Ripple';
 import { lerp, useEased } from './motion';
 import { media, takeLoading } from './media';
 import { loadDealableClips } from './playable';
@@ -143,8 +143,6 @@ interface RoundUi {
   quit: () => void;
   /** The untimed game's last answer, for its brief ✓ / ✕ (keyed so each one plays). */
   last: { key: number; correct: boolean } | null;
-  /** A press that may become the marking hold. */
-  ring: { key: number; x: number; y: number; holdMs: number; holding: boolean } | null;
   /** The clip's double take is open (the overlay steps aside). */
   inspecting: boolean;
   /** The clip on screen was judged already and is looked back at: its answer. */
@@ -287,8 +285,6 @@ function Round({
   const playing = s.phase === 'playing';
   const canAct = playing && !busy && s.index === shown;
 
-  // A press that may become that hold: a ring fills around it.
-  const [ring, setRing] = useState<{ key: number; x: number; y: number; holdMs: number; holding: boolean } | null>(null);
   // The furthest clip the feed has rested on: those before it (and judged) are looked back at.
   const [furthest, setFurthest] = useState(0);
   const onActive = (i: number) => {
@@ -297,7 +293,6 @@ function Round({
     setFurthest((f) => Math.max(f, i));
     setBusy(false);
     setStamp(null);
-    setRing(null);
   };
   const markAI = (at: Point) => {
     if (!canAct) return;
@@ -305,7 +300,6 @@ function Round({
     setBusy(true);
     if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setStamp({ key: shown, x: at.x, y: at.y, leaving: false });
-    setRing((r) => (r ? { ...r, holding: false } : r));
     const next = shown + 1;
     advanceTimer.current = setTimeout(() => {
       if (next >= clips.length) return setBusy(false);
@@ -322,14 +316,9 @@ function Round({
     gameIntro.done();
     markAI(placed(at, stage));
   };
-  const ringKey = useRef(0);
-  const onPress = (i: number, e: PressEvent, stage: StageRect | null) => {
-    if (i !== shown) return;
-    gameIntro.done();
-    if (e.phase === 'end') return setRing((r) => (r ? { ...r, holding: false } : r));
-    if (!canAct) return;
-    const at = placed(e, stage);
-    setRing({ key: ++ringKey.current, x: at.x, y: at.y, holdMs: e.holdMs, holding: true });
+  // A press on the clip puts the intro away (a hold shows nothing until it lands, as the double take's does).
+  const onPress = (i: number) => {
+    if (i === shown) gameIntro.done();
   };
   // Looking back at a clip already judged: it shows as itself (its answer no longer matters) and opens its double take.
   const reviewing = (i: number) => review && i < s.index && i < furthest;
@@ -354,7 +343,7 @@ function Round({
         return safe;
       },
       onReveal: (i, at) => events.current.onReveal(i, at, lastStage.current),
-      onPress: (i, e) => events.current.onPress(i, e, lastStage.current),
+      onPress: (i) => events.current.onPress(i),
       review: (i) => i < reviewKey,
       // A hold never plays at 2x, and a tap never pauses: the clip keeps running while it's judged.
       noHold: true,
@@ -498,7 +487,6 @@ function Round({
     askQuit,
     quit,
     last,
-    ring,
     inspecting,
     review: reviewingShown && s.guesses[shown] ? { truth: s.guesses[shown].truth, correct: s.guesses[shown].correct } : null,
     intro: introOn,
@@ -691,11 +679,10 @@ function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
   );
 }
 
-/** What a mark leaves over the clip: the ring a hold fills, the ripple and the stamp where it landed. */
+/** What a mark leaves over the clip: the ripple and the stamp where it landed. */
 function Marks({ ui }: { ui: RoundUi }) {
   return (
     <View style={StyleSheet.absoluteFill} pointerEvents="none">
-      {ui.ring && <PressRing key={ui.ring.key} x={ui.ring.x} y={ui.ring.y} holdMs={ui.ring.holdMs} holding={ui.ring.holding} />}
       {ui.stamp && !ui.stamp.leaving && <Ripple key={`ripple-${ui.stamp.key}`} x={ui.stamp.x} y={ui.stamp.y} />}
       {ui.stamp && <MarkStamp key={ui.stamp.key} x={ui.stamp.x} y={ui.stamp.y} leaving={ui.stamp.leaving} />}
     </View>
