@@ -58,10 +58,12 @@ const BATCH = 20;
  * adaptive dealing is on (Dev settings), else an even shuffle; clips in
  * `avoid` (the last rounds, or this game so far) come last, and clips this
  * session found don't load are left out. Their media is checked only as
- * they're about to be dealt.
+ * they're about to be dealt. `teach` (the untimed game): only AI clips with
+ * a double take to learn from when looked back at (about half have no tells).
  */
-async function deal(avoid: Iterable<string>, cap?: number, focus?: SkillCategory): Promise<Dealt[]> {
-  const clips = practise((await loadDealableClips()).filter((c) => media.known(c) !== false), focus);
+async function deal(avoid: Iterable<string>, cap?: number, focus?: SkillCategory, teach = false): Promise<Dealt[]> {
+  const loadable = (await loadDealableClips()).filter((c) => media.known(c) !== false && (!teach || c.verdict !== 'ai' || !!c.tellsUrl));
+  const clips = practise(loadable, focus);
   const recent = [...recentClipKeys(gameHistory.getSnapshot()), ...avoid];
   if (gameDev.getSnapshot().adaptive) {
     // Near the player's skill: each clip's categories and difficulty first.
@@ -108,7 +110,7 @@ export function GameRound({ timed = true, focus }: { timed?: boolean; focus?: Sk
   const c = usePalette();
   useEffect(() => {
     let live = true;
-    void deal([], timed ? undefined : BATCH, focus).then(async (order) => {
+    void deal([], timed ? undefined : BATCH, focus, !timed).then(async (order) => {
       const queue = timed ? order : relabel(order, 0);
       const deck = await takeDealt(queue, AHEAD);
       if (live) setStart({ deck, queue });
@@ -221,7 +223,7 @@ function Round({
       for (;;) {
         next.push(...(await takeDealt(queue.current, want - next.length)));
         if (next.length >= want || timed || exhausted.current) break;
-        const more = await deal(seen(), BATCH, focus);
+        const more = await deal(seen(), BATCH, focus, true);
         if (!more.length) exhausted.current = true;
         queue.current.push(...relabel(more, batches.current++));
       }
