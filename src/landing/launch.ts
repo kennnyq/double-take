@@ -1107,10 +1107,6 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
       fill: 'forwards',
     }).finished.catch(() => {});
   };
-  // Advance only the desktop UI by 300 ms. The growing card keeps its path
-  // and duration, and its video handoff still waits until it has landed.
-  const desktopReveal = deskFeed ? wait(Math.max(0, grow.ms - 300)).then(revealChrome) : null;
-
   // The feed's own video takes the same moment, just before the growth ends.
   await wait(Math.max(0, grow.ms - 260));
   if (feedVideo) feedVideo.currentTime = Math.min(hi.currentTime + 0.26, (hi.duration || 8) - 0.05);
@@ -1133,7 +1129,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     if (!alive()) return;
   }
   root.style.pointerEvents = 'none';
-  await (desktopReveal ?? revealChrome());
+  await revealChrome();
   if (!alive()) return;
   // On a phone the feed's video waits (paused) until the landing has gone, so it
   // is brought to this moment now: it would start from the top, and the swap
