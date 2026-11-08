@@ -29,11 +29,12 @@ const PROGRESS_KEY = 'double-take.hints.v1';
 const DEV_KEY = 'double-take:dev-hints:v1';
 
 /**
- * The hint's designs, on trial in the dev settings: a frosted tile with a hand
- * (or cursor and keycap), a bare ring and dot on the clip, or a small pill
- * with a tiny animated glyph beside its caption.
+ * The hint's designs, on trial in the dev settings, all something physical
+ * pressing the clip with no panel behind it: a drawn finger with ripples and
+ * a filling ring, the same finger with only its shadows and a pressed glow,
+ * or a hand silhouette with a soft drop shadow.
  */
-export const HINT_DESIGNS = ['tile', 'ring', 'pill'] as const;
+export const HINT_DESIGNS = ['finger', 'fingertip', 'hand'] as const;
 export type HintDesign = (typeof HINT_DESIGNS)[number];
 /** Which input the hint shows: by the pointer (a fine one gets mouse and keyboard), or forced; `still` as with Reduce Motion. */
 export const HINT_INPUTS = ['auto', 'touch', 'mouse', 'still'] as const;
@@ -63,7 +64,7 @@ function safe<T>(fn: () => T, fallback: T): T {
 }
 
 type DevPart = Pick<HintState, 'force' | 'design' | 'input'>;
-export const DEV_DEFAULTS: Readonly<DevPart> = Object.freeze({ force: 'off', design: 'tile', input: 'auto' });
+export const DEV_DEFAULTS: Readonly<DevPart> = Object.freeze({ force: 'off', design: 'finger', input: 'auto' });
 
 function oneOf<T>(list: readonly T[], v: unknown, fallback: T): T {
   return list.includes(v as T) ? (v as T) : fallback;

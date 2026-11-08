@@ -30,9 +30,9 @@ function register(s: HintState) {
         id: 'design',
         label: 'Design',
         items: [
-          { label: 'Tile', value: 'tile', note: 'A frosted tile with a hand, or a cursor and space bar, and its caption.' },
-          { label: 'Ring', value: 'ring', note: 'Just a ring and a dot on the clip, with a caption under them.' },
-          { label: 'Pill', value: 'pill', note: 'A small pill low on the clip: a tiny animated glyph beside the caption.' },
+          { label: 'Finger', value: 'finger', note: 'A fingertip pressing in, with its shadows; taps ripple, a hold fills a ring.' },
+          { label: 'Fingertip', value: 'fingertip', note: 'The same finger with only its contact shadow and a pressed glow that swells as it holds.' },
+          { label: 'Hand', value: 'hand', note: 'A hand silhouette with a soft drop shadow, with the ripples and ring.' },
         ],
         value: s.design,
         defaultValue: DEV_DEFAULTS.design,
