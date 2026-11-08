@@ -1,69 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, FlatList, Keyboard, StyleSheet, Text, View, type TextInputInstance } from 'react-native';
+import { Animated, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Clip } from '@/data/clips';
-import { formatAgo, makeComments, makeReplies, type StandInComment } from '@/data/comments';
-import { useSocialActions } from '@/social/actions';
-import { clipKey } from '@/social/clipRefs';
-import { useAuth, useMe } from '@/auth/store';
-import { supabase } from '@/auth/supabase';
-import type { MyComment } from '@/social/reducer';
-import { fetchPublicComments, type PublicComment } from '@/social/sync';
-import { useSocial } from '@/social/store';
 import { BottomSheet, useKeyboardVisible } from '@/ui/BottomSheet';
-import { CommentRow, MoreReplies, type DisplayComment } from './CommentRow';
-import { Composer } from './Composer';
-
-type Row =
-  | { kind: 'comment'; key: string; c: DisplayComment }
-  | { kind: 'more'; key: string; threadId: string; count: number; expanded: boolean };
-
-const EMPTY: MyComment[] = [];
-const NO_OTHERS: PublicComment[] = [];
-
-function fromStandIn(c: StandInComment): DisplayComment {
-  return {
-    id: c.id,
-    handle: c.handle,
-    text: c.text,
-    time: formatAgo(c.ago),
-    likes: c.likes,
-    isAuthor: c.isAuthor,
-    threadId: c.parentId ?? c.id,
-    isReply: c.parentId !== null,
-  };
-}
-
-function fromMine(c: MyComment | PublicComment, handle: string, author: string): DisplayComment {
-  return {
-    id: c.id,
-    handle,
-    text: c.text,
-    time: formatAgo((Date.now() - c.createdAt) / 60_000),
-    likes: 0,
-    isAuthor: handle === author,
-    threadId: c.parentId ?? c.id,
-    isReply: c.parentId !== null,
-  };
-}
-
-/** Other members' comments on a saved clip, loaded when the sheet opens. */
-function usePublicComments(key: string, saved: boolean): PublicComment[] {
-  const { status, session } = useAuth();
-  const uid = status === 'member' ? (session?.user.id ?? null) : null;
-  const [list, setList] = useState(NO_OTHERS);
-  useEffect(() => {
-    if (!supabase || !saved || status === 'loading') return;
-    let live = true;
-    fetchPublicComments(supabase, key, uid)
-      .then((l) => live && setList(l))
-      .catch((e) => console.warn(`[comments] ${e instanceof Error ? e.message : e}`));
-    return () => {
-      live = false;
-    };
-  }, [key, saved, uid, status]);
-  return list;
-}
+import { CommentsThread, useCommentTotal } from './CommentsThread';
 
 interface Props {
   clip: Clip;
@@ -73,78 +12,11 @@ interface Props {
   onClosed: () => void;
 }
 
+/** The phone's comments: a bottom sheet over the feed. */
 export function CommentsSheet({ clip, open, progress, onRequestClose, onClosed }: Props) {
-  const clipId = clipKey(clip);
-  const standIn = useMemo(() => makeComments(clip), [clip]);
-  const social = useSocial();
-  const mine = social.comments[clipId] ?? EMPTY;
-  const me = useMe();
-  const others = usePublicComments(clipId, clip.sourceId !== undefined);
-  const actions = useSocialActions();
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardVisible();
-
-  const [expanded, setExpanded] = useState<Record<string, true>>({});
-  const [text, setText] = useState('');
-  const [replyTo, setReplyTo] = useState<{ threadId: string; handle: string } | null>(null);
-  const inputRef = useRef<TextInputInstance>(null);
-  const listRef = useRef<FlatList<Row>>(null);
-
-  const rows = useMemo(() => {
-    const out: Row[] = [];
-    const own = (c: MyComment | PublicComment) => fromMine(c, 'handle' in c ? c.handle : me.handle, clip.author);
-    // Yours and other members', newest first; replies oldest first within a thread.
-    const all = [...mine, ...others].sort((a, b) => b.createdAt - a.createdAt);
-    const myTop = all.filter((c) => c.parentId === null);
-    const myReplies = all.filter((c) => c.parentId !== null).reverse();
-    const pushThread = (top: DisplayComment, replyCount: number, source?: StandInComment) => {
-      out.push({ kind: 'comment', key: top.id, c: top });
-      for (const r of myReplies) {
-        if (r.parentId === top.id) out.push({ kind: 'comment', key: r.id, c: own(r) });
-      }
-      if (replyCount > 0 && source) {
-        const isOpen = !!expanded[top.id];
-        if (isOpen) {
-          for (const r of makeReplies(source, clip.author)) out.push({ kind: 'comment', key: r.id, c: fromStandIn(r) });
-        }
-        out.push({ kind: 'more', key: `${top.id}-more`, threadId: top.id, count: replyCount, expanded: isOpen });
-      }
-    };
-    for (const c of myTop) pushThread(own(c), 0);
-    for (const c of standIn) pushThread(fromStandIn(c), c.replyCount, c);
-    return out;
-  }, [mine, others, me.handle, standIn, expanded, clip.author]);
-
-  const toggleThread = useCallback(
-    (threadId: string) =>
-      setExpanded((e) => {
-        const n = { ...e };
-        if (n[threadId]) delete n[threadId];
-        else n[threadId] = true;
-        return n;
-      }),
-    [],
-  );
-
-  const onReply = useCallback((c: DisplayComment) => {
-    setReplyTo({ threadId: c.threadId, handle: c.handle });
-    setText(`@${c.handle} `);
-    inputRef.current?.focus();
-  }, []);
-
-  const onLike = useCallback((id: string) => actions.likeComment(id), [actions]);
-
-  const post = () => {
-    const t = text.trim();
-    if (!t) return;
-    actions.postComment(clipId, t, replyTo?.threadId ?? null);
-    setText('');
-    setReplyTo(null);
-    Keyboard.dismiss();
-    if (!replyTo) listRef.current?.scrollToOffset({ offset: 0, animated: true });
-  };
-
-  const total = clip.comments + (social.stats[clipId]?.comments ?? 0) + mine.length;
+  const total = useCommentTotal(clip);
 
   return (
     <BottomSheet
@@ -162,37 +34,7 @@ export function CommentsSheet({ clip, open, progress, onRequestClose, onClosed }
         </View>
       }
     >
-      <FlatList
-        ref={listRef}
-        style={styles.list}
-        data={rows}
-        keyExtractor={(r) => r.key}
-        extraData={social.likedComments}
-        renderItem={({ item }) =>
-          item.kind === 'comment' ? (
-            <CommentRow c={item.c} liked={!!social.likedComments[item.c.id]} onLike={onLike} onReply={onReply} />
-          ) : (
-            <MoreReplies count={item.count} expanded={item.expanded} onPress={() => toggleThread(item.threadId)} />
-          )
-        }
-        keyboardShouldPersistTaps="handled"
-        keyboardDismissMode="on-drag"
-        contentContainerStyle={styles.listContent}
-        initialNumToRender={12}
-      />
-      <Composer
-        inputRef={inputRef}
-        value={text}
-        onChange={setText}
-        onPost={post}
-        placeholder={`Add a comment for ${clip.author}…`}
-        replyingTo={replyTo?.handle ?? null}
-        onCancelReply={() => {
-          setReplyTo(null);
-          setText('');
-        }}
-        bottomInset={keyboard ? 0 : insets.bottom}
-      />
+      <CommentsThread clip={clip} bottomInset={keyboard ? 0 : insets.bottom} />
     </BottomSheet>
   );
 }
@@ -206,6 +48,4 @@ const styles = StyleSheet.create({
   },
   title: { color: '#f5f5f5', fontSize: 16, fontWeight: '700' },
   count: { color: '#8e8e8e', fontSize: 12, marginTop: 2 },
-  list: { flex: 1 },
-  listContent: { paddingVertical: 6 },
 });

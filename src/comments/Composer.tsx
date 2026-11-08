@@ -1,9 +1,11 @@
-import { Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
+import { useState } from 'react';
+import { Platform, Pressable, StyleSheet, Text, TextInput, View, type TextInputInstance } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Avatar } from '@/ui/Avatar';
 import { canAct, openSignIn } from '@/auth/gate';
 import { useMe } from '@/auth/store';
 
+const INPUT_MAX_H = 96;
 const EMOJI = ['❤️', '🙌', '🔥', '👏', '😢', '😍', '😮', '😂'];
 
 interface Props {
@@ -15,11 +17,27 @@ interface Props {
   onCancelReply: () => void;
   bottomInset: number;
   inputRef?: React.Ref<TextInputInstance>;
+  /** Desktop: no quick-emoji row (a keyboard has its own), and Enter posts while Shift+Enter adds a line. */
+  desktop?: boolean;
 }
 
 /** Quick-emoji row + "Add a comment" input with a Post button. */
-export function Composer({ value, onChange, onPost, placeholder, replyingTo, onCancelReply, bottomInset, inputRef }: Props) {
+export function Composer({
+  value,
+  onChange,
+  onPost,
+  placeholder,
+  replyingTo,
+  onCancelReply,
+  bottomInset,
+  inputRef,
+  desktop = false,
+}: Props) {
   const canPost = value.trim().length > 0;
+  // Web: a browser textarea starts two rows tall and never grows, so start at one
+  // row and follow the text (it shrinks back once the comment is posted or cleared).
+  const [webH, setWebH] = useState(0);
+  const web = Platform.OS === 'web';
   const me = useMe();
   return (
     <View style={[styles.wrap, { paddingBottom: bottomInset + 8 }]}>
@@ -33,21 +51,23 @@ export function Composer({ value, onChange, onPost, placeholder, replyingTo, onC
           </Pressable>
         </View>
       )}
-      <View style={styles.emojiRow}>
-        {EMOJI.map((e) => (
-          <Pressable
-            key={e}
-            onPress={() => onChange(value + e)}
-            hitSlop={4}
-            accessibilityRole="button"
-            accessibilityLabel={`Add ${e}`}
-            style={({ pressed }) => [styles.emojiBtn, pressed && { transform: [{ scale: 0.85 }] }]}
-          >
-            <Text style={styles.emoji}>{e}</Text>
-          </Pressable>
-        ))}
-      </View>
-      <View style={styles.inputRow}>
+      {!desktop && (
+        <View style={styles.emojiRow}>
+          {EMOJI.map((e) => (
+            <Pressable
+              key={e}
+              onPress={() => onChange(value + e)}
+              hitSlop={4}
+              accessibilityRole="button"
+              accessibilityLabel={`Add ${e}`}
+              style={({ pressed }) => [styles.emojiBtn, pressed && { transform: [{ scale: 0.85 }] }]}
+            >
+              <Text style={styles.emoji}>{e}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
+      <View style={[styles.inputRow, desktop && styles.inputRowDesktop]}>
         <Avatar name={me.handle} size={34} />
         <View style={styles.inputPill}>
           <TextInput
@@ -61,8 +81,21 @@ export function Composer({ value, onChange, onPost, placeholder, replyingTo, onC
               openSignIn('Sign in to comment');
             }}
             placeholder={placeholder}
+            onKeyPress={
+              desktop
+                ? (e) => {
+                    // React Native Web hands over the DOM keyboard event.
+                    const k = e.nativeEvent as unknown as KeyboardEvent;
+                    if (k.key !== 'Enter' || k.shiftKey || k.isComposing) return;
+                    (e as unknown as Event).preventDefault();
+                    onPost();
+                  }
+                : undefined
+            }
             placeholderTextColor="#8e8e8e"
-            style={styles.input}
+            style={[styles.input, web && value !== '' && webH > 0 && { height: Math.min(INPUT_MAX_H, webH) }]}
+            rows={web ? 1 : undefined}
+            onContentSizeChange={web ? (e) => setWebH(e.nativeEvent.contentSize.height) : undefined}
             multiline
             maxLength={500}
             keyboardAppearance="dark"
@@ -105,6 +138,7 @@ const styles = StyleSheet.create({
   emojiBtn: { padding: 2 },
   emoji: { fontSize: 24 },
   inputRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingTop: 4 },
+  inputRowDesktop: { paddingTop: 6 },
   inputPill: {
     flex: 1,
     flexDirection: 'row',
@@ -117,7 +151,7 @@ const styles = StyleSheet.create({
     paddingRight: 14,
     gap: 8,
   },
-  input: { flex: 1, color: '#f5f5f5', fontSize: 15, paddingVertical: 10, maxHeight: 96 },
+  input: { flex: 1, color: '#f5f5f5', fontSize: 15, paddingVertical: 10, maxHeight: INPUT_MAX_H },
   post: { color: '#4c8dff', fontSize: 15, fontWeight: '700' },
   postDisabled: { opacity: 0.4 },
 });
