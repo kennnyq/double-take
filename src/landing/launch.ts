@@ -248,6 +248,18 @@ function layerDesktopHandoff(root: HTMLElement, picked: HTMLElement): () => void
   // the imperatively-created picked layer preserves its viewport coordinates.
   desk.style.background = 'transparent';
   desk.style.zIndex = '51';
+  // The desk's z-index only counts inside the app's own top-level container
+  // (the landing's sibling) when that is a stacking context of its own (it
+  // is: z-index 0), which would leave the whole app under the backdrop: the
+  // clip faded out onto black. So the container is lifted over the landing.
+  let host: HTMLElement = desk;
+  while (host.parentElement && host.parentElement !== root.parentElement) host = host.parentElement;
+  const hostZ = host.style.zIndex;
+  const hostPosition = host.style.position;
+  if (host !== desk) {
+    if (getComputedStyle(host).position === 'static') host.style.position = 'relative';
+    host.style.zIndex = '51';
+  }
   root.after(picked);
   picked.style.zIndex = '52';
   const reveal = desk.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 260, easing: 'ease-in-out' });
@@ -259,6 +271,10 @@ function layerDesktopHandoff(root: HTMLElement, picked: HTMLElement): () => void
     reveal.cancel();
     desk.style.background = background;
     desk.style.zIndex = zIndex;
+    if (host !== desk) {
+      host.style.zIndex = hostZ;
+      host.style.position = hostPosition;
+    }
     backdrop.remove();
     picked.remove();
   };
@@ -1142,6 +1158,18 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (pv && hi.readyState >= 2) {
     pv.currentTime = Math.min(hi.currentTime + 0.16, (pv.duration || 8) - 0.05);
     await Promise.race([new Promise((r) => pv.addEventListener('seeked', r, { once: true })), wait(300)]);
+    if (!alive()) return;
+  }
+  // Phones: the clip covers the whole screen by now. Clear what's left of the
+  // wall and its shade under it before it goes, or the feed showed through the
+  // shade, dimmed to a third, for most of a second as the clip faded out.
+  if (!deskFeed) {
+    const under = [galleryEl, ...overlays].filter((el): el is HTMLElement => !!el && Number(getComputedStyle(el).opacity) > 0.01);
+    await Promise.all(
+      under.map((el) =>
+        el.animate([{ opacity: getComputedStyle(el).opacity }, { opacity: 0 }], { duration: 180, easing: 'ease-out', fill: 'forwards' }).finished.catch(() => {}),
+      ),
+    );
     if (!alive()) return;
   }
   concealedFeed?.cancel();
