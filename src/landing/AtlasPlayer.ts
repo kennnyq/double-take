@@ -1,5 +1,6 @@
-import { atlasMode, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
+import { atlasMode, cellRect, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
 import { streamLoop } from './atlasStream';
+import { nextGap, pickSwipe, snap, SWIPE_MS, swipeSlices, type ReelPace, type ReelTile } from './reels';
 
 /**
  * Draws the gallery atlas onto "boards": one canvas under each strip of tiles
@@ -18,7 +19,18 @@ import { streamLoop } from './atlasStream';
  * at its own moment (`build_atlas.py`), a strip's halves are drawn exactly a
  * half apart so the scroll wraps without a shift, and tiles show the atlas's
  * first frame (which the video then starts from) until it plays.
+ *
+ * Now and then one tile "scrolls to the next reel" (`reels.ts`): its clip
+ * slides up and out as another slides in from below, cut from the same atlas,
+ * so it costs no decoder. Boards redraw every frame only while one moves.
  */
+
+/** A tile part way through a swipe, from one cell to another. */
+interface Swipe {
+  from: number;
+  to: number;
+  start: number;
+}
 
 interface Board {
   canvas: HTMLCanvasElement;
@@ -40,7 +52,14 @@ interface Board {
   gate: Element | null;
   /** Left on its last frame (the launch's leaving tiles). */
   frozen: boolean;
+  /** Each tile's cell now: swipes change them. */
+  cells: number[];
+  swipes: (Swipe | undefined)[];
+  /** Each tile's key for swiping: a strip's two copies of a tile share one, and swipe together. */
+  keys: string[];
 }
+
+let boardIds = 0;
 
 /** Waits for the page to have loaded and gone idle, so the atlas never competes with the hero. */
 function afterLoad(fn: () => void) {
@@ -116,6 +135,17 @@ export class AtlasPlayer {
   private io: IntersectionObserver;
   private frameRequested = false;
   private wantVideo = false;
+  /** How often tiles swipe; null for never. */
+  private pace: ReelPace | null = null;
+  private reelTimer = 0;
+  /** When each tile key last swiped (or, first seen, a made-up past so they don't all go at once). */
+  private lastSwipe = new Map<string, number>();
+  /** Swipes stop for the launch. */
+  private held = false;
+  private swiping = new Set<Board>();
+  private swipeFrame = 0;
+  /** The feed index of the clip in each cell, for the tile's `data-clip`. */
+  private clipOfCell = new Map<number, number>();
 
   constructor(readonly atlas: Atlas) {
     this.mode = visitorMode();
@@ -213,11 +243,29 @@ export class AtlasPlayer {
     return null;
   }
 
-  private draw(b: Board) {
+  private draw(b: Board, now = performance.now()) {
     const src = this.source();
     const { ctx, plan, corners } = b;
-    if (src) for (const d of plan.draws) ctx.drawImage(src, d.sx, d.sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
-    else {
+    if (src) {
+      plan.draws.forEach((d, i) => {
+        const at = (cell: number) => {
+          const c = cellRect(this.atlas, cell);
+          return { sx: c.sx + d.ox, sy: c.sy + d.oy };
+        };
+        const swipe = b.swipes[i];
+        if (swipe) {
+          const t = (now - swipe.start) / SWIPE_MS;
+          if (t < 1) {
+            for (const x of swipeSlices(snap(t), d, at(swipe.from), at(swipe.to)))
+              ctx.drawImage(src, x.sx, x.sy, x.sw, x.sh, x.dx, x.dy, x.dw, x.dh);
+            return;
+          }
+          b.swipes[i] = undefined;
+        }
+        const { sx, sy } = at(b.cells[i]);
+        ctx.drawImage(src, sx, sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
+      });
+    } else {
       ctx.fillStyle = EMPTY;
       for (const d of plan.draws) ctx.fillRect(d.dx, d.dy, d.dw, d.dh);
     }
@@ -230,6 +278,78 @@ export class AtlasPlayer {
 
   private drawAll() {
     this.boards.forEach((b) => this.draw(b));
+  }
+
+  /** How often tiles swipe to another clip (null: never), and which feed clip each cell holds. */
+  setReels(pace: ReelPace | null, clipOfCell: Map<number, number>) {
+    this.pace = this.mode === 'play' ? pace : null;
+    this.clipOfCell = clipOfCell;
+    this.held = false;
+    this.scheduleReel();
+  }
+
+  private scheduleReel() {
+    clearTimeout(this.reelTimer);
+    if (!this.pace || this.held) return;
+    this.reelTimer = window.setTimeout(() => {
+      this.reel();
+      this.scheduleReel();
+    }, nextGap(this.pace) * 1000);
+  }
+
+  /** One swipe, somewhere on screen: the tile that has waited longest, to a clip not shown near it. */
+  private reel() {
+    const pace = this.pace;
+    if (!pace || this.held || document.hidden || !this.wantVideo) return;
+    const now = performance.now();
+    // Every copy of each tile (a strip holds each twice), and where the one on screen is.
+    const members = new Map<string, [Board, number][]>();
+    const onScreen = new Map<string, ReelTile>();
+    const margin = 0.06;
+    for (const b of this.visible) {
+      if (!b.gate || b.frozen) continue;
+      b.tiles.forEach((el, i) => {
+        if (el.hasAttribute('data-hero-tile')) return;
+        const key = b.keys[i];
+        members.set(key, [...(members.get(key) ?? []), [b, i]]);
+        if (b.swipes[i]) return;
+        const r = el.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        if (x < innerWidth * margin || x > innerWidth * (1 - margin) || y < innerHeight * margin || y > innerHeight * (1 - margin)) return;
+        if (!this.lastSwipe.has(key)) this.lastSwipe.set(key, now - Math.random() * pace.each * 1000);
+        onScreen.set(key, { key, x, y, size: Math.max(r.width, r.height), cell: b.cells[i], last: this.lastSwipe.get(key)! });
+      });
+    }
+    const tiles = [...onScreen.values()];
+    const pick = pickSwipe(tiles, this.atlas.ids.length, now, pace);
+    if (!pick) return;
+    this.lastSwipe.set(pick.key, now);
+    for (const [b, i] of members.get(pick.key)!) {
+      b.swipes[i] = { from: b.cells[i], to: pick.cell, start: now };
+      b.cells[i] = pick.cell;
+      // A press on it now opens the feed on its new clip.
+      const el = b.tiles[i];
+      el.dataset.cell = String(pick.cell);
+      const clip = this.clipOfCell.get(pick.cell);
+      if (clip !== undefined) el.dataset.clip = String(clip);
+      this.swiping.add(b);
+    }
+    this.animateSwipes();
+  }
+
+  /** Redraws boards with a tile mid-swipe every frame, until the swipes settle. */
+  private animateSwipes() {
+    if (this.swipeFrame) return;
+    const step = () => {
+      const now = performance.now();
+      for (const b of this.swiping) {
+        this.draw(b, now);
+        if (!b.swipes.some(Boolean)) this.swiping.delete(b);
+      }
+      this.swipeFrame = this.swiping.size ? requestAnimationFrame(step) : 0;
+    };
+    this.swipeFrame = requestAnimationFrame(step);
   }
 
   /** The moment in its clip the tile in `cell` shows now. */
@@ -263,7 +383,20 @@ export class AtlasPlayer {
     );
     const corners = own ? null : cornerMask(plan, tiles);
     const gate = container.closest('.lt-gallery');
-    const board: Board = { canvas, ctx: ctx0, plan, corners, own, tiles, gate, frozen: false };
+    const id = ++boardIds;
+    const board: Board = {
+      canvas,
+      ctx: ctx0,
+      plan,
+      corners,
+      own,
+      tiles,
+      gate,
+      frozen: false,
+      cells: placed.map((t) => t.cell),
+      swipes: tiles.map(() => undefined),
+      keys: tiles.map((t, i) => `${id}:${t.dataset.twin ?? i}`),
+    };
     container.prepend(canvas);
     tiles.forEach((t) => t.setAttribute('data-on-board', ''));
     this.boards.add(board);
@@ -291,6 +424,7 @@ export class AtlasPlayer {
     }
     this.boards.delete(b);
     this.visible.delete(b);
+    this.swiping.delete(b);
     b.canvas.remove();
     b.tiles.forEach((t) => t.removeAttribute('data-on-board'));
     if (settle) this.update();
@@ -331,6 +465,9 @@ export class AtlasPlayer {
    */
   separate(root: HTMLElement): (keep: HTMLElement | null) => void {
     this.prune();
+    // No swipes while the gallery leaves.
+    this.held = true;
+    clearTimeout(this.reelTimer);
     const shared = [...this.boards].filter((b) => !b.own && root.contains(b.canvas));
     for (const b of shared) {
       const onScreen = b.tiles.filter((t) => {

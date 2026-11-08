@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import type { Atlas } from './atlas';
 import { atlasPlayer } from './AtlasPlayer';
+import type { ReelPace } from './reels';
 
 /** One feed clip as the gallery shows it. */
 export interface GalleryClip {
@@ -37,11 +38,14 @@ export function Tile({
   className = '',
   style,
   hero,
+  twin,
 }: {
   clip: number;
   className?: string;
   style?: CSSProperties;
   hero?: boolean;
+  /** Its place in a strip that holds its tiles twice: both copies swipe together. */
+  twin?: number;
 }) {
   const c = useGalleryClip(clip);
   return (
@@ -51,6 +55,7 @@ export function Tile({
       data-clip={c?.index ?? 0}
       data-cell={c?.cell}
       data-hero-tile={hero ? '' : undefined}
+      data-twin={twin}
       style={style}
     >
       {c &&
@@ -115,16 +120,27 @@ export function useTilePlayback(rootRef: RefObject<HTMLElement | null>, key: str
 
 /**
  * Has the gallery atlas draw the tiles under `rootRef` that have a cell: one
- * canvas per `[data-board]` strip, one inside each other tile.
+ * canvas per `[data-board]` strip, one inside each other tile. With `reels`,
+ * tiles also swipe to another clip now and then (null: never).
  */
-export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: string) {
+export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: string, reels?: ReelPace | null) {
   const atlas = useContext(GalleryAtlas);
-  const loaded = useContext(GalleryClips).length;
+  const clips = useContext(GalleryClips);
+  const loaded = clips.length;
   useEffect(() => {
     const root = rootRef.current;
     if (!root || !atlas || !loaded) return;
-    return atlasPlayer(atlas).mount(root);
-  }, [rootRef, key, atlas, loaded]);
+    const player = atlasPlayer(atlas);
+    const unmount = player.mount(root);
+    if (reels !== undefined) {
+      const clipOfCell = new Map(clips.flatMap((c) => (c.cell === undefined ? [] : [[c.cell, c.index] as const])));
+      player.setReels(reels, clipOfCell);
+    }
+    return () => {
+      if (reels !== undefined) player.setReels(null, new Map());
+      unmount();
+    };
+  }, [rootRef, key, atlas, loaded, clips, reels]);
 }
 
 /** The element's size, kept up to date. */

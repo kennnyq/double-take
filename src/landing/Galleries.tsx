@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, type CSSProperties } from 'react';
 import type { LandingValues } from './designs';
+import { REEL_PACES } from './reels';
 import { rand, Tile, useAtlasBoards, useBox, useTilePlayback } from './Tile';
 
 type Speed = LandingValues['speed'];
@@ -40,6 +41,7 @@ function Rows({ w, h, speed, rows, tileH: fixedH, seed = 0 }: Props & { rows?: n
               <Tile
                 key={`${half}-${i}`}
                 clip={row * 3 + i + seed}
+                twin={i}
                 style={{ width: tileW, height: tileH, marginRight: GAP }}
               />
             )),
@@ -75,7 +77,12 @@ function Columns({ w, h, speed }: Props) {
         >
           {[0, 1].flatMap((half) =>
             Array.from({ length: per }, (_, i) => (
-              <Tile key={`${half}-${i}`} clip={col * 5 + i} style={{ width: tileW, height: tileH, marginBottom: GAP }} />
+              <Tile
+                key={`${half}-${i}`}
+                clip={col * 5 + i}
+                twin={i}
+                style={{ width: tileW, height: tileH, marginBottom: GAP }}
+              />
             )),
           )}
         </div>
@@ -283,12 +290,21 @@ const GALLERIES: Record<LandingValues['gallery'], (p: Props) => React.ReactNode>
 };
 
 /** The hero's moving backdrop of clips. Drawn once per design and size. */
-export const Gallery = memo(function Gallery({ design, speed }: { design: LandingValues['gallery']; speed: Speed }) {
+export const Gallery = memo(function Gallery({
+  design,
+  speed,
+  reels,
+}: {
+  design: LandingValues['gallery'];
+  speed: Speed;
+  /** How often a tile swipes to the next clip, like scrolling reels. */
+  reels: LandingValues['reels'];
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const { w, h } = useBox(ref);
   const Layout = GALLERIES[design];
   useTilePlayback(ref, `${design}:${w}x${h}`);
-  useAtlasBoards(ref, `${design}:${w}x${h}`);
+  useAtlasBoards(ref, `${design}:${w}x${h}`, reels === 'off' ? null : REEL_PACES[reels]);
   return (
     <div className="lt-gallery" data-gallery={design} ref={ref}>
       {w > 0 && <Layout w={w} h={h} speed={SPEED[speed]} />}

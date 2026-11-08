@@ -52,6 +52,12 @@ export const LANDING_TRIALS = {
     { value: 'medium', label: 'Medium' },
     { value: 'fast', label: 'Fast' },
   ]),
+  reels: trial(LOOK, 'Tiles swipe to the next clip', 'reels', [
+    { value: 'sometimes', label: 'Every couple of seconds' },
+    { value: 'often', label: 'Often' },
+    { value: 'rarely', label: 'Rarely' },
+    { value: 'off', label: 'Never' },
+  ]),
   scan: trial(LOOK, 'On the tiles', 'scan', [
     { value: 'brackets', label: 'Tell boxes flicker on' },
     { value: 'labels', label: '“Real?” “AI?” chips' },
@@ -193,6 +199,7 @@ const BASE: LandingValues = {
   veil: 'radial',
   dim: '55',
   speed: 'medium',
+  reels: 'sometimes',
   scan: 'brackets',
   copy: 'second',
   type: 'grotesk',

@@ -133,7 +133,7 @@ export function Landing({
 
       <section className="lt-hero" data-layout={v.layout} data-gallery={v.gallery}>
         <div className="lt-gallery-hit" onClick={pressTile}>
-          <Gallery design={v.gallery} speed={v.speed} />
+          <Gallery design={v.gallery} speed={v.speed} reels={v.reels} />
         </div>
         {v.blur !== 'none' && <div className="lt-blur" data-mode={v.blur} />}
         <div className="lt-veil" data-mode={v.veil} />
