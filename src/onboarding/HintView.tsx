@@ -313,7 +313,8 @@ function Ripple({ clock, at, span }: { clock: Animated.Value; at: number; span: 
   return <Animated.View style={[styles.ripple, tint.ripple, { opacity, transform: [{ scale }] }]} />;
 }
 
-const RING = 70;
+const RING = 54;
+const RIPPLE = RING * 0.6;
 const STROKE = 3;
 
 /**
@@ -436,7 +437,7 @@ const styles = StyleSheet.create({
   contact: { position: 'absolute', left: TARGET.x - 13, top: TARGET.y - 2, width: 26, height: 14, borderRadius: 13 },
   glow: { position: 'absolute', left: TARGET.x - 12, top: TARGET.y - 10, width: 24, height: 24, borderRadius: 12 },
 
-  ripple: { position: 'absolute', left: TARGET.x - 21, top: TARGET.y - 21, width: 42, height: 42, borderRadius: 21, borderWidth: 2 },
+  ripple: { position: 'absolute', left: TARGET.x - RIPPLE / 2, top: TARGET.y - RIPPLE / 2, width: RIPPLE, height: RIPPLE, borderRadius: RIPPLE / 2, borderWidth: 2 },
   ringWrap: { position: 'absolute', left: TARGET.x - RING / 2, top: TARGET.y - RING / 2, width: RING, height: RING },
   ringBox: { position: 'absolute', left: 0, top: 0, width: RING, height: RING },
   ring: { position: 'absolute', top: 0, width: RING, height: RING, borderRadius: RING / 2, borderWidth: STROKE },
