@@ -53,17 +53,17 @@ test('parseAtlas keeps per-cell phases and the codec, and drops phases that do n
   assert.equal(parseAtlas({ ...MANIFEST, phases: [0, 'x', 1] }, '/a.json')?.phases, undefined);
 });
 
-test('galleryPicks: the atlas\'s clips the feed still has, in atlas order; else the first portrait ones', () => {
+test('galleryPicks: the atlas\'s clips the feed still has, in shared quality order; else the first portrait ones', () => {
   const feed = [
     { sourceId: 'c', aspect: 0.56 },
     { sourceId: 'x', aspect: 1.78 },
     { sourceId: 'a', aspect: 0.56 },
     { sourceId: 'b' },
   ];
-  // 'z' has left the feed; the gallery follows the atlas, not the feed's order.
+  // 'z' has left the feed; atlas cell numbers survive the feed's ordering.
   assert.deepEqual(galleryPicks(feed, { ids: ['a', 'z', 'c'] }, 48), [
-    { index: 2, cell: 0 },
     { index: 0, cell: 2 },
+    { index: 2, cell: 0 },
   ]);
   // No atlas: the first portrait clips (landscape skipped), up to the size.
   assert.deepEqual(galleryPicks(feed, null, 2), [{ index: 0 }, { index: 2 }]);
@@ -132,4 +132,14 @@ test('atlasMode: still for reduced motion, save-data and slow connections', () =
   assert.equal(atlasMode({ reducedMotion: false, saveData: true }), 'still');
   assert.equal(atlasMode({ reducedMotion: false, effectiveType: '3g' }), 'still');
   assert.equal(atlasMode({ reducedMotion: false, effectiveType: 'slow-2g' }), 'still');
+});
+
+test('gallery quality shortlist preserves eligible atlas cells and original feed positions', () => {
+  const feed = [
+    { id: '0', sourceId: 'weak', verdict: 'ai' as const, duration: 90, aspect: 0.56 },
+    { id: '1', sourceId: 'best', verdict: 'ai' as const, duration: 12, aspect: 0.56 },
+    { id: '2', sourceId: 'unavailable', verdict: 'ai' as const, duration: 12, aspect: 0.56 },
+    { id: '3', sourceId: 'real', verdict: 'real' as const, duration: 12, aspect: 0.56 },
+  ];
+  assert.deepEqual(galleryPicks(feed, { ids: ['real', 'weak', 'best'] }, 48), [{ index: 1, cell: 2 }, { index: 3, cell: 0 }]);
 });

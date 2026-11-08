@@ -22,6 +22,8 @@ export interface DeckOptions {
   /** Clip keys (`clipKey`) used by recent rounds: dealt only once fresh ones run out. */
   recent?: Iterable<string>;
   cap?: number;
+  /** Keep the shared feed quality order within fresh/used groups (untimed demo). */
+  preserveOrder?: boolean;
 }
 
 /** The key a clip is remembered by between rounds. */
@@ -85,19 +87,19 @@ export function buildDeck<T extends DeckSource>(clips: readonly T[], opts: DeckO
     seen.add(clipKey(c));
     return true;
   });
-  const ai = dealOrder(
-    unique.filter((c) => c.verdict === 'ai'),
-    recent,
-    rng,
+  const ordered = [...unique.filter((c) => !recent.has(clipKey(c))), ...unique.filter((c) => recent.has(clipKey(c)))];
+  const order = (items: T[]) => opts.preserveOrder ? items : dealOrder(items, recent, rng);
+  const ai = order(
+    ordered.filter((c) => c.verdict === 'ai'),
   );
-  const real = dealOrder(
-    unique.filter((c) => c.verdict === 'real'),
-    recent,
-    rng,
+  const real = order(
+    ordered.filter((c) => c.verdict === 'real'),
   );
   const perKind = Math.min(Math.floor(cap / 2), ai.length, real.length);
   const picked = perKind > 0 ? [...ai.slice(0, perKind), ...real.slice(0, perKind)] : [...ai, ...real].slice(0, cap);
-  return shuffle(picked, rng).map((clip) => ({ id: clip.id, truth: clip.verdict!, clip }));
+  const selected = new Set(picked);
+  const dealt = opts.preserveOrder ? ordered.filter((clip) => selected.has(clip)) : shuffle(picked, rng);
+  return dealt.map((clip) => ({ id: clip.id, truth: clip.verdict!, clip }));
 }
 
 /** A small seeded generator (mulberry32) for tests and repeatable dev rounds. */

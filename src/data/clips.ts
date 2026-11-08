@@ -17,6 +17,10 @@ export interface Clip {
   sourceId?: string;
   /** Width / height. Omitted for the 9:16 placeholders. */
   aspect?: number;
+  /** Published duration and source metadata for shared demo-quality ranking. */
+  duration?: number;
+  verdictChecked?: boolean;
+  sourceLikes?: number;
   /** Signed URL of the clip's tells JSON, when it has any. */
   tellsUrl?: string;
   /**

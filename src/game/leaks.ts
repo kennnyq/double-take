@@ -68,6 +68,7 @@ export function safeClip(clip: Clip): Clip {
     caption: leaks(clip.author) ? '' : safeCaption(clip.caption),
     author: safeHandle(clip.author),
     verdict: undefined,
+    verdictChecked: undefined,
     verdictTier: undefined,
     verdictEvidence: undefined,
     tellsUrl: undefined,

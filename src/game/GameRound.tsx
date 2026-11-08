@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
+import { initialFeedOrder } from '@/data/feed';
 import { signals } from '@/engagement/store';
 import type { FeedMode, StageRect } from '@/feed/mode';
 import { revealHow } from '@/settings/gesture';
@@ -65,6 +66,7 @@ async function deal(avoid: Iterable<string>, cap?: number, focus?: SkillCategory
   const loadable = (await loadDealableClips()).filter((c) => media.known(c) !== false && (!teach || c.verdict !== 'ai' || !!c.tellsUrl));
   const clips = practise(loadable, focus);
   const recent = [...recentClipKeys(gameHistory.getSnapshot()), ...avoid];
+  if (teach && initialFeedOrder() === 'best') return buildDeck(clips, { recent, cap, preserveOrder: true });
   if (gameDev.getSnapshot().adaptive) {
     // Near the player's skill: each clip's categories and difficulty first.
     const metas = await loadMetas(clips);

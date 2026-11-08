@@ -7,6 +7,7 @@
  */
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
+import { heroCandidates } from '@/data/rank';
 import { mediaUri } from '@/desktop/media';
 import { readTellsFile, type Box, type Tell } from '@/annotations/format';
 import { replayWindow, seekTimeFor, walkthroughSteps, type Replay } from '@/annotations/walkthrough';
@@ -103,7 +104,7 @@ export function loadDemo(): Promise<DemoMedia> {
     // The first AI clip (of a few) with at least two placed tells.
     let walk: DemoClip | null = null;
     let used: Clip | null = null;
-    for (const c of tall.filter((c) => c.verdict === 'ai' && c.tellsUrl).slice(0, 3)) {
+    for (const c of heroCandidates(tall.filter((c) => c.verdict === 'ai' && c.tellsUrl), 3)) {
       const tells = await tellsOf(c);
       if (tells.length >= 2) {
         used = c;

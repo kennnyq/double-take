@@ -45,15 +45,16 @@ type Layout = 'desktop' | 'phone';
 type Sample = { at: number; t: number[] };
 type Mark = { kind: string; at: number };
 
-async function run(browser: Browser, layout: Layout) {
+async function run(browser: Browser, layout: Layout, single = false) {
   const context = await browser.newContext(
     layout === 'desktop'
       ? { viewport: { width: 1280, height: 800 } }
       : { viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true },
   );
   const page = await context.newPage();
-  await page.addInitScript(() => {
+  await page.addInitScript((single) => {
     localStorage.clear();
+    if (single) localStorage.setItem('double-take:dev-settings:v1', JSON.stringify({ feedOrder: 'original' }));
     // Both layouts exercise the default Both end cue (suppressed for one annotation).
     // Every frame: each <video>'s currentTime.
     const w = window as unknown as { __samples: Sample[]; __sampling: boolean };
@@ -64,6 +65,13 @@ async function run(browser: Browser, layout: Layout) {
       requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
+  }, single);
+  // Keep explicit singleton coverage without assuming the live feed starts on
+  // a one-tell clip. The default runs exercise the actual ranked multi-step clip.
+  if (single) await page.route(/tells[^/]*\.json/, async (route) => {
+    const response = await route.fetch();
+    const body = await response.json();
+    await route.fulfill({ response, json: { ...body, tells: body.tells.slice(0, 1) } });
   });
   await page.goto(`${BASE_URL}/#app`);
   await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
@@ -89,25 +97,34 @@ async function run(browser: Browser, layout: Layout) {
     return cards.length ? cards[cards.length - 1].innerText : '';
   });
   const finish = await page.evaluate(() => document.querySelectorAll('[aria-label="Finish the walkthrough"]').length);
-  check(layout + ': single annotation has no navigation arrows', await page.getByTestId('dt-card').getByRole('button').count() === 1, {});
-  check(layout + ': single annotation has no dots or check', await page.getByTestId('dt-card').getByTestId('dt-step-dots').count() === 0 && await page.getByTestId('dt-card').getByTestId('dt-nav-check').count() === 0, {});
-  if (layout === 'desktop') {
-    // A single annotation uses a finish prompt regardless of the end-cue setting.
-    check('desktop: the card carries no labels and offers a finish button', finish >= 2 && /Click to finish/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
-      card: card.slice(0, 300),
-      finish,
-    });
-    // → goes on: on the last tell, that ends the walkthrough.
-    await page.keyboard.press('ArrowRight');
-    await page.waitForTimeout(600);
-    const open = await page.evaluate(() => !!document.querySelector('[aria-label="Close the walkthrough"]'));
-    check('desktop: → on the last tell ends the walkthrough', !open, { open });
+  if (!single) {
+    check(layout + ': ranked clip offers a multi-step walkthrough', await page.getByTestId('dt-card').getByTestId('dt-step-dots').count() > 0, { card });
+    if (layout === 'desktop') await page.keyboard.press('ArrowRight');
+    else await page.getByTestId('dt-card').getByRole('button', { name: 'Next tell' }).click();
+    await page.waitForTimeout(1800);
+    check(layout + ': continue keeps the walkthrough open', await page.locator('[aria-label="Close the walkthrough"]').count() > 0, {});
+    await page.click('[aria-label="Close the walkthrough"]');
   } else {
-    // "Text" end cue, worded for touch.
-    check('phone: the card says "Tap to …" and carries no labels', /Tap to (continue|finish)/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
-      card: card.slice(0, 300),
-    });
-    await page.getByTestId('dt-card').getByRole('button', { name: 'Finish the walkthrough' }).click();
+    check(layout + ': single annotation has no navigation arrows', await page.getByTestId('dt-card').getByRole('button').count() === 1, {});
+    check(layout + ': single annotation has no dots or check', await page.getByTestId('dt-card').getByTestId('dt-step-dots').count() === 0 && await page.getByTestId('dt-card').getByTestId('dt-nav-check').count() === 0, {});
+    if (layout === 'desktop') {
+      // A single annotation uses a finish prompt regardless of the end-cue setting.
+      check('desktop: the card carries no labels and offers a finish button', finish >= 2 && /Click to finish/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
+        card: card.slice(0, 300),
+        finish,
+      });
+      // → goes on: on the last tell, that ends the walkthrough.
+      await page.keyboard.press('ArrowRight');
+      await page.waitForTimeout(600);
+      const open = await page.evaluate(() => !!document.querySelector('[aria-label="Close the walkthrough"]'));
+      check('desktop: → on the last tell ends the walkthrough', !open, { open });
+    } else {
+      // "Text" end cue, worded for touch.
+      check('phone: the card says "Tap to …" and carries no labels', /Tap to (continue|finish)/.test(card) && !/AI draft|Slow-mo|slow mo|Not shown on screen/i.test(card), {
+        card: card.slice(0, 300),
+      });
+      await page.getByTestId('dt-card').getByRole('button', { name: 'Finish the walkthrough' }).click();
+    }
   }
   await page.waitForTimeout(1500);
   const { samples, marks } = await page.evaluate(() => {
@@ -172,6 +189,8 @@ async function main() {
   const browser = await chromium.launch({ executablePath: findChrome(), args: ['--autoplay-policy=no-user-gesture-required'] });
   await run(browser, 'desktop');
   await run(browser, 'phone');
+  await run(browser, 'desktop', true);
+  await run(browser, 'phone', true);
   await browser.close();
   if (failures.length) {
     console.error(`\n${failures.length} failed`);

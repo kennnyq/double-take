@@ -87,3 +87,9 @@ test('portrait clips are dealt before landscape ones', () => {
   const again = buildDeck(all, { rng: seededRng(5), cap: 2, recent: ['ap0', 'ap1', 'ap2', 'ap3', 'ap4', 'ap5'] });
   assert.ok(again.find((c) => c.truth === 'ai')!.id.startsWith('ap'));
 });
+
+test('untimed quality order survives dealing; fresh clips stay ahead of recent ones', () => {
+  const clips = Array.from({ length: 8 }, (_, i) => ({ id: `clip-${i}`, sourceId: `source-${i}`, verdict: i % 2 ? 'real' as const : 'ai' as const, aspect: 9 / 16 }));
+  assert.deepEqual(buildDeck(clips, { cap: 4, preserveOrder: true }).map((c) => c.clip), clips.slice(0, 4));
+  assert.deepEqual(buildDeck(clips, { cap: 4, preserveOrder: true, recent: ['source-0', 'source-1'] }).map((c) => c.clip), clips.slice(2, 6));
+});

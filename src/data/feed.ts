@@ -1,10 +1,16 @@
 import { makeClips, type Clip } from './clips';
 import { fetchRemoteClips, toClip } from './remote';
 import { orderFeed } from '@/engagement/feedOrder';
+import { devSettings } from '@/devtools/store';
+import { rankClips } from './rank';
+import './devSection';
 
 const MIN_CLIPS = 24;
 
 let initial: Promise<Clip[]> | null = null;
+let sessionOrder: 'best' | 'original' | undefined;
+/** Cached alongside the feed so a setting change cannot alter Game until reload. */
+export const initialFeedOrder = () => sessionOrder ?? devSettings.getSnapshot().feedOrder;
 
 /**
  * The feed's first page: clips from the media Worker, followed by bundled
@@ -17,6 +23,7 @@ let initial: Promise<Clip[]> | null = null;
  */
 export function loadInitialClips(): Promise<Clip[]> {
   // One request per session: the web landing and the feed share it.
+  sessionOrder ??= devSettings.getSnapshot().feedOrder;
   initial ??= load();
   return initial;
 }
@@ -33,6 +40,9 @@ async function load(): Promise<Clip[]> {
       console.warn(`[feed] using placeholders only: ${e instanceof Error ? e.message : e}`);
     }
   }
-  // The engagement ranker's order when it's on (a dev setting); else as served.
-  return orderFeed([...remote, ...makeClips(remote.length, Math.max(MIN_CLIPS - remote.length, 12))]);
+  const clips = [...remote, ...makeClips(remote.length, Math.max(MIN_CLIPS - remote.length, 12))];
+  // Read once: all consumers retain the same positional ids until reload.
+  // Best first takes precedence over experimental engagement personalization.
+  const ordered = initialFeedOrder() === 'best' ? rankClips(clips) : orderFeed(clips);
+  return ordered.map((clip, index) => ({ ...clip, id: `clip-${index}` }));
 }

@@ -473,7 +473,7 @@ export class AtlasPlayer {
         neighbours: [...where].filter(([k]) => k !== key).map(([, n]) => n),
         distances: this.atlas.distances,
         prefer: strip ? this.stripSets.get(strip) : undefined,
-        allow,
+        allow: (candidate) => this.clipOfCell.has(candidate) && (!allow || allow(candidate)),
         busy: this.busy,
         fitsAt: (at) => fits(this.planned, at, me.x, me.y, me.size, this.busyness),
       });
@@ -739,8 +739,13 @@ export class AtlasPlayer {
       if (value) el.style.setProperty('transform', value, priority);
       else el.style.removeProperty('transform');
     });
-    const n = this.atlas.ids.length;
-    const loops = stripLoops(n, this.atlas.distances);
+    // Quality picks may be a small subset of the atlas. Work in subset indices
+    // for the layout algorithm, then map back to the unchanged video cells.
+    const eligible = [...clipOfCell.keys()];
+    const n = eligible.length;
+    if (!n) return;
+    const distances = this.atlas.distances && eligible.map((a) => eligible.map((b) => this.atlas.distances![a][b]));
+    const loops = stripLoops(n, distances).filter((loop) => loop.length).map((loop) => loop.map((i) => eligible[i]));
     order.forEach(({ el }, k) => {
       this.stripSets.set(el, loops[k % loops.length]);
       const byTwin = strips.get(el)!;
@@ -749,8 +754,8 @@ export class AtlasPlayer {
       byTwin.forEach((members, twin) => deal(members, seq[Number(twin) % seq.length]));
     });
     if (spots.length) {
-      const cells = spreadCells(spots, n, this.atlas.distances, { x: g.left + g.width / 2, y: g.top + g.height / 2 });
-      cells.forEach((cell, key) => deal([loose[Number(key)]], cell));
+      const cells = spreadCells(spots, n, distances, { x: g.left + g.width / 2, y: g.top + g.height / 2 });
+      cells.forEach((cell, key) => deal([loose[Number(key)]], eligible[cell]));
     }
   }
 

@@ -91,8 +91,8 @@ async function main() {
 
   await holdOpens(page, 'on a fresh load', async () => {});
 
-  // During a double take, a new press goes on to the next step (on this
-  // one-tell clip: finishes it), without pausing; the hold that opened it
+  // During a double take, a new press goes on to the next step (or finishes
+  // the final tell), without pausing; the hold that opened it
   // didn't advance it.
   await holdSpace(page);
   const openedOnFirst = await page.evaluate(() => ({
@@ -103,9 +103,12 @@ async function main() {
   await page.keyboard.press(' ');
   await page.waitForTimeout(700);
   const afterPress = await state(page);
+  const advanced = await page.evaluate((before) =>
+    ((window as unknown as { __dtMarks?: { kind: string }[] }).__dtMarks ?? []).filter((m) => m.kind === 'scrubStart').length > before,
+  openedOnFirst.scrubs);
   check(
     'Space during a double take goes on to its next step, not pause',
-    openedOnFirst.open && !afterPress.open && !afterPress.paused,
+    openedOnFirst.open && !afterPress.paused && (!afterPress.open || advanced),
     { openedOnFirst, afterPress },
   );
   await closeWalkthrough(page);

@@ -42,9 +42,12 @@ test('toClip maps a remote clip onto the feed shape', () => {
   assert.equal(c.tile, CLIP.tile);
 });
 
-test('toClip keeps the ground truth only as a verdict, never the raw label', () => {
+test('toClip keeps the ground truth as a verdict and quality flag, never the raw label', () => {
   const c = toClip(CLIP, 0);
   assert.equal(c.verdict, 'ai');
+  assert.equal(c.verdictChecked, true);
+  assert.equal(c.duration, CLIP.duration);
+  assert.equal(c.sourceLikes, CLIP.source?.likes);
   assert.ok(!JSON.stringify(c).includes('confirmed'));
   assert.equal(toClip({ ...CLIP, label: null }, 0).verdict, undefined);
 });

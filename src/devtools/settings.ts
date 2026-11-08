@@ -47,6 +47,8 @@ export const MAIN_PIPELINE = 'main';
  */
 export interface DevSettings {
   holdMs: HoldDelay;
+  /** Shared Home/Game order; takes effect on reload. */
+  feedOrder: 'best' | 'original';
   /** The tells pipeline ("model") every clip shows; clips without it fall back to main. */
   pipeline: string;
   launcher: LauncherCorner;
@@ -75,6 +77,7 @@ export type DevSettingKey = keyof DevSettings;
 
 export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   holdMs: 350,
+  feedOrder: 'best',
   pipeline: MAIN_PIPELINE,
   launcher: 'auto',
   spotlightEffect: 'darken',
@@ -106,6 +109,7 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
   const d = DEFAULT_SETTINGS;
   return {
     holdMs: oneOf(HOLD_DELAYS, o.holdMs, d.holdMs),
+    feedOrder: oneOf(['best', 'original'] as const, o.feedOrder, d.feedOrder),
     pipeline: typeof o.pipeline === 'string' && /^[\w.-]{1,40}$/.test(o.pipeline) ? o.pipeline : d.pipeline,
     launcher: oneOf(LAUNCHER_CORNERS, o.launcher, d.launcher),
     spotlightEffect: oneOf(SPOTLIGHT_EFFECTS, o.spotlightEffect, d.spotlightEffect),

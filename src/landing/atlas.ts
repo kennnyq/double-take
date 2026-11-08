@@ -1,3 +1,5 @@
+import { heroCandidates, type RankableClip } from '../data/rank.ts';
+
 /**
  * The gallery atlas: every gallery clip, small, in one looping video laid out
  * as a grid of cells. One download and one decoder feed every tile on the
@@ -79,26 +81,19 @@ export function parseAtlas(json: unknown, url: string): Atlas | null {
 
 /**
  * Which feed clips the gallery shows, in order, and each one's atlas cell:
- * with an atlas, its clips (picked for variety, never the same footage twice)
- * that the feed still has; without one, the feed's first `size` portrait clips.
+ * the shared hero shortlist among portrait clips available in the atlas (or
+ * all portrait clips without one). Original feed indices and atlas cells survive.
  */
 export function galleryPicks(
-  clips: readonly { sourceId?: string; aspect?: number }[],
+  clips: readonly (Omit<RankableClip, 'id'> & { id?: string })[],
   atlas: Pick<AtlasManifest, 'ids'> | null,
   size: number,
 ): { index: number; cell?: number }[] {
-  if (atlas) {
-    const byId = new Map(clips.map((c, index) => [c.sourceId, index] as const));
-    return atlas.ids.flatMap((id, cell) => {
-      const index = byId.get(id);
-      return index === undefined ? [] : [{ index, cell }];
-    });
-  }
-  return clips
-    .map((clip, index) => ({ clip, index }))
-    .filter(({ clip }) => (clip.aspect ?? 9 / 16) < 1)
-    .slice(0, size)
-    .map(({ index }) => ({ index }));
+  const cells = atlas ? cellsById(atlas) : null;
+  const eligible = clips.map((clip, index) => ({ ...clip, id: clip.id ?? `clip-${index}`, index }))
+    .filter((clip) => (clip.aspect ?? 9 / 16) < 1 && (!cells || cells.has(clip.sourceId ?? '')));
+  return heroCandidates(eligible, size).map(({ index, sourceId }) =>
+    cells ? { index, cell: cells.get(sourceId!)! } : { index });
 }
 
 /** Each clip id's cell. */
