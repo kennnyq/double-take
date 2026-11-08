@@ -61,6 +61,9 @@ function toGallery(clips: readonly Clip[], atlas: Atlas | null): GalleryClip[] {
  * opened on the clip that grew into the feed (`startAt`), then gets out of the way.
  * The app gets `showLanding` to come back here (the desktop logo).
  */
+/** In the landing's own history entry: a back to it leaves the app for the landing. */
+const LANDING_MARK = 'dtLanding';
+
 export function WithLanding({
   children,
 }: {
@@ -112,12 +115,13 @@ export function WithLanding({
     setStartAt(undefined);
   }, []);
 
-  // Back from the app returns to the landing. Only a back to the root itself:
-  // routes over the app (Settings, the timed round) go back through history
-  // too, and landing on one of them isn't leaving the app.
+  // Back from the app returns to the landing: only a back to the landing's own
+  // history entry (marked as the app takes over). The app's routes (Settings,
+  // Skills, the game) go back through history too, and Expo Router rewrites the
+  // address as it does (`/#app` becomes `/`), so the address alone can't tell.
   useEffect(() => {
-    const onPop = () => {
-      if (window.location.pathname === '/' && window.location.hash !== APP_HASH) showLanding();
+    const onPop = (e: PopStateEvent) => {
+      if ((e.state as { [LANDING_MARK]?: boolean } | null)?.[LANDING_MARK]) showLanding();
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
@@ -145,7 +149,10 @@ export function WithLanding({
   }, []);
   const onDone = useCallback(() => {
     setStage('app');
-    window.history.pushState(window.history.state, '', APP_HASH);
+    // Mark the landing's entry, then the app's on top of it (without the mark).
+    const state = window.history.state as Record<string, unknown> | null;
+    window.history.replaceState({ ...state, [LANDING_MARK]: true }, '');
+    window.history.pushState(state, '', APP_HASH);
   }, []);
 
   return (
