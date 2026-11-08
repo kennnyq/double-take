@@ -59,6 +59,16 @@ VERSION = "v1"
 COMPARE_FIELDS = ("tier", "pairOf", "how")
 
 
+def write_atomic(path: str, data: bytes | str) -> None:
+    """Write a file by renaming a temporary one over it. A build made from a hardlinked
+    copy of another (review_publish.py) must never write through to the original's
+    files, and a rename gives the path a new inode instead of rewriting the shared one."""
+    tmp = f"{path}.{os.getpid()}.tmp"
+    with open(tmp, "wb") as f:
+        f.write(data.encode() if isinstance(data, str) else data)
+    os.replace(tmp, path)
+
+
 def clip_id(url: str) -> str:
     m = re.search(r"(?:x|twitter)\.com/.*/status/(\d+)", url)
     if m:
@@ -177,8 +187,9 @@ def copy_tells(cid: str, out: str, src_dir: str = TELLS_DIR) -> str | None:
         return None
     key = f"media/{cid}/{VERSION}/tells.{hashlib.sha256(data).hexdigest()[:12]}.json"
     os.makedirs(os.path.dirname(os.path.join(out, key)), exist_ok=True)
-    with open(os.path.join(out, key), "wb") as f:
-        f.write(data)
+    dest = os.path.join(out, key)
+    if not (os.path.exists(dest) and open(dest, "rb").read() == data):  # content-addressed: same name, same bytes
+        write_atomic(dest, data)
     return key
 
 
@@ -215,11 +226,15 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
         digest = sha256(src)
         arch = os.path.join(out, "archive", digest)
         os.makedirs(arch, exist_ok=True)
-        shutil.copy(src, os.path.join(arch, "original" + os.path.splitext(src)[1]))
-        with open(os.path.join(arch, "info.json"), "w") as f:
-            json.dump(info, f, ensure_ascii=False)
-        with open(os.path.join(arch, "candidate.json"), "w") as f:
-            json.dump(cand, f, ensure_ascii=False, indent=2)
+        orig = os.path.join(arch, "original" + os.path.splitext(src)[1])
+        shutil.copy(src, orig + ".tmp")
+        os.replace(orig + ".tmp", orig)
+        write_atomic(os.path.join(arch, "info.json"), json.dumps(info, ensure_ascii=False))
+        write_atomic(os.path.join(arch, "candidate.json"), json.dumps(cand, ensure_ascii=False, indent=2))
+        # A clip built again (say, kept after a discard) starts from an empty folder: the
+        # old files are unlinked, never overwritten, in case they're hardlinked elsewhere.
+        if os.path.isdir(media_dir):
+            shutil.rmtree(media_dir)
         normalize(src, media_dir)
 
     served = probe(os.path.join(media_dir, "720.mp4"))
@@ -391,8 +406,7 @@ def main() -> None:
     with ThreadPoolExecutor(args.jobs) as ex:
         list(ex.map(lambda c: attach_tile(c, args.out), feed))
     os.makedirs(os.path.join(args.out, "feeds"), exist_ok=True)
-    with open(feed_path, "w") as f:
-        json.dump({"version": 1, "clips": feed}, f, ensure_ascii=False, indent=2)
+    write_atomic(feed_path, json.dumps({"version": 1, "clips": feed}, ensure_ascii=False, indent=2))
     print(f"feed: {len(feed)} clips → {feed_path}", file=sys.stderr)
 
 

@@ -185,8 +185,10 @@ def load_frames(clips: list[dict], root: str, cache_path: str | None = None) -> 
         cache[key] = [f"{h:016x}" for h in frames[c["id"]]]
     if cache_path:
         os.makedirs(os.path.dirname(os.path.abspath(cache_path)), exist_ok=True)
-        with open(cache_path, "w") as f:
+        tmp = f"{cache_path}.{os.getpid()}.tmp"  # rename, never rewrite: build-next is a hardlinked copy
+        with open(tmp, "w") as f:
             json.dump(cache, f)
+        os.replace(tmp, cache_path)
     return frames
 
 

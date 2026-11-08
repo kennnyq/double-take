@@ -5,7 +5,7 @@
  *    hash (the assets binding does not report sizes, and players need them to seek)
  */
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { extname, join, relative, resolve } from 'node:path';
 
 const BUILD = resolve(import.meta.dirname, '../../build');
@@ -41,7 +41,12 @@ for (const file of walk(join(BUILD, 'media'))) {
   };
 }
 
-writeFileSync(join(BUILD, 'asset-manifest.json'), JSON.stringify(manifest));
+// Rename over, never rewrite: build/ can share files (hardlinks) with its backup.
+function writeAtomic(path: string, text: string) {
+  writeFileSync(`${path}.tmp`, text);
+  renameSync(`${path}.tmp`, path);
+}
+writeAtomic(join(BUILD, 'asset-manifest.json'), JSON.stringify(manifest));
 // annotate/ holds the tells pipeline's working files (frames, model replies); only tells.*.json under media/ ships.
-writeFileSync(join(BUILD, '.assetsignore'), 'archive/\nannotate/\n.DS_Store\n*.part\n');
+writeAtomic(join(BUILD, '.assetsignore'), 'archive/\nannotate/\n.DS_Store\n*.part\n*.tmp\n');
 console.log(`staged ${Object.keys(manifest).length} media files from ${BUILD}`);
