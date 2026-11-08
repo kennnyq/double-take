@@ -30,6 +30,8 @@ export interface AtlasManifest {
   phases?: number[];
   /** Its MIME type with codecs, for Media Source (the atlas is a fragmented MP4). */
   mime?: string;
+  /** How alike each pair of clips looks, 0 (same footage) to 1, so look-alikes are kept apart (spread.ts). */
+  distances?: number[][];
 }
 
 /** A manifest with its media resolved to absolute URLs. */
@@ -57,9 +59,17 @@ export function parseAtlas(json: unknown, url: string): Atlas | null {
     Array.isArray(m.phases) && m.phases.length === m.ids.length && m.phases.every((p) => typeof p === 'number')
       ? m.phases
       : undefined;
+  const n = m.ids.length;
+  const distances =
+    Array.isArray(m.distances) &&
+    m.distances.length === n &&
+    m.distances.every((row) => Array.isArray(row) && row.length === n && row.every((d) => typeof d === 'number'))
+      ? m.distances
+      : undefined;
   return {
     ...(m as AtlasManifest),
     phases,
+    distances,
     mime: typeof m.mime === 'string' ? m.mime : undefined,
     lead: typeof m.lead === 'number' && m.lead >= 0 ? m.lead : 0,
     srcUrl: abs(m.src),

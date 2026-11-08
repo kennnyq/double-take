@@ -34,6 +34,17 @@ test('parseAtlas rejects what is not a manifest', () => {
   assert.equal(parseAtlas({ ...MANIFEST, lead: undefined }, '/a.json')?.lead, 0);
 });
 
+test('parseAtlas keeps look-alike distances only when they cover every clip', () => {
+  const d = [
+    [0, 0.2, 0.3],
+    [0.2, 0, 0.1],
+    [0.3, 0.1, 0],
+  ];
+  assert.deepEqual(parseAtlas({ ...MANIFEST, distances: d }, '/a.json')?.distances, d);
+  assert.equal(parseAtlas({ ...MANIFEST, distances: d.slice(1) }, '/a.json')?.distances, undefined);
+  assert.equal(parseAtlas({ ...MANIFEST, distances: [[0], [0], [0]] }, '/a.json')?.distances, undefined);
+});
+
 test('parseAtlas keeps per-cell phases and the codec, and drops phases that do not fit', () => {
   const a = parseAtlas({ ...MANIFEST, phases: [0, 4.4, 1.6], mime: 'video/mp4; codecs="avc1.64001f"' }, '/a.json');
   assert.deepEqual(a?.phases, [0, 4.4, 1.6]);
