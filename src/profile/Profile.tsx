@@ -4,7 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Clipboard from 'expo-clipboard';
 import { useGuestChosen, continueAsGuest } from '@/auth/guest';
-import { openSignIn, requireAccount, signOutToChoice } from '@/auth/gate';
+import { openSignIn, signOutToChoice } from '@/auth/gate';
 import { useAuth, useMe } from '@/auth/store';
 import { useMyNote } from './note';
 import { NoteEditor } from './NoteEditor';
@@ -138,7 +138,7 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => requireAccount('Sign in to post Takes', nav.openCreate)}
+          onPress={nav.openCreate}
           hitSlop={8}
           accessibilityLabel="Create"
           style={styles.topBtn}

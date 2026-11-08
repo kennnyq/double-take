@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { router, useIsFocused } from 'expo-router';
+import { router, useIsFocused, useLocalSearchParams } from 'expo-router';
 import { SignInSheet } from '@/auth/SignInSheet';
 import { AuthBoot } from '@/auth/store';
 import type { Clip } from '@/data/clips';
@@ -19,10 +19,22 @@ import { SocialProvider } from '@/social/store';
 import { SocialSync } from '@/social/SocialSync';
 import { Placeholder } from '@/ui/Placeholder';
 import { TABS, TabBar, onTabRequest, type TabId } from '@/ui/TabBar';
+import { UploadModal } from '@/upload/UploadModal';
+import { uploadRoute } from '@/investigation/upload-flow';
 import { ToastProvider } from '@/ui/Toast';
 
 export default function Home() {
   const { width, height } = useWindowDimensions();
+  const { check } = useLocalSearchParams<{ check?: string }>();
+  const savedCheck = uploadRoute({ pending: check }).pendingId;
+  const [uploadOpen, setUploadOpen] = useState(!!savedCheck);
+  const [shownCheck, setShownCheck] = useState(savedCheck);
+  if (savedCheck !== shownCheck) {
+    setShownCheck(savedCheck);
+    if (savedCheck) setUploadOpen(true);
+  }
+  const openUpload = useCallback(() => setUploadOpen(true), []);
+  const closeUpload = useCallback(() => setUploadOpen(false), []);
   // Desktop browsers get the Reels-style layout; it needs room for the side info and action columns.
   const desktop = Platform.OS === 'web' && width >= 760 && height >= 480;
   return (
@@ -34,11 +46,12 @@ export default function Home() {
         <WithLanding>
           {(startAt, showLanding) => (
             <>
-              {desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} /> : <Screen startAt={startAt} />}
+              {desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} onUpload={openUpload} uploadOpen={uploadOpen} /> : <Screen startAt={startAt} onUpload={openUpload} uploadOpen={uploadOpen} />}
               {/* Dev builds: a launcher for the tabbed dev settings. */}
               <DevSettings desktop={desktop} onShowLanding={showLanding} />
               {/* Opened by the auth gate when a guest tries to act, or by a log-in button. */}
               <SignInSheet />
+              <UploadModal open={uploadOpen} onClose={closeUpload} />
             </>
           )}
         </WithLanding>
@@ -47,7 +60,7 @@ export default function Home() {
   );
 }
 
-function Screen({ startAt }: { startAt?: number }) {
+function Screen({ startAt, onUpload, uploadOpen }: { startAt?: number; onUpload: () => void; uploadOpen: boolean }) {
   const [tab, setTab] = useState<TabId>('home');
   const [profileTab, setProfileTab] = useState<ProfileTab>('reposts');
   const feedRef = useRef<FeedHandle>(null);
@@ -69,16 +82,17 @@ function Screen({ startAt }: { startAt?: number }) {
   // state (through `openSettings`) all go there. Leaving it on another tab
   // brings that tab up here.
   const showTab = useCallback((t: TabId) => {
-    if (t === 'settings') router.push('/settings');
+    if (t === 'create') onUpload();
+    else if (t === 'settings') router.push('/settings');
     else setTab(t);
-  }, []);
+  }, [onUpload]);
   const settingsAsked = useSettingsOpen();
   useEffect(() => {
     if (!settingsAsked) return;
     closeSettings();
     router.push('/settings');
   }, [settingsAsked]);
-  useEffect(() => onTabRequest(setTab), []);
+  useEffect(() => onTabRequest(showTab), [showTab]);
 
   const nav = useMemo<AppNav>(
     () => ({
@@ -110,7 +124,7 @@ function Screen({ startAt }: { startAt?: number }) {
           {/* Feed stays mounted so its position survives tab switches; it pauses when hidden. */}
           <View style={[StyleSheet.absoluteFill, tab !== 'home' && styles.hidden]}>
             <Feed
-              focused={screenFocused && tab === 'home'}
+              focused={screenFocused && tab === 'home' && !uploadOpen}
               sheetOpen={sheet !== null}
               sheetProgress={sheetProgress}
               startAt={startAt}

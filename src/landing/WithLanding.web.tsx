@@ -150,7 +150,7 @@ export function WithLanding({
           </GalleryAtlas.Provider>
         </GalleryClips.Provider>
       )}
-      {DEV && (
+      {DEV && stage !== 'app' && (
         <TrialBar
           api={trials}
           actions={

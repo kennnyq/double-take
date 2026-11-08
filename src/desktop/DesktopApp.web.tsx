@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
 import { CircleUserRound, House, LogIn, LogOut, Plus, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
-import { openSignIn, requireAccount, signOutToChoice } from '@/auth/gate';
+import { openSignIn, signOutToChoice } from '@/auth/gate';
 import { useAuth, useMe } from '@/auth/store';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import type { Clip } from '@/data/clips';
@@ -34,7 +34,11 @@ const NAV: { id: DesktopTab; label: string; icon: LucideIcon }[] = [
 export function DesktopApp({
   startAt,
   onLogo,
+  onUpload,
+  uploadOpen = false,
 }: {
+  onUpload: () => void;
+  uploadOpen?: boolean;
   startAt?: number;
   /** The rail's logo: back to the landing page. */
   onLogo?: () => void;
@@ -71,8 +75,8 @@ export function DesktopApp({
 
   // Create, from the rail or the profile's +.
   const openCreate = useCallback(() => {
-    requireAccount('Sign in to post Takes', () => setTab('create'));
-  }, []);
+    onUpload();
+  }, [onUpload]);
 
   const nav = useMemo<AppNav>(
     () => ({
@@ -143,7 +147,7 @@ export function DesktopApp({
         <main className="desk-main">
           {/* The feed stays mounted so its position survives tab switches; it pauses when hidden. */}
           <div className="tab-pane" hidden={tab !== 'home'}>
-            <DesktopFeed ref={feedRef} visible={tab === 'home'} scrollEnabled={sheet === null && !settingsOpen} />
+            <DesktopFeed ref={feedRef} visible={tab === 'home' && !uploadOpen} scrollEnabled={sheet === null && !settingsOpen} />
           </div>
           {tab === 'profile' && (
             <div className="desk-profile">
