@@ -172,6 +172,17 @@ export const LANDING_TRIALS = {
     { value: 'shallow', label: 'A little' },
     { value: 'deep', label: 'Far away' },
   ]),
+  start: trial(LAUNCH, 'Picked clip moves after', 'start', [
+    { value: '1400', label: '1.4 s' },
+    { value: '1000', label: '1 s' },
+    { value: '600', label: '0.6 s' },
+    { value: '2000', label: '2 s' },
+  ]),
+  growth: trial(LAUNCH, 'It grows', 'growth', [
+    { value: 'medium', label: 'Steadily' },
+    { value: 'slow', label: 'Slowly' },
+    { value: 'fast', label: 'Quickly' },
+  ]),
   pace: trial(LAUNCH, 'Leaving takes', 'pace', [
     { value: '1000', label: '1s' },
     { value: '1800', label: '1.8s' },
@@ -245,6 +256,8 @@ const BASE: LandingValues = {
   sink: '3000',
   depth: 'medium',
   pace: '1800',
+  start: '1400',
+  growth: 'medium',
   focus: 'gradual',
   beat: 'brackets',
   grow: 'straight',

@@ -92,12 +92,26 @@ function Columns({ w, h, speed }: Props) {
   );
 }
 
+/**
+ * The tilted plane's transform, and the same functions untilted: the launch
+ * animates between the two, function by function. (From a computed matrix to
+ * `none` instead, Safari couldn't interpolate and flipped in one frame.)
+ */
+export const TILT = 'perspective(1500px) rotateX(36deg) rotateZ(-14deg)';
+export const UNTILT = 'perspective(1500px) rotateX(0deg) rotateZ(0deg)';
+
 /** The rows on a plane tilted back in 3D. */
 function Tilted({ w, h, speed }: Props) {
   const pw = w * 1.9;
   const ph = h * 2.1;
   return (
-    <div className="lt-plane lt-tilted" data-plane="" style={{ width: pw, height: ph, left: (w - pw) / 2, top: (h - ph) / 2 }}>
+    <div
+      className="lt-plane lt-tilted"
+      data-plane=""
+      data-tilt={TILT}
+      data-untilt={UNTILT}
+      style={{ width: pw, height: ph, left: (w - pw) / 2, top: (h - ph) / 2, transform: TILT }}
+    >
       <Rows w={pw} h={ph} speed={speed} tileH={clamp(150, h * 0.26, 250)} />
     </div>
   );

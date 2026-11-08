@@ -226,6 +226,8 @@ interface Lifted {
   layer: HTMLElement;
   frameRect: Rect;
   planeTransform: string;
+  /** The same transform untilted: what the growth animates it to. */
+  flatTransform: string;
   start: Keyframe;
   small: HTMLVideoElement;
   /** Where in its clip the small one is now. */
@@ -248,17 +250,22 @@ function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted
 
   let frameRect: Rect = { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
   let planeTransform = 'none';
+  let flatTransform = 'none';
   let origin = '50% 50%';
   let local: Rect;
   if (plane) {
     const cs = getComputedStyle(plane);
-    planeTransform = cs.transform;
+    // Its own functions where it declares them, so they interpolate one by one.
+    planeTransform = plane.dataset.tilt ?? cs.transform;
+    flatTransform = plane.dataset.untilt ?? 'none';
     origin = cs.transformOrigin;
-    // Where the tile sits on the plane, measured flat.
+    // Where the tile sits on the plane, measured flat (then its own transform back).
+    const own = [plane.style.getPropertyValue('transform'), plane.style.getPropertyPriority('transform')] as const;
     plane.style.setProperty('transform', 'none', 'important');
     frameRect = plane.getBoundingClientRect();
     const r = tile.getBoundingClientRect();
-    plane.style.removeProperty('transform');
+    if (own[0]) plane.style.setProperty('transform', own[0], own[1]);
+    else plane.style.removeProperty('transform');
     local = { left: r.left - frameRect.left, top: r.top - frameRect.top, width: r.width, height: r.height };
   } else {
     const r = tile.getBoundingClientRect();
@@ -307,23 +314,62 @@ function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted
   tile.style.visibility = 'hidden';
   const cell = Number(tile.dataset.cell);
   const time = player ? () => player.clipTime(cell) : () => small.currentTime;
-  return { frame: f, layer, frameRect, planeTransform, start, small, time };
+  return { frame: f, layer, frameRect, planeTransform, flatTransform, start, small, time };
 }
 
-/** The full clip, at the small one's moment, faded in over it. */
+/**
+ * The full clip, at the small one's moment, faded in over it. It was started
+ * at the press (`warm`), so here it only moves in: seeking and starting a
+ * video as the growth began stalled Safari, and the growth's first frames
+ * were lost (it leapt).
+ */
 async function sharpen(lifted: Lifted, hi: HTMLVideoElement) {
   await until(() => hi.readyState >= 2, 600);
-  hi.currentTime = Math.min(lifted.time() + 0.06, (hi.duration || 8) - 0.05);
-  await Promise.race([new Promise((r) => hi.addEventListener('seeked', r, { once: true })), wait(300)]);
-  hi.play().catch(() => {});
+  if (hi.paused) {
+    hi.currentTime = Math.min(lifted.time() + 0.06, (hi.duration || 8) - 0.05);
+    await Promise.race([new Promise((r) => hi.addEventListener('seeked', r, { once: true })), wait(300)]);
+  }
+  hi.style.cssText = '';
+  // Moved in the same task, it keeps playing.
   lifted.layer.append(hi);
-  hi.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 180, fill: 'forwards' });
+  hi.play().catch(() => {});
+  hi.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, easing: 'ease-in-out', fill: 'forwards' });
+}
+
+/** Starts the full clip early, out of sight and in step with the tile's own clip, so it is playing by the time it shows. */
+function warm(hi: HTMLVideoElement, root: HTMLElement, time: () => number) {
+  // In the document (Safari won't play it detached), out of sight.
+  hi.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;';
+  root.append(hi);
+  const sync = () => {
+    hi.currentTime = Math.min(time() + 0.05, (hi.duration || 8) - 0.05);
+  };
+  hi.addEventListener(
+    'loadedmetadata',
+    () => {
+      sync();
+      hi.play().catch(() => {});
+    },
+    { once: true },
+  );
+  // Loading took a moment while the tile played on: catch up once.
+  hi.addEventListener(
+    'playing',
+    () => {
+      if (Math.abs(hi.currentTime - time()) > 0.12) sync();
+    },
+    { once: true },
+  );
 }
 
 // ---- The launch --------------------------------------------------------
 
-/** How soon after the press the one that stays starts to grow, at the latest (ms). */
-const GROW_AFTER = 650;
+/** Setting up the growth (the beat, the full clip's first frames) takes about this long (ms), so it waits that much less. */
+const GROW_SETUP = 290;
+/** The stragglers hurry this long before the growth starts (ms), so the two don't share a frame. */
+const HURRY_LEAD = 250;
+/** How long it grows, against the grow style's own length (a design on trial: `growth`). */
+const GROWTH: Record<LandingValues['growth'], number> = { fast: 1, medium: 1.25, slow: 1.6 };
 /** How much faster the tiles still leaving go, once it does. */
 const HURRY = 2.5;
 
@@ -406,6 +452,11 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   Object.assign(hi, { src: hooks.fullSrc(clip) ?? '', muted: true, loop: true, playsInline: true, preload: 'auto' });
   hi.className = 'lt-hi';
   hi.load();
+  {
+    const player = playerFor(root);
+    const cell = Number(survivor.dataset.cell);
+    if (player && !Number.isNaN(cell)) warm(hi, root, () => player.clipTime(cell));
+  }
 
   if (reduce) {
     if (!deskFeed) hooks.mountApp(clip);
@@ -469,7 +520,11 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // The lighter tier (tier.ts) lifts it out at once too: whole strips leave around it.
   const light = root.dataset.tier === 'phone';
   const liftNow = v.motion === 'flow' || survivor.closest('[data-exit]') !== null || light;
-  let lifted: Lifted | null = liftNow ? lift(root, survivor, survivor.closest('.lt-front') ? 'none' : lateFilter) : null;
+  // On the lighter tier, no filter: animating a blur off a layer growing to the
+  // whole screen repaints it every frame.
+  let lifted: Lifted | null = liftNow
+    ? lift(root, survivor, survivor.closest('.lt-front') || light ? 'none' : lateFilter)
+    : null;
 
   // Everything leaving, so the stragglers can be hurried once the one that stays grows.
   const leavingAll: Animation[] = [];
@@ -507,9 +562,15 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     later(140 + stripOrder[i] * stripSpread, () => {
       if (!alive()) return;
       const cs = getComputedStyle(s.el);
-      const deep = s.el.closest('.lt-tilted') !== null;
-      if (!deep) s.el.style.transformOrigin = `${innerWidth / 2 - s.r.left}px ${innerHeight / 2 - s.r.top}px`;
-      const leaving = s.el.animate(vanish.frames(cs.opacity, cs.filter, deep), {
+      // Flat, with no 3D context (Safari switched how the whole plane drew when
+      // it got one, a pop): each strip shrinks back toward the middle of what's
+      // on screen, in its own coordinates.
+      const plane = s.el.closest<HTMLElement>('[data-plane]');
+      if (plane) {
+        const m = new DOMMatrix(cs.transform === 'none' ? undefined : cs.transform);
+        s.el.style.transformOrigin = `${plane.offsetWidth / 2 - s.el.offsetLeft - m.m41}px ${plane.offsetHeight / 2 - s.el.offsetTop - m.m42}px`;
+      } else s.el.style.transformOrigin = `${innerWidth / 2 - s.r.left}px ${innerHeight / 2 - s.r.top}px`;
+      const leaving = s.el.animate(vanish.frames(cs.opacity, cs.filter, false), {
         duration: vanish.ms,
         easing: vanish.easing,
         fill: 'forwards',
@@ -544,13 +605,35 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // ---- The shade and blur lift off, now or as the others go.
   const overlays = [...root.querySelectorAll<HTMLElement>('.lt-veil, .lt-blur')];
   const clearOverlays = (ms: number, delay = 0) =>
-    overlays.forEach((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, delay, fill: 'forwards' }));
-  if (v.focus === 'early' || liftNow) clearOverlays(450, 100);
+    overlays.forEach((el) =>
+      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, delay, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }),
+    );
+  if (v.focus === 'early' || liftNow) clearOverlays(light ? 900 : 450, 100);
   else if (v.focus === 'gradual') clearOverlays(pace, 140);
+
+  // ---- Stragglers hurry, a little before the growth (not in its first frame):
+  // those going go faster, and the rest of the gallery (the one that stays is
+  // out of it) fades as a whole, in one animation, rather than each still to
+  // go starting now (dozens of canvases in a frame).
+  const hurry = () => {
+    pending.forEach((id) => window.clearTimeout(id));
+    pending.clear();
+    for (const a of leavingAll) if (a.playState === 'running') a.updatePlaybackRate(HURRY);
+    galleryEl?.animate([{ opacity: getComputedStyle(galleryEl).opacity }, { opacity: 0 }], {
+      duration: 600,
+      easing: 'cubic-bezier(.4,0,.2,1)',
+      fill: 'forwards',
+    });
+  };
 
   // The one that stays starts forward soon after the press, over the coast and
   // the others leaving (it waited for most to go: ~3 s, which read as late).
-  await wait(Math.min(GROW_AFTER, 140 + spread + vanish.ms));
+  // When is a design on trial (`start`); it was ~3 s (late), then ~0.85 s (too soon).
+  const startIn = Math.max(0, Math.min(Number(v.start), 140 + spread + vanish.ms) - GROW_SETUP);
+  await wait(Math.max(0, startIn - HURRY_LEAD));
+  if (!alive()) return;
+  hurry();
+  await wait(Math.min(HURRY_LEAD, startIn));
   if (!alive()) return;
 
   // ---- Alone, a beat. Lifted out first (once the gallery has stopped), so
@@ -600,17 +683,6 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (!alive() || !lifted) return;
   const L: Lifted = lifted;
 
-  // ---- Stragglers hurry: those going go faster, and the rest of the gallery
-  // (the one that stays is out of it) fades as a whole, in one animation,
-  // rather than each still to go starting now (dozens of canvases in a frame).
-  pending.forEach((id) => window.clearTimeout(id));
-  pending.clear();
-  for (const a of leavingAll) if (a.playState === 'running') a.updatePlaybackRate(HURRY);
-  galleryEl?.animate([{ opacity: getComputedStyle(galleryEl).opacity }, { opacity: 0 }], {
-    duration: 600,
-    easing: 'cubic-bezier(.4,0,.2,1)',
-    fill: 'forwards',
-  });
 
   // ---- It grows onto the feed's video (on a phone, the whole screen).
   if (deskFeed) await until(() => feedStage(clip) !== null, 1200);
@@ -626,9 +698,14 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     clipPath: 'inset(0px 0px 0px 0px)',
     filter: 'none',
   };
-  const grow = GROW[v.grow];
+  // On a phone, an ease in and out: a fast-starting curve (the spring) loses
+  // its first frames whenever the phone is busy as it begins, and leaps.
+  const grow = {
+    ms: GROW[v.grow].ms * GROWTH[v.growth],
+    easing: light && v.grow !== 'lift' ? 'cubic-bezier(.45,.05,.2,1)' : GROW[v.grow].easing,
+  };
   let frames: Keyframe[] = [L.start, end];
-  let frameFrames: Keyframe[] = [{ transform: L.planeTransform }, { transform: 'none' }];
+  let frameFrames: Keyframe[] = [{ transform: L.planeTransform }, { transform: L.flatTransform }];
   if (v.grow === 'lift') {
     // First to the middle of the screen, a little bigger; then out.
     const s = L.start as Record<string, string>;
@@ -646,7 +723,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
       filter: 'none',
     };
     frames = [{ ...L.start, easing: 'cubic-bezier(.3,0,.2,1)' }, mid, end];
-    frameFrames = [{ transform: L.planeTransform }, { offset: 0.42, transform: 'none' }, { transform: 'none' }];
+    frameFrames = [{ transform: L.planeTransform }, { offset: 0.42, transform: L.flatTransform }, { transform: L.flatTransform }];
   }
   beatEl?.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' });
   if (v.focus === 'late' && !liftNow) clearOverlays(grow.ms * 0.6);
@@ -664,6 +741,10 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     requestAnimationFrame(up);
   }
 
+  // Two frames for the moves above to settle, so the growth's first frame is shown, not skipped.
+  await nextFrame();
+  await nextFrame();
+  if (!alive()) return;
   const timing = { duration: grow.ms, easing: grow.easing, fill: 'forwards' as const };
   const growing = L.layer.animate(frames, timing);
   L.frame.animate(frameFrames, timing);
