@@ -153,26 +153,54 @@ function n(v: number): number {
   return Math.round(v * 10) / 10;
 }
 
+/** The hole's outline as an SVG subpath (rounded rect or ellipse). */
+export function holeSubpath(hole: Hole): string {
+  'worklet';
+  const { x, y, w, h } = hole;
+  if (hole.ellipse) {
+    const rx = w / 2;
+    const ry = h / 2;
+    const cy = y + ry;
+    return `M${n(x)} ${n(cy)}A${n(rx)} ${n(ry)} 0 1 0 ${n(x + w)} ${n(cy)}A${n(rx)} ${n(ry)} 0 1 0 ${n(x)} ${n(cy)}Z`;
+  }
+  const r = Math.max(0, Math.min(hole.radius, w / 2, h / 2));
+  if (r <= 0) return `M${n(x)} ${n(y)}H${n(x + w)}V${n(y + h)}H${n(x)}Z`;
+  return (
+    `M${n(x + r)} ${n(y)}H${n(x + w - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w)} ${n(y + r)}` +
+    `V${n(y + h - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w - r)} ${n(y + h)}H${n(x + r)}` +
+    `A${n(r)} ${n(r)} 0 0 1 ${n(x)} ${n(y + h - r)}V${n(y + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + r)} ${n(y)}Z`
+  );
+}
+
 /**
  * An SVG path covering the stage except the hole, for `clip-path: path(evenodd, …)`
  * on web: the outer rectangle, then the hole (rounded rect or ellipse).
  */
 export function holePath(stageW: number, stageH: number, hole: Hole): string {
   'worklet';
-  const outer = `M0 0H${n(stageW)}V${n(stageH)}H0Z`;
-  const { x, y, w, h } = hole;
-  if (hole.ellipse) {
-    const rx = w / 2;
-    const ry = h / 2;
-    const cy = y + ry;
-    return `${outer}M${n(x)} ${n(cy)}A${n(rx)} ${n(ry)} 0 1 0 ${n(x + w)} ${n(cy)}A${n(rx)} ${n(ry)} 0 1 0 ${n(x)} ${n(cy)}Z`;
-  }
-  const r = Math.max(0, Math.min(hole.radius, w / 2, h / 2));
-  if (r <= 0) return `${outer}M${n(x)} ${n(y)}H${n(x + w)}V${n(y + h)}H${n(x)}Z`;
+  return `M0 0H${n(stageW)}V${n(stageH)}H0Z${holeSubpath(hole)}`;
+}
+
+/**
+ * An SVG image of the stage, opaque except the hole, whose edge is softened
+ * by a Gaussian blur across the hole's feather: a CSS mask for the web
+ * spotlight's dim and blur layers (one layer each, with a smooth edge).
+ */
+export function holeMaskSvg(stageW: number, stageH: number, hole: Hole): string {
+  'worklet';
+  const pad = 200;
+  const W = Math.round(stageW);
+  const H = Math.round(stageH);
+  const outer = `M${-pad} ${-pad}H${W + pad}V${H + pad}H${-pad}Z`;
+  // About ±2σ spans the feather.
+  const sigma = hole.feather / 4;
+  const filter =
+    sigma > 0.3
+      ? `<filter id="f" x="${-pad}" y="${-pad}" width="${W + 2 * pad}" height="${H + 2 * pad}" filterUnits="userSpaceOnUse"><feGaussianBlur stdDeviation="${n(sigma)}"/></filter>`
+      : '';
   return (
-    `${outer}M${n(x + r)} ${n(y)}H${n(x + w - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w)} ${n(y + r)}` +
-    `V${n(y + h - r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + w - r)} ${n(y + h)}H${n(x + r)}` +
-    `A${n(r)} ${n(r)} 0 0 1 ${n(x)} ${n(y + h - r)}V${n(y + r)}A${n(r)} ${n(r)} 0 0 1 ${n(x + r)} ${n(y)}Z`
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">${filter}` +
+    `<path fill="#fff" fill-rule="evenodd" d="${outer}${holeSubpath(hole)}"${filter ? ' filter="url(#f)"' : ''}/></svg>`
   );
 }
 

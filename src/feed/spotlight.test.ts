@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SPOTLIGHT_SHAPES, bands, featherLayers, grow, holeFor, holePath, mixHole, openHole, stackedAlpha } from './spotlight.ts';
+import { SPOTLIGHT_SHAPES, bands, featherLayers, grow, holeFor, holeMaskSvg, holePath, mixHole, openHole, stackedAlpha } from './spotlight.ts';
 
 const close = (a: number, b: number, eps = 1e-6) => assert.ok(Math.abs(a - b) < eps, `${a} ≈ ${b}`);
 const BOX = { x: 100, y: 200, w: 80, h: 40 };
@@ -77,4 +77,14 @@ test('bands tile the stage around the hole, clipped to it', () => {
   for (const r of bands(400, 800, { x: -50, y: 780, w: 100, h: 100 })) assert.ok(r.w >= 0 && r.h >= 0);
   // A hole bigger than the stage leaves nothing to blur.
   assert.equal(bands(400, 800, { x: -10, y: -10, w: 500, h: 900 }).reduce((s, r) => s + r.w * r.h, 0), 0);
+});
+
+test('holeMaskSvg: the stage with the hole cut out, its edge blurred across the feather', () => {
+  const soft = holeMaskSvg(400, 800, holeFor(BOX, 'feather'));
+  assert.match(soft, /^<svg [^>]*width="400" height="800"/);
+  assert.match(soft, /fill-rule="evenodd"/);
+  assert.match(soft, /feGaussianBlur stdDeviation="7"/); // feather 28 / 4
+  assert.match(soft, /ZM108 188H172A20 20 /); // the hole subpath follows the outer rectangle
+  // A hard edge has no filter.
+  assert.doesNotMatch(holeMaskSvg(400, 800, holeFor(BOX, 'rect')), /filter/);
 });
