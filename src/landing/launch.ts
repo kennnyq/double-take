@@ -298,7 +298,8 @@ interface Lifted {
   /** The same transform untilted: what the growth animates it to. */
   flatTransform: string;
   start: Keyframe;
-  small: HTMLVideoElement;
+  /** The tile's own video; none when the gallery had no clips for it (its feed request failed). */
+  small: HTMLVideoElement | null;
   /** Where in its clip the small one is now. */
   time(): number;
 }
@@ -309,7 +310,9 @@ interface Lifted {
  * clip or blur it sat in.
  */
 function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted {
-  const small = tile.querySelector('video')!;
+  // A tile renders no video while the gallery has no clips (e.g. the feed request
+  // failed); the lift then grows the empty frame and the full clip fades in over it.
+  const small = tile.querySelector('video');
   // Drawn by the gallery atlas: its canvas comes along and keeps playing.
   const board = tile.querySelector<HTMLCanvasElement>('canvas.lt-board');
   const player = board ? playerFor(root) : null;
@@ -377,12 +380,12 @@ function lift(root: HTMLElement, tile: HTMLElement, startFilter: string): Lifted
   // of the one that grows until it has gone, rather than the two swapping.
   (root.querySelector('.lt-hero') ?? root).append(f);
   // Moved in the same task, the video keeps playing.
-  layer.append(small);
+  if (small) layer.append(small);
   if (board) layer.append(board);
-  else small.play().catch(() => {});
+  else small?.play().catch(() => {});
   tile.style.visibility = 'hidden';
   const cell = Number(tile.dataset.cell);
-  const time = player ? () => player.clipTime(cell) : () => small.currentTime;
+  const time = player ? () => player.clipTime(cell) : () => small?.currentTime ?? 0;
   return { frame: f, layer, frameRect, planeTransform, flatTransform, start, small, time };
 }
 
@@ -958,7 +961,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     // The opaque full video now covers this canvas. Stop redrawing its hidden
     // fallback while the shared video/canvas layer grows across the screen.
     release?.freeze(survivor);
-    lifted?.small.pause();
+    lifted?.small?.pause();
   } : undefined);
   if (v.beat === 'brackets' || v.beat === 'label') {
     const r = beatOn.getBoundingClientRect();
