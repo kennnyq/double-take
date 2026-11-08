@@ -25,7 +25,7 @@ import { clipKey } from '@/social/clipRefs';
 import { useAppNav } from '@/social/nav';
 import { useSocial } from '@/social/store';
 import { appSettings, useAppSettings } from '@/settings/store';
-import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf } from './feedMode';
+import { autoLabel, clipsForMode, modeFilter, modeSwitch, shownIndexOf, staleSlots } from './feedMode';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
 import { IDLE, guardOps, opsFor, planFor, type PlaybackState, type PlayerOp, type PlayerPlan } from './playback';
 import { describeAudio } from './audioDebug';
@@ -121,22 +121,27 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const loadGen = useRef<number[]>(Array(POOL_SIZE).fill(0));
   const wanted = useRef<number[]>(Array(POOL_SIZE).fill(-1));
 
-  // The feed mode changed what's shown: stay on the same clip (or the nearest
-  // one after it) and reload the players, since every index now means another
-  // clip. Runs before the loader below, so it sees the reset.
+  // The feed mode changed what's shown, right now: the clip on screen stays if
+  // it still matches, else the feed moves to the next one that does (see
+  // `modeSwitch`). Only players whose index now names another clip reload, so
+  // a clip that stays put keeps playing. Runs before the loader below, so it
+  // sees the reset.
   const shownBefore = useRef(clips);
   useEffect(() => {
     const prev = shownBefore.current;
     shownBefore.current = clips;
-    if (isAppend(prev, clips)) return;
-    const i = keepPosition(prev, clips, activeRef.current);
-    wanted.current = Array(POOL_SIZE).fill(-1);
-    setLoaded(Array(POOL_SIZE).fill(-1));
-    activeRef.current = i;
-    setActive(i);
-    setPaused(false);
-    setBoost(false);
-    if (size.h) listRef.current?.scrollToOffset({ offset: i * size.h, animated: false });
+    const change = modeSwitch(prev, clips, activeRef.current);
+    if (!change) return;
+    const stale = staleSlots(prev, clips, wanted.current);
+    wanted.current = wanted.current.map((w, s) => (stale[s] ? -1 : w));
+    setLoaded((l) => l.map((v, s) => (stale[s] ? -1 : v)));
+    activeRef.current = change.index;
+    setActive(change.index);
+    if (!change.stays) {
+      setPaused(false);
+      setBoost(false);
+    }
+    if (size.h) listRef.current?.scrollToOffset({ offset: change.index * size.h, animated: false });
   }, [clips, size.h]);
 
   useEffect(() => {

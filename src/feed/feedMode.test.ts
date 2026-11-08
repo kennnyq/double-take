@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Clip, Verdict } from '../data/clips.ts';
-import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf } from './feedMode.ts';
+import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, modeSwitch, shownIndexOf, staleSlots } from './feedMode.ts';
 
 const clip = (i: number, verdict?: Verdict) => ({ id: `clip-${i}`, verdict }) as Clip;
 // Two AI clips, a real one, then unknown placeholders.
@@ -58,4 +58,34 @@ test('isAppend', () => {
   assert.equal(isAppend(ALL, ALL.map((c) => ({ ...c }))), true, 'compares ids, not objects');
   assert.equal(isAppend(ALL, clipsForMode(ALL, 'onlyAi')), false);
   assert.equal(isAppend(ALL.slice(0, 2), [ALL[0], clip(9)]), false);
+});
+
+test('modeSwitch: the clip on screen still matches, so it stays', () => {
+  const ai = clipsForMode(ALL, 'onlyAi');
+  assert.deepEqual(modeSwitch(ALL, ai, 2), { index: 1, stays: true }, 'clip-2 moves up but stays on screen');
+  assert.deepEqual(modeSwitch(ai, ALL, 1), { index: 2, stays: true }, 'back to everything');
+});
+
+test('modeSwitch: the clip on screen no longer matches, so the feed moves on at once', () => {
+  const ai = clipsForMode(ALL, 'onlyAi');
+  assert.deepEqual(modeSwitch(ALL, ai, 1), { index: 1, stays: false }, 'real clip-1 → next AI clip, clip-2');
+  assert.deepEqual(modeSwitch(ALL, ai, 3), { index: 1, stays: false }, 'nothing after → last AI clip');
+  const real = clipsForMode(ALL, 'onlyReal');
+  assert.deepEqual(modeSwitch(ALL, real, 0), { index: 0, stays: false }, 'AI clip-0 → the real clip');
+});
+
+test('modeSwitch: nothing matches, so the feed is empty', () => {
+  assert.deepEqual(modeSwitch(ALL, [], 2), { index: 0, stays: false });
+});
+
+test('modeSwitch: labels-only modes and growing lists need nothing', () => {
+  assert.equal(modeSwitch(ALL, clipsForMode(ALL, 'autoLabel'), 2), null);
+  assert.equal(modeSwitch(ALL, [...ALL, clip(5)], 4), null);
+});
+
+test('staleSlots reloads only players whose index now names another clip', () => {
+  const ai = clipsForMode(ALL, 'onlyAi'); // clip-0, clip-2
+  // Players held items 0, 1, 2 of ALL; in `ai` item 0 is still clip-0, item 1 is now clip-2.
+  assert.deepEqual(staleSlots(ALL, ai, [0, 1, 2]), [false, true, true]);
+  assert.deepEqual(staleSlots(ALL, ALL, [0, 1, -1]), [false, false, false]);
 });

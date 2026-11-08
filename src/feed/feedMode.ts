@@ -58,3 +58,34 @@ export function isAppend(prev: Clip[], next: Clip[]): boolean {
   for (let i = 0; i < prev.length; i++) if (prev[i].id !== next[i].id) return false;
   return true;
 }
+
+export interface ModeSwitch {
+  /** Where the feed lands. */
+  index: number;
+  /** The clip on screen is still shown (it may have moved); otherwise the feed moved on. */
+  stays: boolean;
+}
+
+/**
+ * What a feed mode change does to the clip on screen, applied at once:
+ * - it still matches: it stays on screen (and keeps playing where it can);
+ * - it no longer matches (e.g. Only real on an AI clip): the feed moves to the
+ *   next clip that matches, or the last one if none come after it;
+ * - nothing matches: index 0 of an empty feed (the empty state shows).
+ * Null when the list only grew (more placeholders): nothing to do.
+ */
+export function modeSwitch(prev: Clip[], next: Clip[], active: number): ModeSwitch | null {
+  if (isAppend(prev, next)) return null;
+  const index = keepPosition(prev, next, active);
+  const current = prev[active];
+  return { index, stays: !!current && next[index]?.id === current.id };
+}
+
+/**
+ * Which pooled players now hold the wrong clip: `slots` are the item indexes
+ * they were loaded for, which may name other clips in `next`. The rest keep
+ * playing undisturbed.
+ */
+export function staleSlots(prev: Clip[], next: Clip[], slots: number[]): boolean[] {
+  return slots.map((i) => i >= 0 && prev[i]?.id !== next[i]?.id);
+}

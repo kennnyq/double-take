@@ -31,7 +31,7 @@ import { REPLAY_RATE } from '@/annotations/walkthrough';
 import { avatarHue, formatCount, makeClips, type Clip, type Verdict } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { useDevSettings } from '@/devtools/store';
-import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf, VERDICT_TEXT } from '@/feed/feedMode';
+import { autoLabel, clipsForMode, modeFilter, modeSwitch, shownIndexOf, VERDICT_TEXT } from '@/feed/feedMode';
 import { TellOverlay, type TellOverlayHandle } from '@/feed/TellOverlay';
 import { FeedEmpty, VerdictBadge } from '@/feed/VerdictBadge';
 import { receiveHandoff } from '@/landing/handoff';
@@ -313,9 +313,14 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   useEffect(() => {
     const before = shownBefore.current;
     shownBefore.current = clips;
-    if (isAppend(before, clips)) return;
-    setPausedAt(null);
-    goTo(keepPosition(before, clips, activeRef.current), true);
+    // Applied at once: the clip on screen stays if it still matches, else the
+    // feed moves to the next one that does (see `modeSwitch`).
+    const change = modeSwitch(before, clips, activeRef.current);
+    if (!change) return;
+    // A paused clip that stays keeps its pause at its new index.
+    const was = activeRef.current;
+    setPausedAt((p) => (change.stays && p === was ? change.index : null));
+    goTo(change.index, true);
   }, [clips, goTo]);
 
   // ---- jump to a clip (profile tile) ---------------------------------------
