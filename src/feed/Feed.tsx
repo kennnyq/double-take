@@ -26,8 +26,9 @@ import { useSocial } from '@/social/store';
 import { appSettings, useAppSettings } from '@/settings/store';
 import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf } from './feedMode';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
-import { IDLE, planFor, type PlayerPlan } from './playback';
+import { IDLE, planFor, type PlaybackState, type PlayerPlan } from './playback';
 import { shrinkGeometry } from './shrink';
+import { playWeb } from './playWeb';
 import { ClipItem } from './ClipItem';
 import { TopBar } from './TopBar';
 import { FeedEmpty } from './VerdictBadge';
@@ -96,11 +97,20 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const p2 = useVideoPlayer(null, setup);
   const players = useMemo(() => [p0, p1, p2], [p0, p1, p2]);
 
+  // Browsers refuse to start a video with sound outside a user gesture (iOS
+  // Safari always does for a <video> it hasn't played from a tap). Rather than
+  // leave the clip stopped and silent under an unmuted icon, fall back to
+  // muted playback; the sound button then unmutes it inside its tap.
   const applyPlan = useCallback((player: VideoPlayer, plan: PlayerPlan) => {
     player.muted = plan.muted;
     player.playbackRate = plan.rate;
-    if (plan.play) player.play();
-    else player.pause();
+    if (!plan.play) player.pause();
+    else if (Platform.OS !== 'web') player.play();
+    else
+      playWeb(player, () => {
+        player.muted = true;
+        setMuted(true);
+      });
   }, []);
 
   const slotIndex = useMemo(() => poolWindow(active, clips.length), [active, clips.length]);
@@ -349,30 +359,53 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const sent = useMemo(() => new Set(social.sent.map((e) => e.id)), [social.sent]);
   const followed = useMemo(() => new Set(social.followed), [social.followed]);
 
+  // Web: apply a change to the active player inside the tap that made it.
+  // Safari only lets a video start, or unmute, during a user gesture; done
+  // later from an effect, unmuting pauses the clip instead.
+  const playback = useRef<PlaybackState>({ live: false, muted, paused, boost, slowmo });
+  useEffect(() => {
+    playback.current = { live: focused && appActive, muted, paused, boost, slowmo };
+  }, [focused, appActive, muted, paused, boost, slowmo]);
+  // Read through a ref so the handlers stay stable: the walkthrough treats a
+  // new `setSlowmo` as leaving the clip.
+  const pool = useRef({ slotIndex, active, loaded });
+  useEffect(() => {
+    pool.current = { slotIndex, active, loaded };
+  }, [slotIndex, active, loaded]);
+  const applyNow = useCallback(
+    (change: Partial<PlaybackState>) => {
+      // Kept current so a second change in the same tap builds on this one.
+      const next = { ...playback.current, ...change };
+      playback.current = next;
+      const { slotIndex: slots, active: at, loaded: held } = pool.current;
+      const s = slots.indexOf(at);
+      if (Platform.OS === 'web' && s >= 0 && held[s] === at) {
+        applyPlan(players[s], planFor(true, next, REPLAY_RATE));
+      }
+    },
+    [players, applyPlan],
+  );
+  const setSlowmoNow = useCallback(
+    (on: boolean) => {
+      applyNow({ slowmo: on });
+      setSlowmo(on);
+    },
+    [applyNow],
+  );
+
   const changePaused = useCallback(
     (next: boolean) => {
-      // Resume within the tap handler so Safari retains the user gesture.
-      const s = slotIndex.indexOf(active);
-      if (Platform.OS === 'web' && s >= 0 && loaded[s] === active && focused && appActive) {
-        if (next) players[s].pause();
-        else players[s].play();
-      }
+      applyNow({ paused: next });
       setPaused(next);
     },
-    [slotIndex, active, loaded, focused, appActive, players],
+    [applyNow],
   );
 
   const toggleMute = useCallback(() => {
-    const next = !muted;
-    const s = slotIndex.indexOf(active);
-    // Unmuting in an effect loses Safari's user activation and pauses playback.
-    if (Platform.OS === 'web' && s >= 0 && loaded[s] === active) {
-      const player = players[s];
-      // eslint-disable-next-line react-hooks/immutability -- Expo VideoPlayer uses imperative mutable properties.
-      player.muted = next;
-    }
+    const next = !playback.current.muted;
+    applyNow({ muted: next });
     setMuted(next);
-  }, [muted, slotIndex, active, loaded, players]);
+  }, [applyNow]);
 
   const handlers = useMemo<FeedHandlers>(
     () => ({
@@ -388,11 +421,12 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
       openShare: (clip) => nav.openSheet('share', clip),
       setBoost: (on: boolean) => {
         if (on) Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        applyNow({ boost: on });
         setBoost(on);
       },
-      setSlowmo,
+      setSlowmo: setSlowmoNow,
     }),
-    [actions, nav, changePaused, paused],
+    [actions, nav, changePaused, paused, applyNow, setSlowmoNow],
   );
 
   const renderItem = ({ item, index }: { item: Clip; index: number }) => {
