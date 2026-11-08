@@ -47,3 +47,18 @@ test('fresh results bind request id and media hash; prepared revisions preserve 
   assert.doesNotThrow(() => validateJobResponse({ ...job, result: { ...result, clipId: 'source-clip' } }, id, true));
   assert.throws(() => validateJobResponse({ ...job, sha256: 'wrong' }, id, true));
 });
+test('optional verdict rejects malformed headlines before desktop or native rendering', () => {
+  const id = 'a'.repeat(64), sha256 = 'b'.repeat(64);
+  const result = { version: 1, clipId: id, mediaSha256: sha256, components: [], evidence: [] };
+  const check = (verdict: unknown) => validateJobResponse({ id, state: 'complete', sha256, result: { ...result, verdict } }, id);
+  assert.doesNotThrow(() => check(undefined));
+  for (const label of ['likely_ai', 'likely_real']) {
+    assert.doesNotThrow(() => check({ label, drivers: ['A bound visual check drives this call.'] }));
+    assert.doesNotThrow(() => check({ label, drivers: [], confidence: .7, calibration: { version: 'fixture', scope: 'feed-domain' } }));
+  }
+  for (const verdict of [null, { label: 'likely_ai' }, { label: 'likely_ai', drivers: [null] },
+    { label: 'bogus', drivers: [] }, { label: ['likely_ai'], drivers: [] }, { label: 'likely_real', drivers: [], confidence: 'oops' },
+    ...[-1, 1.1, NaN, Infinity, .7].map(confidence => ({ label: 'likely_ai', drivers: [], confidence })),
+    { label: 'likely_ai', drivers: [''] }, { label: 'likely_ai', drivers: ['x'.repeat(401)] },
+    { label: 'likely_ai', drivers: Array(9).fill('detail') }]) assert.throws(() => check(verdict), /result unavailable/);
+});

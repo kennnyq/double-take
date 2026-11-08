@@ -51,7 +51,7 @@ export function responseError(status: number, body: unknown, fallback: string, r
   return new ClientServiceError('rejected', message);
 }
 export function validateJobResponse(value: unknown, id: string, prepared = false): void {
-  const job = value as { id?: unknown; state?: unknown; sha256?: unknown; result?: { version?: unknown; clipId?: unknown; mediaSha256?: unknown; components?: unknown; evidence?: unknown } } | null;
+  const job = value as { id?: unknown; state?: unknown; sha256?: unknown; result?: { version?: unknown; clipId?: unknown; mediaSha256?: unknown; components?: unknown; evidence?: unknown; verdict?: unknown } } | null;
   const fail = () => { throw new ClientServiceError('invalid_response', 'Upload result unavailable. Retry to continue.'); };
   if (!job || job.id !== id || !['queued', 'running', 'complete', 'error'].includes(String(job.state))) return fail();
   if (job.state === 'complete' || job.result !== undefined) {
@@ -59,5 +59,14 @@ export function validateJobResponse(value: unknown, id: string, prepared = false
     if (job.state !== 'complete' || !r || r.version !== 1 || typeof job.sha256 !== 'string' || !/^[a-f0-9]{64}$/.test(job.sha256)
       || r.mediaSha256 !== job.sha256 || typeof r.clipId !== 'string' || !r.clipId
       || (!prepared && r.clipId !== id) || !Array.isArray(r.components) || !Array.isArray(r.evidence)) return fail();
+    // Optional for older checks; a present headline must satisfy its runtime contract.
+    if (r.verdict !== undefined) {
+      const v = r.verdict as { label?: unknown; drivers?: unknown; confidence?: unknown; calibration?: { version?: unknown; scope?: unknown } } | null;
+      if (!v || typeof v.label !== 'string' || !['likely_ai', 'likely_real'].includes(v.label) || !Array.isArray(v.drivers)
+        || v.drivers.length > 8 || v.drivers.some(d => typeof d !== 'string' || !d.trim() || d.length > 400)) return fail();
+      if (v.confidence !== undefined && (typeof v.confidence !== 'number' || !Number.isFinite(v.confidence)
+        || v.confidence < 0 || v.confidence > 1 || typeof v.calibration?.version !== 'string'
+        || !v.calibration.version.trim() || v.calibration.version.length > 100 || v.calibration.scope !== 'feed-domain')) return fail();
+    }
   }
 }
