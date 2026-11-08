@@ -19,6 +19,9 @@
       <button id="next" class="icon" title="Next clip (J)" aria-label="Next clip">
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
       </button>
+      <button id="grid-btn" class="icon" title="All tells (G)" aria-label="All tells">
+        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></svg>
+      </button>
       <button id="info-btn" class="icon" title="Evidence (E)" aria-label="Evidence">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" /><path d="M12 11v5M12 8h.01" /></svg>
       </button>
@@ -37,19 +40,31 @@
               <div class="outlines" id="outlines" aria-hidden="true"></div>
               <div class="cards" id="cards"></div>
             </div>
+            <div class="pp" id="pp" aria-hidden="true"></div>
             <div class="empty" id="empty" hidden></div>
           </div>
         </div>
 
         <div class="dock">
-          <div class="models" id="models" role="tablist" aria-label="Annotation run"></div>
+          <div class="runs-row">
+            <div class="models" id="models" role="tablist" aria-label="Annotation run"></div>
+            <button class="chip-btn" id="grid-chip" title="Every annotation from every run (G)">All tells</button>
+          </div>
           <div class="timeline" id="timeline">
             <div class="lanes" id="lanes"></div>
             <div class="track" id="track"><div class="played" id="played"></div></div>
             <div class="head" id="head"></div>
             <div class="tip" id="tip" hidden></div>
           </div>
-          <div class="time"><span id="clock">0:00.0</span><span id="step-label"></span></div>
+          <div class="time">
+            <button id="play" class="icon sm" title="Play / pause (Space)" aria-label="Play or pause"></button>
+            <span id="clock">0:00.0</span>
+            <span class="grow"></span>
+            <span id="step-label"></span>
+            <div class="seg mini" id="mode" role="radiogroup" aria-label="Annotations" title="Annotations appear live as the clip plays, or only when you step through them (L)">
+              <button data-mode="live" role="radio">Live</button><button data-mode="step" role="radio">Step</button>
+            </div>
+          </div>
           <div class="actions">
             <button id="drop" class="decide drop" title="Drop (X)">Drop</button>
             <input id="note" class="note" type="text" placeholder="Note" autocomplete="off" title="Note (N)" />
@@ -60,6 +75,16 @@
 
       <aside class="drawer" id="drawer" aria-label="Evidence"></aside>
     </main>
+
+    <section class="gridview" id="gridview" aria-label="All tells">
+      <div class="gv-head">
+        <h2 id="gv-title">All tells</h2>
+        <span class="grow"></span>
+        <div class="seg mini" id="gv-sort"><button data-sort="time">By time</button><button data-sort="run">By run</button></div>
+        <button class="icon" id="gv-close" title="Close (Esc)" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+      </div>
+      <div class="gv-cells" id="gv-cells"></div>
+    </section>
 
     <div class="scrim" id="scrim"></div>
     <section class="sheet" id="queue-sheet" aria-label="Queue"></section>
@@ -72,6 +97,9 @@
         <dt><kbd>D</kbd></dt><dd>Double take on / off</dd>
         <dt><kbd>1</kbd>–<kbd>9</kbd> <kbd>V</kbd></dt><dd>Pick / cycle the annotation run</dd>
         <dt><kbd>B</kbd></dt><dd>Outline every run's boxes</dd>
+        <dt><kbd>L</kbd></dt><dd>Annotations live while playing / only when stepping</dd>
+        <dt><kbd>G</kbd></dt><dd>All tells: every run's annotations, to pick the best</dd>
+        <dt><kbd>P</kbd></dt><dd>Pick (★) the annotation on screen</dd>
         <dt><kbd>A</kbd> <kbd>X</kbd></dt><dd>Keep / drop (again to clear)</dd>
         <dt><kbd>N</kbd></dt><dd>Note</dd>
         <dt><kbd>U</kbd></dt><dd>Undo</dd>

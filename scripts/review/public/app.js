@@ -3,15 +3,16 @@
  * The double take (spotlight, card placement, eased scrubbing, step order, replay
  * loops, palette) runs on the app's own modules, served type-stripped under /app/.
  */
+/* eslint-disable import/no-unresolved -- /app/ URLs are served by scripts/review/server.ts, not files on disk */
 import { grow, holeFor, maskFor, maskPlacement, paddingPx, spotlightStrength } from '/app/src/feed/spotlight.ts';
 import { cardSpot, emptierSide, estimateCardHeight } from '/app/src/feed/card.ts';
 import { easedSeek, planScrub, runScrub, safeSeek } from '/app/src/feed/scrub.ts';
 import { boxOnStage, fitFor, videoRect } from '/app/src/feed/tells.ts';
 import { readTellsFile } from '/app/src/annotations/format.ts';
-import { REPLAY_RATE, boxShownAt, replayWindow, seekTimeFor, walkthroughSteps } from '/app/src/annotations/walkthrough.ts';
+import { REPLAY_RATE, activeTells, boxShownAt, replayWindow, seekTimeFor, walkthroughSteps } from '/app/src/annotations/walkthrough.ts';
 import { DEFAULT_PALETTE, PALETTES, cssVariables } from '/app/src/ui/theme/palettes.ts';
 import { DEFAULT_FILTER, buildQueue, decided, nextIndex, sourceId, sourceOptions } from '/app/scripts/review/web/queue.ts';
-import { clock, markers, runLabel, stepFrom } from '/app/scripts/review/web/timeline.ts';
+import { clock, markers, runLabel, stepFrom, tellRef } from '/app/scripts/review/web/timeline.ts';
 
 // The app's defaults (src/devtools/settings.ts): feathered spotlight, darken, medium strength.
 const SHAPE = 'feather';
@@ -64,6 +65,9 @@ const ICON = {
   back: '<svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>',
   next: '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>',
   done: '<svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg>',
+  play: '<svg viewBox="0 0 24 24"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l11-6.5a1 1 0 0 0 0-1.72l-11-6.5A1 1 0 0 0 8 5.5z"/></svg>',
+  pause: '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="4" height="14" rx="1.2"/><rect x="14" y="5" width="4" height="14" rx="1.2"/></svg>',
+  star: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
 };
 
 // ---------------------------------------------------------------- state
@@ -85,6 +89,13 @@ const S = {
   preferredRun: store.get('run', 'main'),
   dt: { on: false, step: -1, steps: [], unplaced: [], replay: null },
   outlines: store.get('outlines', false),
+  /** live: the selected run's annotations appear as the clip plays; step: only in the double take. */
+  mode: store.get('mode', 'live'),
+  /** The annotation shown live right now (its ref), null for none, undefined to re-check (run, mode or marks changed). */
+  live: null,
+  /** The reviewer itself is moving the video (eased seek, drag, step scrub): not a user pause. */
+  scrubbing: false,
+  gridSort: store.get('gridSort', 'time'),
   muted: true,
   by: store.get('by', 'kenny'),
   undo: [],
@@ -116,6 +127,8 @@ function areaOf(tell) {
 }
 const duration = () => (Number.isFinite(video.duration) && video.duration > 0 ? video.duration : current()?.media?.duration || 0);
 const runTells = (i = S.run) => S.runs[i]?.file?.tells ?? [];
+/** The reviewer's mark on an annotation of the current clip ({pick, note}), if any. */
+const markOf = (run, tell) => S.states[S.key]?.tells?.[tellRef(run, tell.id)];
 
 // ---------------------------------------------------------------- data
 const tellsCache = new Map();
@@ -168,6 +181,8 @@ async function openClip(key) {
   const it = S.byKey.get(key);
   cancelScrub();
   resetDoubleTake();
+  S.live = null;
+  S.scrubbing = false;
   S.key = key || null;
   history.replaceState(null, '', key ? `#${encodeURIComponent(key)}` : '#');
   renderQueueLabel();
@@ -212,6 +227,7 @@ async function openClip(key) {
   if (S.key !== key) return;
   renderRuns();
   renderDrawer();
+  if (gridOpen) renderGrid();
   prefetch(S.queue[S.i + 1]);
 }
 
@@ -254,7 +270,10 @@ function renderLanes() {
       (l, li) =>
         `<div class="lane ${li === S.run ? 'on' : ''}" data-lane="${li}">${ms
           .filter((m) => m.lane === li)
-          .map((m) => `<i class="mk" data-lane="${li}" data-tell="${m.tell}" style="left:${m.left * 100}%;width:${m.width * 100}%"></i>`)
+          .map((m) => {
+            const mark = markOf(S.runs[li].name, l.tells[m.tell]);
+            return `<i class="mk${mark?.pick ? ' pick' : ''}" data-lane="${li}" data-tell="${m.tell}" style="left:${m.left * 100}%;width:${m.width * 100}%"></i>`;
+          })
           .join('')}</div>`,
     )
     .join('');
@@ -264,6 +283,7 @@ function renderLanes() {
 function selectRun(i, { keepPlace = true } = {}) {
   if (i < 0 || i >= S.runs.length || i === S.run) return;
   S.run = i;
+  S.live = undefined;
   S.preferredRun = S.runs[i].name;
   store.set('run', S.preferredRun);
   document.querySelectorAll('#models button').forEach((b) => b.classList.toggle('on', +b.dataset.run === i));
@@ -306,6 +326,7 @@ tl.addEventListener('pointermove', (e) => {
     drag.moved = true;
     cancelScrub();
     if (S.dt.on) exitDoubleTake(false);
+    S.scrubbing = true;
     video.pause();
   }
   if (drag.moved) safeSeek(video, timeAt(e.clientX));
@@ -315,6 +336,7 @@ tl.addEventListener('pointerup', (e) => {
   const d = drag;
   drag = null;
   if (d.moved) {
+    S.scrubbing = false;
     if (d.wasPlaying) video.play().catch(() => {});
     return;
   }
@@ -347,6 +369,7 @@ function showTip(e) {
 function seekTo(t) {
   cancelScrub();
   cancelScrub = easedSeek(video, t, (hold) => {
+    S.scrubbing = hold;
     if (hold) video.pause();
     else video.play().catch(() => {});
   });
@@ -398,6 +421,7 @@ function exitDoubleTake(resume = true) {
   if (!S.dt.on) return;
   cancelScrub();
   S.dt = { on: false, step: -1, steps: [], unplaced: [], replay: null };
+  S.live = null;
   stage.classList.remove('dt');
   spot.onTarget = 0;
   leaveCards();
@@ -443,11 +467,12 @@ function goStep(i) {
     placement: tell?.placement ?? emptierSide(frame, H, others),
     stageW: W,
     stageH: H,
-    cardH: estimateCardHeight(text, width),
+    // The app's estimate, plus the line the reviewer's own mark adds.
+    cardH: estimateCardHeight(text, width) + (tell && markOf(S.runs[S.run].name, tell) ? 24 : 0),
     safeTop: SAFE_TOP,
     safeBottom: SAFE_BOTTOM,
   });
-  showCard(spotRect, text, i, n, !!tell);
+  showCard(spotRect, text, { i, n, loop: !!tell, mark: tell ? markOf(S.runs[S.run].name, tell) : null });
 
   $('#step-label').textContent = `${runLabel(S.runs[S.run].name).name} · ${i + 1}/${n}`;
   markLane();
@@ -455,11 +480,17 @@ function goStep(i) {
   if (tell) {
     const rep = replayWindow(tell, duration());
     S.dt.replay = rep;
+    S.scrubbing = true;
     video.pause();
-    cancelScrub = runScrub(video, planScrub(video.currentTime, rep.from), () => {
+    const stop = runScrub(video, planScrub(video.currentTime, rep.from), () => {
+      S.scrubbing = false;
       video.playbackRate = REPLAY_RATE;
       video.play().catch(() => {});
     });
+    cancelScrub = () => {
+      stop();
+      S.scrubbing = false;
+    };
   } else {
     // The closing "Also noted" card: plain playback under it.
     S.dt.replay = null;
@@ -469,24 +500,118 @@ function goStep(i) {
 }
 
 let cardSeq = 0;
-function showCard(spotRect, text, i, n, loop) {
+/**
+ * The double take's card. Stepping: the app's card with back/next and step dots.
+ * Live: the same card without the buttons (the clip keeps playing), plus a faint
+ * line with the run and time. Either way the reviewer's own pick and note, if any,
+ * sit under the app's text.
+ */
+function showCard(spotRect, text, { i = 0, n = 1, loop = false, live = false, meta = '', mark = null } = {}) {
   leaveCards();
   const el = document.createElement('div');
-  el.className = 'card';
+  el.className = `card${live ? ' live' : ''}`;
   el.dataset.seq = String(++cardSeq);
   el.style.width = `${spotRect.width}px`;
   el.style.left = `${spotRect.cx - spotRect.width / 2}px`;
   el.style[spotRect.side] = `${spotRect.offset}px`;
   el.style.setProperty('--from', spotRect.from === 'below' ? '18px' : '-18px');
-  const last = i + 1 >= n;
-  const dots = n <= 12 ? `<span class="dots">${Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</span>` : `<span class="dots">${i + 1}/${n}</span>`;
-  el.innerHTML = `<p>${esc(text)}</p>${loop ? '<div class="loop"><i></i></div>' : ''}
+  const markHtml = mark ? `<div class="mark">${mark.pick ? '<b>★ Picked</b>' : ''}${mark.note ? `<span>${esc(mark.note)}</span>` : ''}</div>` : '';
+  if (live) {
+    el.innerHTML = `<p>${esc(text)}</p>${markHtml}<div class="meta">${esc(meta)}</div>`;
+  } else {
+    const last = i + 1 >= n;
+    const dots =
+      n <= 12 ? `<span class="dots">${Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'on' : ''}"></i>`).join('')}</span>` : `<span class="dots">${i + 1}/${n}</span>`;
+    el.innerHTML = `<p>${esc(text)}</p>${markHtml}${loop ? '<div class="loop"><i></i></div>' : ''}
     <div class="nav"><button data-card="back" ${i === 0 ? 'disabled' : ''} aria-label="Back">${ICON.back}</button>${dots}
     <button data-card="next" class="${last ? 'fill' : ''}" aria-label="${last ? 'Finish' : 'Next'}">${last ? ICON.done : ICON.next}</button></div>`;
+  }
   $('#cards').append(el);
   void el.offsetWidth;
   el.classList.add('in');
 }
+
+/** Where a card for `tell` goes, and its text: the same placement the double take uses. */
+function placeCard(tell, others, extraH = 0) {
+  const { W, H } = stageSize();
+  const area = areaOf(tell);
+  const padded = area ? holeFor(area, SHAPE, PAD) : null;
+  const text = tell.detail ?? tell.label;
+  const width = Math.min(320, W - 24);
+  const spotRect = cardSpot({
+    hole: padded ? grow(padded, padded.feather / 2) : null,
+    subject: area,
+    placement: tell.placement ?? emptierSide(frameRect(), H, others.map(areaOf).filter(Boolean)),
+    stageW: W,
+    stageH: H,
+    cardH: estimateCardHeight(text, width, false) + extraH,
+    safeTop: SAFE_TOP,
+    safeBottom: SAFE_BOTTOM,
+  });
+  return { padded, text, spotRect };
+}
+
+/**
+ * Live mode: while the clip plays (no double take open), the selected run's
+ * annotation for the current moment gets the spotlight and card, and they leave
+ * when it's over. One at a time: the one with a box, earliest first.
+ */
+function updateLive(t) {
+  // The double take owns the spotlight and card while it's open.
+  if (S.dt.on) return void (S.live = null);
+  const want = S.mode === 'live' && !S.dt.on && !!current()?.media && !S.scrubbing;
+  const tells = want ? runTells() : [];
+  const on = activeTells(tells, t, 0.05).sort((a, b) => (b.box ? 1 : 0) - (a.box ? 1 : 0) || a.t0 - b.t0)[0] ?? null;
+  const ref = on ? tellRef(S.runs[S.run].name, on.id) : null;
+  if (ref === S.live) return;
+  S.live = ref;
+  if (!on) {
+    spot.onTarget = 0;
+    leaveCards();
+    return;
+  }
+  const mark = markOf(S.runs[S.run].name, on);
+  // The live card adds a run/time line, and a line for the reviewer's mark.
+  const { padded, text, spotRect } = placeCard(on, tells, 18 + (mark ? 24 : 0));
+  spot.target = padded;
+  spot.onTarget = padded ? 1 : 0;
+  if (padded && !spot.cur) spot.cur = { ...padded };
+  const run = runLabel(S.runs[S.run].name).name;
+  showCard(spotRect, text, { live: true, meta: `${run} · ${clock(on.t0)}–${clock(on.t1)}`, mark });
+}
+
+/** Refresh what shows the current clip's marks: lanes, the open card, the drawer and the grid. */
+function refreshMarks() {
+  renderLanes();
+  renderDrawer();
+  if (gridOpen) updateGridMarks();
+  if (S.dt.on && S.dt.step >= 0) {
+    const tell = S.dt.steps[S.dt.step];
+    const el = document.querySelector('#cards .card.in .mark');
+    const mark = tell && markOf(S.runs[S.run].name, tell);
+    const html = mark ? `${mark.pick ? '<b>★ Picked</b>' : ''}${mark.note ? `<span>${esc(mark.note)}</span>` : ''}` : '';
+    if (el) el.innerHTML = html;
+    else if (html) document.querySelector('#cards .card.in p')?.insertAdjacentHTML('afterend', `<div class="mark">${html}</div>`);
+  } else S.live = undefined; // re-show the live card with the new mark
+}
+
+/** The annotation on screen: the double take's step, or the live one. */
+function tellOnScreen() {
+  if (S.dt.on) return S.dt.steps[S.dt.step] ? { run: S.runs[S.run].name, tell: S.dt.steps[S.dt.step] } : null;
+  if (!S.live) return null;
+  const tell = runTells().find((x) => tellRef(S.runs[S.run].name, x.id) === S.live);
+  return tell ? { run: S.runs[S.run].name, tell } : null;
+}
+
+async function markTell(run, tell, patch, what) {
+  if (!S.key) return;
+  if (await send(S.key, { set: { tells: { [tellRef(run, tell.id)]: patch } } }, what)) refreshMarks();
+}
+function togglePick(run, tell) {
+  const on = !markOf(run, tell)?.pick;
+  markTell(run, tell, { pick: on }, on ? 'pick' : 'unpick').then(() => toast(on ? '★ Picked' : 'Pick removed'));
+}
+
 function leaveCards() {
   for (const el of document.querySelectorAll('#cards .card:not(.out)')) {
     el.classList.remove('in');
@@ -510,6 +635,37 @@ function markLane() {
     el.classList.toggle('now', !!now);
   }
 }
+
+// ---------------------------------------------------------------- play / pause
+const pp = $('#pp');
+const playBtn = $('#play');
+let shownPaused = null;
+let flashTimer;
+/** The stage's play/pause disc stays while paused (not while the reviewer scrubs) and flashes on a toggle. */
+function updatePlayState() {
+  const paused = !!current()?.media && video.paused && !S.scrubbing;
+  if (paused === shownPaused) return;
+  shownPaused = paused;
+  playBtn.innerHTML = paused ? ICON.play : ICON.pause;
+  playBtn.setAttribute('aria-label', paused ? 'Play' : 'Pause');
+  if (!pp.classList.contains('flash')) pp.innerHTML = ICON.play;
+  pp.classList.toggle('show', paused);
+}
+function togglePlay() {
+  if (!current()?.media) return;
+  const play = video.paused;
+  if (play) video.play().catch(() => {});
+  else video.pause();
+  // Flash the new state's glyph; when paused it settles on the play glyph.
+  pp.innerHTML = play ? ICON.play : ICON.pause;
+  pp.classList.add('flash');
+  clearTimeout(flashTimer);
+  flashTimer = setTimeout(() => {
+    pp.classList.remove('flash');
+    pp.innerHTML = ICON.play;
+  }, 420);
+}
+playBtn.onclick = togglePlay;
 
 // ---------------------------------------------------------------- per-frame updates
 let last = performance.now();
@@ -549,6 +705,9 @@ function tick(now) {
     spotEl.style.setProperty('-webkit-mask-size', size);
   }
   spotEl.style.opacity = (DIM * Math.min(1, spot.on * 1.3)).toFixed(3);
+
+  updateLive(t);
+  updatePlayState();
 
   // The card's loop line.
   const fill = document.querySelector('#cards .card.in .loop i');
@@ -655,7 +814,7 @@ async function undo() {
       openClip(u.key);
     } else {
       renderDecision();
-      renderDrawer();
+      refreshMarks();
     }
   } catch (e) {
     toast(`Undo failed: ${e.message}`);
@@ -690,6 +849,20 @@ function consensusHtml(it) {
     ${c.tells?.length ? `<div class="sub" style="margin-top:8px">Cited: ${c.tells.map((x) => `${esc(x.tell)} ×${x.count}`).join(', ')}</div>` : ''}</section>`;
 }
 
+/** The reviewer's picks and notes on this clip's annotations, each one a link to that tell. */
+function marksHtml(st) {
+  const entries = Object.entries(st?.tells ?? {});
+  if (!entries.length) return '';
+  const rows = entries.map(([ref, m]) => {
+    const run = ref.slice(0, ref.indexOf('/'));
+    const ri = S.runs.findIndex((r) => r.name === run);
+    const tell = S.runs[ri]?.file?.tells.find((t) => tellRef(run, t.id) === ref);
+    const label = tell ? `${esc(runLabel(run).name)} · ${esc(tell.label)}` : `${esc(ref)} <span class="sub">(not in this clip's runs)</span>`;
+    return `<p>${m.pick ? '★ ' : ''}${tell ? `<a href="#" data-tell-ri="${ri}" data-tell-id="${esc(tell.id)}">${label}</a>` : label}${m.note ? `<br><span class="sub">${esc(m.note)}</span>` : ''}</p>`;
+  });
+  return `<section><h3>Your marks <a href="#" data-open-grid>All tells</a></h3>${rows.join('')}</section>`;
+}
+
 function renderDrawer() {
   const it = current();
   const dr = $('#drawer');
@@ -721,9 +894,22 @@ function renderDrawer() {
     ${it.consensus ? consensusHtml(it) : ''}
     ${it.evidence && it.evidence !== noteText && !it.consensus ? `<section><h3>Evidence</h3><div class="quote">${esc(it.evidence)}</div></section>` : ''}
     ${runs ? `<section><h3>Annotation runs</h3><div class="runs">${runs}</div>${unplaced.length ? `<div class="sub" style="margin-top:10px">Not placed: ${unplaced.map((u) => `“${esc(u.quote)}”`).join(' ')}</div>` : ''}</section>` : ''}
+    ${marksHtml(st)}
     ${partners.length ? `<section><h3>Compare with</h3>${partners.map((k) => `<p><a href="#${esc(k)}" data-goto="${esc(k)}">${esc(S.byKey.get(k).author ? `@${S.byKey.get(k).author}` : k)}</a> <span class="sub">${esc([S.byKey.get(k).label, S.byKey.get(k).tier].filter(Boolean).join(' · '))}</span></p>`).join('')}</section>` : ''}`;
 }
 $('#drawer').addEventListener('click', (e) => {
+  if (e.target.closest('[data-open-grid]')) {
+    e.preventDefault();
+    return toggleGrid(true);
+  }
+  const t = e.target.closest('a[data-tell-ri]');
+  if (t) {
+    e.preventDefault();
+    const ri = +t.dataset.tellRi;
+    selectRun(ri, { keepPlace: false });
+    const steps = walkthroughSteps(runTells());
+    return startDoubleTake(Math.max(0, steps.findIndex((x) => x.id === t.dataset.tellId)));
+  }
   const a = e.target.closest('a[data-goto]');
   if (!a) return;
   e.preventDefault();
@@ -791,6 +977,198 @@ $('#scrim').onclick = () => {
   else toggleDrawer(false);
 };
 
+// ---------------------------------------------------------------- live / step
+function setMode(m, quiet = false) {
+  S.mode = m;
+  store.set('mode', m);
+  S.live = undefined;
+  document.querySelectorAll('#mode button').forEach((b) => {
+    const on = b.dataset.mode === m;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-checked', String(on));
+  });
+  if (!quiet) toast(m === 'live' ? 'Annotations appear as the clip plays' : 'Annotations only when you step through them');
+}
+$('#mode').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-mode]');
+  if (b && b.dataset.mode !== S.mode) setMode(b.dataset.mode);
+});
+setMode(S.mode, true);
+
+// ---------------------------------------------------------------- all tells: every run's annotations in one grid
+let gridOpen = false;
+let gridCellsNow = [];
+let thumbJob = 0;
+/** Frames drawn for thumbnails, by clip and time, so reopening the grid is instant. */
+const thumbCache = new Map();
+
+function toggleGrid(on = !gridOpen) {
+  gridOpen = on;
+  $('#gridview').classList.toggle('open', on);
+  $('#grid-btn').classList.toggle('on', on);
+  if (on) renderGrid();
+  else thumbJob++;
+}
+$('#grid-btn').onclick = () => toggleGrid();
+$('#grid-chip').onclick = () => toggleGrid(true);
+$('#gv-close').onclick = () => toggleGrid(false);
+$('#gv-sort').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-sort]');
+  if (!b) return;
+  S.gridSort = b.dataset.sort;
+  store.set('gridSort', S.gridSort);
+  renderGrid();
+});
+
+function gridCells() {
+  const cells = [];
+  S.runs.forEach((r, ri) => (r.file?.tells ?? []).forEach((tell) => cells.push({ ri, run: r.name, tell, at: seekTimeFor(tell) })));
+  return S.gridSort === 'run' ? cells.sort((a, b) => a.ri - b.ri || a.at - b.at) : cells.sort((a, b) => a.at - b.at || a.ri - b.ri);
+}
+
+function renderGrid() {
+  const it = current();
+  const cells = (gridCellsNow = gridCells());
+  document.querySelectorAll('#gv-sort button').forEach((b) => b.classList.toggle('on', b.dataset.sort === S.gridSort));
+  const picks = Object.values(S.states[S.key]?.tells ?? {}).filter((m) => m.pick).length;
+  $('#gv-title').innerHTML = `All tells <span>· ${cells.length} from ${S.runs.length} run${S.runs.length === 1 ? '' : 's'}${picks ? ` · ${picks} picked` : ''}</span>`;
+  const box = $('#gv-cells');
+  if (!it?.media || !cells.length) {
+    box.innerHTML = `<div class="gv-empty">${it?.media ? 'No annotations for this clip.' : 'No video for this clip.'}</div>`;
+    return;
+  }
+  let lastRun = -1;
+  box.innerHTML = cells
+    .map((c, i) => {
+      const mark = markOf(c.run, c.tell);
+      const head = S.gridSort === 'run' && c.ri !== lastRun ? `<div class="gv-group">${esc(runLabel(c.run).name)}</div>` : '';
+      lastRun = c.ri;
+      return `${head}<div class="cell${mark?.pick ? ' picked' : ''}" data-i="${i}">
+        <div class="thumb" data-jump><canvas></canvas><span class="tag">${esc(runLabel(c.run).name)} · ${clock(c.at)}</span></div>
+        <div class="body"><div class="lbl" data-jump>${esc(c.tell.label)}</div>${c.tell.detail ? `<div class="det">${esc(c.tell.detail)}</div>` : ''}
+          <div class="row"><button class="star${mark?.pick ? ' on' : ''}" data-star title="Pick as a good tell" aria-label="Pick" aria-pressed="${!!mark?.pick}">${ICON.star}</button>
+          <input data-note placeholder="Note on this tell" value="${esc(mark?.note ?? '')}" /></div></div></div>`;
+    })
+    .join('');
+  drawThumbs(cells, it);
+}
+
+function updateGridMarks() {
+  document.querySelectorAll('#gv-cells .cell').forEach((el) => {
+    const c = gridCellsNow[+el.dataset.i];
+    const mark = c && markOf(c.run, c.tell);
+    el.classList.toggle('picked', !!mark?.pick);
+    const star = el.querySelector('[data-star]');
+    star.classList.toggle('on', !!mark?.pick);
+    star.setAttribute('aria-pressed', String(!!mark?.pick));
+    const input = el.querySelector('[data-note]');
+    if (document.activeElement !== input) input.value = mark?.note ?? '';
+  });
+  const picks = Object.values(S.states[S.key]?.tells ?? {}).filter((m) => m.pick).length;
+  const t = $('#gv-title span');
+  if (t) t.textContent = `· ${gridCellsNow.length} from ${S.runs.length} run${S.runs.length === 1 ? '' : 's'}${picks ? ` · ${picks} picked` : ''}`;
+}
+
+const once = (el, ev, ms = 8000) =>
+  new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      el.removeEventListener(ev, done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    el.addEventListener(ev, done);
+  });
+
+/** Draw each cell's frame (at the tell's focus time) and its box, from a hidden second video so the player isn't disturbed. */
+async function drawThumbs(cells, it) {
+  const job = ++thumbJob;
+  const aspect = aspectOf(it);
+  const W = 360;
+  const H = Math.round(W / aspect);
+  let v = null;
+  for (let i = 0; i < cells.length; i++) {
+    if (job !== thumbJob) break;
+    const c = cells[i];
+    const cacheKey = `${it.key}@${c.at.toFixed(2)}`;
+    let frame = thumbCache.get(cacheKey);
+    if (!frame) {
+      if (!v) {
+        v = document.createElement('video');
+        v.muted = true;
+        v.playsInline = true;
+        v.preload = 'auto';
+        v.src = it.media.video;
+        await once(v, 'loadeddata');
+      }
+      v.currentTime = Math.min(c.at, Math.max(0, (v.duration || c.at) - 0.05));
+      await once(v, 'seeked');
+      if (job !== thumbJob) break;
+      frame = document.createElement('canvas');
+      frame.width = W;
+      frame.height = H;
+      try {
+        frame.getContext('2d').drawImage(v, 0, 0, W, H);
+      } catch {
+        // not decodable yet: leave the cell dark
+      }
+      thumbCache.set(cacheKey, frame);
+    }
+    const canvas = document.querySelector(`#gv-cells .cell[data-i="${i}"] canvas`);
+    if (!canvas) continue;
+    canvas.width = W;
+    canvas.height = H;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(frame, 0, 0);
+    const b = c.tell.box;
+    if (b) {
+      // Dim around the box, then outline it: the spotlight, as a still.
+      const r = { x: b.x * W, y: b.y * H, w: b.w * W, h: b.h * H };
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(0, 0, W, H);
+      ctx.roundRect(r.x, r.y, r.w, r.h, 6);
+      ctx.fillStyle = 'rgba(0,0,0,0.38)';
+      ctx.fill('evenodd');
+      ctx.beginPath();
+      ctx.roundRect(r.x, r.y, r.w, r.h, 6);
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = 'rgba(245,245,247,0.95)';
+      ctx.stroke();
+      ctx.restore();
+    }
+    canvas.classList.add('ready');
+  }
+  if (v) {
+    v.removeAttribute('src');
+    v.load();
+  }
+}
+
+$('#gv-cells').addEventListener('click', (e) => {
+  const el = e.target.closest('.cell');
+  const c = el && gridCellsNow[+el.dataset.i];
+  if (!c) return;
+  if (e.target.closest('[data-star]')) return togglePick(c.run, c.tell);
+  if (!e.target.closest('[data-jump]')) return;
+  // Jump the player there: that run, that tell, in the double take.
+  toggleGrid(false);
+  selectRun(c.ri, { keepPlace: false });
+  startDoubleTake(Math.max(0, walkthroughSteps(runTells()).indexOf(c.tell)));
+});
+$('#gv-cells').addEventListener('keydown', (e) => {
+  if (e.target.matches('[data-note]') && (e.key === 'Enter' || e.key === 'Escape')) {
+    e.preventDefault();
+    e.target.blur();
+  }
+});
+$('#gv-cells').addEventListener('focusout', (e) => {
+  if (!e.target.matches('[data-note]')) return;
+  const c = gridCellsNow[+e.target.closest('.cell').dataset.i];
+  const v = e.target.value.trim();
+  if (c && v !== (markOf(c.run, c.tell)?.note ?? '')) markTell(c.run, c.tell, { note: v }, 'tell note').then(() => toast('Note saved'));
+});
+
 // ---------------------------------------------------------------- stage gestures: tap, double tap, swipe
 let press = null;
 let tapTimer = null;
@@ -813,8 +1191,7 @@ stage.addEventListener('pointerup', (e) => {
   tapTimer = setTimeout(() => {
     tapTimer = null;
     if (S.dt.on) goStep(S.dt.step + 1);
-    else if (video.paused) video.play().catch(() => {});
-    else video.pause();
+    else togglePlay();
   }, 240);
 });
 
@@ -830,11 +1207,13 @@ document.addEventListener('keydown', (e) => {
   };
   if (k === 'Escape') {
     if (openSheet) return run(() => toggleSheet(openSheet));
+    if (gridOpen) return run(() => toggleGrid(false));
     if ($('#drawer').classList.contains('open')) return run(() => toggleDrawer(false));
     if (S.dt.on) return run(() => exitDoubleTake());
     return;
   }
   if (openSheet && k !== '?' && k !== 'f') return;
+  if (gridOpen && !['g', 'j', 'k', 'ArrowDown', 'ArrowUp', 'u', 'a', 'x', 'e', '?'].includes(k)) return;
   if (k === 'j' || k === 'ArrowDown') run(() => go(1));
   else if (k === 'k' || k === 'ArrowUp') run(() => go(-1));
   else if (k === 'ArrowRight' || k === 'ArrowLeft') {
@@ -850,8 +1229,7 @@ document.addEventListener('keydown', (e) => {
   } else if (k === ' ')
     run(() => {
       if (S.dt.on) goStep(S.dt.step + 1);
-      else if (video.paused) video.play().catch(() => {});
-      else video.pause();
+      else togglePlay();
     });
   else if (k === 'd' || k === 'Enter') run(() => (S.dt.on ? exitDoubleTake() : startDoubleTake(0)));
   else if (/^[1-9]$/.test(k)) run(() => selectRun(+k - 1));
@@ -862,6 +1240,14 @@ document.addEventListener('keydown', (e) => {
       store.set('outlines', S.outlines);
       renderOutlines();
       toast(S.outlines ? 'Outlines on' : 'Outlines off');
+    });
+  else if (k === 'l') run(() => setMode(S.mode === 'live' ? 'step' : 'live'));
+  else if (k === 'g') run(() => toggleGrid());
+  else if (k === 'p')
+    run(() => {
+      const on = tellOnScreen();
+      if (on) togglePick(on.run, on.tell);
+      else toast('No annotation on screen to pick');
     });
   else if (k === 'a') run(() => decide('keep'));
   else if (k === 'x') run(() => decide('discard'));
