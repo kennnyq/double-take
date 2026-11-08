@@ -56,6 +56,11 @@ export const LANDING_TRIALS = {
     { value: 'end', label: 'As each clip ends' },
     { value: 'off', label: 'Never (clips loop)' },
   ]),
+  busy: trial(LOOK, 'How busy the wall is', 'busy', [
+    { value: 'medium', label: 'Medium' },
+    { value: 'calm', label: 'Calm' },
+    { value: 'lively', label: 'Lively' },
+  ]),
   turn: trial(LOOK, 'Next clip comes in by', 'turn', [
     { value: 'auto', label: 'Swipe; a crossfade on phones' },
     { value: 'slide', label: 'Swiping up' },
@@ -222,6 +227,7 @@ const BASE: LandingValues = {
   speed: 'medium',
   reels: 'end',
   turn: 'auto',
+  busy: 'medium',
   scan: 'brackets',
   copy: 'second',
   type: 'grotesk',

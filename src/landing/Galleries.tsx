@@ -1,5 +1,6 @@
 import { memo, useEffect, useRef, type CSSProperties } from 'react';
 import type { LandingValues } from './designs';
+import { BUSYNESS } from './reels';
 import type { Tier } from './tier';
 import { rand, Tile, useAtlasBoards, useBox, useTilePlayback } from './Tile';
 
@@ -295,6 +296,7 @@ export const Gallery = memo(function Gallery({
   speed,
   reels,
   turn,
+  busy,
   tier,
 }: {
   design: LandingValues['gallery'];
@@ -303,6 +305,8 @@ export const Gallery = memo(function Gallery({
   reels: LandingValues['reels'];
   /** How a tile's next clip comes in (auto: a swipe, a crossfade on the lighter tier). */
   turn: LandingValues['turn'];
+  /** How busy the wall may be: how long a clip stays, how many turns a second, how far apart. */
+  busy: LandingValues['busy'];
   /** How much to ask of the device (tier.ts). */
   tier: Tier;
 }) {
@@ -310,7 +314,7 @@ export const Gallery = memo(function Gallery({
   const { w, h } = useBox(ref);
   const Layout = GALLERIES[design];
   useTilePlayback(ref, `${design}:${w}x${h}`);
-  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off', tier, turn === 'auto' ? undefined : turn);
+  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off', tier, turn === 'auto' ? undefined : turn, BUSYNESS[busy]);
   return (
     <div className="lt-gallery" data-gallery={design} ref={ref}>
       {w > 0 && <Layout w={w} h={h} speed={SPEED[speed]} />}

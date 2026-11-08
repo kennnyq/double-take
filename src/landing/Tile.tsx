@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import type { Atlas } from './atlas';
 import { atlasPlayer } from './AtlasPlayer';
-import type { Turn } from './reels';
+import type { Busyness, Turn } from './reels';
 import type { Tier } from './tier';
 
 /** One feed clip as the gallery shows it. */
@@ -130,6 +130,7 @@ export function useAtlasBoards(
   reels?: boolean,
   tier: Tier = 'full',
   turn?: Turn,
+  busyness?: Busyness,
 ) {
   const atlas = useContext(GalleryAtlas);
   const clips = useContext(GalleryClips);
@@ -140,12 +141,12 @@ export function useAtlasBoards(
     const player = atlasPlayer(atlas);
     const clipOfCell = new Map(clips.flatMap((c) => (c.cell === undefined ? [] : [[c.cell, c.index] as const])));
     const unmount = player.mount(root, clipOfCell);
-    if (reels !== undefined) player.setReels(reels, clipOfCell, tier, turn);
+    if (reels !== undefined) player.setReels(reels, clipOfCell, tier, turn, busyness);
     return () => {
       if (reels !== undefined) player.setReels(false, new Map());
       unmount();
     };
-  }, [rootRef, key, atlas, loaded, clips, reels, tier, turn]);
+  }, [rootRef, key, atlas, loaded, clips, reels, tier, turn, busyness]);
 }
 
 /** The element's size, kept up to date. */

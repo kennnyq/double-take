@@ -1,6 +1,6 @@
 import { atlasMode, cellRect, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
 import { streamLoop } from './atlasStream';
-import { chooseNext, FADE_MS, handover, loopAt, snap, soft, SWIPE_MS, swipeSlices, type Neighbour, type Turn } from './reels';
+import { BUSYNESS, chooseNext, fits, FADE_MS, handover, loopAt, snap, soft, SWIPE_MS, swipeSlices, type Busyness, type Neighbour, type Planned, type Turn } from './reels';
 import { spreadCells, stripLoops, stripSequence, type Spot } from './spread';
 import { PHONE_SWIPES, type Tier } from './tier';
 
@@ -153,6 +153,10 @@ export class AtlasPlayer {
   private busy: number[] = [];
   /** Tiles that found no clip to hand over to this time round, by key: the loop they're in. Their clip loops instead. */
   private noHandover = new Map<string, number>();
+  /** How busy the wall may be (reels.ts: Busyness), the turns planned, and when each tile's clip came in (atlas time). */
+  private busyness: Busyness = BUSYNESS.medium;
+  private planned: Planned[] = [];
+  private shownSince = new Map<string, number>();
   /** The lighter tier caps swipes (tier.ts). */
   private tier: Tier = 'full';
   /** How tiles turn to their next clip, and how long that takes (ms). */
@@ -378,8 +382,9 @@ export class AtlasPlayer {
   }
 
   /** Whether tiles swipe as their clips end (false: they loop), and which feed clip each cell holds. */
-  setReels(on: boolean, clipOfCell: Map<number, number>, tier: Tier = 'full', turn?: Turn) {
+  setReels(on: boolean, clipOfCell: Map<number, number>, tier: Tier = 'full', turn?: Turn, busyness: Busyness = BUSYNESS.medium) {
     this.tier = tier;
+    this.busyness = busyness;
     // A swipe on the full tier; a soft crossfade on the lighter one (it read as flashy and jittery on phones).
     this.turn = turn ?? (tier === 'phone' ? 'fade' : 'slide');
     this.turnMs = this.turn === 'fade' ? FADE_MS : SWIPE_MS;
@@ -401,6 +406,8 @@ export class AtlasPlayer {
     const span = handover(loop, lead, 2, this.turnMs);
     const wallAt = (at: number) => shows + (at - t) * 1000;
     this.busy = this.busy.filter((b) => b > t - 1);
+    this.planned = this.planned.filter((p) => p.at > t - 2);
+    const { hold } = this.busyness;
     // Tiles due to hand over: every copy of each (a strip holds each twice).
     const due = new Map<string, [Board, number][]>();
     for (const b of this.visible) {
@@ -415,6 +422,13 @@ export class AtlasPlayer {
         if (into < span.from || into > span.until) return;
         const round = Math.floor((t + phases[cell]) / loop);
         if (this.noHandover.get(key) === round) return;
+        // Held long enough? If not, its clip loops once more. (First seen: as if it
+        // came in a little while ago, so the wall doesn't all turn at once.)
+        if (!this.shownSince.has(key)) this.shownSince.set(key, t - Math.random() * hold);
+        if (t + (span.until - into) - this.shownSince.get(key)! < hold) {
+          this.noHandover.set(key, round);
+          return;
+        }
         due.set(key, [...(due.get(key) ?? []), [b, i]]);
       });
     }
@@ -454,12 +468,15 @@ export class AtlasPlayer {
         distances: this.atlas.distances,
         prefer: strip ? this.stripSets.get(strip) : undefined,
         busy: this.busy,
+        fitsAt: (at) => fits(this.planned, at, me.x, me.y, me.size, this.busyness),
       });
       if (!next) {
         this.noHandover.set(key, Math.floor((t + phases[cell]) / loop));
         return;
       }
       this.busy.push(next.at);
+      this.planned.push({ at: next.at, x: me.x, y: me.y, size: me.size });
+      this.shownSince.set(key, next.at);
       room--;
       me.cell = next.cell;
       for (const [b, i] of members) {
