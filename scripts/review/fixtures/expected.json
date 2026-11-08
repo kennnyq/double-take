@@ -1,9 +1,53 @@
 {
   "skipped": 3,
   "states": {
-    "x-1": { "key": "x-1", "status": "keep", "tags": ["great example"], "note": "", "url": "https://x.com/i/status/1", "by": "kenny", "at": "2026-11-07T10:01:00.000Z", "events": 2 },
-    "yt-abcdefghijk": { "key": "yt-abcdefghijk", "status": "discard", "tags": [], "note": "repost", "by": "ana", "at": "2026-11-07T10:05:00.000Z", "events": 2 },
-    "x-2": { "key": "x-2", "status": null, "tags": [], "note": "looked again", "by": "kenny", "at": "2026-11-07T10:07:00.000Z", "events": 2 },
-    "x-3": { "key": "x-3", "status": null, "tags": [], "note": "", "by": "kenny", "at": "2026-11-07T10:08:00.000Z", "events": 1 }
+    "x-1": {
+      "key": "x-1",
+      "status": "keep",
+      "tags": [
+        "great example"
+      ],
+      "note": "",
+      "tells": {
+        "main/b": {
+          "pick": true,
+          "note": "box late"
+        }
+      },
+      "url": "https://x.com/i/status/1",
+      "by": "kenny",
+      "at": "2026-11-07T10:10:00.000Z",
+      "events": 4
+    },
+    "yt-abcdefghijk": {
+      "key": "yt-abcdefghijk",
+      "status": "discard",
+      "tags": [],
+      "note": "repost",
+      "tells": {},
+      "by": "ana",
+      "at": "2026-11-07T10:05:00.000Z",
+      "events": 2
+    },
+    "x-2": {
+      "key": "x-2",
+      "status": null,
+      "tags": [],
+      "note": "looked again",
+      "tells": {},
+      "by": "kenny",
+      "at": "2026-11-07T10:07:00.000Z",
+      "events": 2
+    },
+    "x-3": {
+      "key": "x-3",
+      "status": null,
+      "tags": [],
+      "note": "",
+      "tells": {},
+      "by": "kenny",
+      "at": "2026-11-07T10:08:00.000Z",
+      "events": 1
+    }
   }
 }

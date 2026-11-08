@@ -90,6 +90,26 @@ ROWS = [AI, REAL_A, REAL_B, AI2, REAL_C]
 ids = lambda rows: [r["id"] if "id" in r else clip_id(r["url"]) for r in rows]  # noqa: E731
 
 
+class TellMarks(unittest.TestCase):
+    def test_marks_merge_like_the_review_site_and_never_change_the_build(self):
+        with tempfile.TemporaryDirectory() as d:
+            p = os.path.join(d, "decisions.jsonl")
+            rows = [
+                {"v": 1, "id": "a", "at": "1", "by": "k", "key": "x-1", "set": {"status": "discard"}},
+                {"v": 1, "id": "b", "at": "2", "by": "k", "key": "x-1", "set": {"tells": {"main/t1": {"pick": True}}}},
+                {"v": 1, "id": "c", "at": "3", "by": "k", "key": "x-2", "set": {"tells": {"claude/t2": {"note": "late"}}}},
+                {"v": 1, "id": "d", "at": "4", "by": "k", "key": "x-2", "set": {"tells": {"claude/t2": None}}},
+            ]
+            with open(p, "w") as f:
+                f.write("".join(json.dumps(r) + "\n" for r in rows))
+            states = review.load(p)
+            self.assertEqual(states["x-1"]["tells"], {"main/t1": {"pick": True, "note": ""}})
+            self.assertEqual(states["x-2"]["tells"], {})
+            # Only status feeds the build: marks neither keep nor drop anything.
+            self.assertEqual(review.discarded(p), {"x-1"})
+            self.assertEqual(review.kept(p), set())
+
+
 class Exclude(unittest.TestCase):
     def test_nothing_discarded_keeps_everything(self):
         self.assertEqual(drop_discarded(ROWS, set(), pairs=True), ROWS)

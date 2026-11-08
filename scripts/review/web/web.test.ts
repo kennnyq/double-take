@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { seekTimeFor } from '../../../src/annotations/walkthrough.ts';
 import type { Tell } from '../../../src/annotations/format.ts';
 import { DEFAULT_FILTER, buildQueue, decided, nextIndex, sourceOptions, type QueueItem } from './queue.ts';
-import { clock, focusTime, markers, runLabel, stepFrom } from './timeline.ts';
+import { clock, focusTime, markers, runLabel, stepFrom, tellRef } from './timeline.ts';
+import { checkPatch } from '../decisions.ts';
 
 const media = (tells = 0) => ({ duration: 10, tells: Array.from({ length: tells }, (_, i) => ({ name: `m${i}`, url: 'u' })) });
 const item = (key: string, ins: QueueItem['in'], m: QueueItem['media'] = media()): QueueItem => ({ key, in: ins, media: m });
@@ -84,4 +85,12 @@ test('runLabel and clock', () => {
   assert.equal(clock(7.42), '0:07.4');
   assert.equal(clock(65), '1:05.0');
   assert.equal(clock(NaN), '0:00.0');
+});
+
+test('tellRef builds keys the decisions log accepts', () => {
+  assert.equal(tellRef('nemotron-dense', 'fingers-merge-with-seal'), 'nemotron-dense/fingers-merge-with-seal');
+  for (const [run, id] of [['main', 'a b/c?'], ['we:ird', ''], ['claude', 'x'.repeat(300)]]) {
+    const ref = tellRef(run, id);
+    assert.equal(checkPatch({ tells: { [ref]: { pick: true } } }), null, ref);
+  }
 });

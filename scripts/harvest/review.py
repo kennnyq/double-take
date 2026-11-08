@@ -7,6 +7,7 @@ folds them the same way it does (scripts/review/decisions.ts): set events apply 
     python3 -I scripts/harvest/review.py                    # counts per status
     python3 -I scripts/harvest/review.py --status needs-work
     python3 -I scripts/harvest/review.py --status discard --json
+    python3 -I scripts/harvest/review.py --picks             # annotations marked as good tells, with notes
 
 build_media.py --exclude-discarded uses `discarded()` to leave those clips out, and
 --only-kept uses `kept()` to build only clips the review marked keep.
@@ -41,14 +42,33 @@ def read_events(path: str = DECISIONS) -> list[dict]:
     return out
 
 
+def merge_tells(cur: dict[str, dict], patch: dict) -> dict[str, dict]:
+    """Per-annotation marks (`tells`, keyed "<run>/<tell id>"): fields merge, None clears,
+    and a mark left with no pick and no note goes. Same as decisions.ts mergeTells."""
+    out = dict(cur)
+    for ref, m in patch.items():
+        if not isinstance(m, dict):
+            out.pop(ref, None)
+            continue
+        prev = out.get(ref, {"pick": False, "note": ""})
+        nxt = {"pick": m["pick"] if isinstance(m.get("pick"), bool) else prev["pick"],
+               "note": m["note"] if isinstance(m.get("note"), str) else prev["note"]}
+        if nxt["pick"] or nxt["note"]:
+            out[ref] = nxt
+        else:
+            out.pop(ref, None)
+    return out
+
+
 def fold(events: list[dict]) -> dict[str, dict]:
-    """Current state per clip key: status (None = unreviewed), tags, note, url, by, at, events."""
+    """Current state per clip key: status (None = unreviewed), tags, note, tells, url, by, at, events.
+    Only `status` decides what the feed build keeps; `tells` marks are for the annotation work."""
     undone = {e["undo"] for e in events if isinstance(e.get("undo"), str)}
     live = sorted((e for e in events if isinstance(e.get("set"), dict) and e["id"] not in undone),
                   key=lambda e: (e["at"], e["id"]))
     states: dict[str, dict] = {}
     for e in live:
-        s = states.setdefault(e["key"], {"key": e["key"], "status": None, "tags": [], "note": "",
+        s = states.setdefault(e["key"], {"key": e["key"], "status": None, "tags": [], "note": "", "tells": {},
                                          "by": e.get("by"), "at": e["at"], "events": 0})
         patch = e["set"]
         if "status" in patch and (patch["status"] is None or patch["status"] in STATUSES):
@@ -57,6 +77,8 @@ def fold(events: list[dict]) -> dict[str, dict]:
             s["tags"] = list(dict.fromkeys(t for t in patch["tags"] if isinstance(t, str)))
         if isinstance(patch.get("note"), str):
             s["note"] = patch["note"]
+        if isinstance(patch.get("tells"), dict):
+            s["tells"] = merge_tells(s["tells"], patch["tells"])
         if e.get("url"):
             s["url"] = e["url"]
         s["by"], s["at"] = e.get("by"), e["at"]
@@ -84,9 +106,21 @@ def main() -> None:
     ap.add_argument("--status", choices=(*STATUSES, "any"), help="list clips with this status")
     ap.add_argument("--tag", help="only clips with this tag")
     ap.add_argument("--json", action="store_true", help="one JSON state per line")
+    ap.add_argument("--picks", action="store_true", help="list marked annotations (picks and notes)")
     args = ap.parse_args()
 
     states = load(args.decisions)
+    if args.picks:
+        n = 0
+        for s in sorted(states.values(), key=lambda s: s["key"]):
+            for ref, m in sorted(s["tells"].items()):
+                n += 1
+                if args.json:
+                    print(json.dumps({"key": s["key"], "tell": ref, **m}, ensure_ascii=False))
+                else:
+                    print(f"{s['key']}  {ref}  {'★' if m['pick'] else ' '}  {m['note']}".rstrip())
+        print(f"{n} marked annotation(s)", file=sys.stderr)
+        return
     if not args.status and not args.tag:
         counts: dict[str, int] = {}
         for s in states.values():

@@ -77,3 +77,13 @@ export function clock(s: number): string {
   const r = s - m * 60;
   return `${m}:${r < 10 ? '0' : ''}${r.toFixed(1)}`;
 }
+
+/**
+ * The key a reviewer's mark on an annotation is stored under in the decisions log:
+ * `<run>/<tell id>`, e.g. `nemotron-dense/fingers-merge-with-seal`. Characters the
+ * log doesn't allow become `-`.
+ */
+export function tellRef(run: string, id: string): string {
+  const clean = (s: string, n: number) => (s.replace(/[^\w.:-]/g, '-').slice(0, n) || '-');
+  return `${clean(run, 60).replace(/:/g, '-')}/${clean(id, 120)}`;
+}

@@ -10,3 +10,5 @@ not json
 {"v":1,"id":"e6","at":"2026-11-07T10:06:00.000Z","by":"kenny","key":"x-2","set":{"status":"needs-work"}}
 {"v":1,"id":"e7","at":"2026-11-07T10:07:00.000Z","by":"kenny","key":"x-2","set":{"status":null,"note":"looked again"}}
 {"v":1,"id":"e8","at":"2026-11-07T10:08:00.000Z","by":"kenny","key":"x-3","set":{"status":"bogus"}}
+{"v": 1, "id": "e9", "at": "2026-11-07T10:09:00.000Z", "by": "kenny", "key": "x-1", "set": {"tells": {"claude/a": {"pick": true, "note": "best"}, "main/b": {"note": "box late"}}}}
+{"v": 1, "id": "e10", "at": "2026-11-07T10:10:00.000Z", "by": "kenny", "key": "x-1", "set": {"tells": {"main/b": {"pick": true}, "claude/a": null}}}

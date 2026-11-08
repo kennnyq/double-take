@@ -92,3 +92,29 @@ test('vettedKeys ignores undone vetting and other reviewers', async () => {
   ];
   assert.deepEqual([...vettedKeys(events)].sort(), ['a', 'd']);
 });
+
+test('tell marks merge per annotation, null clears, and an empty mark goes', async () => {
+  const { mergeTells } = await import('./decisions.ts');
+  let t = mergeTells({}, { 'main/a': { pick: true } });
+  t = mergeTells(t, { 'main/a': { note: 'box is late' }, 'claude/b': { note: 'vague' } });
+  assert.deepEqual(t, { 'main/a': { pick: true, note: 'box is late' }, 'claude/b': { pick: false, note: 'vague' } });
+  t = mergeTells(t, { 'claude/b': { note: '' }, 'main/a': null });
+  assert.deepEqual(t, {});
+});
+
+test('checkPatch accepts tell marks and rejects malformed ones', () => {
+  assert.equal(checkPatch({ tells: { 'nemotron-dense/fingers-merge': { pick: true, note: 'x' } } }), null);
+  assert.equal(checkPatch({ tells: { 'main/a': null } }), null);
+  assert.match(String(checkPatch({ tells: {} })), /1-100/);
+  assert.match(String(checkPatch({ tells: { 'no-slash': { pick: true } } })), /bad tell ref/);
+  assert.match(String(checkPatch({ tells: { 'main/a': { pick: 'yes' } } })), /pick/);
+  assert.match(String(checkPatch({ tells: { 'main/a': { star: true } } })), /unknown mark/);
+  assert.match(String(checkPatch({ tells: [] })), /object/);
+});
+
+test('tell marks never change a clip’s decision', () => {
+  const ev = (id: string, set: object): ReviewEvent => ({ v: 1, id, at: id, by: 'k', key: 'x-1', set });
+  const s = fold([ev('1', { status: 'keep' }), ev('2', { tells: { 'main/a': { pick: true } } })]).get('x-1');
+  assert.equal(s?.status, 'keep');
+  assert.deepEqual(s?.tells, { 'main/a': { pick: true, note: '' } });
+});
