@@ -8,7 +8,8 @@ folds them the same way it does (scripts/review/decisions.ts): set events apply 
     python3 -I scripts/harvest/review.py --status needs-work
     python3 -I scripts/harvest/review.py --status discard --json
 
-build_media.py --exclude-discarded uses `discarded()` to leave those clips out.
+build_media.py --exclude-discarded uses `discarded()` to leave those clips out, and
+--only-kept uses `kept()` to build only clips the review marked keep.
 """
 import argparse
 import json
@@ -70,6 +71,11 @@ def load(path: str = DECISIONS) -> dict[str, dict]:
 def discarded(path: str = DECISIONS) -> set[str]:
     """Clip keys (build_media.clip_id) currently marked discard."""
     return {k for k, s in load(path).items() if s["status"] == "discard"}
+
+
+def kept(path: str = DECISIONS) -> set[str]:
+    """Clip keys (build_media.clip_id) currently marked keep."""
+    return {k for k, s in load(path).items() if s["status"] == "keep"}
 
 
 def main() -> None:

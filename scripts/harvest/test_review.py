@@ -25,6 +25,25 @@ class Fold(unittest.TestCase):
             expected = json.load(f)["states"]
         self.assertEqual(review.load(os.path.join(FIX, "decisions.jsonl")), expected)
 
+    def test_kept(self):
+        self.assertEqual(review.kept(os.path.join(FIX, "decisions.jsonl")), {"x-1"})
+        self.assertEqual(review.kept(os.path.join(FIX, "nope.jsonl")), set())
+
+    def test_only_kept_builds_nothing_unreviewed(self):
+        # x-2 and x-3 have no decision in the fixture, so --only-kept must not build (or fetch) them.
+        with tempfile.TemporaryDirectory() as d:
+            cands = os.path.join(d, "batch.jsonl")
+            with open(cands, "w") as f:
+                for i in (2, 3):
+                    f.write(json.dumps({"url": f"https://x.com/i/status/{i}", "label": "real"}) + "\n")
+            r = subprocess.run([sys.executable, "-I", os.path.join(HERE, "build_media.py"), cands, "--out", d,
+                                "--only-kept", "--decisions", os.path.join(FIX, "decisions.jsonl")],
+                               capture_output=True, text=True, timeout=60)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("0 of 2 new candidate(s) marked keep", r.stderr)
+            with open(os.path.join(d, "feeds", "demo.json")) as f:
+                self.assertEqual(json.load(f)["clips"], [])
+
     def test_discarded_and_missing_log(self):
         self.assertEqual(review.discarded(os.path.join(FIX, "decisions.jsonl")), {"yt-abcdefghijk"})
         self.assertEqual(review.discarded(os.path.join(FIX, "nope.jsonl")), set())

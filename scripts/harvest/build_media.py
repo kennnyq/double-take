@@ -2,12 +2,15 @@
 
 Usage:
     python3 -I scripts/harvest/build_media.py CANDIDATES.jsonl [--out build] [--max-duration 90] [--merge]
-        [--feed demo] [--exclude-discarded [--decisions DECISIONS.jsonl]]
+        [--feed demo] [--exclude-discarded] [--only-kept] [--decisions DECISIONS.jsonl]
 
 --merge keeps the existing feed and only downloads candidates it doesn't have yet,
 so adding clips never drops one whose source link has since died.
 --feed NAME writes feeds/NAME.json (default demo); the Worker serves it at
 /feed?name=NAME. Media is shared: a clip already built for another feed is reused.
+--only-kept builds only the new candidates the review site marked keep (rows already
+in the feed stay). Use it for any batch that hasn't been fully reviewed, so nothing
+unreviewed reaches a deployable feed.
 --exclude-discarded leaves out every clip the review site marked discard
 (scripts/harvest/review/decisions.jsonl, or --decisions PATH; see REVIEW.md), from
 the new candidates and, with --merge, from the kept feed too. In a pair feed
@@ -292,6 +295,7 @@ def main() -> None:
     ap.add_argument("--merge", action="store_true", help="keep the existing feed; only add new clips")
     ap.add_argument("--feed", default="demo", help="feed name: writes feeds/NAME.json (default demo)")
     ap.add_argument("--exclude-discarded", action="store_true", help="leave out clips the review marked discard")
+    ap.add_argument("--only-kept", action="store_true", help="build only new candidates the review marked keep")
     ap.add_argument("--decisions", help="the review's decisions file (default: review/decisions.jsonl)")
     args = ap.parse_args()
     if not re.fullmatch(r"[\w-]+", args.feed):
@@ -309,6 +313,13 @@ def main() -> None:
         have = {c["id"] for c in existing}
         uniq = [c for c in uniq if clip_id(c["url"]) not in have]
         print(f"merge: {len(existing)} clips kept, {len(uniq)} new to build", file=sys.stderr)
+    if args.only_kept:
+        sys.path.insert(0, HERE)  # -I leaves the script's folder off the path
+        import review
+        keep = review.kept(args.decisions or review.DECISIONS)
+        before = len(uniq)
+        uniq = [c for c in uniq if clip_id(c["url"]) in keep]
+        print(f"review: {len(uniq)} of {before} new candidate(s) marked keep; the rest are left out", file=sys.stderr)
     if args.exclude_discarded:
         sys.path.insert(0, HERE)  # -I leaves the script's folder off the path
         import review
