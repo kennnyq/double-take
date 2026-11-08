@@ -381,4 +381,7 @@ export const LANDING_PRESETS: readonly Preset<LandingTrials>[] = [
   }),
 ];
 
+/** The design shown without a `?design=` (and the only one in production). The bar keeps its order. */
+export const DEFAULT_LANDING_PRESET = 'tilted';
+
 export const LANDING_STORAGE_PREFIX = 'landing:design:';

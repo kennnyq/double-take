@@ -3,7 +3,7 @@ import { RotateCcw } from 'lucide-react';
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { mediaUri } from '@/desktop/media';
-import { LANDING_PRESETS, LANDING_STORAGE_PREFIX, LANDING_TRIALS } from './designs';
+import { DEFAULT_LANDING_PRESET, LANDING_PRESETS, LANDING_STORAGE_PREFIX, LANDING_TRIALS } from './designs';
 import { Landing } from './Landing';
 import { GalleryClips, type GalleryClip } from './Tile';
 import { TrialAction, TrialBar } from './TrialBar';
@@ -44,7 +44,7 @@ export function WithLanding({
   const [stage, setStage] = useState<Stage>(() => (window.location.hash === APP_HASH ? 'app' : 'landing'));
   const [startAt, setStartAt] = useState<number | undefined>();
   const [landingKey, setLandingKey] = useState(0);
-  const trials = useTrials(LANDING_TRIALS, LANDING_PRESETS, LANDING_STORAGE_PREFIX);
+  const trials = useTrials(LANDING_TRIALS, LANDING_PRESETS, LANDING_STORAGE_PREFIX, DEFAULT_LANDING_PRESET);
 
   // The same request the feed makes (shared), so the gallery and the feed agree on indices.
   const [ready] = useState(() => loadInitialClips());

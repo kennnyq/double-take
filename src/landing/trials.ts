@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { choosePreset } from './presetChoice';
 
 /**
  * Designs on trial: a page's design decisions as named axes ("trials"), plus
@@ -9,7 +10,8 @@ import { useCallback, useMemo, useState } from 'react';
  *   link opens exactly the same design.
  * - Without a `?design=` in the address, the last design shown (saved in
  *   localStorage) comes back.
- * - In production every axis is the first preset's, and nothing is read or
+ * - Otherwise the default preset shows (the first, unless one is named).
+ * - In production every axis is the default preset's, and nothing is read or
  *   saved.
  */
 
@@ -78,14 +80,20 @@ interface State<T extends Trials> {
   values: TrialValues<T>;
 }
 
-function initialState<T extends Trials>(trials: T, presets: readonly Preset<T>[], prefix: string): State<T> {
-  const first = presets[0];
-  if (!DEV) return { preset: first.id, values: { ...first.values } };
+function initialState<T extends Trials>(
+  trials: T,
+  presets: readonly Preset<T>[],
+  prefix: string,
+  defaultId: string | undefined,
+): State<T> {
+  if (!DEV) {
+    const preset = choosePreset(presets, { fallback: defaultId });
+    return { preset: preset.id, values: { ...preset.values } };
+  }
 
   const url = new URLSearchParams(window.location.search);
   const fromUrl = url.get(PRESET_PARAM);
-  const preset =
-    presets.find((p) => p.id === fromUrl) ?? presets.find((p) => p.id === read(`${prefix}${PRESET_PARAM}`)) ?? first;
+  const preset = choosePreset(presets, { fromUrl, stored: read(`${prefix}${PRESET_PARAM}`), fallback: defaultId });
   const values = { ...preset.values };
 
   for (const key of Object.keys(trials) as (keyof T)[]) {
@@ -121,8 +129,14 @@ export interface TrialsApi<T extends Trials> {
   step(offset: number): void;
 }
 
-export function useTrials<T extends Trials>(trials: T, presets: readonly Preset<T>[], prefix: string): TrialsApi<T> {
-  const [state, setState] = useState(() => initialState(trials, presets, prefix));
+/** `defaultId` names the preset shown when nothing else picks one (default: the first). */
+export function useTrials<T extends Trials>(
+  trials: T,
+  presets: readonly Preset<T>[],
+  prefix: string,
+  defaultId?: string,
+): TrialsApi<T> {
+  const [state, setState] = useState(() => initialState(trials, presets, prefix, defaultId));
   const presetIndex = Math.max(
     0,
     presets.findIndex((p) => p.id === state.preset),
