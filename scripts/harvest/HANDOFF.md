@@ -9,7 +9,7 @@ For an agent picking up the clip-harvesting work. Read the repo `README.md` (tel
 - **Real clips:** the first batch is `real-2026-11-07.jsonl` (18 real clips plus the 10 AI clips they pair with), and the curation log is `real-2026-11-07.md`. It's built into `feeds/compare.json` and is ready to merge into `demo.json`; see "Shipping real clips" below. `real-2026-11-07b.jsonl` adds 21 standalone real clips with no AI pair. Neither is deployed yet.
 - `scripts/annotate/notes.jsonl` holds the notes the tells pipeline reads. It's for AI clips only: real clips' notes stay in their batch rows, so the tells pipeline never drafts "AI tells" from a "this is not AI" note.
 - **Review:** `npm run review` (on kenny-wsl, port 8090 over the tailnet) shows every clip from both Workers and all the batches, with AI↔real pairs side by side. Decisions go to `review/decisions.jsonl`, and `build_media.py --exclude-discarded` acts on them. See [`REVIEW.md`](REVIEW.md).
-- Every AI clip so far comes from X Community Notes. YouTube comment mining was tried in the spot test and was much noisier. Reddit (r/isthisAI) has a harvester with consensus scoring (`pick_reddit.py`, below) that is waiting on OAuth credentials.
+- Every AI clip so far comes from X Community Notes. YouTube comment mining was tried in the spot test and was much noisier. Reddit (r/isthisAI) is read in a browser and scored by comment consensus (`pick_reddit.py`, below): the first batch is `reddit-2026-11-07.jsonl`, with 21 AI and 12 real clips.
 
 ## Tools
 
@@ -156,21 +156,22 @@ The first run (`real-2026-11-07b`) kept 21 of 34 hits from 24 queries. The best 
 
 `pick_reddit.py` reads is-this-AI subreddits, scores each thread's consensus (`consensus.py`) and writes candidates for both verdicts: AI → `confirmed`, real → `real` with tier `real-consensus`. Each row keeps `consensus` (verdict, confidence, AI and real weights, voters, flair, the top supporting comments with scores, and the tells they cite) and `thread` (sub, URL, title, flair, score, created). The review site shows both in a Consensus panel, with a Consensus facet.
 
-**Access.** Reddit answers unauthenticated JSON from kenny-wsl with 403 "blocked by network security" (www, old and api hosts alike). RSS works but has no scores or flair, so it can't give a consensus. The OAuth endpoint works, so the harvester uses app-only OAuth: create a "script" app at reddit.com/prefs/apps and save `client_id:client_secret` in a file outside the repo. No Reddit password is needed. v.redd.it media needs no login: it downloads from the post's HLS playlist (yt-dlp's Reddit extractor asks for cookies, so it isn't used).
+**Access.** Reddit closed new Data API access on 2026-10-31, and scripted reads are blocked: public JSON returns 403 "blocked by network security" from kenny-wsl and from Kenny's Mac, and old.reddit redirects to login. What works is a regular browser, logged out. The first harvest (`reddit-2026-11-07`, 33 clips) was read in the T3 preview browser on kenny-wsl with the helpers in `reddit_capture.js`:
 
-```bash
-python3 -I scripts/harvest/pick_reddit.py reddit.jsonl --creds ~/.config/reddit-app \
-  --sub isthisAI --listing top:year --listing top:all --listing new --pages 5 --cache <scratch>/reddit-cache \
-  --exclude scripts/harvest/real-2026-11-07.jsonl --exclude scripts/harvest/real-2026-11-07b.jsonl
-python3 -I scripts/harvest/pick_reddit.py reddit.jsonl --offline --cache <scratch>/reddit-cache --min-confidence 0.7   # re-score, no network
-```
+1. Open `https://www.reddit.com/r/isthisAI/top/?t=year` (then `?t=all`, then `/new/`) and run `captureListing('top:year')`. It scrolls every 4 s until the feed stops growing and saves a JSONL download.
+2. For each video post that passes curation, open its comment page and run `captureThread()`, at most one page every ~5 s. (The first run loaded each thread in turn inside the open tab.)
+3. `python3 -I scripts/harvest/pick_reddit.py out.jsonl --capture listing-….jsonl --capture threads-….jsonl --exclude …` scores it like the API path would.
+
+Stop at the first 429, challenge or login page; don't retry around it. The first run hit **429 after 110 of 228 threads**. Read the rest in a later session at a slower pace, or signed in (Kenny's separate account) if logged-out reads keep getting limited.
+
+v.redd.it media needs no login: it downloads from the post's HLS playlist (yt-dlp's Reddit extractor asks for cookies, so it isn't used). The API path (`--creds`, app-only OAuth, `--public`, `--fetch-only`) stays in `pick_reddit.py` for when access exists again.
 
 **Scoring** (`consensus.py`; the module docstring has the details):
 - A comment's stance comes from what it says ("it's AI", "Sora", "not real" → AI; "not AI", "the original video", "posted in 2019" → real; one-word "AI"/"Real" votes count).
 - Its weight is sqrt(score + 1). Moderators count 5×. Bots, the asker and CGI talk don't vote.
 - A verdict flair weighs 1.5× all comments together (at least 5). That settles a split thread but can't overturn a unanimous one.
 - The verdict needs a margin of at least 0.5 and 3 voters (or a flair). Only confidence ≥ 0.6 is kept.
-- The flair names (`FLAIR` in `consensus.py`) are a guess until the first real run: check what the sub uses and adjust.
+- r/isthisAI's flairs are `Solved [AI]`, `Solved [Not AI]`, `Unsure if solved`, and `Video`/`Photo`/`Art` for unsolved posts. `FLAIR` reads the first two as verdicts.
 
 Most r/isthisAI posts are photos: only video posts (Reddit-hosted, or linking X/YouTube/TikTok/Instagram) become candidates, so expect a small share of each listing.
 
