@@ -27,6 +27,7 @@ import { appSettings, useAppSettings } from '@/settings/store';
 import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf } from './feedMode';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
 import { IDLE, guardOps, opsFor, planFor, type PlaybackState, type PlayerOp, type PlayerPlan } from './playback';
+import { describeAudio } from './audioDebug';
 import { shrinkGeometry } from './shrink';
 import { playWeb } from './playWeb';
 import { ClipItem } from './ClipItem';
@@ -89,6 +90,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
 
   // ---- players -----------------------------------------------------------
   const setup = (p: VideoPlayer) => {
+    playersCreated++;
     p.loop = true;
     p.timeUpdateEventInterval = 0.25;
   };
@@ -389,6 +391,33 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
     [applyNow],
   );
 
+  // Dev: an `[audio]` line in the Metro log whenever any player's state
+  // changes, flagging doubled audio, sound while muted and off-screen playback.
+  useEffect(() => {
+    if (!__DEV__ || Platform.OS === 'web') return;
+    let last = '';
+    const t = setInterval(() => {
+      const { slotIndex: slots, active: at, loaded: held } = pool.current;
+      const snap = players.map((p, s) => ({
+        slot: s,
+        index: slots[s],
+        loaded: held[s] === slots[s],
+        active: slots[s] === at && held[s] === at,
+        muted: p.muted,
+        playing: p.playing,
+        volume: p.volume,
+        rate: p.playbackRate,
+        status: p.status,
+      }));
+      const { line, problems } = describeAudio(playback.current.muted, at, snap);
+      const out = `players=${playersCreated} ${line}${problems.length ? ` !! ${problems.join('; ')}` : ''}`;
+      if (out === last) return;
+      last = out;
+      console.log(`[audio] ${out}`);
+    }, AUDIO_LOG_MS);
+    return () => clearInterval(t);
+  }, [players]);
+
   // iOS can change a player on its own (KVO echoes of an earlier mute, the
   // loop restarting, an audio session change). Whenever a player reports it
   // started or was unmuted against what it was told, stop or mute it again.
@@ -529,6 +558,11 @@ function runOps(player: VideoPlayer, ops: PlayerOp[], plan: PlayerPlan, onBlocke
       });
   }
 }
+
+/** Dev: how often the audio readout samples the players. */
+const AUDIO_LOG_MS = 250;
+/** Dev: players created since launch; more than three means some were recreated. */
+let playersCreated = 0;
 
 /** Quiet time after the last scroll event before a browser's swipe counts as settled. */
 const WEB_SETTLE_MS = 120;
