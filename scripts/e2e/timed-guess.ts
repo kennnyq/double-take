@@ -427,6 +427,28 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   await page.waitForURL((u) => u.pathname === '/', { timeout: 10_000 }).catch(() => {});
   await page.waitForTimeout(1200);
   check('Home from the Game tab lands on the feed', new URL(page.url()).pathname === '/' && !(await anyVisible(page, '.lt-hero')), page.url());
+
+  // Create, beside the Game and Skills tabs, opens the upload modal: from Home, and from the Game screen.
+  const create = page.getByText('Select from device', { exact: true });
+  const modalUp = () => create.waitFor({ timeout: 10_000 }).then(() => true).catch(() => false);
+  const closeModal = async () => {
+    await page.keyboard.press('Escape');
+    await create.waitFor({ state: 'detached', timeout: 5000 }).catch(async () => {
+      await clickVisible(page, '[aria-label="Close"]');
+      await create.waitFor({ state: 'detached', timeout: 5000 }).catch(() => {});
+    });
+    await page.waitForTimeout(600);
+  };
+  await clickVisible(page, tab('Create'));
+  check('Create opens the upload modal from Home', await modalUp());
+  await closeModal();
+  await clickVisible(page, tab('Game'));
+  await page.waitForURL((u) => u.pathname === '/play', { timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await clickVisible(page, tab('Create'));
+  const fromGame = await modalUp();
+  check('Create opens the upload modal from the Game screen, over the feed', fromGame && new URL(page.url()).pathname === '/', page.url());
+  await closeModal();
 }
 
 const browser = await chromium.launch({ executablePath: findChrome() });
