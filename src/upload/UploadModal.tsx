@@ -19,6 +19,8 @@ import { HowWeChecked, stepLinks, type StepLink } from './Trace';
 import { Processing } from '../components/investigation/Processing';
 import { DropZone } from './DropZone';
 import { ClipPreview, previewSource } from './ClipPreview';
+import { lookupDemoCheck } from '@/demo/lookup';
+import { hashAsset, preparedJob } from './demo';
 import { EASE_IN_OUT, EASE_OUT, useEased, useLatched, usePresence } from './motion';
 import { Assessments, Button, FileNotes, WouldHelp, VerdictHeadline, ErrorNote, HeaderAction, IconButton, Reveal, StepLayer, Swap, useTint } from './parts';
 
@@ -37,7 +39,18 @@ import { Assessments, Button, FileNotes, WouldHelp, VerdictHeadline, ErrorNote, 
  * failed, with the way to retry right under it.
  */
 
-type Selection = { kind: 'file'; asset: DocumentPicker.DocumentPickerAsset; preview: { uri: string; release: () => void } } | { kind: 'link'; url: string };
+/** A prepared (cloud) check, ready to show. */
+type Prepared = NonNullable<ReturnType<typeof preparedJob>>;
+
+type Selection =
+  | {
+      kind: 'file';
+      asset: DocumentPicker.DocumentPickerAsset;
+      preview: { uri: string; release: () => void };
+      /** The file's SHA-256, worked out in the background from the moment it's picked (null if it couldn't be read). */
+      sha256: Promise<string | null>;
+    }
+  | { kind: 'link'; url: string };
 type Request = { id: string; send: () => Promise<ClientJob> };
 
 const HEADER = 52;
@@ -105,6 +118,8 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
   const [clipLength, setClipLength] = useState<number>();
   const [previewFailed, setPreviewFailed] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
+  /** A prepared check being shown: its video plays from the cloud, and nothing polls the job runner. */
+  const [demo, setDemo] = useState<Prepared>();
   const markPreviewFailed = useCallback(() => setPreviewFailed(true), []);
   const generation = useRef(0);
   const locked = useRef(false);
@@ -195,7 +210,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
   }, [open, handle, busy, job]);
 
   useEffect(() => {
-    if (!open || !job || !['queued', 'running'].includes(job.state)) return;
+    if (!open || !job || demo || !['queued', 'running'].includes(job.state)) return;
     let alive = true;
     const gen = generation.current;
     const timer = setInterval(() => {
@@ -214,7 +229,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
       alive = false;
       clearInterval(timer);
     };
-  }, [open, job]);
+  }, [open, job, demo]);
 
   async function perform(request: Request) {
     if (locked.current) return;
@@ -222,6 +237,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     const gen = ++generation.current;
     setBusy(true);
     setJob(undefined);
+    setDemo(undefined);
     setFailure('');
     setNotice('');
     retry.current = request;
@@ -248,12 +264,47 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     } else if (retry.current) void perform(retry.current);
   }
 
-  function check() {
+  async function check() {
     if (!selection || locked.current) return;
     if (!allowed) return askSignIn();
-    const id = uploadId(uuid, (bytes) => Crypto.getRandomValues(bytes));
     const chosen = selection;
+    // A prepared check for this exact file or post plays from the cloud; anything else goes to the job runner.
+    locked.current = true;
+    const gen = ++generation.current;
+    setBusy(true);
+    setJob(undefined);
+    setFailure('');
+    setNotice('');
+    const sha256 = chosen.kind === 'file' ? await chosen.sha256 : undefined;
+    const prepared = preparedJob(
+      chosen.kind === 'file' ? (sha256 ? await lookupDemoCheck({ sha256 }) : null) : await lookupDemoCheck({ url: chosen.url }),
+    );
+    if (gen !== generation.current) return;
+    if (prepared) return playPrepared(prepared, gen, chosen.kind === 'file' ? chosen.asset.size ?? 0 : 0);
+    locked.current = false;
+    const id = uploadId(uuid, (bytes) => Crypto.getRandomValues(bytes));
     void perform({ id, send: () => (chosen.kind === 'file' ? upload(id, chosen.asset) : uploadLink(id, chosen.url)) });
+  }
+
+  /**
+   * Shows a prepared check the way a live one goes: a few believable seconds of
+   * uploading (longer for bigger files), then checking, then its stored result.
+   * The progress bar only moves forward through it.
+   */
+  async function playPrepared(prepared: Prepared, gen: number, bytes: number) {
+    const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    const live = () => gen === generation.current;
+    retry.current = undefined;
+    setCanRetry(false);
+    setDemo(prepared);
+    await wait(900 + Math.min(1400, bytes / 20000));
+    if (!live()) return;
+    setBusy(false);
+    setJob({ ...prepared.job, state: 'running', result: undefined });
+    await wait(2600);
+    if (!live()) return;
+    setJob(prepared.job);
+    locked.current = false;
   }
 
   function takeFile(asset: DocumentPicker.DocumentPickerAsset) {
@@ -270,7 +321,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     releasePreview.current();
     const preview = previewSource(asset);
     releasePreview.current = preview.release;
-    setSelection({ kind: 'file', asset, preview });
+    setSelection({ kind: 'file', asset, preview, sha256: hashAsset(asset).catch(() => null) });
   }
 
   function takeLink() {
@@ -301,10 +352,13 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     locked.current = false;
     retry.current = undefined;
     setCanRetry(false);
-    releasePreview.current();
+    // The preview fades out still showing the clip: free its object URL once it's gone.
+    const release = releasePreview.current;
     releasePreview.current = () => {};
+    setTimeout(release, 800);
     setSelection(undefined);
     setJob(undefined);
+    setDemo(undefined);
     setBusy(false);
     setFailure('');
     setNotice('');
@@ -392,7 +446,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     <EvidencePlayer
       key={resultJob.id}
       pinned
-      uri={mediaUrl(resultJob.id)}
+      uri={demo?.job.id === resultJob.id ? demo.mediaUrl : mediaUrl(resultJob.id)}
       width={resultJob.width}
       height={resultJob.height}
       duration={resultJob.duration}
