@@ -30,10 +30,8 @@
 .ft-card,
 .ft-corner,
 .ft-wire,
-.ft-ring,
 .ft-band,
 .ft-hole,
-
 .ft-pop {
   will-change: transform, opacity;
 }
@@ -291,23 +289,6 @@
   display: block;
 }
 
-.ft-top {
-  position: absolute;
-  top: 7.5%;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: center;
-  gap: 18px;
-  font-size: 14px;
-  font-weight: 600;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
-}
-
-.ft-top span {
-  opacity: 0.6;
-}
-
 .ft-chrome {
   position: absolute;
   inset: 0;
@@ -398,17 +379,6 @@
   gap: 5px;
   color: #ddd;
   font-size: 12px;
-}
-
-.ft-ring {
-  position: absolute;
-  left: calc(50% - 36px);
-  top: calc(44% - 36px);
-  width: 72px;
-  height: 72px;
-  border-radius: 50%;
-  box-shadow: inset 0 0 0 2.5px rgb(255 255 255 / 0.95);
-  background: rgb(255 255 255 / 0.12);
 }
 
 /* The spotlight: the hole image and four plain bands (transforms only). */
@@ -1034,122 +1004,6 @@
   background: linear-gradient(rgb(0 0 0 / 0.45), transparent 22%, transparent 62%, rgb(0 0 0 / 0.6));
 }
 
-.ft-slide .ft-ring {
-  position: absolute;
-}
-
-.ft-stamp {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 92px;
-  height: 52px;
-  border-radius: 12px;
-  background: #e5e5ea;
-  box-shadow: inset 0 0 0 3px #000;
-  color: #000;
-  font-size: 28px;
-  font-weight: 900;
-  letter-spacing: 2px;
-}
-
-.ft-answer {
-  position: absolute;
-  left: 16px;
-  right: 16px;
-  bottom: 110px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 14px 16px;
-  border-radius: 20px;
-  background: rgb(28 28 30 / 0.85);
-  box-shadow: inset 0 0 0 0.5px rgb(245 245 247 / 0.12);
-}
-
-.ft-answer > span:last-child {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.ft-answer b {
-  font-size: 17px;
-}
-
-.ft-answer small {
-  color: #98989f;
-  font-size: 13px;
-}
-
-.ft-answer-mark {
-  display: grid;
-  place-items: center;
-  flex: none;
-  width: 34px;
-  height: 34px;
-  border-radius: 50%;
-  background: #ff453a;
-  color: #fff;
-}
-
-.ft-answer[data-right] .ft-answer-mark {
-  background: #30d158;
-  color: #000;
-}
-
-.ft-gamebar {
-  left: 0;
-  right: 0;
-  top: 58px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 20px;
-  font-size: 17px;
-  font-weight: 700;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
-}
-
-.ft-score {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: rgb(0 0 0 / 0.45);
-}
-
-.ft-digits {
-  position: relative;
-  display: block;
-  height: 26px;
-  overflow: hidden;
-}
-
-.ft-digits i {
-  display: flex;
-  flex-direction: column;
-  font-style: normal;
-  font-variant-numeric: tabular-nums;
-  will-change: transform;
-}
-
-.ft-digits b {
-  height: 26px;
-  line-height: 26px;
-}
-
-.ft-hint {
-  left: 0;
-  right: 0;
-  bottom: 112px;
-  text-align: center;
-  font-size: 14px;
-  font-weight: 600;
-  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
-}
-
 .ft-tile {
   width: 90px;
   height: 160px;
@@ -1185,113 +1039,11 @@
 }
 
 /* skills */
-.ft-skills {
-  left: 22px;
-  right: 22px;
-  top: 120px;
-}
-
-.ft-h1 {
-  font-size: 30px;
-  font-weight: 800;
-  letter-spacing: -0.02em;
-}
-
-.ft-general {
-  display: flex;
-  align-items: flex-end;
-  gap: 12px;
-  margin: 26px 0 22px;
-}
-
-.ft-odo {
-  display: flex;
-  height: 64px;
+.ft-skillsview {
+  left: 0;
+  top: 0;
+  width: 393px;
   overflow: hidden;
-  font-size: 60px;
-  font-weight: 900;
-  line-height: 64px;
-  font-variant-numeric: tabular-nums;
-}
-
-.ft-odo span {
-  display: flex;
-  flex-direction: column;
-  will-change: transform;
-}
-
-.ft-gside {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding-bottom: 9px;
-  color: #98989f;
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.ft-srow {
-  display: grid;
-  grid-template-columns: 64px 1fr 30px 38px;
-  align-items: center;
-  gap: 10px;
-  height: 40px;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.ft-track {
-  position: relative;
-  height: 8px;
-  border-radius: 4px;
-  background: #2c2c2e;
-}
-
-.ft-track .ft-fill {
-  position: absolute;
-  inset: 0;
-  border-radius: 4px;
-  background: #f5f5f7;
-  transform-origin: left;
-  will-change: transform;
-}
-
-.ft-track .ft-band {
-  position: absolute;
-  top: -3px;
-  bottom: -3px;
-  border-radius: 6px;
-  background: rgb(245 245 247 / 0.35);
-}
-
-.ft-track .ft-mid {
-  position: absolute;
-  left: 50%;
-  top: -3px;
-  bottom: -3px;
-  width: 1px;
-  background: #98989f;
-}
-
-.ft-sval {
-  text-align: right;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-.ft-delta {
-  color: #98989f;
-  font-size: 11px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-}
-
-.ft-note-sk {
-  margin-top: 20px !important;
-  color: #98989f;
-  font-size: 13px;
-  line-height: 1.45;
 }
 
 .ft-bigscore {
@@ -1546,13 +1298,6 @@
   display: flex;
   gap: 5px;
   align-items: center;
-}
-
-.ft-answer small {
-  display: -webkit-box;
-  overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
 }
 
 /* ============================================================ the last call */
@@ -2228,47 +1973,11 @@
   flex: none;
 }
 
-/* GameRound's score row (its styles: scoreRow, scorePill, scoreText, judged, result; tint.pill). */
+/* Where GameRound puts its score row (the pill itself is the game's ScorePill). */
 .ft-scorerow {
   left: 0;
   right: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.ft-scorepill {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  height: 34px;
-  padding: 0 14px;
-  border-radius: 17px;
-  background: rgb(0 0 0 / 0.45);
-  box-shadow: inset 0 0 0 0.5px var(--dt-accent-soft, rgb(245 245 247 / 0.35));
-}
-
-.ft-scoretext {
-  color: var(--dt-text, #f5f5f7);
-  font-size: 17px;
-  font-weight: 800;
-  font-variant-numeric: tabular-nums;
-}
-
-.ft-judged {
-  display: flex;
-  align-items: center;
-  gap: 3px;
-  color: var(--dt-text-dim, #98989f);
-  font-size: 13px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.ft-result {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 11px;
 }

@@ -1,21 +1,21 @@
 import { useMemo, useRef, useState } from 'react';
-import { SkillBars } from '@/skills/SkillBars';
+import { FrameContext, type FrameSize } from '@/game/frame';
 import { toScore } from '@/skills/skill';
+import { SkillsView } from '@/skills/SkillsView';
 import { paint, px, useHost, useScene } from '../engine';
-import { DEMO_CATEGORIES, demoSkills } from '../mock';
+import { DEMO_CATEGORIES, demoSkillState, demoSkills } from '../mock';
 import { easeInOut, lerp, plateau } from '../timeline';
-import { AppTabBar, AroundScreen, CANVAS_W, Canvas, OnScreen } from './parts';
+import { AppTabBar, AroundScreen, CANVAS_H, CANVAS_W, Canvas, OnScreen, tabStrip } from './parts';
 
-/** Where in the section the round's change plays (the bars and the score move from before to now). */
-const PLAY_AT = 0.1;
+/** How much on screen the section is when the Skills tab first shows (and settles in, its own way). */
+const SHOW_AT = 0.3;
 
 /**
- * Skills: the Skills tab's own score and bars (`SkillBars`, the app's
- * component), for a player a few rounds in (`mock.ts`, in the app's skill
- * model). As the section arrives, the last round's change plays: the score
- * counts up and each bar moves from its old value to its new one, the app's
- * own easing, once (it then stays). The big
- * number then comes out of the screen beside the phone.
+ * Skills: the Skills tab itself (`SkillsView`, drawing a player a few rounds
+ * in from `mock.ts`, in the app's skill model: general 68, likely 61–74). It
+ * shows the first time the section comes on screen, settling in as the tab
+ * does when opened, and stays. The big number then comes out of the screen
+ * beside the phone.
  */
 export function SkillsScene() {
   const { dims } = useHost();
@@ -23,19 +23,21 @@ export function SkillsScene() {
   const demo = useMemo(() => demoSkills(), []);
   const g = toScore(demo.general.now);
   const gBefore = toScore(demo.general.before);
-  // The first time the section reaches PLAY_AT, the bars play their change (a new mount: SkillBars animates on mount),
-  // from the old values they were showing, and then stay at the new ones (scrolling back never snaps them back).
-  const [played, setPlayed] = useState(false);
-  const playedRef = useRef(false);
+  const state = useMemo(() => demoSkillState(), []);
+  // The tab's own frame: the phone's screen above the tab bar, under the status bar.
+  const frame = useMemo<FrameSize>(() => ({ width: CANVAS_W, height: CANVAS_H - tabStrip(), desktop: false, top: 54 }), []);
+  // Shown the first time the section comes on screen (it settles in on mounting), then kept.
+  const [shown, setShown] = useState(false);
+  const shownRef = useRef(false);
 
   const layer = useRef<HTMLDivElement>(null);
   const big = useRef<HTMLDivElement>(null);
 
   useScene('skills', ({ p, presence, dims: d }) => {
     paint(layer.current, `scale(${(0.965 + 0.035 * presence).toFixed(4)})`, presence);
-    if (!playedRef.current && p >= PLAY_AT && presence > 0.5) {
-      playedRef.current = true;
-      setPlayed(true);
+    if (!shownRef.current && presence > SHOW_AT) {
+      shownRef.current = true;
+      setShown(true);
     }
 
     // The big number comes out of the screen beside the phone, and goes back.
@@ -63,16 +65,8 @@ export function SkillsScene() {
     <>
       <OnScreen layerRef={layer}>
         <Canvas k={k}>
-          <div className="ft-skills">
-            <p className="ft-h1">Your skills</p>
-            <div className="ft-skillbars">
-              {played ? (
-                <SkillBars key="played" skills={demo.now} before={demo.before} categories={DEMO_CATEGORIES} general={demo.general} delay={120} />
-              ) : (
-                <SkillBars key="before" skills={demo.before} categories={DEMO_CATEGORIES} general={{ now: demo.general.before }} />
-              )}
-            </div>
-            <p className="ft-note-sk">50 is guessing. The faint band is how sure the score is; it narrows with every answer.</p>
+          <div className="ft-skillsview" style={{ height: frame.height }}>
+            <FrameContext.Provider value={frame}>{shown && <SkillsView demo={{ state, categories: DEMO_CATEGORIES }} animate="showcase" />}</FrameContext.Provider>
           </div>
           <AppTabBar active="skills" />
         </Canvas>

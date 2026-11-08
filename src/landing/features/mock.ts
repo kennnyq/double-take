@@ -8,6 +8,7 @@
  */
 import { SKILL_CATEGORIES, type SkillCategory } from '../../skills/categories.ts';
 import { SKILL_PRIOR, type Belief, type Skills } from '../../skills/skill.ts';
+import type { SkillState } from '../../skills/state.ts';
 
 const logit = (p: number) => Math.log(p / (1 - p));
 
@@ -51,6 +52,28 @@ export function demoSkills(): DemoSkills {
     now: skillsAt(0),
     before: skillsAt(1),
     general: { now: beliefFor(68, 61, 120), before: beliefFor(62, 54, 96) },
+  };
+}
+
+/**
+ * The same player as the Skills tab keeps them (`SkillState`), for its own
+ * screen (`SkillsView`'s demo): their skills, general score, a recent run of
+ * answers (the history its line draws, ending at 68), and their counts.
+ */
+export function demoSkillState(): SkillState {
+  const d = demoSkills();
+  // The general score over the last answers: a climb from guessing, a dip, and up to 68.
+  const history = [52, 55, 54, 58, 61, 60, 63, 62, 65, 64, 66, 68];
+  return {
+    skills: d.now,
+    overall: d.general.now,
+    clips: {},
+    cats: {},
+    answers: 120,
+    rounds: 9,
+    stats: { answers: 120, correct: 84, aiCaught: 51, streak: 4, bestStreak: 9, rounds: 9 },
+    history,
+    misses: {},
   };
 }
 

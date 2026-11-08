@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { follow, layoutSections, localProgress, presence, stepsAt, wheels, SECTION_SCREENS } from './timeline.ts';
 import { checkLook, dotLook, walkFrame, STEPS_FROM, STEPS_TO } from './walk.ts';
-import { DEMO_CATEGORIES, GAME_CALLS, answer, demoSkills, isRight } from './mock.ts';
+import { DEMO_CATEGORIES, GAME_CALLS, answer, demoSkillState, demoSkills, isRight } from './mock.ts';
 import { toScore } from '../../skills/skill.ts';
 
 test('layoutSections: end to end, scaled, skipping hidden ones', () => {
@@ -113,4 +113,8 @@ test('demo data: answers follow the clip; the skills read back as the Skills tab
     assert.ok(now.low <= now.score && now.score <= now.high && now.high <= 100, c);
     assert.ok(toScore(d.before[c]).score <= now.score, `${c} doesn't drop`);
   }
+  const st = demoSkillState();
+  assert.equal(toScore(st.overall).score, 68);
+  assert.equal(st.history.at(-1), 68, 'its line ends at the score');
+  assert.ok(st.stats.correct <= st.stats.answers && st.stats.bestStreak >= st.stats.streak);
 });

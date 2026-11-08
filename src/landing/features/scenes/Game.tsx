@@ -2,12 +2,12 @@ import { useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { ROW_H, ROW_Y } from '@/game/hud/Hud';
 import { MarkStamp } from '@/game/MarkStamp';
+import { ScorePill } from '@/game/Pills';
 import { POINTS } from '@/game/config';
 import { pointsFor } from '@/game/score';
-import { usePalette } from '@/ui/theme';
 import { paint, px, useHost, useScene } from '../engine';
 import { GAME_CALLS, answer, isRight } from '../mock';
-import { easeInOut, lerp, plateau, seg } from '../timeline';
+import { easeInOut, lerp, seg } from '../timeline';
 import { AppTabBar, AroundScreen, CANVAS_H, CANVAS_W, Canvas, Clip, OnScreen, TapHand, paintHand, useShown } from './parts';
 
 /** Each answer's beats, of the section's progress: the double tap that marks it (its second tap), the swipe on. */
@@ -43,7 +43,6 @@ interface StampState {
  */
 export function GameScene() {
   const { dims, media } = useHost();
-  const c = usePalette();
   const [shown, setShown] = useShown();
   const [current, setCurrent] = useState(0);
   const k = dims ? dims.sw / CANVAS_W : 1;
@@ -66,7 +65,8 @@ export function GameScene() {
   const handA = useRef<HTMLDivElement>(null);
   const handB = useRef<HTMLDivElement>(null);
   const hands = [handA, handB];
-  const result = useRef<HTMLDivElement>(null);
+  const [showing, setShowing] = useState(false);
+  const showingRef = useRef(false);
   const tiles = useRef<(HTMLElement | null)[]>([]);
 
   useScene('game', ({ p, presence, dims: d }) => {
@@ -98,9 +98,12 @@ export function GameScene() {
       answeredRef.current = n;
       setAnswered(n);
     }
-    const lastMark = n ? BEATS[n - 1].mark : 0;
-    const dot = n ? plateau(p, lastMark, lastMark + 0.03, BEATS[n - 1].swipe - 0.02, BEATS[n - 1].swipe + 0.04) : 0;
-    paint(result.current, `scale(${lerp(0.6, 1, dot).toFixed(4)})`, dot);
+    // The last answer's ✓ or ✕ shows from its mark until the feed moves on (the pill eases it in and out).
+    const showing = n > 0 && p < BEATS[n - 1].swipe;
+    if (showing !== showingRef.current) {
+      showingRef.current = showing;
+      setShowing(showing);
+    }
 
     BEATS.forEach((b, i) => {
       // The hint's hand double-taps where the mark lands; its second tap is the mark.
@@ -154,25 +157,9 @@ export function GameScene() {
               {i < BEATS.length && <TapHand x={TAPS[i].x} y={TAPS[i].y} handRef={hands[i]} />}
             </div>
           ))}
-          {/* GameRound's score row: the score, how many judged, and the last answer's ✓ or ✕. */}
+          {/* The game's own score pill, where GameRound puts it: points, clips judged, the last answer's ✓ or ✕. */}
           <div className="ft-scorerow" style={{ top: TOP + ROW_Y, height: ROW_H }}>
-            <div className="ft-scorepill" aria-label={`Score ${score}, ${answered} judged`}>
-              <span className="ft-scoretext">{score}</span>
-              <span className="ft-judged">
-                <Ionicons name="layers-outline" size={13} color={c.textDim} />
-                <span>{answered}</span>
-              </span>
-              <div
-                className="ft-result ft-a"
-                ref={result}
-                style={{
-                  opacity: 0,
-                  backgroundColor: right ? c.correct : c.incorrect,
-                }}
-              >
-                <Ionicons name={right ? 'checkmark' : 'close'} size={14} color={c.onAccent} />
-              </div>
-            </div>
+            <ScorePill score={score} judged={answered} result={showing ? (right ? 'right' : 'wrong') : null} />
           </div>
           <AppTabBar active="game" />
         </Canvas>
