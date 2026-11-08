@@ -61,7 +61,7 @@ Expect roughly half of what you probe to be gone: deleted posts, suspended accou
 - **Reposts.** yt-dlp gives every repost of an X video the same media id, and `resolve.py` dedupes on it. `build_media.py` also collapses byte-identical files. Neither catches a re-encoded repost, so glance at the posters of new clips next to old ones.
 - **Size limit.** Workers Static Assets caps each file at 25 MiB. 90 s at the current encode is about 22 MB. Don't raise `--max-duration` without lowering the bitrate. For a long source (a livestream, a compilation), cut it with a `section` instead (below).
 - **No R2 and no card.** The Worker serves from static assets on the Free plan on purpose. Don't enable R2 or anything billable.
-- **Labels reach the app only with `feat/app-settings`.** On `main`, `src/data/remote.ts` drops `label`, and a clip without tells shows no "Reveal AI tells" button, so a real clip just plays as an ordinary clip. `feat/app-settings` maps `label` to `Clip.verdict` (`verdictFromLabel`: `confirmed`/`ai` → AI, `real`/`not_ai`/`authentic` → real) and adds the feed modes (Default: hold to reveal, Auto label, Only AI, Only real).
+- **Labels reach the app as verdicts.** `src/data/remote.ts` maps `label` to `Clip.verdict` (`verdictFromLabel`: `confirmed`/`ai` → AI, `real`/`not_ai`/`authentic` → real), and `tier`/`evidence` to `Clip.verdictTier`/`verdictEvidence`; `verdictWhy(clip)` turns them into one line for the reveal. Feed modes: Default (reveal), Auto label ("AI" / "Not AI" on every clip), Only AI, Only real. The reveal opens only on clips with tells, so real clips show their verdict through Auto label for now.
 - **Tells files are content-addressed** (`tells.<sha12>.json`). Edit the source in `scripts/harvest/tells/` and rebuild; never overwrite a published file.
 
 ## Real videos for comparison
@@ -103,7 +103,7 @@ python3 -I scripts/harvest/build_media.py scripts/harvest/real-<date>.jsonl --ou
 | `real-agency` | From a licensing channel that verifies footage | `real` |
 | `not-ai-cgi` | CGI, animation or a game: not AI, but not footage either | `not-ai-cgi` (unknown in the app; kept out of the feed) |
 
-So `verdictFromLabel` on `feat/app-settings` already understands every shipped label, and nothing there needs extending. `LABEL_FOR_TIER` in `pick_real.py` is the single source of the mapping.
+So `verdictFromLabel` already understands every shipped label, and nothing there needs extending. `LABEL_FOR_TIER` in `pick_real.py` is the single source of the mapping.
 
 ### What the sources yielded (2026-11-05 dump)
 
@@ -125,9 +125,8 @@ Lessons:
 The Worker already serves `/feed?name=compare`; `npm run check:prod` now checks it (it needs `compare.json` deployed), along with 404/400 for unknown or bad feed names.
 
 Recommendation: **merge real clips into `demo`, and also publish `compare`.**
-- `demo` is what the app shows, and with `feat/app-settings` the reveal, Auto label and **Only real** all work from `label`. Real clips in a separate feed would be invisible to those modes.
+- `demo` is what the app shows, and Auto label and **Only real** work from `label`. Real clips in a separate feed would be invisible to those modes.
 - `compare` (each AI clip followed by its real counterparts) is the input for a future side-by-side or "AI or real?" round, and can be deployed any time; the app doesn't read it yet.
-- Deploy the `demo` merge **with or after `feat/app-settings`**. Before it, nothing breaks (real clips have no tells, so no "Reveal AI tells"), but nothing says they're real either.
 
 On the Mac, from the repo root with `build/` in place:
 
@@ -142,7 +141,7 @@ The second build reuses everything the first one downloaded. AI partners already
 
 ### Next
 
-1. **Reasoning for real clips** (after `feat/app-settings` merges): carry `evidence` and `tier` into `Clip`, so the hold-to-reveal shows "Uploaded 2011, before realistic AI video" or the note, the way AI clips show tells.
+1. **A reveal for clips without tells.** The data is there (`verdictWhy`); the hold/double-tap reveal still needs a path that doesn't go through `TellOverlay`, on phone and desktop, to show the "Not AI" verdict with that line.
 2. **Model queries.** Swap `subject_query` for the Nemotron text model (the hosted one the tells pipeline uses; nothing runs locally yet). The heuristic is fine for titled posts, but about a third of AI posts have only a t.co link for a title.
 3. **Poster similarity** on the 4080 (a CLIP-style embedding of the AI poster against each hit's thumbnail) to rank lookalikes when titles tie.
 4. More pairs: the clips in `ai_titles` with clear subjects (wildlife, weather, food) that weren't searched yet.
