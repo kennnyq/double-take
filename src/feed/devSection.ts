@@ -14,6 +14,10 @@ registerDevSection({
   keywords: 'spotlight darken blur dim shape ellipse circle feather blob strength draft performance',
   order: 20,
   rows: (s) => [
+    settingChoice(s, 'realClips', 'Real clips', [
+      { label: 'Toast', value: 'toast', note: 'The eye and double take gestures confirm real footage with a brief toast. Game keeps its own rules.' },
+      { label: 'Hide eye', value: 'hideEye', note: 'Hide the eye and disable the real-clip toast.' },
+    ]),
     settingChoice(s, 'spotlightEffect', 'Spotlight', [
       { label: 'Off', value: 'off', note: 'No spotlight: just the card.' },
       { label: 'Darken', value: 'darken', note: 'Dims outside the area. Cheap everywhere.' },

@@ -478,7 +478,12 @@
   font-size: 12px;
   font-weight: 500;
   min-width: 44px;
-  transition: transform 0.1s;
+  transition: transform 0.1s, opacity 0.18s ease;
+}
+
+.desk .action-btn.eye-hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .desk .action-btn svg {

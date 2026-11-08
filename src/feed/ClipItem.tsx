@@ -10,6 +10,8 @@ import { baseReposts } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
 import { usePalette } from '@/ui/theme';
+import { useToast } from '@/ui/Toast';
+import { clipExplanation } from './revealAction';
 import { useDevSettings } from '@/devtools/store';
 import { createTapRecognizer, gestureAction, revealsWith, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
@@ -65,13 +67,18 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const longPressed = useRef(false);
   const tells = useRef<TellOverlayHandle>(null);
   const { revealGesture } = useAppSettings();
-  const { holdMs, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength } = useDevSettings();
-  const hasTells = !!clip.tellsUrl && p.isActive;
+  const { holdMs, realClips, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength } = useDevSettings();
+  const toast = useToast();
+  const explanation = clipExplanation(clip, realClips, !!p.policy);
   // A feed mode can take the double take's gesture (the game marks AI with it).
   const revealTo = p.isActive ? p.policy?.onReveal : undefined;
-  const canReveal = hasTells || !!revealTo;
+  const canReveal = (p.isActive && explanation.kind !== 'none') || !!revealTo;
   const pressAt = useRef({ x: NaN, y: NaN });
-  const reveal = (x: number, y: number) => (revealTo ? revealTo(x, y) : tells.current?.open());
+  const reveal = (x: number, y: number) => {
+    if (revealTo) revealTo(x, y);
+    else if (explanation.kind === 'toast') toast.show({ text: explanation.text });
+    else if (explanation.kind === 'walkthrough') tells.current?.open();
+  };
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
   const [inspectOn, setInspectOn] = useState(false);
@@ -160,8 +167,8 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   }, [autoReveal]);
 
   // The Double take button opens it whatever the gesture setting (and closes it on iPad, where the rail stays).
-  const toggleReveal = () => (inspecting ? tells.current?.close() : tells.current?.open());
-  const onReveal = clip.tellsUrl ? toggleReveal : undefined;
+  const toggleReveal = () => p.isActive && (inspecting ? tells.current?.close() : reveal(NaN, NaN));
+  const onReveal = explanation.kind !== 'none' ? toggleReveal : undefined;
 
   // Stage geometry: full-bleed on iPhone, a centred 9:16 card on iPad that
   // starts below the status bar so the clock doesn't sit on the card.
@@ -275,9 +282,9 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         }}
         accessibilityRole="button"
         accessibilityLabel={p.paused ? 'Play' : 'Pause'}
-        accessibilityActions={hasTells ? [{ name: 'activate' }, { name: 'magicTap', label: 'Double take' }] : undefined}
+        accessibilityActions={canReveal ? [{ name: 'activate' }, { name: 'magicTap', label: 'Double take' }] : undefined}
         onAccessibilityAction={(e) => {
-          if (e.nativeEvent.actionName === 'magicTap') tells.current?.open();
+          if (e.nativeEvent.actionName === 'magicTap') reveal(NaN, NaN);
           else h.togglePause();
         }}
       >
@@ -291,7 +298,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         ))}
       </Pressable>
       <GestureHint clipId={clip.id} active={p.isActive} hasTells={!!clip.tellsUrl} doubleTakeOpen={inspecting} blocked={p.paused} layout="phone" opacity={p.chrome} />
-      {clip.tellsUrl && p.isActive && (
+      {clip.tellsUrl && p.isActive && explanation.kind === 'walkthrough' && (
         <TellOverlay
           ref={tells}
           variants={clip.tellsVariants ?? [{ name: 'main', url: clip.tellsUrl }]}
@@ -410,23 +417,28 @@ export const ClipItem = memo(function ClipItem(p: Props) {
 });
 
 /**
- * The clip's actions. `onReveal` is set for clips with tells: its Double take
- * button sits above the like and opens the walkthrough whatever the gesture setting.
+ * The clip's actions. The eye opens a walkthrough or a brief explanation,
+ * whatever the gesture setting.
  */
 function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
   const { clip, h, wide } = p;
   const c = usePalette();
+  const eyeOn = useFadeProgress(!!p.onReveal, 180);
+  const eyeStyle = useAnimatedStyle(() => ({ opacity: eyeOn.value }));
+  const eyeInteractive = !!p.onReveal && (!p.revealing || !!wide) && !p.policy?.lockControls;
   return (
     <Animated.View style={[styles.rail, wide && styles.railWide, { opacity: p.chrome }]}>
-      {p.onReveal && (
-        <RailButton
-          icon={<DoubleTakeIcon on={p.revealing} />}
-          label="Double take"
-          a11y={p.revealing ? 'Close the double take' : 'Double take: see why this clip may be AI'}
-          hideLabelFromA11y
-          compactLabel
-          onPress={p.onReveal}
-        />
+      {(!p.policy || p.onReveal) && (
+        <Reanimated.View style={eyeStyle} pointerEvents={eyeInteractive ? 'box-none' : 'none'} aria-hidden={!eyeInteractive} accessibilityElementsHidden={!eyeInteractive} importantForAccessibility={eyeInteractive ? 'auto' : 'no-hide-descendants'}>
+          <RailButton
+            icon={<DoubleTakeIcon on={p.revealing} />}
+            label=""
+            a11y={p.revealing ? 'Close the double take' : 'Double take: check this clip'}
+            hideLabelFromA11y
+            onPress={p.onReveal ?? (() => {})}
+            disabled={!eyeInteractive}
+          />
+        </Reanimated.View>
       )}
       <RailButton
         icon={p.liked ? 'heart' : 'heart-outline'}
@@ -499,6 +511,7 @@ function RailButton(props: {
   onPress: () => void;
   color?: string;
   pop?: boolean;
+  disabled?: boolean;
 }) {
   const [scale] = useState(() => new Animated.Value(1));
   const press = (to: number) =>
@@ -506,6 +519,7 @@ function RailButton(props: {
   return (
     <Pressable
       onPress={props.onPress}
+      disabled={props.disabled}
       onPressIn={() => press(0.82)}
       onPressOut={() => press(1)}
       hitSlop={6}
@@ -522,9 +536,9 @@ function RailButton(props: {
           props.icon
         )}
       </Animated.View>
-      <Text style={[styles.railLabel, props.compactLabel && styles.railLabelCompact]} numberOfLines={1}>
+      {!!props.label && <Text style={[styles.railLabel, props.compactLabel && styles.railLabelCompact]} numberOfLines={1}>
         {props.label}
-      </Text>
+      </Text>}
     </Pressable>
   );
 }

@@ -48,6 +48,7 @@ import { GestureHint } from '@/onboarding/GestureHint';
 import type { RevealGesture } from '@/settings/settings';
 import { useSocial } from '@/social/store';
 import { useToast } from '@/ui/Toast';
+import { clipExplanation, type RealClipMode } from '@/feed/revealAction';
 import { useGate } from '@/auth/gate';
 import { CommentsPanel } from './CommentsPanel';
 import { DeskScrubber } from './DeskScrubber';
@@ -107,7 +108,8 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   // (placeholders have no verdict). Otherwise the feed is endless once loaded:
   // the list below always reaches AHEAD past the active clip.
   const { feedMode, revealGesture } = useAppSettings();
-  const { holdMs } = useDevSettings();
+  const { holdMs, realClips } = useDevSettings();
+  const toast = useToast();
   // The active clip's walkthrough (only the active slide mounts one), for Space and the slides' gestures.
   const reveal = useRef<TellOverlayHandle>(null);
   // A mode brings its own clips (a deck), shown as given.
@@ -131,6 +133,12 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   // What the slides show: a mode may present each clip differently (e.g. without its answer).
   const present = mode?.present;
   const shown = useMemo(() => (present ? clips.map((c, i) => present(c, i)) : clips), [clips, present]);
+  // Read the latest clip without resetting an in-flight Space hold when Game
+  // redraws its press feedback or presentation.
+  const explanationRef = useRef<ReturnType<typeof clipExplanation>>({ kind: 'none' });
+  useLayoutEffect(() => {
+    explanationRef.current = shown[active] ? clipExplanation(shown[active], realClips, !!mode) : { kind: 'none' };
+  }, [shown, active, realClips, mode]);
 
   // A mode hears where the feed comes to rest.
   const onActive = mode?.onActive;
@@ -328,16 +336,21 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
         // A feed mode can take the double take's gesture (the game marks AI with it).
         const pol = activePolicy.current;
         const revealTo = pol?.onReveal;
+        const explanation = explanationRef.current;
         if (pol?.onPress && revealsWith('hold', revealGesture)) {
           sp.pressing = true;
           pol.onPress({ phase: 'start', x: NaN, y: NaN, holdMs });
         }
         taps.down({
           mode: revealGesture,
-          hasTells: !!reveal.current || !!revealTo,
+          hasTells: explanation.kind !== 'none' || !!revealTo,
           holdMs,
           onSingle: pol?.noTapPause ? () => {} : togglePause,
-          onReveal: () => (revealTo ? revealTo(NaN, NaN) : reveal.current?.open()),
+          onReveal: () => {
+            if (revealTo) revealTo(NaN, NaN);
+            else if (explanation.kind === 'toast') toast.show({ text: explanation.text });
+            else if (explanation.kind === 'walkthrough') reveal.current?.open();
+          },
         });
       } else if ((e.key === 'm' || e.key === 'M') && !e.repeat && (owner === 'feed' || owner === 'control')) {
         toggleMute();
@@ -387,7 +400,7 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
       window.removeEventListener('blur', blur);
       window.removeEventListener('focusin', onFocus);
     };
-  }, [visible, scrollEnabled, active, inspecting, togglePause, toggleMute, revealGesture, holdMs, focus, players, mode?.keys]);
+  }, [visible, scrollEnabled, active, inspecting, togglePause, toggleMute, revealGesture, holdMs, focus, players, mode?.keys, realClips, toast]);
 
   // ---- feed mode switch ------------------------------------------------------
   // Stay on the same clip, or the nearest one after it.
@@ -431,7 +444,6 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   const social = useSocial();
   const actions = useSocialActions();
   const nav = useAppNav();
-  const toast = useToast();
   const liked = useMemo(() => new Set(social.liked.map((e) => e.id)), [social.liked]);
   const saved = useMemo(() => new Set(social.saved.map((e) => e.id)), [social.saved]);
   const reposted = useMemo(() => new Set(social.reposted.map((e) => e.id)), [social.reposted]);
@@ -495,9 +507,11 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
       reveal,
       revealGesture,
       holdMs,
+      realClips,
+      notify: (text) => toast.show({ text }),
       soon: (what) => toast.show({ icon: 'time-outline', text: `${what} coming soon` }),
     }),
-    [togglePause, actions, nav, toggleMute, toast, revealGesture, holdMs, toggleComments],
+    [togglePause, actions, nav, toggleMute, toast, revealGesture, holdMs, realClips, toggleComments],
   );
 
   // Each slide's policy from the mode, kept stable per index so the memoized slides don't re-render for it.
@@ -680,6 +694,8 @@ interface SlideHandlers {
   reveal: React.RefObject<TellOverlayHandle | null>;
   revealGesture: RevealGesture;
   holdMs: number;
+  realClips: RealClipMode;
+  notify: (text: string) => void;
   soon: (what: string) => void;
 }
 
@@ -730,11 +746,15 @@ const Slide = memo(function Slide(p: SlideProps) {
   const gesture = useRef({ x: 0, y: 0, moved: false, held: false, timer: 0, pressing: false, px: 0, py: 0 });
   const [clicks] = useState(createTapRecognizer);
   const { reveal: tells, revealGesture, holdMs } = h;
-  const hasTells = !!clip.tellsUrl && isActive;
+  const explanation = clipExplanation(clip, h.realClips, !!p.policy);
   // A feed mode can take the double take's gesture (the game marks AI with it).
   const revealTo = isActive ? p.policy?.onReveal : undefined;
-  const canReveal = hasTells || !!revealTo;
-  const reveal = (x: number, y: number) => (revealTo ? revealTo(x, y) : tells.current?.open());
+  const canReveal = (isActive && explanation.kind !== 'none') || !!revealTo;
+  const reveal = (x: number, y: number) => {
+    if (revealTo) revealTo(x, y);
+    else if (explanation.kind === 'toast') h.notify(explanation.text);
+    else if (explanation.kind === 'walkthrough') tells.current?.open();
+  };
   // Gate every use, including the sound thumbnail: leaving that eager would
   // still fetch the whole feed. Keep nearby images eager so the next slide
   // already has a decoded poster when it starts moving into view.
@@ -899,7 +919,7 @@ const Slide = memo(function Slide(p: SlideProps) {
               onPointerUp={onPointerUp}
               onPointerCancel={cancelHold}
               onPointerLeave={cancelHold}
-              onContextMenu={(e) => hasTells && e.preventDefault()}
+              onContextMenu={(e) => canReveal && e.preventDefault()}
             >
               {p.paused && !p.inspecting && (
                 <div className="paused-icon" aria-hidden>
@@ -920,7 +940,7 @@ const Slide = memo(function Slide(p: SlideProps) {
               {info}
             </div>
             <GestureHint clipId={clip.id} active={isActive} hasTells={!!clip.tellsUrl} doubleTakeOpen={p.inspecting} blocked={p.paused || p.commentsOpen} layout="desktop" />
-            {isActive && clip.tellsUrl && p.card.h > 0 && (
+            {isActive && clip.tellsUrl && explanation.kind === 'walkthrough' && p.card.h > 0 && (
               <TellOverlay
                 ref={tells}
                 variants={clip.tellsVariants ?? [{ name: 'main', url: clip.tellsUrl }]}
@@ -958,12 +978,12 @@ const Slide = memo(function Slide(p: SlideProps) {
           </div>
         </div>
         <div className="d-actions" inert={p.policy?.lockControls}>
-          {clip.tellsUrl && (
+          {(!p.policy || explanation.kind !== 'none') && (
             <ActionBtn
-              label="Double take"
-              name={p.inspecting ? 'Close the double take' : 'Double take: see why this clip may be AI'}
+              hidden={explanation.kind === 'none'}
+              name={p.inspecting ? 'Close the double take' : 'Double take: check this clip'}
               nameOnly
-              onClick={() => (p.inspecting ? tells.current?.close() : isActive && tells.current?.open())}
+              onClick={() => (p.inspecting ? tells.current?.close() : isActive && reveal(NaN, NaN))}
               className={`double-take ${p.inspecting ? 'on' : ''}`}
               pressed={p.inspecting}
             >
@@ -1024,6 +1044,7 @@ function ActionBtn(props: {
   onClick: () => void;
   className?: string;
   pressed?: boolean;
+  hidden?: boolean;
   /** Opens a panel: whether it's open. */
   expanded?: boolean;
   /** Name it by `name` alone (the label repeats it). */
@@ -1032,7 +1053,10 @@ function ActionBtn(props: {
 }) {
   return (
     <button
-      className={`action-btn ${props.className ?? ''}`}
+      className={`action-btn ${props.className ?? ''} ${props.hidden ? 'eye-hidden' : ''}`}
+      disabled={props.hidden}
+      aria-hidden={props.hidden || undefined}
+      tabIndex={props.hidden ? -1 : undefined}
       onClick={props.onClick}
       aria-label={props.label && !props.nameOnly ? `${props.name} (${props.label})` : props.name}
       aria-pressed={props.pressed}

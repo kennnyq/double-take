@@ -14,6 +14,7 @@ import {
   type SpotlightShape,
   type SpotlightStrength,
 } from '../feed/spotlight.ts';
+import type { RealClipMode } from '../feed/revealAction.ts';
 import { REVEAL_VARIANTS, type RevealVariant } from '../feed/reveal.ts';
 
 export { SPOTLIGHT_EFFECTS, SPOTLIGHT_PADDINGS, SPOTLIGHT_SHAPES, SPOTLIGHT_STRENGTHS };
@@ -49,6 +50,7 @@ export interface DevSettings {
   holdMs: HoldDelay;
   /** Shared Home/Game order; takes effect on reload. */
   feedOrder: 'best' | 'original';
+  realClips: RealClipMode;
   /**
    * The viewer's own pick of tells pipeline ("model") for every clip, or ''
    * for the default (the cloud's `tells_pipeline`, else main). See `resolvePipeline`.
@@ -81,6 +83,7 @@ export type DevSettingKey = keyof DevSettings;
 export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   holdMs: 350,
   feedOrder: 'best',
+  realClips: 'toast',
   pipelinePick: '',
   launcher: 'auto',
   spotlightEffect: 'darken',
@@ -113,6 +116,7 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
   return {
     holdMs: oneOf(HOLD_DELAYS, o.holdMs, d.holdMs),
     feedOrder: oneOf(['best', 'original'] as const, o.feedOrder, d.feedOrder),
+    realClips: oneOf(['toast', 'hideEye'] as const, o.realClips, d.realClips),
     pipelinePick: isPipelineName(o.pipelinePick)
       ? o.pipelinePick
       : // Before cloud defaults, every saved state held `pipeline: 'main'`, picked or not;

@@ -24,7 +24,7 @@ const VISIBLE_MS = 2500;
 
 /** One toast at a time, bottom-centred just above the tab bar. Renders above its children. */
 export function ToastProvider({ children }: { children: React.ReactNode }) {
-  const [toast, setToast] = useState<(ToastSpec & { key: number }) | null>(null);
+  const [toast, setToast] = useState<ToastSpec | null>(null);
   const [anim] = useState(() => new Animated.Value(0));
   const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const insets = useSafeAreaInsets();
@@ -41,9 +41,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const show = useCallback(
     (t: ToastSpec) => {
       clearTimeout(timer.current);
-      setToast({ ...t, key: Date.now() });
+      // Retarget from the current opacity/position, including repeated reveals.
       anim.stopAnimation();
-      anim.setValue(0);
+      setToast(t);
       Animated.timing(anim, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
       timer.current = setTimeout(hide, VISIBLE_MS);
     },
@@ -61,7 +61,6 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {toast && (
         <View style={[styles.host, { bottom: tabBarHeight(insets.bottom) + 10 }]} pointerEvents="box-none">
           <Animated.View
-            key={toast.key}
             style={[styles.card, { opacity: anim, transform: [{ translateY }] }]}
             accessibilityLiveRegion="polite"
             accessibilityRole="alert"
