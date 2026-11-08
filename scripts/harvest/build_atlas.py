@@ -48,6 +48,47 @@ def avc1_codec(path: str) -> str:
     return f"avc1.{profile:02x}{compat:02x}{level:02x}"
 
 
+def clip_distances(video: str, cols: int, rows: int, every: int = 5) -> list[list[float]]:
+    """How alike each pair of cells looks, 0 (the same footage) to 1, for the landing
+    to keep look-alikes apart. Each cell is averaged over its whole loop into a 9x16
+    colour thumbnail, then compared pixel by pixel. Averaging over the loop ignores
+    where each cell is in it (its phase), so one clip under two ids comes out near 0."""
+    tw, th = 9, 16
+    w, h = cols * tw, rows * th
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-i", video, "-vf", f"select='not(mod(n\\,{every}))',scale={w}:{h}:flags=area",
+         "-fps_mode", "passthrough", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], check=True, capture_output=True).stdout
+    size = w * h * 3
+    frames = len(raw) // size
+    if not frames:
+        raise SystemExit("no frames in the atlas")
+    total = [0] * size
+    for f in range(frames):
+        chunk = raw[f * size:(f + 1) * size]
+        for i, b in enumerate(chunk):
+            total[i] += b
+    def cell(c: int) -> list[float]:
+        x0, y0 = c % cols * tw, c // cols * th
+        return [total[((y0 + y) * w + x0 + x) * 3 + k] / frames for y in range(th) for x in range(tw) for k in range(3)]
+    cells = [cell(c) for c in range(cols * rows)]
+    def dist(a: list[float], b: list[float]) -> float:
+        return round(sum(abs(x - y) for x, y in zip(a, b)) / len(a) / 255, 3)
+    return [[dist(a, b) for b in cells] for a in cells]
+
+
+def annotate(folder: str) -> None:
+    """Adds `distances` to an existing atlas's manifest, without encoding it again."""
+    path = os.path.join(folder, "atlas.json")
+    with open(path) as f:
+        manifest = json.load(f)
+    d = clip_distances(os.path.join(folder, manifest["src"]), manifest["cols"], manifest["rows"])
+    n = len(manifest["ids"])
+    manifest["distances"] = [row[:n] for row in d[:n]]
+    with open(path, "w") as f:
+        json.dump(manifest, f, indent=1)
+    print(f"{path}: distances for {n} clips")
+
+
 def phase(i: int, n: int) -> int:
     """Where cell i's loop starts, in frames: spread by the golden ratio, so no two
     neighbours (and never all at once) cross their loop's dissolve together."""
@@ -92,7 +133,11 @@ def main() -> None:
     ap.add_argument("--loop", type=float, default=7, help="seconds; no longer than the shortest clip minus --lead")
     ap.add_argument("--lead", type=float, default=0.5, help="seconds of dissolve where each clip's loop closes")
     ap.add_argument("--crf", type=int, default=32)
+    ap.add_argument("--annotate", metavar="DIR", help="only add look-alike distances to the atlas in DIR")
     args = ap.parse_args()
+    if args.annotate:
+        annotate(args.annotate)
+        return
 
     with open(os.path.join(args.out, args.feed)) as f:
         feed = json.load(f)
@@ -167,6 +212,8 @@ def main() -> None:
         "ids": [i for i, _ in clips],
         # Where each cell's loop starts, in seconds into it.
         "phases": [p / args.fps for p in phases],
+        # How alike each pair of clips looks, 0..1, so the landing keeps look-alikes apart.
+        "distances": [row[:len(clips)] for row in clip_distances(os.path.join(dest, "atlas.mp4"), cols, rows)[:len(clips)]],
     }
     with open(os.path.join(dest, "atlas.json"), "w") as f:
         json.dump(manifest, f, indent=1)
