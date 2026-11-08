@@ -114,6 +114,7 @@ const TIER_WHY: Record<string, string> = {
   'real-verified': 'A community note or fact-check confirms this is real footage.',
   'real-prior': 'Uploaded before 2023, before realistic AI video existed.',
   'real-agency': 'From a licensing agency that verifies footage before buying it.',
+  'real-consensus': 'People who checked it on an is-this-AI forum agree it is real footage.',
 };
 
 /** One line on why a clip has its verdict, or undefined when the feed says nothing. */

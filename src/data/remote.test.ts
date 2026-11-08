@@ -67,6 +67,10 @@ test('toClip carries why a real clip is real', () => {
   // A note-verified clip still explains itself; unknown tiers fall back to the evidence.
   assert.match(verdictWhy({ ...c, verdictTier: 'real-verified' })!, /community note/);
   assert.equal(verdictWhy({ ...c, verdictTier: 'something-new' }), c.verdictEvidence);
+  assert.match(verdictWhy({ ...c, verdictTier: 'real-consensus' })!, /is-this-AI forum/);
+  // Reddit consensus labels map like any other: confirmed → AI, real → real.
+  const fromReddit = toClip({ ...CLIP, label: 'real', tier: 'real-consensus', evidence: 'r/isthisAI consensus: real (0.92, 7 votes)' }, 0);
+  assert.equal(fromReddit.verdict, 'real');
   // AI clips explain themselves with their note; clips without evidence say nothing.
   assert.equal(verdictWhy({ verdict: 'ai', verdictEvidence: 'Extra arm at 0:03.' }), 'Extra arm at 0:03.');
   const bare = toClip(CLIP, 0);
