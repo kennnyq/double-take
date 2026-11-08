@@ -112,10 +112,12 @@ export function WithLanding({
     setStartAt(undefined);
   }, []);
 
-  // Back from the app returns to the landing.
+  // Back from the app returns to the landing. Only a back to the root itself:
+  // routes over the app (Settings, the timed round) go back through history
+  // too, and landing on one of them isn't leaving the app.
   useEffect(() => {
     const onPop = () => {
-      if (window.location.hash !== APP_HASH) showLanding();
+      if (window.location.pathname === '/' && window.location.hash !== APP_HASH) showLanding();
     };
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
