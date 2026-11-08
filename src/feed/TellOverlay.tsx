@@ -18,7 +18,7 @@ import { useGlass } from './glass';
 import { InfoCard } from './InfoCard';
 import { SeekBadge, seekBadgeFor, type SeekBadgeState } from './SeekBadge';
 import { ownLayer } from './layer';
-import { planScrub, runScrub, safeSeek } from './scrub';
+import { planScrub, runScrub, safeSeek, type ScrubPlan } from './scrub';
 import { Spotlight } from './Spotlight';
 import { grow, holeFor, paddingPx, type Rect } from './spotlight';
 import { useSpotlightMotion, type SpotlightMotion } from './spotlightMotion';
@@ -66,6 +66,8 @@ interface Props {
   motion?: SpotlightMotion;
   /** Where the spotlight is and which still it blurs, as it changes. */
   onSpot?: (s: SpotState) => void;
+  /** A scrub is starting (so the clip's progress bar can follow it smoothly). */
+  onScrubPlan?: (plan: ScrubPlan) => void;
 }
 
 interface Loaded {
@@ -132,6 +134,13 @@ const OPEN_SETTLE_MS = 350;
 /** Taps on the left edge go back a step, like stories. */
 const BACK_ZONE = 0.28;
 
+/**
+ * The spotlight and card start coming in this long before a scrub lands, so
+ * they're mostly in as the video settles (their entrances take about 300 to
+ * 450 ms), instead of starting after it has stopped.
+ */
+export const ANNOTATE_LEAD_MS = 380;
+
 /** How long "No tells found" stays up. */
 const EMPTY_MS = 1600;
 
@@ -157,6 +166,10 @@ export function TellOverlay({ ref, ...p }: Props) {
   const [cache, setCache] = useState<Record<string, Loaded>>({});
   const [cards, setCards] = useState<Card[]>([]);
   const [scrubbing, setScrubbing] = useState(false);
+  // During a scrub, the step's annotations (spotlight, card) wait until it's
+  // nearly there (see ANNOTATE_LEAD_MS).
+  const [annotated, setAnnotated] = useState(true);
+  const annotateTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   // A DVD-style fast-forward / rewind mark while a long scrub runs.
   const [seekBadge, setSeekBadge] = useState<SeekBadgeState | null>(null);
   // Only whether the loop is inside the tell's camera shot re-renders us; the
@@ -178,6 +191,7 @@ export function TellOverlay({ ref, ...p }: Props) {
   useEffect(
     () => () => {
       cancelScrub.current();
+      clearTimeout(annotateTimer.current);
       onScrub(false);
       onInspect(false);
       onSlowmo(false);
@@ -248,6 +262,7 @@ export function TellOverlay({ ref, ...p }: Props) {
   // ---- steps ----------------------------------------------------------------
   const stopScrub = () => {
     setSeekBadge(null);
+    clearTimeout(annotateTimer.current);
     cancelScrub.current();
     cancelScrub.current = () => {};
     if (scrubbing) devMark('scrubEnd');
@@ -264,6 +279,7 @@ export function TellOverlay({ ref, ...p }: Props) {
     Haptics.selectionAsync().catch(() => {});
     if (!tell || !player) {
       // The closing "Also noted" card: plain playback under it.
+      setAnnotated(true);
       replay.current = null;
       setScrubbing(false);
       onSlowmo(false);
@@ -283,6 +299,17 @@ export function TellOverlay({ ref, ...p }: Props) {
     const card = cardFor(d, i);
     const plan = planScrub(player.currentTime, r.from);
     setSeekBadge(seekBadgeFor(plan.to - plan.from, plan.ms));
+    p.onScrubPlan?.(plan);
+    // The annotations come in as the scrub nears its end, timed off its plan.
+    let annotatedNow = false;
+    const annotate = () => {
+      if (annotatedNow) return;
+      annotatedNow = true;
+      setAnnotated(true);
+      showCard(card);
+    };
+    setAnnotated(false);
+    if (plan.ms > 0) annotateTimer.current = setTimeout(annotate, Math.max(0, plan.ms - ANNOTATE_LEAD_MS));
     cancelScrub.current = runScrub(player, plan, () => {
       setSeekBadge(null);
       cancelScrub.current = () => {};
@@ -293,7 +320,7 @@ export function TellOverlay({ ref, ...p }: Props) {
       onSlowmo(true);
       onScrub(false);
       p.onPlay();
-      showCard(card);
+      annotate();
     });
   };
 
@@ -422,7 +449,7 @@ export function TellOverlay({ ref, ...p }: Props) {
   // while the video runs to it). A box pinned to a camera shot means nothing
   // across a cut, so it lets go outside that shot.
   const inShot = !current?.shot || scrubbing || inShotNow;
-  const area = inShot ? areaOf(current) : null;
+  const area = inShot && annotated ? areaOf(current) : null;
   const ownMotion = useSpotlightMotion(p.motion ? null : area, settings.spotlightShape, paddingPx(settings.spotlightPadding));
   const motion = p.motion ?? ownMotion;
   // Tell the clip (it springs the shared motion, and blurs the still for the cheap blur).
