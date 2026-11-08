@@ -123,8 +123,8 @@ export function isDoubleTap(prev: Tap | null, next: Tap, windowMs: number, slop 
 
 /**
  * What a press of Space does on desktop. With hold giving the double take, a
- * press is only a tap (play/pause) once it's released before the hold delay;
- * otherwise Space plays/pauses at once, as it always has.
+ * press is only a tap (advance) once it's released before the hold delay;
+ * Double-tap disambiguation is handled by createSpaceRecognizer.
  */
 export function spaceWaitsForHold(mode: RevealGesture, hasTells: boolean): boolean {
   return hasTells && revealsWith('hold', mode);
@@ -155,10 +155,10 @@ export function gestureOptions(desktop: boolean): GestureOption[] {
       {
         id: 'hold',
         title: 'Hold Space',
-        description: 'Hold Space, or click and hold the video. A quick Space still plays and pauses; double-click still likes.',
+        description: 'Hold Space, or click and hold the video. A quick Space advances; double-click still likes.',
       },
-      { id: 'doubleTap', title: 'Double-click', description: 'Double-click the video. Like with the heart.' },
-      { id: 'both', title: 'Both', description: 'Hold Space or double-click. Like with the heart.' },
+      { id: 'doubleTap', title: 'Double-click', description: 'Double-click the video or double-tap Space. A single Space advances. Like with the heart.' },
+      { id: 'both', title: 'Both', description: 'Hold or double-tap Space, or double-click the video. A single Space advances. Like with the heart.' },
     ];
   }
   return [

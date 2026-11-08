@@ -1,7 +1,7 @@
 /**
  * Browser check for the desktop feed's Space key, with real (trusted) key
  * events in Chromium: held Space opens the double take, a quick press
- * plays/pauses (or, during a double take, goes on to its next step), and
+ * advances the clip (or, during a double take, goes on to its next step), and
  * none of it depends on what was clicked last. It caught the
  * bug where a clicked button (e.g. Unmute) kept focus and took Space.
  *
@@ -109,13 +109,13 @@ async function main() {
   );
   await closeWalkthrough(page);
 
-  // A quick press still plays and pauses.
+  // Standalone Space advances once after the shared double-tap window.
+  const beforeSingle = await state(page);
   await page.keyboard.press(' ');
-  await page.waitForTimeout(400);
-  const pausedNow = (await state(page)).paused;
-  await page.keyboard.press(' ');
-  await page.waitForTimeout(400);
-  check('a quick Space pauses, then plays', pausedNow && !(await state(page)).paused && !(await state(page)).open, await state(page));
+  await page.waitForTimeout(600);
+  check('a quick Space advances one clip', (await state(page)).clip === beforeSingle.clip + 1, await state(page));
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(600);
 
   await holdOpens(page, 'after clicking Unmute (the reported bug)', () => page.click(`${ACTIVE} .mute-btn`));
   await holdOpens(page, 'after clicking the video twice', async () => {
@@ -157,6 +157,44 @@ async function main() {
   const s = await state(page);
   check('Space on a control reached with Tab presses it', !s.open && s.muted === !mutedBefore, { tabbed, mutedBefore, s });
   await closeWalkthrough(page);
+
+  // Gesture settings, fast taps, repeats, and editable ownership.
+  for (const mode of ['hold', 'doubleTap', 'both']) {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const p = await ctx.newPage();
+    await p.addInitScript((mode) => {
+      localStorage.clear();
+      localStorage.setItem('double-take.settings.v1', JSON.stringify({ revealGesture: mode }));
+    }, mode);
+    await p.goto(BASE_URL + '/#app');
+    await p.waitForSelector(ACTIVE + ' .double-take', { timeout: 90000 });
+    await p.waitForTimeout(700);
+    await p.keyboard.press(' ');
+    await p.waitForTimeout(80);
+    if (mode !== 'hold') check(mode + ': first Space does not advance early', (await state(p)).clip === 0, await state(p));
+    await p.keyboard.press(' ');
+    await p.waitForTimeout(1400);
+    check(mode + ': double Space obeys the setting', mode === 'hold' ? !(await state(p)).open : (await state(p)).open && (await state(p)).clip === 0, await state(p));
+    await closeWalkthrough(p);
+    // Test input/textarea/contenteditable, covering link fields, comments and notes.
+    for (const tag of ['input', 'textarea', 'div']) {
+      await p.evaluate(tag => {
+        const el = document.createElement(tag);
+        el.id = 'typing-space-test';
+        if (tag === 'div') el.contentEditable = 'true';
+        el.style.cssText = 'position:fixed;top:0;left:0;z-index:99999;background:white';
+        document.body.append(el);
+        el.focus();
+      }, tag);
+      const before = await state(p);
+      await p.keyboard.press(' '); await p.waitForTimeout(60); await p.keyboard.press(' ');
+      await p.waitForTimeout(350);
+      const value = await p.locator('#typing-space-test').evaluate(el => 'value' in el ? (el as HTMLInputElement).value : el.textContent);
+      check(mode + ': double Space types in ' + tag, value?.replace(/\u00a0/g, ' ') === '  ' && (await state(p)).clip === before.clip && !(await state(p)).open, { value, state: await state(p) });
+      await p.locator('#typing-space-test').evaluate(el => el.remove());
+    }
+    await ctx.close();
+  }
 
   // Signed in (dev test account), when the dev auth server is up.
   await page.click(`${ACTIVE} .d-actions button[aria-label^="Like"]`);

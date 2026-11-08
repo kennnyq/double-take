@@ -40,7 +40,8 @@ import { useSocialActions } from '@/social/actions';
 import { baseReposts, clipKey } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { useAppNav } from '@/social/nav';
-import { createTapRecognizer, gestureAction, singleTapWaits, spaceWaitsForHold } from '@/settings/gesture';
+import { createSpaceRecognizer } from '@/settings/spaceGesture';
+import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
 import { GestureHint } from '@/onboarding/GestureHint';
 import type { RevealGesture } from '@/settings/settings';
@@ -251,15 +252,10 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     }
   }, [safePlay]);
 
-  // Space = play/pause, or held = the double take (then each press goes on to
-  // its next step); ←/→ = 5 s back/on (in a double take: previous/next step);
-  // M = mute (up/down arrows, Page keys and
-  // J/K live in the scroller). When holding Space opens the active clip's double
-  // take, a quick press plays/pauses on release, so a hold never pauses first;
-  // otherwise Space plays/pauses on press, as always. Listening in the capture
-  // phase lets the feed take Space before a mouse-focused button does (see
-  // feedKeys.ts); controls reached with Tab, text fields and dialogs keep it.
-  const space = useRef({ down: false, waiting: false, held: false, timer: 0 });
+  // Space advances; hold or a second press can open the walkthrough.
+  // Pointer and keyboard share DOUBLE_TAP_MS. Editable fields and controls
+  // reached with Tab retain their native keyboard behavior.
+  const space = useRef({ down: false });
   const inspectingRef = useRef(inspecting);
   const arrowSeek = useRef<() => void>(() => {});
   useEffect(() => {
@@ -267,19 +263,21 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   }, [inspecting]);
   const [focus] = useState(createFocusTracker);
   useEffect(() => {
-    if (!visible || !scrollEnabled) return;
+    if (!visible || !scrollEnabled) { space.current.down = false; return; }
     const sp = space.current;
-    const reset = () => {
-      window.clearTimeout(sp.timer);
-      sp.down = sp.waiting = sp.held = false;
+    const taps = createSpaceRecognizer();
+    const reset = () => taps.cancel();
+    const blur = () => { reset(); sp.down = false; };
+    const onPointerDown = () => { reset(); focus.onPointerDown(); };
+    const onFocus = (e: FocusEvent) => {
+      if (keyOwner(e.target as Element | null, focus.keyboardFocus) !== 'feed') reset();
     };
-    const onPointerDown = () => focus.onPointerDown();
     const onKey = (e: KeyboardEvent) => {
       focus.onKeyDown(e.key);
-      if (e.altKey || e.ctrlKey || e.metaKey) return;
+      if (e.altKey || e.ctrlKey || e.metaKey) { reset(); return; }
       const owner = keyOwner(e.target as Element | null, focus.keyboardFocus);
       if (e.key === ' ') {
-        if (owner !== 'feed') return;
+        if (owner !== 'feed') { reset(); return; }
         // Never scroll the page or press the focused button, repeats included.
         e.preventDefault();
         e.stopPropagation();
@@ -288,18 +286,16 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
         // During a double take, Space goes on to the next step (as a click
         // does). Only a new press: the hold that opened it never advances it.
         if (inspectingRef.current && reveal.current?.next()) {
-          sp.waiting = false;
+          reset();
           return;
         }
-        if (spaceWaitsForHold(revealGesture, !!reveal.current)) {
-          sp.waiting = true;
-          sp.timer = window.setTimeout(() => {
-            sp.held = true;
-            reveal.current?.open();
-          }, holdMs);
-        } else {
-          togglePause();
-        }
+        taps.down({
+          mode: revealGesture,
+          hasTells: !!reveal.current,
+          holdMs,
+          onSingle: next,
+          onReveal: () => reveal.current?.open(),
+        });
       } else if ((e.key === 'm' || e.key === 'M') && !e.repeat && (owner === 'feed' || owner === 'control')) {
         toggleMute();
       } else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && owner === 'feed') {
@@ -322,25 +318,29 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
     };
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key !== ' ' || !sp.down) return;
-      // A button presses on Space's release: this one was the feed's.
+      sp.down = false;
+      if (keyOwner(e.target as Element | null, focus.keyboardFocus) !== 'feed') {
+        reset();
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
-      const tap = sp.waiting && !sp.held;
-      reset();
-      if (tap) togglePause();
+      taps.up();
     };
     window.addEventListener('keydown', onKey, true);
     window.addEventListener('keyup', onKeyUp, true);
     window.addEventListener('pointerdown', onPointerDown, true);
-    window.addEventListener('blur', reset);
+    window.addEventListener('blur', blur);
+    window.addEventListener('focusin', onFocus);
     return () => {
       reset();
       window.removeEventListener('keydown', onKey, true);
       window.removeEventListener('keyup', onKeyUp, true);
       window.removeEventListener('pointerdown', onPointerDown, true);
-      window.removeEventListener('blur', reset);
+      window.removeEventListener('blur', blur);
+      window.removeEventListener('focusin', onFocus);
     };
-  }, [visible, scrollEnabled, togglePause, toggleMute, revealGesture, holdMs, focus, players]);
+  }, [visible, scrollEnabled, active, inspecting, next, toggleMute, revealGesture, holdMs, focus, players]);
 
   // ---- feed mode switch ------------------------------------------------------
   // Stay on the same clip, or the nearest one after it.
