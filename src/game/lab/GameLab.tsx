@@ -9,7 +9,7 @@ import { themed, usePalette } from '@/ui/theme';
 import { GAME } from '../config';
 import { GAME_DESIGNS, GAME_ELEMENTS, isDesign, stepDesign, type GameDesigns, type GameElement } from '../designs';
 import { setGameDesign, useGameDesigns } from '../devOptions';
-import { FrameContext, stageSize, useFrame, type FrameSize } from '../frame';
+import { FrameContext, stageSize, useFrame, useGameScreen, type FrameSize } from '../frame';
 import { Countdown } from '../hud/Countdown';
 import { Hud, hudAnchor, useTimeFraction } from '../hud/Hud';
 import { useEased } from '../motion';
@@ -35,6 +35,7 @@ const isElement = (v: LabView): v is GameElement => (GAME_ELEMENTS as readonly s
  * `?el=reveal&reveal=flip` opens on an element and design (for screenshots).
  */
 export function GameLab() {
+  useGameScreen();
   const params = useLocalSearchParams<Record<string, string>>();
   const designs = useGameDesigns();
   const [el, setEl] = useState<LabView>(() => (LAB_VIEWS as readonly string[]).includes(params.el ?? '') ? (params.el as LabView) : 'countdown');

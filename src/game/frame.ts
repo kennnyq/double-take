@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react';
 import { Platform } from 'react-native';
+import { useBlockHints } from '@/onboarding/store';
 
 /** Where a game screen lays itself out: the space the app's chrome leaves it. */
 export interface FrameSize {
@@ -30,4 +31,15 @@ export function stageSize(f: FrameSize): { width: number; height: number; margin
   if (!f.desktop) return { width: f.width, height: f.height, marginTop: 0 };
   const height = Math.max(0, f.height - 48);
   return { width: Math.min(f.width - 48, Math.round((height * 9) / 16)), height, marginTop: 24 };
+}
+
+/**
+ * Every game screen (the round, its results, Your skills, the lab) keeps the
+ * feed's first-run gesture hint away while it's up. The hint teaches hold or
+ * double tap for the double take, which a round turns off (a double tap marks
+ * AI there), and the Home feed stays mounted underneath: its hint must neither
+ * show nor count as seen while a game screen covers it.
+ */
+export function useGameScreen() {
+  useBlockHints();
 }

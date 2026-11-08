@@ -3,7 +3,7 @@ import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'r
 import { router } from 'expo-router';
 import { Rail, requestDesktopTab } from '@/desktop/Rail';
 import { openSettings } from '@/settings/store';
-import { FrameContext, isDesktop } from './frame';
+import { FrameContext, isDesktop, useGameScreen } from './frame';
 import { PhoneFrame } from './PhoneFrame';
 // The rail's styles, and the palette's --dt-* colours they read.
 import '@/ui/theme';
@@ -23,6 +23,7 @@ export function GameFrame({ children }: { children: ReactNode }) {
 }
 
 function DesktopFrame({ children }: { children: ReactNode }) {
+  useGameScreen();
   const win = useWindowDimensions();
   const [size, setSize] = useState({ width: win.width - 72, height: win.height });
   const onLayout = (e: LayoutChangeEvent) => {

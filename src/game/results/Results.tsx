@@ -54,7 +54,6 @@ interface Props {
 
 /** After a round: the score counting up while every clip of the round reveals whether you got it right. */
 export function Results({ done, designs, actions = true }: Props) {
-  // TODO(feat/gesture-hint): call useBlockHints() from '@/onboarding/store' here once it lands on main.
   const { stats, newBest } = done;
   const frame = useFrame();
   const c = usePalette();

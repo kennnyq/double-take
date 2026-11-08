@@ -4,7 +4,7 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TabBar, requestTab, type TabId } from '@/ui/TabBar';
 import { usePalette } from '@/ui/theme';
-import { FrameContext, isDesktop, type FrameSize } from './frame';
+import { FrameContext, isDesktop, useGameScreen, type FrameSize } from './frame';
 
 /** Leaves the game for one of the app's tabs. */
 export function leaveForTab(tab: TabId) {
@@ -22,6 +22,8 @@ export function leaveForTab(tab: TabId) {
  * puts the rail beside it instead.)
  */
 export function PhoneFrame({ children }: { children: ReactNode }) {
+  // No first-run gesture hint while a game screen is up (see `useGameScreen`).
+  useGameScreen();
   const insets = useSafeAreaInsets();
   const win = useWindowDimensions();
   const c = usePalette();

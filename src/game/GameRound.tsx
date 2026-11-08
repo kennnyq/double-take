@@ -102,7 +102,6 @@ const RoundContext = createContext<RoundUi | null>(null);
  * the round's buttons.
  */
 function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durationMs: number; showTruth: boolean; designs: Designs }) {
-  // TODO(feat/gesture-hint): call useBlockHints() from '@/onboarding/store' here once it lands on main.
   const clips = useMemo(() => deck.map((d) => d.clip), [deck]);
   const [s, dispatch] = useReducer(roundReducer, null, () =>
     createRound(
