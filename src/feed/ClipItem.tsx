@@ -13,6 +13,7 @@ import { themed, usePalette } from '@/ui/theme';
 import { useDevSettings } from '@/devtools/store';
 import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
+import { GestureHint } from '@/onboarding/GestureHint';
 import type { FeedHandlers } from './Feed';
 import { BlurredStill, CornerCaps, useCheapClip } from './InspectStage';
 import { Scrubber } from './Scrubber';
@@ -248,6 +249,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           <HeartBurst key={b.id} x={b.x} y={b.y} tilt={b.tilt} onDone={() => setBursts((all) => all.filter((o) => o.id !== b.id))} />
         ))}
       </Pressable>
+      <GestureHint clipId={clip.id} active={p.isActive} hasTells={!!clip.tellsUrl} doubleTakeOpen={inspecting} blocked={p.paused} layout="phone" opacity={p.chrome} />
       {clip.tellsUrl && p.isActive && (
         <TellOverlay
           ref={tells}

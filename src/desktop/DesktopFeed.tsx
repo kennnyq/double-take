@@ -42,6 +42,7 @@ import type { ClipCounts } from '@/social/reducer';
 import { useAppNav } from '@/social/nav';
 import { createTapRecognizer, gestureAction, singleTapWaits, spaceWaitsForHold } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
+import { GestureHint } from '@/onboarding/GestureHint';
 import type { RevealGesture } from '@/settings/settings';
 import { useSocial } from '@/social/store';
 import { useToast } from '@/ui/Toast';
@@ -793,6 +794,7 @@ const Slide = memo(function Slide(p: SlideProps) {
             <div className={`d-info-overlay compact-only fades ${p.inspecting ? 'faded' : ''}`} inert={p.inspecting}>
               {info}
             </div>
+            <GestureHint clipId={clip.id} active={isActive} hasTells={!!clip.tellsUrl} doubleTakeOpen={p.inspecting} blocked={p.paused || p.commentsOpen} layout="desktop" />
             {isActive && clip.tellsUrl && p.card.h > 0 && (
               <TellOverlay
                 ref={tells}
