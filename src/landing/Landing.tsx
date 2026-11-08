@@ -84,7 +84,8 @@ export function Landing({
         // never a blank page.
         console.error('landing launch', err);
         const { onLaunch, onDone, preferredClip } = latest.current;
-        onLaunch(preferredClip() ?? (Number(from?.closest<HTMLElement>('[data-tile]')?.dataset.clip) || 0));
+        const tile = from?.closest<HTMLElement>('[data-tile]');
+        onLaunch(tile ? Number(tile.dataset.clip) || 0 : (preferredClip() ?? 0));
         onDone();
       });
   }, []);

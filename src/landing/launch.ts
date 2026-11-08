@@ -697,7 +697,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     const r = el.getBoundingClientRect();
     return { el, r, seen: visibleFraction(r) };
   });
-  const preferred = hooks.preferredClip?.();
+  // A clicked video always opens itself; only buttons fall back to the demo pin.
+  const preferred = fromTile ? undefined : hooks.preferredClip?.();
   // Prefer the most visible instance of the pin, including wall CTAs that
   // supply their own tile. Never fly an offscreen room into view.
   const pinned = preferred === undefined ? [] : tiles.filter((t) => t.seen > 0 && Number(t.el.dataset.clip) === preferred);
