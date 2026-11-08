@@ -1,0 +1,12 @@
+// The web app, hosted as static assets on its own Worker (`npm run deploy:web`).
+// Separate from the media API Worker (worker/wrangler.jsonc): it only serves the
+// exported build in dist/, and every unknown path gets the app's index.html (the
+// app routes on the client).
+{
+  "name": "double-take-app",
+  "compatibility_date": "2026-11-01",
+  "assets": {
+    "directory": "../dist",
+    "not_found_handling": "single-page-application"
+  }
+}
