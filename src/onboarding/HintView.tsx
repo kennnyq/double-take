@@ -23,7 +23,7 @@ import type { HintDesign } from './store';
  * shadow), and a space bar keycap that presses down and is held.
  */
 
-export type Step = DemoStep | 'swipe';
+export type Step = DemoStep;
 export interface HintInputKind {
   /** A fine pointer: cursor and keyboard rather than a finger. */
   mouse: boolean;
@@ -201,7 +201,6 @@ interface DemoProps {
 }
 
 function Demo({ step, ...d }: DemoProps & { step: Step }) {
-  if (step === 'swipe') return <SwipeDemo {...d} />;
   if (step === 'doubleTap') return <DoubleTapDemo {...d} />;
   if (d.input.mouse && d.input.spaceKey) return <SpaceDemo {...d} />;
   return <HoldDemo {...d} />;
@@ -253,18 +252,6 @@ function HoldDemo({ clock, seg, input, design }: DemoProps) {
       )}
       <Presser p={p} input={input} design={design} />
     </>
-  );
-}
-
-function SwipeDemo({ clock, seg, input, design }: DemoProps) {
-  // Touch down low, slide up while pressed, lift off at the top and fade; come back unseen.
-  const p = track(clock, seg, [[0, 0], [0.08, 0], [0.16, 1, press], [0.58, 1], [0.7, 0, springy], [1, 0]]);
-  const y = track(clock, seg, [[0, 22], [0.16, 22], [0.62, -26, smooth], [0.8, -32, Easing.out(Easing.quad)], [0.84, 22], [1, 22]]);
-  const opacity = track(clock, seg, [[0, 1], [0.66, 1], [0.8, 0, Easing.in(Easing.quad)], [0.84, 0], [1, 1, Easing.out(Easing.quad)]]);
-  return (
-    <Animated.View style={[StyleSheet.absoluteFill, { opacity, transform: [{ translateY: y }] }]}>
-      <Presser p={p} input={{ ...input, mouse: false }} design={design} />
-    </Animated.View>
   );
 }
 

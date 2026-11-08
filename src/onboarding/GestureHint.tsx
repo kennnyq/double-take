@@ -2,16 +2,15 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Platform } from 'react-native';
 import { useDevPanel } from '@/devtools/store';
 import { useAppSettings, useSettingsOpen } from '@/settings/store';
-import { demoSteps, hintTimeout, SHOW_DELAY_MS, type HintEnd, type HintKind } from './hints';
-import { HintView, type Step } from './HintView';
+import { demoSteps, hintTimeout, SHOW_DELAY_MS, type HintEnd } from './hints';
+import { HintView } from './HintView';
 import { hints, useHints } from './store';
 import './dev';
 
 /**
  * A first-run hint over the active clip: a demo of the gestures that open the
- * double take (with Both, hold and then double tap), or, before that for a
- * brand-new viewer, how to swipe to the next clip. When it shows and goes is
- * decided in `hints.ts`; this reports what happened and `HintView` draws it.
+ * double take (with Both, hold and then double tap). When it shows and goes
+ * is decided in `hints.ts`; this reports what happened and `HintView` draws it.
  *
  * Mount one in each clip of a feed; only the active one ever draws. It counts
  * the double takes opened on its clip from `doubleTakeOpen` going true.
@@ -24,7 +23,7 @@ export interface GestureHintProps {
   doubleTakeOpen: boolean;
   /** Something else holds or covers the clip: it's paused, a panel is open… */
   blocked?: boolean;
-  /** `phone`: the swipe hint, no Space key. `desktop`: Space holds. */
+  /** `phone`: holds and taps. `desktop`: Space holds, with a mouse. */
   layout: 'phone' | 'desktop';
   /** Fades the hint with the feed's chrome (the phone's sheets). */
   opacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
@@ -42,28 +41,22 @@ export function GestureHint(p: GestureHintProps) {
   const reduceMotion = useReduceMotion();
   const mouse = s.input === 'mouse' || (s.input === 'auto' && fine);
   const still = s.input === 'still' || reduceMotion;
-  const canSwipe = p.layout === 'phone' && !mouse;
   const covered = !p.active || p.doubleTakeOpen || !!p.blocked || settingsOpen || devOpen || s.blocks > 0;
 
-  // What's drawn (kept through the fade-out) and whether it's on its way in.
-  const [kind, setKind] = useState<HintKind | null>(null);
+  // Whether it's drawn (kept through the fade-out), and whether it's on its way in.
+  const [drawn, setDrawn] = useState(false);
   const [on, setOn] = useState(false);
-  const shown = useRef<HintKind | null>(null);
+  const shown = useRef(false);
   // A hint that ran its course here doesn't start again on the same clip.
   const doneOn = useRef<string | null>(null);
 
   const hide = (why: HintEnd) => {
-    const k = shown.current;
-    if (!k) return;
-    shown.current = null;
+    if (!shown.current) return;
+    shown.current = false;
     if (why !== 'left') doneOn.current = p.clipId;
-    hints.end(k, why);
+    hints.end(why);
     setOn(false);
   };
-
-  useEffect(() => {
-    if (p.active) hints.enterClip(p.clipId);
-  }, [p.active, p.clipId]);
 
   // Opening a double take, by either gesture or the button, is what the hint
   // asks for: it goes at once, and the open counts towards learning it.
@@ -71,7 +64,7 @@ export function GestureHint(p: GestureHintProps) {
   useEffect(() => {
     if (p.doubleTakeOpen && !wasOpen.current && p.active) {
       hints.recordOpen();
-      if (shown.current === 'doubleTake') hide('gesture');
+      hide('gesture');
     }
     wasOpen.current = p.doubleTakeOpen;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -88,27 +81,26 @@ export function GestureHint(p: GestureHintProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [covered]);
 
-  // A clip that stays put for a moment gets the hint it should have; a dev
-  // "Show now" plays on the first clip that can show it, whatever the rules.
-  const request = s.request && (s.request.kind === 'swipe' ? canSwipe : p.hasTells) ? s.request : null;
+  // A clip that stays put for a moment shows the hint if it should; a dev
+  // "Show now" plays on the first clip with tells, whatever the rules.
+  const request = s.request && p.hasTells ? s.request : null;
   useEffect(() => {
     if (covered || on || (!request && doneOn.current === p.clipId)) return;
     const t = setTimeout(
       () => {
-        const k = request ? request.kind : hints.hintFor({ clipId: p.clipId, hasTells: p.hasTells, blocked: false, canSwipe });
-        if (!k) return;
         if (request) hints.takeRequest(request.id);
-        hints.start(k);
-        shown.current = k;
-        setKind(k);
+        else if (!hints.shouldShow({ hasTells: p.hasTells, blocked: false })) return;
+        hints.start();
+        shown.current = true;
+        setDrawn(true);
         setOn(true);
       },
       request ? REQUEST_DELAY_MS : SHOW_DELAY_MS,
     );
     return () => clearTimeout(t);
-  }, [covered, on, p.clipId, p.hasTells, canSwipe, request, s.epoch, s.force]);
+  }, [covered, on, p.clipId, p.hasTells, request, s.epoch, s.force]);
 
-  const steps: Step[] = kind === 'swipe' ? ['swipe'] : demoSteps(revealGesture);
+  const steps = demoSteps(revealGesture);
 
   // Twice through, then it goes by itself (with "Keep showing" it stays, for looking at).
   const timeout = hintTimeout(steps);
@@ -127,9 +119,9 @@ export function GestureHint(p: GestureHintProps) {
   );
 
   // Unmount the drawing once it has faded out, unless another hint started meanwhile.
-  const onGone = useCallback(() => setKind((k) => (shown.current ? k : null)), []);
+  const onGone = useCallback(() => setDrawn(shown.current), []);
 
-  if (!kind) return null;
+  if (!drawn) return null;
   return (
     <HintView
       steps={steps}

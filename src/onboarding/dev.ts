@@ -11,19 +11,19 @@ import { DEV_DEFAULTS, hints, type HintState } from './store';
  */
 
 function register(s: HintState) {
-  const { opens, swiped } = s.progress;
-  // The panel covers the clip; close it so the hint can play.
-  const play = (kind: 'doubleTake' | 'swipe') => () => {
+  const { opens } = s.progress;
+  // On phones the panel covers the clip: close it so the hint can be seen.
+  const play = () => {
     closeDevSettings();
-    hints.showNow(kind);
+    hints.showNow();
   };
   registerDevSection({
     id: 'interaction/gesture-hint',
     tab: 'interaction',
     title: 'Gesture hint',
     order: -10,
-    note: `The first-run hint over the feed. Double takes opened: ${opens} of ${OPENS_TO_LEARN}; swipe ${swiped ? 'learned' : 'not learned yet'}.`,
-    keywords: 'tutorial hint onboarding first run gesture swipe design style',
+    note: `The first-run hint over the feed. Double takes opened: ${opens} of ${OPENS_TO_LEARN}${opens >= OPENS_TO_LEARN ? ', so it no longer shows by itself (Show now or Reset tutorial)' : ''}.`,
+    keywords: 'tutorial hint onboarding first run gesture design style',
     rows: [
       {
         kind: 'choice',
@@ -52,8 +52,7 @@ function register(s: HintState) {
         defaultValue: DEV_DEFAULTS.input,
         onSelect: (v) => hints.setInput(v as HintState['input']),
       },
-      { kind: 'action', id: 'show', label: 'Show now', note: 'Closes this and plays the hint on the clip, for the gesture setting.', run: play('doubleTake') },
-      { kind: 'action', id: 'show-swipe', label: 'Show the swipe hint now', note: 'Phone layout.', run: play('swipe') },
+      { kind: 'action', id: 'show', label: 'Show now', note: 'Closes this and plays the hint on the clip, for the gesture setting.', run: play },
       {
         kind: 'switch',
         id: 'repeat',

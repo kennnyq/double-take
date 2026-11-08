@@ -3,26 +3,24 @@ import { devStorage } from '@/devtools/storage';
 import { DEV_TOOLS } from '@/devtools/store';
 import { settingsStorage } from '@/settings/storage';
 import {
-  enterClip,
   endHint,
   FRESH,
-  hintFor,
   NEW_SESSION,
   parseProgress,
   recordOpen,
+  shouldShow,
   startHint,
   type ClipContext,
   type HintEnd,
   type HintForce,
-  type HintKind,
   type HintProgress,
   type HintSession,
 } from './hints';
 
 /**
- * The hints' state for this device and app run: progress kept with the app
- * settings, the session in memory, and the dev overrides with the dev settings.
- * The rules are in `hints.ts`.
+ * The gesture hint's state for this device and app run: progress kept with
+ * the app settings, the session in memory, and the dev overrides with the dev
+ * settings. The rules are in `hints.ts`.
  */
 
 const PROGRESS_KEY = 'double-take.hints.v1';
@@ -39,18 +37,18 @@ export type HintDesign = (typeof HINT_DESIGNS)[number];
 /** Which input the hint shows: by the pointer (a fine one gets mouse and keyboard), or forced; `still` as with Reduce Motion. */
 export const HINT_INPUTS = ['auto', 'touch', 'mouse', 'still'] as const;
 export type HintInput = (typeof HINT_INPUTS)[number];
-const FORCES: readonly HintForce[] = ['off', 'swipe', 'doubleTake'];
+const FORCES: readonly HintForce[] = ['off', 'doubleTake'];
 
 export interface HintState {
   progress: HintProgress;
   session: HintSession;
-  /** Screens that keep every hint away while they're up (the timed game), counted. */
+  /** Screens that keep the hint away while they're up (the landing, the timed game), counted. */
   blocks: number;
   force: HintForce;
   design: HintDesign;
   input: HintInput;
-  /** "Show now" from the dev settings: the next active clip that can show it does, whatever the rules. */
-  request: { kind: HintKind; id: number } | null;
+  /** "Show now" from the dev settings: the next active clip with tells shows it, whatever the rules. */
+  request: { id: number } | null;
   /** Bumped by a reset, so a hint on screen starts over. */
   epoch: number;
 }
@@ -108,30 +106,24 @@ export const hints = {
       listeners.delete(l);
     };
   },
-  /** Which hint the clip should show now, if any. */
-  hintFor: (clip: ClipContext): HintKind | null => (state.blocks > 0 ? null : hintFor(state.progress, state.session, clip, state.force)),
-  enterClip(clipId: string) {
-    const r = enterClip(state.session, clipId);
-    set({ session: r.session, progress: r.swiped && !state.progress.swiped ? { ...state.progress, swiped: true } : state.progress });
-  },
+  /** Whether the clip should show the hint now. */
+  shouldShow: (clip: ClipContext): boolean => state.blocks === 0 && shouldShow(state.progress, state.session, clip, state.force),
   /** The viewer opened a double take, by any gesture or the button. */
   recordOpen: () => set({ progress: recordOpen(state.progress) }),
-  start: (kind: HintKind) => set({ session: startHint(state.session, kind) }),
-  end(kind: HintKind, why: HintEnd) {
-    set(endHint(state.progress, state.session, kind, why));
-  },
-  /** Every hint as for a brand-new viewer, starting now. */
+  start: () => set({ session: startHint(state.session) }),
+  end: (why: HintEnd) => set({ session: endHint(state.session, why) }),
+  /** The hint as for a brand-new viewer, starting now. */
   reset: () => set({ progress: { ...FRESH }, session: { ...NEW_SESSION }, epoch: state.epoch + 1 }),
   setForce: (force: HintForce) => set({ force, epoch: state.epoch + 1 }),
   setDesign: (design: HintDesign) => set({ design }),
   setInput: (input: HintInput) => set({ input }),
-  /** Plays a hint on the active clip as soon as nothing covers it (dev settings). */
-  showNow: (kind: HintKind) => set({ request: { kind, id: (state.request?.id ?? 0) + 1 }, epoch: state.epoch + 1 }),
+  /** Plays the hint on the active clip as soon as nothing covers it (dev settings). */
+  showNow: () => set({ request: { id: (state.request?.id ?? 0) + 1 }, epoch: state.epoch + 1 }),
   /** The request was played. */
   takeRequest: (id: number) => {
     if (state.request?.id === id) set({ request: null });
   },
-  /** Keeps every hint away until the returned function is called. */
+  /** Keeps the hint away until the returned function is called. */
   block(): () => void {
     set({ blocks: state.blocks + 1 });
     let done = false;
@@ -148,8 +140,8 @@ export function useHints(): HintState {
 }
 
 /**
- * Keeps the feed's hints away while the calling screen is mounted (and `on`),
- * e.g. the timed guessing game.
+ * Keeps the feed's hint away while the calling screen is mounted (and `on`),
+ * e.g. the timed guessing game or the landing.
  */
 export function useBlockHints(on = true) {
   useEffect(() => (on ? hints.block() : undefined), [on]);
