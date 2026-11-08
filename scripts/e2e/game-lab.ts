@@ -6,7 +6,7 @@
  *   npm run e2e:lab                                    (dev server on 8081)
  *   BASE_URL=http://localhost:8092 npm run e2e:lab
  *   SHOTS=/abs/dir npm run e2e:lab    also records each design and saves a frame strip
- *                                     of its motion (needs ffmpeg)
+ *                                     of its motion (needs ffmpeg; STRIPS=hud,expand for some)
  *
  * Needs a running dev server and a Chromium (see browser.ts).
  */
@@ -95,12 +95,16 @@ async function record(b: Browser, dir: string, el: string, id: string): Promise<
   }
   await pg.waitForTimeout(Math.max(0, Math.max(...p.frames) + 400 - (Date.now() - t0 - begin)));
   const video = await pg.video()?.path();
+  const elapsed = Date.now() - t0;
   await context.close();
   if (!video) return null;
+  // The recording starts a little after the page is made: measure how much from its length.
+  const probe = spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'format=duration', '-of', 'csv=p=0', video], { encoding: 'utf8' });
+  const lag = Math.max(0, elapsed - Number(probe.stdout.trim()) * 1000) || 0;
   // Cut the frames and lay them side by side.
   const parts = p.frames.map((ms, i) => {
     const out = join(tmp, `f${String(i).padStart(2, '0')}.png`);
-    spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-ss', String((begin + ms) / 1000), '-i', video, '-frames:v', '1', '-vf', `${p.crop},scale=-2:400`, out]);
+    spawnSync('ffmpeg', ['-loglevel', 'error', '-y', '-i', video, '-ss', String(Math.max(0, begin + ms - lag) / 1000), '-frames:v', '1', '-vf', `${p.crop},scale=-2:400`, out]);
     return out;
   });
   const strip = join(dir, `${el}-${id}.png`);
@@ -112,7 +116,10 @@ async function record(b: Browser, dir: string, el: string, id: string): Promise<
 
 async function strips(browser: Browser, dir: string) {
   mkdirSync(dir, { recursive: true });
+  // STRIPS=transition,expand records only those elements.
+  const only = process.env.STRIPS?.split(',');
   for (const [el, ids] of Object.entries(DESIGNS)) {
+    if (only && !only.includes(el)) continue;
     for (const id of ids) {
       const strip = await record(browser, dir, el, id);
       check(`strip ${el}-${id}`, strip !== null, strip);
