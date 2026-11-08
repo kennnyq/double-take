@@ -39,3 +39,12 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+## UI motion
+
+Kenny's rule: **"Avoid discrete motion and animation except for navigation."**
+
+- Every UI state change moves continuously: interpolated, spring or eased, and interruptible (a new target retargets from where the motion is, it never restarts or snaps). Fade, scale or morph things in and out instead of mounting or unmounting them abruptly.
+- Only navigation (tab or route changes) may cut.
+- Video position: never jump straight to a timestamp. Fast-forward or rewind to it with a quick, visible, eased scrub (see `src/feed/scrub.ts`). The one allowed jump is the double take's slow-mo loop restart, which its progress line shows.
+- Prefer `react-native-reanimated` (UI-thread springs and timings) for new motion; on desktop web, CSS transitions are fine.
