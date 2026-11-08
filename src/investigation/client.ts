@@ -13,7 +13,7 @@ export const REVIEW_URL = reviewConfig.available ? reviewConfig.url : undefined;
 export interface ClientJob {
   id: string; state: 'queued' | 'running' | 'complete' | 'error';
   duration: number; width: number; height: number; hasAudio: boolean;
-  sha256?: string; result?: InvestigationResult; error?: string;
+  sha256?: string; result?: InvestigationResult; error?: string; retryable?: boolean;
 }
 const key = (id: string) => encodeURIComponent(id);
 export const mediaUrl = (id: string, prepared = false) => serviceUrl(jobsConfig, `/${prepared ? 'prepared' : 'jobs'}/${key(id)}/media`);
@@ -51,6 +51,11 @@ export async function upload(id: string, asset: DocumentPickerAsset): Promise<Cl
     const body = Platform.OS === 'web' ? asset.file! : new File(asset.uri);
     return job(await json(await expoFetch(url, { method: 'PUT', signal, headers: { 'Content-Type': asset.mimeType ?? 'application/octet-stream' }, body }), 'Upload failed. Retry to continue.', id), id);
   }, UPLOAD_TIMEOUT_MS);
+}
+/** Retry analysis of saved bytes; never upload the selected file a second time. */
+export async function retryAnalysis(id: string): Promise<ClientJob> {
+  return serviceRequest(jobsConfig, `/jobs/${key(id)}/retry`, async (url, signal) =>
+    job(await json(await fetch(url, { method: 'POST', signal }), 'Could not restart this check. Try again shortly.', id), id));
 }
 export async function deleteJob(id: string) {
   return serviceRequest(jobsConfig, `/jobs/${key(id)}`, async (url, signal) => {

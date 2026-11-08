@@ -46,9 +46,11 @@ export default function Home() {
         <WithLanding>
           {(startAt, showLanding) => (
             <>
-              {desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} onUpload={openUpload} uploadOpen={uploadOpen} /> : <Screen startAt={startAt} onUpload={openUpload} uploadOpen={uploadOpen} />}
+              <View style={styles.app} aria-hidden={uploadOpen} importantForAccessibility={uploadOpen ? 'no-hide-descendants' : 'auto'}>
+                {desktop ? <DesktopApp startAt={startAt} onLogo={showLanding} onUpload={openUpload} uploadOpen={uploadOpen} /> : <Screen startAt={startAt} onUpload={openUpload} uploadOpen={uploadOpen} />}
+              </View>
               {/* Dev builds: a launcher for the tabbed dev settings. */}
-              <DevSettings desktop={desktop} onShowLanding={showLanding} />
+              <DevSettings desktop={desktop} onShowLanding={showLanding} hidden={uploadOpen} />
               {/* Opened by the auth gate when a guest tries to act, or by a log-in button. */}
               <SignInSheet />
               <UploadModal open={uploadOpen} onClose={closeUpload} />
@@ -145,6 +147,7 @@ function Screen({ startAt, onUpload, uploadOpen }: { startAt?: number; onUpload:
 }
 
 const styles = StyleSheet.create({
+  app: { flex: 1 },
   root: { flex: 1, backgroundColor: '#000' },
   main: { flex: 1 },
   hidden: { opacity: 0, pointerEvents: 'none' },

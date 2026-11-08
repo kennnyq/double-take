@@ -20,17 +20,17 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
  * the launcher steps ‹ › from there, as the landing's design bar does.
  * Dev builds only. What the tabs hold comes from the registry (`registry.ts`).
  */
-export function DevSettings({ desktop, onShowLanding }: { desktop: boolean; onShowLanding?: () => void }) {
+export function DevSettings({ desktop, onShowLanding, hidden = false }: { desktop: boolean; onShowLanding?: () => void; /** Fades the launcher out, e.g. while a full-screen modal is up. */ hidden?: boolean }) {
   if (!DEV_TOOLS) return null;
   return (
     <>
       <BuiltInSources desktop={desktop} onShowLanding={onShowLanding} />
-      <DevSettingsHost desktop={desktop} />
+      <DevSettingsHost desktop={desktop} hidden={hidden} />
     </>
   );
 }
 
-function DevSettingsHost({ desktop }: { desktop: boolean }) {
+function DevSettingsHost({ desktop, hidden }: { desktop: boolean; hidden: boolean }) {
   const s = useDevSettings();
   const tabs = useDevTabs();
   const { open, tab } = useDevPanel();
@@ -49,6 +49,12 @@ function DevSettingsHost({ desktop }: { desktop: boolean }) {
     });
     return () => a.stop();
   }, [open, progress]);
+  const [shown] = useState(() => new Animated.Value(hidden ? 0 : 1));
+  useEffect(() => {
+    const a = Animated.timing(shown, { toValue: hidden ? 0 : 1, duration: DEV_EASE_MS, easing: Easing.out(Easing.cubic), useNativeDriver: NATIVE });
+    a.start();
+    return () => a.stop();
+  }, [hidden, shown]);
 
   // Web: Esc closes; ⌘. or Ctrl+. opens and closes.
   useEffect(() => {
@@ -104,7 +110,9 @@ function DevSettingsHost({ desktop }: { desktop: boolean }) {
           <Panel tabs={tabs} tab={tab} desktop={desktop} maxBody={panelH - PANEL_CHROME} />
         </Animated.View>
       )}
-      <Launcher tabs={tabs} open={open} changed={changed} left={left} style={launcherPos} />
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: shown }]} pointerEvents={hidden ? 'none' : 'box-none'}>
+        <Launcher tabs={tabs} open={open} changed={changed} left={left} style={launcherPos} />
+      </Animated.View>
     </View>
   );
 }
