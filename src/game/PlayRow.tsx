@@ -7,6 +7,8 @@ import { closeSettings } from '@/settings/store';
 import { themed, usePalette } from '@/ui/theme';
 import { GAME } from './config';
 import { deckPlayable } from './deck';
+// Registers Dev settings → Game; Settings is always in the bundle.
+import './devSection';
 import { useGameHistory } from './store';
 
 /**
