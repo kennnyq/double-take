@@ -8,7 +8,7 @@
 import { buildAdaptiveDeck, ADAPTIVE_TARGET } from '../game/adaptive.ts';
 import { buildDeck, seededRng } from '../game/deck.ts';
 import { SKILL_CATEGORIES, type SkillCategory } from './categories.ts';
-import { freshSkills, generalSkill, pCorrect, recordAnswer, sigmoid, skillForClip, toScore, updateDifficulty, type Belief, type Skills } from './skill.ts';
+import { SKILL_PRIOR, freshSkills, pCorrect, recordAnswer, sigmoid, skillForClip, toScore, updateDifficulty, updateSkill, type Belief, type Skills } from './skill.ts';
 
 export interface SimClip {
   id: string;
@@ -65,6 +65,7 @@ export function trueScore(o: Pick<SimOptions, 'base' | 'ability'>, pool: readonl
 export function simulate(pool: readonly SimClip[], o: SimOptions): SimRound[] {
   const rng = seededRng(o.seed ?? 7);
   let skills: Skills = freshSkills();
+  let overall: Belief = { ...SKILL_PRIOR };
   const diff = new Map<string, Belief>(pool.map((c) => [c.id, { mu: c.prior, v: 0.8, n: 0 }]));
   const recent: string[][] = [];
   const out: SimRound[] = [];
@@ -85,11 +86,12 @@ export function simulate(pool: readonly SimClip[], o: SimOptions): SimRound[] {
       const d = diff.get(clip.id)!;
       const thetaHat = skillForClip(skills, clip.cats);
       skills = recordAnswer(skills, clip.cats, d.mu, correct);
+      overall = updateSkill(overall, d.mu, correct);
       diff.set(clip.id, updateDifficulty(d, thetaHat, correct));
     }
     recent.unshift(deck.map((c) => c.id));
     recent.length = Math.min(recent.length, 2);
-    const g = toScore(generalSkill(skills));
+    const g = toScore(overall);
     out.push({
       round: r + 1,
       estimate: g.score,

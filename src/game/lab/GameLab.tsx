@@ -20,7 +20,7 @@ import { fakeRound } from './fake';
 import { BOTS, RankerSim, SimChip, SkillsSim, TASTES, WEAKNESS, type SkillSimParams } from './SimViews';
 
 import type { SkillCategory } from '@/skills/categories';
-import { freshSkills, recordAnswer } from '@/skills/skill';
+import { SKILL_PRIOR, freshSkills, recordAnswer, updateSkill } from '@/skills/skill';
 
 /** The lab's tabs: one per element of the round, then the simulations. */
 const LAB_VIEWS = [...GAME_ELEMENTS, 'skills', 'ranker'] as const;
@@ -306,7 +306,8 @@ function ResultsPreview({ designs, clips, judged, right, newBest }: { designs: G
       touched.add(cat);
       after = recordAnswer(after, { [cat]: 1 }, 0, g.correct);
     });
-    return { ...f, newBest, best: newBest ? f.stats.score : f.stats.score + 4, skills: { before, after, touched: [...touched] } };
+    const overallAfter = f.round.guesses.reduce((o, g) => updateSkill(o, 0, g.correct), { ...SKILL_PRIOR });
+    return { ...f, newBest, best: newBest ? f.stats.score : f.stats.score + 4, skills: { before, after, overallBefore: { ...SKILL_PRIOR }, overallAfter, touched: [...touched] } };
   }, [clips, judged, right, newBest]);
   return <Results done={done} designs={designs} actions={false} />;
 }

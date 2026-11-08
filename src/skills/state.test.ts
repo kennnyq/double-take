@@ -39,3 +39,18 @@ test('kept on the device; corrupt storage starts over', () => {
   store.reset();
   assert.equal(store.getSnapshot().answers, 0);
 });
+
+test('the general score is its own estimate: skipping everything stays near guessing while the categories split', () => {
+  const answers = Array.from({ length: 40 }, (_, i) => {
+    const real = i % 2 === 0;
+    // Skipping every clip: right on the real ones, wrong on the AI ones.
+    return { key: `k${i}`, correct: real, cats: real ? { real: 1 } : { subject: 1 }, prior: 0 };
+  });
+  const s = applyRound(emptySkillState(), answers);
+  const pct = (b: { mu: number }) => Math.round(100 / (1 + Math.exp(-b.mu)));
+  assert.ok(pct(s.skills.real) > 80 && pct(s.skills.subject) < 20, `${pct(s.skills.real)} / ${pct(s.skills.subject)}`);
+  assert.ok(Math.abs(pct(s.overall) - 50) <= 5, String(pct(s.overall)));
+  // Saved before the general score had its own estimate: the categories stand in.
+  const old = parseSkillState(JSON.stringify({ skills: s.skills }));
+  assert.ok(old.overall.n > 0);
+});

@@ -3,7 +3,7 @@ import { Animated, Easing, StyleSheet, Text, View, type LayoutChangeEvent } from
 import { themed } from '@/ui/theme';
 import { NATIVE, lerp } from '@/game/motion';
 import { CATEGORY_INFO, type SkillCategory } from './categories';
-import { generalSkill, toScore, type Skills } from './skill';
+import { generalSkill, toScore, type Belief, type Skills } from './skill';
 
 interface Props {
   skills: Skills;
@@ -15,6 +15,8 @@ interface Props {
   touched?: readonly SkillCategory[];
   /** Starts the motion after this long. */
   delay?: number;
+  /** The general score's own estimate (and before the round); else worked out from the categories. */
+  general?: { now: Belief; before?: Belief };
 }
 
 const DURATION = 900;
@@ -25,7 +27,7 @@ const DURATION = 900;
  * the faint band around each bar's end is the uncertainty, narrowing with
  * answers. Bars move from their old value to the new one, never jump.
  */
-export function SkillBars({ skills, before, categories, touched, delay = 0 }: Props) {
+export function SkillBars({ skills, before, categories, touched, delay = 0, general: overall }: Props) {
   const tint = useTint();
   const [t] = useState(() => new Animated.Value(0));
   useEffect(() => {
@@ -34,8 +36,8 @@ export function SkillBars({ skills, before, categories, touched, delay = 0 }: Pr
     a.start();
     return () => a.stop();
   }, [t, skills, delay]);
-  const general = toScore(generalSkill(skills));
-  const generalBefore = before ? toScore(generalSkill(before)) : null;
+  const general = toScore(overall?.now ?? generalSkill(skills));
+  const generalBefore = overall ? (overall.before ? toScore(overall.before) : null) : before ? toScore(generalSkill(before)) : null;
   return (
     <View style={styles.root} testID="skill-bars">
       <View style={styles.generalRow}>

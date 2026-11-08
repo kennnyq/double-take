@@ -5,7 +5,7 @@ import { createHistoryStore, type GameHistory } from './history';
 import type { RoundState } from './round';
 import type { RoundStats } from './score';
 import type { SkillCategory } from '@/skills/categories';
-import type { Skills } from '@/skills/skill';
+import type { Belief, Skills } from '@/skills/skill';
 
 /** Past rounds on this device (best score, summaries, recently dealt clips). */
 export const gameHistory = createHistoryStore(settingsStorage);
@@ -23,7 +23,7 @@ export interface FinishedRound {
   /** The best score on this device after this round. */
   best: number;
   /** The player's skills before and after the round, and the categories it tested (set once recorded). */
-  skills?: { before: Skills; after: Skills; touched: SkillCategory[] };
+  skills?: { before: Skills; after: Skills; overallBefore?: Belief; overallAfter?: Belief; touched: SkillCategory[] };
   /** The deck's clips by id, for posters and replays. */
   clips: ReadonlyMap<string, Clip>;
 }
