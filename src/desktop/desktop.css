@@ -500,9 +500,13 @@
   color: var(--repost);
 }
 
-/* The double take, on: the walkthrough's highlight. */
+/* The double take, on: the icon on a filled disc (a ring of the same colour
+   grows it without moving the column), so "on" reads by shape, not hue. */
 .desk .action-btn.double-take.on svg {
-  color: var(--dt-tell);
+  color: var(--dt-on-tell);
+  background: var(--dt-tell);
+  border-radius: 50%;
+  box-shadow: 0 0 0 5px var(--dt-tell);
 }
 
 .desk .action-btn.liked svg,

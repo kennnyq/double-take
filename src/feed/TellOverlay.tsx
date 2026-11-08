@@ -411,6 +411,7 @@ const styles = StyleSheet.create({
 const useTint = themed((c) => ({
   pillOn: { backgroundColor: c.tell, borderColor: c.tell },
   pillTextOn: { color: c.onTell },
-  box: { borderColor: c.tell },
+  // A thin dark ring inside and out keeps a light outline visible on bright footage.
+  box: { borderColor: c.tell, boxShadow: '0 0 0 1px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(0,0,0,0.45)' },
   segOn: { backgroundColor: c.tell },
 }));

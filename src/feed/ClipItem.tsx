@@ -8,7 +8,7 @@ import { formatCount, type Clip, type Verdict } from '@/data/clips';
 import { baseReposts } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
-import { usePalette } from '@/ui/theme';
+import { themed, usePalette } from '@/ui/theme';
 import { useDevSettings } from '@/devtools/store';
 import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
@@ -282,7 +282,7 @@ function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
     <Animated.View style={[styles.rail, wide && styles.railWide, { opacity: p.chrome }]}>
       {p.onReveal && (
         <RailButton
-          icon={<DoubleTakeIcon color={p.revealing ? c.tell : '#fff'} />}
+          icon={<DoubleTakeIcon on={p.revealing} />}
           label="Double take"
           a11y={p.revealing ? 'Close the double take' : 'Double take: see why this clip may be AI'}
           hideLabelFromA11y
@@ -327,15 +327,27 @@ function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
   );
 }
 
-/** "Look again": an eye in a viewfinder, the double take's mark. */
-function DoubleTakeIcon({ color }: { color: string }) {
+/**
+ * "Look again": an eye in a viewfinder, the double take's mark. While the
+ * walkthrough is open it sits on a filled disc, so "on" reads by shape too,
+ * not only by colour.
+ */
+function DoubleTakeIcon({ on }: { on: boolean }) {
+  const c = usePalette();
+  const tint = useTint();
+  const color = on ? c.onTell : '#fff';
   return (
-    <View style={styles.doubleTakeIcon}>
-      <Ionicons name="scan-outline" size={30} color={color} style={styles.iconShadow} />
+    <View style={[styles.doubleTakeIcon, on && tint.doubleTakeOn]}>
+      <Ionicons name="scan-outline" size={30} color={color} style={!on && styles.iconShadow} />
       <Ionicons name="eye" size={14} color={color} style={styles.doubleTakeEye} />
     </View>
   );
 }
+
+const useTint = themed((c) => ({
+  // A ring of the same colour grows the disc past the icon without moving the rail.
+  doubleTakeOn: { borderRadius: 15, backgroundColor: c.tell, boxShadow: `0 0 0 5px ${c.tell}` },
+}));
 
 function RailButton(props: {
   icon: React.ComponentProps<typeof Ionicons>['name'] | React.ReactElement;
