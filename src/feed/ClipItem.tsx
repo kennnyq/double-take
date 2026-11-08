@@ -11,7 +11,7 @@ import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
 import { usePalette } from '@/ui/theme';
 import { useDevSettings } from '@/devtools/store';
-import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
+import { createTapRecognizer, gestureAction, revealsWith, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
 import { GestureHint } from '@/onboarding/GestureHint';
 import type { FeedHandlers } from './Feed';
@@ -55,6 +55,9 @@ interface Props {
   policy?: ClipPolicy;
 }
 
+/** A revisited clip (see `ClipPolicy.autoReveal`) opens its double take this long after it settles. */
+const AUTO_REVEAL_MS = 450;
+
 export const ClipItem = memo(function ClipItem(p: Props) {
   const { clip, width, height, wide, h } = p;
   const [bursts, setBursts] = useState<{ id: number; x: number; y: number; tilt: string }[]>([]);
@@ -64,6 +67,11 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const { revealGesture } = useAppSettings();
   const { holdMs, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength } = useDevSettings();
   const hasTells = !!clip.tellsUrl && p.isActive;
+  // A feed mode can take the double take's gesture (the game marks AI with it).
+  const revealTo = p.isActive ? p.policy?.onReveal : undefined;
+  const canReveal = hasTells || !!revealTo;
+  const pressAt = useRef({ x: NaN, y: NaN });
+  const reveal = (x: number, y: number) => (revealTo ? revealTo(x, y) : tells.current?.open());
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
   const [inspectOn, setInspectOn] = useState(false);
@@ -91,22 +99,18 @@ export const ClipItem = memo(function ClipItem(p: Props) {
     const { locationX: x, locationY: y } = e.nativeEvent;
     const t = Date.now();
     const policy = p.policy;
-    if (policy?.onDoubleTap) {
-      const onDouble = policy.onDoubleTap;
-      taps.tap({ t, x, y }, { wait: false, onSingle: () => !policy.noTapPause && h.togglePause(), onDouble: () => onDouble(x, y) });
-      return;
-    }
-    if (policy?.noTapPause) return;
     taps.tap(
       { t, x, y },
       {
-        wait: singleTapWaits(revealGesture, hasTells),
-        onSingle: () => h.togglePause(),
+        wait: singleTapWaits(revealGesture, canReveal),
+        onSingle: () => !policy?.noTapPause && h.togglePause(),
         onDouble: (firstRan) => {
-          if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: true }) === 'reveal') {
-            tells.current?.open(); // plays the clip itself
+          if (gestureAction('doubleTap', revealGesture, { hasTells: canReveal, canBoost: true }) === 'reveal') {
+            reveal(x, y); // the double take plays the clip itself
             return;
           }
+          // Locked controls (a game): no like either.
+          if (policy?.lockControls) return;
           // Like, and never leave the first tap's pause behind.
           if (firstRan) h.play();
           // A guest's like opens sign-in instead: no heart.
@@ -121,16 +125,39 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   // Holding plays at 2x until released, or opens the double take (which stays
   // open after release: it's a tap-through walkthrough).
   const onLongPress = () => {
-    if (!p.isActive || p.policy?.noHold) return;
+    if (!p.isActive) return;
     taps.cancel();
-    const action = gestureAction('hold', revealGesture, { hasTells, canBoost: true });
+    const action = gestureAction('hold', revealGesture, { hasTells: canReveal, canBoost: !p.policy?.noHold });
     if (action === 'reveal') {
-      tells.current?.open();
+      reveal(pressAt.current.x, pressAt.current.y);
     } else if (action === 'boost') {
       longPressed.current = true;
       h.setBoost(true);
     }
   };
+
+  // A press where a hold would reveal: the mode can draw it filling (and its release).
+  const holding = useRef(false);
+  const onPressIn = (e: GestureResponderEvent) => {
+    const { locationX: x, locationY: y } = e.nativeEvent;
+    pressAt.current = { x, y };
+    if (!p.isActive || !p.policy?.onPress || !revealsWith('hold', revealGesture)) return;
+    holding.current = true;
+    p.policy.onPress({ phase: 'start', x, y, holdMs });
+  };
+  const endPress = () => {
+    if (!holding.current) return;
+    holding.current = false;
+    p.policy?.onPress?.({ phase: 'end', x: pressAt.current.x, y: pressAt.current.y, holdMs });
+  };
+
+  // A clip revisited to learn from (the game) opens its double take by itself once it settles.
+  const autoReveal = p.isActive && !!p.policy?.autoReveal && !!clip.tellsUrl;
+  useEffect(() => {
+    if (!autoReveal) return;
+    const t = setTimeout(() => tells.current?.open(), AUTO_REVEAL_MS);
+    return () => clearTimeout(t);
+  }, [autoReveal]);
 
   // The Double take button opens it whatever the gesture setting (and closes it on iPad, where the rail stays).
   const toggleReveal = () => (inspecting ? tells.current?.close() : tells.current?.open());
@@ -237,7 +264,9 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         onPress={onPress}
         onLongPress={onLongPress}
         delayLongPress={holdMs}
+        onPressIn={onPressIn}
         onPressOut={() => {
+          endPress();
           if (longPressed.current) {
             longPressed.current = false;
             h.setBoost(false);

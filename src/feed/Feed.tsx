@@ -83,7 +83,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
   const clips = useMemo(() => (deck ? [...deck] : clipsForMode(all, feedMode)), [deck, all, feedMode]);
   // What the pages show: a mode may present each clip differently (e.g. without its answer).
   const present = mode?.present;
-  const shown = useMemo(() => (present ? clips.map(present) : clips), [clips, present]);
+  const shown = useMemo(() => (present ? clips.map((c, i) => present(c, i)) : clips), [clips, present]);
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [active, setActive] = useState(startAt ?? 0);
   // Browsers require a user gesture before playing video with sound.
@@ -99,6 +99,9 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, onInspectChan
   // The double take is open: the top bar fades out with the clip's own chrome.
   const [inspecting, setInspecting] = useState(false);
   useEffect(() => onInspectChange?.(inspecting), [inspecting, onInspectChange]);
+  // A mode hears it too (the game fades its overlay off the walkthrough).
+  const onModeInspect = mode?.onInspect;
+  useEffect(() => onModeInspect?.(inspecting), [inspecting, onModeInspect]);
   // A finger is dragging along the progress bar: the feed holds still meanwhile.
   const [barDrag, setBarDrag] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === 'active');

@@ -41,7 +41,7 @@ import { baseReposts, clipKey } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { useAppNav } from '@/social/nav';
 import { createSpaceRecognizer } from '@/settings/spaceGesture';
-import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
+import { createTapRecognizer, gestureAction, revealsWith, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
 import { useBlockHints } from '@/onboarding/store';
 import { GestureHint } from '@/onboarding/GestureHint';
@@ -130,7 +130,7 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   const clips = filtered ?? endless;
   // What the slides show: a mode may present each clip differently (e.g. without its answer).
   const present = mode?.present;
-  const shown = useMemo(() => (present ? clips.map(present) : clips), [clips, present]);
+  const shown = useMemo(() => (present ? clips.map((c, i) => present(c, i)) : clips), [clips, present]);
 
   // A mode hears where the feed comes to rest.
   const onActive = mode?.onActive;
@@ -173,6 +173,9 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   const paused = pausedAt === active;
   // Set by the tells walkthrough while it is open on the active clip.
   const [inspecting, setInspecting] = useState(false);
+  // A mode hears when the double take opens and closes (the game fades its overlay off the walkthrough).
+  const onModeInspect = mode?.onInspect;
+  useEffect(() => onModeInspect?.(inspecting), [inspecting, onModeInspect]);
   const [slowmo, setSlowmo] = useState(false);
   // The walkthrough scrubs between tells by seeking: the video holds still meanwhile.
   const [scrubbing, setScrubbing] = useState(false);
@@ -278,7 +281,9 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   // Space plays/pauses; hold or a second press can open the walkthrough.
   // Pointer and keyboard share DOUBLE_TAP_MS. Editable fields and controls
   // reached with Tab retain their native keyboard behavior.
-  const space = useRef({ down: false });
+  const space = useRef({ down: false, pressing: false });
+  // The active clip's policy (from a feed mode), for Space; kept current below.
+  const activePolicy = useRef<ClipPolicy | undefined>(undefined);
   const inspectingRef = useRef(inspecting);
   const arrowSeek = useRef<() => void>(() => {});
   useEffect(() => {
@@ -291,7 +296,14 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
     const sp = space.current;
     const taps = createSpaceRecognizer();
     const reset = () => taps.cancel();
-    const blur = () => { reset(); sp.down = false; };
+    const blur = () => {
+      reset();
+      sp.down = false;
+      if (sp.pressing) {
+        sp.pressing = false;
+        activePolicy.current?.onPress?.({ phase: 'end', x: NaN, y: NaN, holdMs });
+      }
+    };
     const onPointerDown = () => { reset(); focus.onPointerDown(); };
     const onFocus = (e: FocusEvent) => {
       if (keyOwner(e.target as Element | null, focus.keyboardFocus) !== 'feed') reset();
@@ -313,12 +325,19 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
           reset();
           return;
         }
+        // A feed mode can take the double take's gesture (the game marks AI with it).
+        const pol = activePolicy.current;
+        const revealTo = pol?.onReveal;
+        if (pol?.onPress && revealsWith('hold', revealGesture)) {
+          sp.pressing = true;
+          pol.onPress({ phase: 'start', x: NaN, y: NaN, holdMs });
+        }
         taps.down({
           mode: revealGesture,
-          hasTells: !!reveal.current,
+          hasTells: !!reveal.current || !!revealTo,
           holdMs,
-          onSingle: togglePause,
-          onReveal: () => reveal.current?.open(),
+          onSingle: pol?.noTapPause ? () => {} : togglePause,
+          onReveal: () => (revealTo ? revealTo(NaN, NaN) : reveal.current?.open()),
         });
       } else if ((e.key === 'm' || e.key === 'M') && !e.repeat && (owner === 'feed' || owner === 'control')) {
         toggleMute();
@@ -343,6 +362,10 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key !== ' ' || !sp.down) return;
       sp.down = false;
+      if (sp.pressing) {
+        sp.pressing = false;
+        activePolicy.current?.onPress?.({ phase: 'end', x: NaN, y: NaN, holdMs });
+      }
       if (keyOwner(e.target as Element | null, focus.keyboardFocus) !== 'feed') {
         reset();
         return;
@@ -480,6 +503,10 @@ export function DesktopFeed({ visible, scrollEnabled, mode, ref }: Props) {
   // Each slide's policy from the mode, kept stable per index so the memoized slides don't re-render for it.
   const policies = useMemo<(ClipPolicy | undefined)[] | null>(() => (mode ? shown.map((_, i) => policyFor(mode, i)) : null), [mode, shown]);
   const policy = (i: number) => policies?.[i];
+  // The active clip's policy, for the feed's own keys (Space).
+  useEffect(() => {
+    activePolicy.current = policies?.[active];
+  });
 
   const cardH = Math.max(0, feedH - CARD_MARGIN);
   // Stable between renders, so moving to another clip re-renders only the slides that change.
@@ -694,20 +721,40 @@ interface Burst {
   r: number;
 }
 
+/** A revisited clip (see `ClipPolicy.autoReveal`) opens its double take this long after it settles. */
+const AUTO_REVEAL_MS = 450;
+
 const Slide = memo(function Slide(p: SlideProps) {
   const { clip, isActive, h } = p;
   const [bursts, setBursts] = useState<Burst[]>([]);
-  const gesture = useRef({ x: 0, y: 0, moved: false, held: false, timer: 0 });
+  const gesture = useRef({ x: 0, y: 0, moved: false, held: false, timer: 0, pressing: false, px: 0, py: 0 });
   const [clicks] = useState(createTapRecognizer);
   const { reveal: tells, revealGesture, holdMs } = h;
   const hasTells = !!clip.tellsUrl && isActive;
+  // A feed mode can take the double take's gesture (the game marks AI with it).
+  const revealTo = isActive ? p.policy?.onReveal : undefined;
+  const canReveal = hasTells || !!revealTo;
+  const reveal = (x: number, y: number) => (revealTo ? revealTo(x, y) : tells.current?.open());
   // Gate every use, including the sound thumbnail: leaving that eager would
   // still fetch the whole feed. Keep nearby images eager so the next slide
   // already has a decoded poster when it starts moving into view.
   const poster = p.preloadPoster ? mediaUri(clip.poster) : undefined;
 
-  const cancelHold = () => window.clearTimeout(gesture.current.timer);
-  useEffect(() => cancelHold, []);
+  const cancelHold = () => {
+    window.clearTimeout(gesture.current.timer);
+    if (gesture.current.pressing) {
+      gesture.current.pressing = false;
+      p.policy?.onPress?.({ phase: 'end', x: gesture.current.px, y: gesture.current.py, holdMs });
+    }
+  };
+  useEffect(() => () => window.clearTimeout(gesture.current.timer), []);
+  // A clip revisited to learn from (the game) opens its double take by itself once it settles.
+  const autoReveal = isActive && !!p.policy?.autoReveal && !!clip.tellsUrl;
+  useEffect(() => {
+    if (!autoReveal) return;
+    const t = window.setTimeout(() => tells.current?.open(), AUTO_REVEAL_MS);
+    return () => window.clearTimeout(t);
+  }, [autoReveal, tells]);
   // A click still waiting out the double-click window must not act on the next clip.
   useEffect(() => {
     if (!isActive) clicks.cancel();
@@ -723,11 +770,19 @@ const Slide = memo(function Slide(p: SlideProps) {
     g.held = false;
     cancelHold();
     // Click and hold counts as a hold too, like holding Space (desktop has no 2x hold).
-    if (isActive && !p.policy?.noHold && gestureAction('hold', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
+    if (isActive && gestureAction('hold', revealGesture, { hasTells: canReveal, canBoost: false }) === 'reveal') {
+      const rect = e.currentTarget.getBoundingClientRect();
+      const at = { x: e.clientX - rect.left, y: e.clientY - rect.top };
+      if (p.policy?.onPress) {
+        g.pressing = true;
+        g.px = at.x;
+        g.py = at.y;
+        p.policy.onPress({ phase: 'start', x: at.x, y: at.y, holdMs });
+      }
       g.timer = window.setTimeout(() => {
         g.held = true;
         clicks.cancel();
-        tells.current?.open();
+        reveal(at.x, at.y);
       }, holdMs);
     }
   };
@@ -746,25 +801,21 @@ const Slide = memo(function Slide(p: SlideProps) {
     if (g.held || g.moved || !isActive) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const tap = { t: performance.now(), x: e.clientX - rect.left, y: e.clientY - rect.top };
-    // A feed mode can take the double click (and quiet the single one).
+    // A double click likes or opens the double take (or does what a feed
+    // mode gives it). When it would open the double take, the first click
+    // waits out DOUBLE_TAP_MS so opening never pauses the clip first;
+    // otherwise the click acts at once.
     const policy = p.policy;
-    if (policy?.onDoubleTap) {
-      const onDouble = policy.onDoubleTap;
-      clicks.tap(tap, { wait: false, onSingle: () => !policy.noTapPause && h.togglePause(), onDouble: () => onDouble(tap.x, tap.y) });
-      return;
-    }
-    if (policy?.noTapPause) return;
-    // A double click likes or opens the double take. When it would open the
-    // double take, the first click waits out DOUBLE_TAP_MS so opening never
-    // pauses the clip first; otherwise the click acts at once.
     clicks.tap(tap, {
-      wait: singleTapWaits(revealGesture, hasTells),
-      onSingle: () => h.togglePause(),
+      wait: singleTapWaits(revealGesture, canReveal),
+      onSingle: () => !policy?.noTapPause && h.togglePause(),
       onDouble: (firstRan) => {
-        if (gestureAction('doubleTap', revealGesture, { hasTells, canBoost: false }) === 'reveal') {
-          tells.current?.open(); // plays the clip itself
+        if (gestureAction('doubleTap', revealGesture, { hasTells: canReveal, canBoost: false }) === 'reveal') {
+          reveal(tap.x, tap.y); // the double take plays the clip itself
           return;
         }
+        // Locked controls (a game): no like either.
+        if (policy?.lockControls) return;
         // Like, and never leave the first click's pause behind.
         if (firstRan) h.play();
         // A guest's like opens sign-in instead: no heart.
