@@ -6,6 +6,8 @@ import * as Clipboard from 'expo-clipboard';
 import { useGuestChosen, continueAsGuest } from '@/auth/guest';
 import { openSignIn, requireAccount, signOutToChoice } from '@/auth/gate';
 import { useAuth, useMe } from '@/auth/store';
+import { useMyNote } from './note';
+import { NoteEditor } from './NoteEditor';
 import { supabase } from '@/auth/supabase';
 import { openSettings } from '@/settings/store';
 import { ME, profileLink } from '@/social/me';
@@ -63,6 +65,8 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
   const me = useMe();
   const followers = useFollowers(me.handle, local, guest);
   const [menu, setMenu] = useState(false);
+  const note = useMyNote();
+  const [noteOpen, setNoteOpen] = useState(false);
   const nav = useAppNav();
   const toast = useToast();
   const insets = useSafeAreaInsets();
@@ -89,11 +93,17 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
       <View style={styles.headRow}>
         <View style={styles.avatarWrap}>
           <Avatar name={me.handle} size={86} />
-          <View style={styles.note}>
-            <Text style={styles.noteText} numberOfLines={2}>
-              Note…
+          <Pressable
+            onPress={() => setNoteOpen(true)}
+            hitSlop={6}
+            style={({ pressed }) => [styles.note, pressed && { opacity: 0.7 }]}
+            accessibilityRole="button"
+            accessibilityLabel={note ? `Note: ${note}. Edit` : 'Add a note'}
+          >
+            <Text style={[styles.noteText, note !== null && styles.noteTextSet]} numberOfLines={2}>
+              {note ?? 'Note…'}
             </Text>
-          </View>
+          </Pressable>
         </View>
         <View style={styles.headInfo}>
           <Text style={styles.name}>{me.name}</Text>
@@ -128,7 +138,7 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
     <View style={[styles.root, { paddingTop: insets.top }]}>
       <View style={styles.topBar}>
         <Pressable
-          onPress={() => requireAccount('Sign in to post Takes', () => soon('Creating is'))}
+          onPress={() => requireAccount('Sign in to post Takes', nav.openCreate)}
           hitSlop={8}
           accessibilityLabel="Create"
           style={styles.topBtn}
@@ -139,7 +149,6 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
           <Text style={styles.title} numberOfLines={1}>
             {me.handle}
           </Text>
-          <Ionicons name="chevron-down" size={16} color="#fff" />
         </View>
         <Pressable onPress={() => setMenu((m) => !m)} hitSlop={8} accessibilityLabel="Menu" style={styles.topBtn}>
           <Ionicons name="menu" size={28} color="#fff" />
@@ -197,6 +206,7 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
         contentContainerStyle={styles.listContent}
         showsVerticalScrollIndicator={false}
       />
+      <NoteEditor open={noteOpen} note={note} handle={me.handle} onClose={() => setNoteOpen(false)} />
     </View>
   );
 }
@@ -302,6 +312,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.12)',
   },
   noteText: { color: '#a8a8a8', fontSize: 12 },
+  noteTextSet: { color: '#fff' },
   headInfo: { flex: 1, gap: 8 },
   name: { color: '#fff', fontSize: 16, fontWeight: '600' },
   stats: { flexDirection: 'row', justifyContent: 'space-between', paddingRight: 8 },
