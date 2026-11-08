@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import type { ComponentAssessment, InvestigationResult } from '../investigation/contract';
+import type { ComponentAssessment, InvestigationResult, OverallVerdict } from '../investigation/contract';
 import { ownLayer } from '../feed/layer';
 import { themed, usePalette } from '../ui/theme';
 import { useEased, usePresence } from './motion';
@@ -133,12 +133,12 @@ function decisionOf(part: ComponentAssessment): Decision | undefined {
  * when the result says. What was checked is never a finding, so it stays a
  * muted note, never a moment to look at.
  */
-export function Assessments({ components, fixture, inspection }: { components: ComponentAssessment[]; fixture: boolean; inspection?: Inspection }) {
+export function Assessments({ components, fixture, inspection, title = 'What we can tell' }: { components: ComponentAssessment[]; fixture: boolean; inspection?: Inspection; title?: string }) {
   const s = useTint();
   const c = usePalette();
   return (
     <View style={{ gap: 10 }}>
-      <Text style={s.heading}>What we can tell</Text>
+      <Text style={s.heading}>{title}</Text>
       {fixture && <Text style={s.muted}>Playback preview · no assessment</Text>}
       <View style={s.findings}>
         {[...components].sort((a, b) => rank(a) - rank(b)).map((part, i) => {
@@ -190,6 +190,38 @@ function rank(part: ComponentAssessment) {
   return d === 'likely_ai' ? 0 : d === 'indicators_found' ? 1 : 2;
 }
 
+/**
+ * The result's top line: the overall call, said plainly, with why in one or
+ * two short lines. The per-part rows under it may still be unresolved; this
+ * is the call the check makes. Confidence shows only when the result gives one.
+ */
+export function VerdictHeadline({ verdict }: { verdict: OverallVerdict }) {
+  const s = useTint();
+  const c = usePalette();
+  const ai = verdict.label === 'likely_ai';
+  const pct = verdict.confidence === undefined ? undefined : Math.round(verdict.confidence <= 1 ? verdict.confidence * 100 : verdict.confidence);
+  const why = verdict.drivers.filter((d) => d.trim()).slice(0, 2);
+  return (
+    <View accessibilityRole="header" accessibilityLabel={`${ai ? 'Likely AI-generated' : 'Likely real'}${pct !== undefined ? `, ${pct}% confidence` : ''}`} style={s.headline}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <View style={[s.headlineIcon, ai ? { backgroundColor: c.ai } : s.headlineIconReal]}>
+          <Ionicons name={ai ? 'sparkles' : 'checkmark-circle'} size={20} color={ai ? c.onAi : c.text} />
+        </View>
+        <View style={{ flex: 1, flexDirection: 'row', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 8 }}>
+          <Text style={s.headlineText}>{ai ? 'Likely AI-generated' : 'Likely real'}</Text>
+          {pct !== undefined && <Text style={s.muted}>{pct}% confidence</Text>}
+        </View>
+      </View>
+      {why.length > 0 && (
+        <Text style={s.body}>
+          <Text style={s.label}>Why: </Text>
+          {why.map((d) => d.trim().replace(/([^.!?])$/, '$1.')).join(' ')}
+        </Text>
+      )}
+    </View>
+  );
+}
+
 const SIGNAL_ICON: Record<Inspection['signals'][number]['kind'], keyof typeof Ionicons.glyphMap> = { metadata: 'document-text-outline', provenance: 'finger-print-outline', source: 'link-outline' };
 
 /** What the check could tell about the file itself: its format, embedded credentials, where it came from. */
@@ -230,6 +262,10 @@ export const useTint = themed((c) => ({
   findingRule: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: c.surface },
   label: { color: c.text, fontSize: 15, fontWeight: '600' },
   overline: { color: c.textDim, fontSize: 12, fontWeight: '600' },
+  headline: { gap: 12, paddingBottom: 4 },
+  headlineIcon: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  headlineIconReal: { backgroundColor: c.surfaceRaised },
+  headlineText: { color: c.text, fontSize: 22, lineHeight: 28, fontWeight: '700' },
   decision: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, height: 26, borderRadius: 13 },
   decisionSoft: { backgroundColor: c.surface },
   decisionText: { fontSize: 13, fontWeight: '700', letterSpacing: 0.2 },

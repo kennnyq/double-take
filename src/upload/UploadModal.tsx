@@ -17,7 +17,7 @@ import { Processing } from '../components/investigation/Processing';
 import { DropZone } from './DropZone';
 import { ClipPreview, previewSource } from './ClipPreview';
 import { EASE_IN_OUT, EASE_OUT, useEased, useLatched, usePresence } from './motion';
-import { Assessments, Button, FileNotes, ErrorNote, HeaderAction, IconButton, Reveal, StepLayer, Swap, useTint } from './parts';
+import { Assessments, Button, FileNotes, VerdictHeadline, ErrorNote, HeaderAction, IconButton, Reveal, StepLayer, Swap, useTint } from './parts';
 
 /*
  * Create → check a video, laid out like a post composer: one card (a
@@ -345,7 +345,14 @@ export function UploadModal({ open, onClose }: { open: boolean; onClose: () => v
 
   const inspection = resultJob?.result?.inspection;
   const hasMoments = !!resultJob?.result && (resultJob.result.mode === 'fixture' || resultJob.result.evidence.some((e) => e.tell));
-  const verdict = resultJob?.result ? <Assessments components={resultJob.result.components} fixture={resultJob.result.mode === 'fixture'} inspection={inspection} /> : null;
+  const overall = resultJob?.result?.verdict;
+  // With an overall call it leads; the per-part rows follow as details. Old checks keep the plain layout.
+  const verdict = resultJob?.result ? (
+    <>
+      {overall && <VerdictHeadline verdict={overall} />}
+      <Assessments components={resultJob.result.components} fixture={resultJob.result.mode === 'fixture'} inspection={inspection} title={overall ? 'Details' : undefined} />
+    </>
+  ) : null;
   const fileNotes = inspection ? <FileNotes signals={inspection.signals} /> : null;
   const another = <Button label="Check another video" onPress={startOver} wide />;
   // The video stays pinned at the top while the evidence moments (and on phones the findings) scroll under it.
