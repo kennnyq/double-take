@@ -460,10 +460,10 @@ export class AtlasPlayer {
   /**
    * For the launch, which moves and fades tiles one by one: every tile on a
    * shared board that is on screen gets a board of its own, and the shared
-   * boards go. Returns a function that freezes all but `keep` on their frame,
-   * as the gallery stops (redrawing ~70 leaving tiles cost the launch frames).
+   * boards go. Returns a function that leaves one tile on its last frame,
+   * for when it has gone, so the redraws dwindle as the tiles leave.
    */
-  separate(root: HTMLElement): (keep: HTMLElement | null) => void {
+  separate(root: HTMLElement): (tile: HTMLElement) => void {
     this.prune();
     // No swipes while the gallery leaves.
     this.held = true;
@@ -477,9 +477,9 @@ export class AtlasPlayer {
       this.removeBoard(b, false);
       onScreen.forEach((t) => this.addBoard(t, [t]));
     }
-    return (keep) => {
+    return (tile) => {
       for (const b of this.boards) {
-        if (!root.contains(b.canvas) || b.tiles[0] === keep) continue;
+        if (!b.own || b.tiles[0] !== tile) continue;
         // Stays on the page as it is (the landing's unmounting takes it down), no longer redrawn.
         b.frozen = true;
         this.visible.delete(b);

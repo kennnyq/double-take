@@ -83,7 +83,11 @@ const WORD_EXITS: Record<LandingValues['words'], (from: string) => Keyframe[]> =
   blur: (o) => [{ opacity: o, filter: 'blur(0px)' }, { opacity: 0, filter: 'blur(12px)' }],
 };
 
-const VANISH: Record<LandingValues['vanish'], { ms: number; easing: string; frames(o: string, f: string): Keyframe[] }> = {
+/** How a tile leaves. `deep`: it sits on a plane kept in 3D for the launch, so it can move along the plane's own depth. */
+const VANISH: Record<
+  LandingValues['vanish'],
+  { ms: number; easing: string; frames(o: string, f: string, deep: boolean): Keyframe[] }
+> = {
   fade: { ms: 560, easing: 'ease-out', frames: (o) => [{ opacity: o }, { opacity: 0 }] },
   shrink: {
     ms: 560,
@@ -296,8 +300,9 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     await until(() => root.scrollTop <= 2, 900);
   }
   root.setAttribute('data-launching', '');
-  // Tiles drawn a strip at a time by the atlas get a canvas each, so they can leave one by one.
-  const keepOnly = playerFor(root)?.separate(root);
+  // Tiles drawn a strip at a time by the atlas get a canvas each, so they can
+  // leave one by one, still playing until each has gone.
+  const freeze = playerFor(root)?.separate(root);
 
   const galleryEl = root.querySelector<HTMLElement>('.lt-gallery');
   const galleryRect = galleryEl?.getBoundingClientRect() ?? new DOMRect(0, 0, innerWidth, innerHeight);
@@ -307,7 +312,6 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     return { el, r, seen: visibleFraction(r) };
   });
   const survivor = fromTile ?? pickSurvivor(tiles, v.pick, button, galleryRect);
-  keepOnly?.(survivor);
   const clip = Number(survivor.dataset.clip) || 0;
   hooks.mountApp(clip);
 
@@ -367,17 +371,23 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const spread = Math.max(0, pace - vanish.ms);
   const others = tiles.filter((t) => t.el !== survivor);
   const shown = others.filter((t) => t.seen > 0);
-  others.filter((t) => t.seen === 0).forEach((t) => (t.el.style.opacity = '0'));
+  others.filter((t) => t.seen === 0).forEach((t) => {
+    t.el.style.opacity = '0';
+    freeze?.(t.el);
+  });
   const origin = center(survivor.getBoundingClientRect());
   const order = turns(shown, v.order, origin);
   shown.forEach((t, i) => {
     const cs = getComputedStyle(t.el);
-    t.el.animate(vanish.frames(cs.opacity, cs.filter), {
+    const deep = t.el.closest('.lt-tilted') !== null;
+    const leaving = t.el.animate(vanish.frames(cs.opacity, cs.filter, deep), {
       delay: 140 + order[i] * spread,
       duration: vanish.ms,
       easing: vanish.easing,
       fill: 'both',
     });
+    // Its clip plays on until it has gone.
+    void leaving.finished.then(() => freeze?.(t.el), () => {});
   });
 
   // ---- The shade and blur lift off, now or as the others go.
