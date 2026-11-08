@@ -12,6 +12,8 @@ export interface DeckSource {
   /** Stable across sessions (the Worker's id); `id` is the feed position. */
   sourceId?: string;
   verdict?: Verdict;
+  /** Width / height; unknown counts as portrait (the 9:16 placeholders). */
+  aspect?: number;
 }
 
 export interface DeckOptions {
@@ -36,11 +38,23 @@ export function shuffle<T>(items: readonly T[], rng: () => number): T[] {
   return a;
 }
 
-/** Fresh clips first (shuffled), then recent ones (shuffled). */
+/** Taller than wide: fills a phone screen the way the round is meant to be played. */
+export function isPortrait(c: Pick<DeckSource, 'aspect'>): boolean {
+  return c.aspect === undefined || c.aspect < 1;
+}
+
+/**
+ * The order clips of one kind are dealt in: portrait before landscape (a
+ * landscape clip only when there aren't enough portrait ones), and within
+ * each, clips the last rounds didn't use first. Each group is shuffled.
+ */
 function dealOrder<T extends DeckSource>(clips: readonly T[], recent: Set<string>, rng: () => number): T[] {
-  const fresh = clips.filter((c) => !recent.has(clipKey(c)));
-  const used = clips.filter((c) => recent.has(clipKey(c)));
-  return [...shuffle(fresh, rng), ...shuffle(used, rng)];
+  const group = (portrait: boolean, used: boolean) =>
+    shuffle(
+      clips.filter((c) => isPortrait(c) === portrait && recent.has(clipKey(c)) === used),
+      rng,
+    );
+  return [...group(true, false), ...group(true, true), ...group(false, false), ...group(false, true)];
 }
 
 /** How many clips of each kind there are (placeholders have no verdict and don't count). */

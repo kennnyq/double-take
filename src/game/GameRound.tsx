@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
-import { loadInitialClips } from '@/data/feed';
 import { WheelGestureDetector, normalizeWheelDelta } from '@/desktop/wheelGesture';
 import { themed, usePalette } from '@/ui/theme';
 import { GAME } from './config';
@@ -14,6 +13,7 @@ import { buildDeck, clipKey } from './deck';
 import { useGameDev } from './devOptions';
 import { GameStage } from './GameStage';
 import { recentClipKeys } from './history';
+import { loadPlayableClips } from './playable';
 import { MarkStamp } from './MarkStamp';
 import { useEased } from './motion';
 import { Pager, slideTo, type Point } from './Pager';
@@ -40,7 +40,7 @@ export function GameRound() {
   const dev = useGameDev();
   useEffect(() => {
     let live = true;
-    loadInitialClips().then((clips) => {
+    loadPlayableClips().then((clips) => {
       if (!live) return;
       const recent = recentClipKeys(gameHistory.getSnapshot());
       setDeck(buildDeck(clips, { recent }));

@@ -6,6 +6,7 @@ import { IDLE, opsFor, planFor, type PlayerOp, type PlayerPlan } from '@/feed/pl
 import { playWeb } from '@/feed/playWeb';
 import { POOL_SIZE, poolWindow } from '@/feed/pool';
 import { fitFor } from '@/feed/tells';
+import { useEased } from './motion';
 
 interface Props {
   clips: readonly Clip[];
@@ -120,21 +121,25 @@ function Card({
   pos: Animated.Value;
 }) {
   const fit = fitFor(clip.aspect);
+  const videoIn = useEased(player ? 1 : 0, 220);
   const translateY = useMemo(() => Animated.multiply(Animated.subtract(idx, pos), height), [idx, pos, height]);
   return (
     <Animated.View style={[styles.card, { width, height, transform: [{ translateY }] }]}>
       <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="cover" blurRadius={fit === 'contain' ? 40 : 0} />
       {fit === 'contain' && <Image source={clip.poster} style={StyleSheet.absoluteFill} resizeMode="contain" />}
-      {player && (
-        <VideoView
-          player={player}
-          style={styles.video}
-          contentFit={fit}
-          nativeControls={false}
-          playsInline
-          allowsVideoFrameAnalysis={false}
-        />
-      )}
+      {/* The poster stays underneath until the video has eased in over it: never a black card. */}
+      <Animated.View style={[StyleSheet.absoluteFill, { opacity: videoIn }]}>
+        {player && (
+          <VideoView
+            player={player}
+            style={styles.video}
+            contentFit={fit}
+            nativeControls={false}
+            playsInline
+            allowsVideoFrameAnalysis={false}
+          />
+        )}
+      </Animated.View>
     </Animated.View>
   );
 }

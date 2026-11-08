@@ -2,11 +2,11 @@ import { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { loadInitialClips } from '@/data/feed';
 import { closeSettings } from '@/settings/store';
 import { themed, usePalette } from '@/ui/theme';
 import { GAME } from './config';
 import { deckPlayable } from './deck';
+import { loadPlayableClips } from './playable';
 // Registers Dev settings → Game; Settings is always in the bundle.
 import './devSection';
 import { useGameHistory } from './store';
@@ -19,9 +19,13 @@ import { useGameHistory } from './store';
 function usePlayable(): boolean {
   const [playable, setPlayable] = useState(__DEV__);
   useEffect(() => {
-    if (__DEV__) return;
+    // Dev builds offer the round anyway, but start the media check so the round deals at once.
+    if (__DEV__) {
+      loadPlayableClips();
+      return;
+    }
     let live = true;
-    loadInitialClips().then((clips) => live && setPlayable(deckPlayable(clips)));
+    loadPlayableClips().then((clips) => live && setPlayable(deckPlayable(clips)));
     return () => {
       live = false;
     };

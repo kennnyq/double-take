@@ -69,3 +69,21 @@ test('playable only with enough of each kind', () => {
   assert.equal(deckPlayable(clips(8, 7)), false);
   assert.equal(deckPlayable(clips(2, 2), 2), true);
 });
+
+test('portrait clips are dealt before landscape ones', () => {
+  const all: DeckSource[] = [
+    ...Array.from({ length: 6 }, (_, i) => ({ id: `ap${i}`, verdict: 'ai' as const, aspect: 9 / 16 })),
+    ...Array.from({ length: 6 }, (_, i) => ({ id: `al${i}`, verdict: 'ai' as const, aspect: 16 / 9 })),
+    ...Array.from({ length: 3 }, (_, i) => ({ id: `rp${i}`, verdict: 'real' as const, aspect: 0.5 })),
+    ...Array.from({ length: 9 }, (_, i) => ({ id: `rl${i}`, verdict: 'real' as const, aspect: 1.5 })),
+  ];
+  const deck = buildDeck(all, { rng: seededRng(5), cap: 12 });
+  const ai = deck.filter((c) => c.truth === 'ai');
+  const real = deck.filter((c) => c.truth === 'real');
+  assert.ok(ai.every((c) => c.id.startsWith('ap')), 'six portrait AI clips fill the AI half');
+  assert.equal(real.filter((c) => c.id.startsWith('rp')).length, 3, 'every portrait real clip');
+  assert.equal(real.length, 6, 'landscape fills the rest');
+  // Portrait beats freshness: a recent portrait clip comes before a fresh landscape one.
+  const again = buildDeck(all, { rng: seededRng(5), cap: 2, recent: ['ap0', 'ap1', 'ap2', 'ap3', 'ap4', 'ap5'] });
+  assert.ok(again.find((c) => c.truth === 'ai')!.id.startsWith('ap'));
+});
