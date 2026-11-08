@@ -40,7 +40,7 @@ export function DesktopApp({
   const [tab, setTab] = useState<DesktopTab>('home');
   const [profileTab, setProfileTab] = useState<ProfileTab>('reposts');
   const feedRef = useRef<DesktopFeedHandle>(null);
-  // Comments and share open as the app's sheets for now; `sheet` stays set until the slide-out ends.
+  // Share opens as the app's sheet (the feed docks its own comments panel); `sheet` stays set until the slide-out ends.
   const [sheet, setSheet] = useState<{ kind: SheetKind; clip: Clip } | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [sheetProgress] = useState(() => new Animated.Value(0));

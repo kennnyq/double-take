@@ -160,7 +160,9 @@
 .desk .feed {
   position: relative;
   z-index: 0;
+  width: 100%;
   height: 100%;
+  transition: width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   overflow-y: scroll;
   overflow-x: hidden;
   scroll-snap-type: y mandatory;
@@ -573,7 +575,8 @@
   cursor: default;
 }
 
-/* Narrow desktop: the info moves into the card, like Reels does. */
+/* Narrow desktop: the info moves into the card, like Reels does. The comments
+   panel does the same when it leaves too little room beside the card. */
 @media (max-width: 1180px) {
   .desk .d-info {
     visibility: hidden;
@@ -590,6 +593,112 @@
   .desk .d-info-overlay .d-caption {
     -webkit-line-clamp: 2;
   }
+}
+
+.desk .feed-wrap.compact .d-info {
+  visibility: hidden;
+}
+
+.desk .feed-wrap.compact .compact-only {
+  display: block;
+}
+
+.desk .feed-wrap.compact .d-info-overlay {
+  position: absolute;
+  left: 16px;
+  right: 56px;
+  bottom: 18px;
+}
+
+.desk .feed-wrap.compact .d-info-overlay .d-caption {
+  -webkit-line-clamp: 2;
+}
+
+/* -------------------------------------------------------- comments panel */
+
+/* The feed narrows from the right, so the clip slides left just enough for the panel (panelLayout.ts). */
+.desk .feed-wrap.with-panel .feed {
+  width: calc(100% - 2 * var(--shift, 0px));
+}
+
+.desk .action-btn.comments.on svg {
+  fill: currentColor;
+}
+
+.desk .comments-panel {
+  position: absolute;
+  z-index: 6;
+  left: var(--panel-left);
+  top: 16px;
+  width: var(--panel-w);
+  height: var(--panel-h);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--bg-elev);
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  outline: none;
+  animation: desk-panel-in 0.22s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Over the feed rather than beside it: lift it off the video. */
+.desk .comments-panel.overlay {
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+
+@keyframes desk-panel-in {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+.desk .cp-header {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 10px 12px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.desk .cp-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.desk .cp-header h2 span {
+  margin-left: 4px;
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.desk .cp-close {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  transition: background 0.15s;
+}
+
+.desk .cp-close:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.desk .cp-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrolling to the end of the list never carries on into the page. */
+.desk .cp-body div {
+  overscroll-behavior: contain;
 }
 
 /* ---------------------------------------------------------- placeholders */
@@ -683,7 +792,11 @@
 @media (prefers-reduced-motion: reduce) {
   .desk .burst,
   .desk .paused-icon,
+  .desk .comments-panel,
   .desk .action-btn svg {
     animation: none !important;
+  }
+  .desk .feed {
+    transition: none;
   }
 }

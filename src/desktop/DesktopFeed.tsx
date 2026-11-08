@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -44,9 +45,12 @@ import { useAppSettings } from '@/settings/store';
 import type { RevealGesture } from '@/settings/settings';
 import { useSocial } from '@/social/store';
 import { useToast } from '@/ui/Toast';
+import { useGate } from '@/auth/gate';
+import { CommentsPanel } from './CommentsPanel';
 import { HtmlVideoPlayer } from './HtmlVideoPlayer';
 import { createFocusTracker, keyOwner } from './feedKeys';
 import { mediaUri } from './media';
+import { panelLayout } from './panelLayout';
 import { useFeedScroller } from './useFeedScroller';
 
 /** Pooled `<video>` elements: the active clip and one neighbour on each side. */
@@ -83,8 +87,10 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   // Remote clips then placeholders, as loaded; more placeholders follow on demand.
   const [base, setBase] = useState<Clip[] | null>(null);
   const [minCount, setMinCount] = useState(0);
+  const wrapRef = useRef<HTMLDivElement>(null);
   const feedRef = useRef<HTMLDivElement>(null);
   const [feedH, setFeedH] = useState(0);
+  const [wrapW, setWrapW] = useState(0);
 
   // The feed mode (Settings) may keep only AI or only real clips; that feed ends
   // (placeholders have no verdict). Otherwise the feed is endless once loaded:
@@ -117,9 +123,13 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   }, []);
 
   useEffect(() => {
-    const el = feedRef.current;
+    const el = wrapRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(() => setFeedH(el.clientHeight));
+    // The wrap, not the feed: the feed narrows while the comments panel is open.
+    const ro = new ResizeObserver(() => {
+      setFeedH(el.clientHeight);
+      setWrapW(el.clientWidth);
+    });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -340,6 +350,44 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   const sent = useMemo(() => new Set(social.sent.map((e) => e.id)), [social.sent]);
   const followed = useMemo(() => new Set(social.followed), [social.followed]);
 
+  // ---- comments panel -------------------------------------------------------
+  // Docked beside the clip rather than over it, and not modal: like the up/down
+  // buttons, the wheel and keys keep moving the feed, and the panel stays open
+  // and follows to each clip's comments (as Shorts and TikTok do on desktop).
+  const [commentsOpen, setCommentsOpen] = useState(false);
+  const panelRef = useRef<HTMLElement>(null);
+  const { open: signInOpen } = useGate();
+  const toggleComments = useCallback(() => setCommentsOpen((o) => !o), []);
+  const closeComments = useCallback(() => {
+    setCommentsOpen(false);
+    // Hand focus back to the button that opened it, so keyboard users don't land on <body>.
+    const btn = feedRef.current?.querySelector<HTMLElement>('.slide[aria-current="true"] .action-btn.comments');
+    btn?.focus({ preventScroll: true });
+  }, []);
+  // Focus the panel as it opens (not its input: for a guest, that opens sign-in).
+  useEffect(() => {
+    if (commentsOpen) panelRef.current?.focus({ preventScroll: true });
+  }, [commentsOpen]);
+  // Escape closes it, from anywhere but a dialog over it. Capture phase: the
+  // comment input stops its key events from bubbling.
+  useEffect(() => {
+    if (!commentsOpen || !visible || !scrollEnabled || signInOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape' || e.defaultPrevented) return;
+      if ((e.target as HTMLElement | null)?.closest?.('[aria-modal="true"]')) return;
+      closeComments();
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, [commentsOpen, visible, scrollEnabled, signInOpen, closeComments]);
+  // A click on the empty space around the clip closes it; the clip itself still plays and pauses.
+  const onFeedPointerDown = (e: RPointerEvent<HTMLDivElement>) => {
+    const t = e.target as HTMLElement;
+    if (commentsOpen && e.button === 0 && (t.classList.contains('slide') || t.classList.contains('slide-grid'))) {
+      closeComments();
+    }
+  };
+
   const handlers = useMemo<SlideHandlers>(
     () => ({
       togglePause,
@@ -350,7 +398,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       toggleSave: actions.toggleSave,
       toggleRepost: actions.toggleRepost,
       toggleFollow: actions.toggleFollow,
-      openComments: (clip) => nav.openSheet('comments', clip),
+      toggleComments,
       openShare: (clip) => nav.openSheet('share', clip),
       toggleMute,
       setSlowmo,
@@ -360,7 +408,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
       holdMs,
       soon: (what) => toast.show({ icon: 'time-outline', text: `${what} coming soon` }),
     }),
-    [togglePause, actions, nav, toggleMute, toast, revealGesture, holdMs],
+    [togglePause, actions, nav, toggleMute, toast, revealGesture, holdMs, toggleComments],
   );
 
   const cardH = Math.max(0, feedH - CARD_MARGIN);
@@ -368,9 +416,32 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
   const card = useMemo(() => ({ w: Math.round((cardH * 9) / 16), h: cardH }), [cardH]);
   const fitOf = (i: number): Fit => (i === active && inspecting ? 'contain' : fitFor(clips[i]?.aspect));
 
+  // The action column's width varies with its labels, so measure the active one.
+  const [actionsW, setActionsW] = useState(104);
+  useLayoutEffect(() => {
+    if (!commentsOpen) return;
+    const el = feedRef.current?.querySelector<HTMLElement>('.slide[aria-current="true"] .d-actions');
+    if (el?.offsetWidth) setActionsW(el.offsetWidth);
+  }, [commentsOpen, active, wrapW]);
+  const activeClip = clips[active] as Clip | undefined;
+  const panel = commentsOpen && activeClip ? panelLayout(wrapW, card.w, actionsW) : null;
+
   return (
-    <div className="feed-wrap desktop">
-      <div className="feed" ref={feedRef} tabIndex={-1} aria-label="Video feed">
+    <div
+      ref={wrapRef}
+      className={`feed-wrap desktop ${panel ? 'with-panel' : ''} ${panel?.compact ? 'compact' : ''}`}
+      style={
+        panel
+          ? {
+              ['--shift' as string]: `${panel.shift}px`,
+              ['--panel-left' as string]: `${panel.left}px`,
+              ['--panel-w' as string]: `${panel.width}px`,
+              ['--panel-h' as string]: `${card.h}px`,
+            }
+          : undefined
+      }
+    >
+      <div className="feed" ref={feedRef} tabIndex={-1} aria-label="Video feed" onPointerDown={onFeedPointerDown}>
         {clips.map((clip, i) => (
           <Slide
             key={clip.id}
@@ -384,6 +455,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             sent={sent.has(clipKey(clip))}
             followed={followed.has(clip.author)}
             myComments={social.comments[clipKey(clip)]?.length ?? 0}
+            commentsOpen={i === active && commentsOpen}
             others={social.stats[clipKey(clip)]}
             label={autoLabel(clip, feedMode)}
             inspecting={i === active && inspecting}
@@ -441,6 +513,10 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
           <ChevronDown size={26} />
         </button>
       </div>
+
+      {panel && activeClip && (
+        <CommentsPanel ref={panelRef} clip={activeClip} onClose={closeComments} overlay={panel.overlay} />
+      )}
     </div>
   );
 }
@@ -457,7 +533,8 @@ interface SlideHandlers {
   toggleSave: (clip: Clip) => void;
   toggleRepost: (clip: Clip) => void;
   toggleFollow: (author: string) => void;
-  openComments: (clip: Clip) => void;
+  /** Open or close the comments panel (it shows the active clip's). */
+  toggleComments: () => void;
   openShare: (clip: Clip) => void;
   toggleMute: () => void;
   setSlowmo: (on: boolean) => void;
@@ -480,6 +557,8 @@ interface SlideProps {
   sent: boolean;
   followed: boolean;
   myComments: number;
+  /** This is the active clip and its comments panel is open. */
+  commentsOpen: boolean;
   /** Other members' likes, reposts and comments (on top of the clip's own counts). */
   others?: ClipCounts;
   /** The verdict shown without a reveal (Auto label mode), or null. */
@@ -690,7 +769,13 @@ const Slide = memo(function Slide(p: SlideProps) {
           >
             <Heart size={26} fill={p.liked ? 'currentColor' : 'none'} />
           </ActionBtn>
-          <ActionBtn label={comments} onClick={() => h.openComments(clip)} name="Comments">
+          <ActionBtn
+            label={comments}
+            onClick={h.toggleComments}
+            name="Comments"
+            className={`comments ${p.commentsOpen ? 'on' : ''}`}
+            expanded={p.commentsOpen}
+          >
             <MessageCircle size={26} style={{ transform: 'scaleX(-1)' }} />
           </ActionBtn>
           <ActionBtn
@@ -729,6 +814,8 @@ function ActionBtn(props: {
   onClick: () => void;
   className?: string;
   pressed?: boolean;
+  /** Opens a panel: whether it's open. */
+  expanded?: boolean;
   /** Name it by `name` alone (the label repeats it). */
   nameOnly?: boolean;
   children: React.ReactNode;
@@ -739,6 +826,7 @@ function ActionBtn(props: {
       onClick={props.onClick}
       aria-label={props.label && !props.nameOnly ? `${props.name} (${props.label})` : props.name}
       aria-pressed={props.pressed}
+      aria-expanded={props.expanded}
     >
       {props.children}
       {props.label && <span>{props.label}</span>}
