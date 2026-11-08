@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { atlasMode, cellRect, cellsById, clipTime, MAX_BOARD_SIDE, parseAtlas, planBoard } from './atlas.ts';
+import { atlasMode, cellRect, cellsById, clipTime, galleryPicks, MAX_BOARD_SIDE, parseAtlas, planBoard } from './atlas.ts';
 
 const MANIFEST = {
   version: 1,
@@ -51,6 +51,22 @@ test('parseAtlas keeps per-cell phases and the codec, and drops phases that do n
   assert.equal(a?.mime, 'video/mp4; codecs="avc1.64001f"');
   assert.equal(parseAtlas({ ...MANIFEST, phases: [0, 1] }, '/a.json')?.phases, undefined);
   assert.equal(parseAtlas({ ...MANIFEST, phases: [0, 'x', 1] }, '/a.json')?.phases, undefined);
+});
+
+test('galleryPicks: the atlas\'s clips the feed still has, in atlas order; else the first portrait ones', () => {
+  const feed = [
+    { sourceId: 'c', aspect: 0.56 },
+    { sourceId: 'x', aspect: 1.78 },
+    { sourceId: 'a', aspect: 0.56 },
+    { sourceId: 'b' },
+  ];
+  // 'z' has left the feed; the gallery follows the atlas, not the feed's order.
+  assert.deepEqual(galleryPicks(feed, { ids: ['a', 'z', 'c'] }, 48), [
+    { index: 2, cell: 0 },
+    { index: 0, cell: 2 },
+  ]);
+  // No atlas: the first portrait clips (landscape skipped), up to the size.
+  assert.deepEqual(galleryPicks(feed, null, 2), [{ index: 0 }, { index: 2 }]);
 });
 
 test('cells are found by clip id and laid out row by row', () => {

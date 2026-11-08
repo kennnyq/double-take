@@ -77,6 +77,30 @@ export function parseAtlas(json: unknown, url: string): Atlas | null {
   };
 }
 
+/**
+ * Which feed clips the gallery shows, in order, and each one's atlas cell:
+ * with an atlas, its clips (picked for variety, never the same footage twice)
+ * that the feed still has; without one, the feed's first `size` portrait clips.
+ */
+export function galleryPicks(
+  clips: readonly { sourceId?: string; aspect?: number }[],
+  atlas: Pick<AtlasManifest, 'ids'> | null,
+  size: number,
+): { index: number; cell?: number }[] {
+  if (atlas) {
+    const byId = new Map(clips.map((c, index) => [c.sourceId, index] as const));
+    return atlas.ids.flatMap((id, cell) => {
+      const index = byId.get(id);
+      return index === undefined ? [] : [{ index, cell }];
+    });
+  }
+  return clips
+    .map((clip, index) => ({ clip, index }))
+    .filter(({ clip }) => (clip.aspect ?? 9 / 16) < 1)
+    .slice(0, size)
+    .map(({ index }) => ({ index }));
+}
+
 /** Each clip id's cell. */
 export function cellsById(atlas: Pick<AtlasManifest, 'ids'>): Map<string, number> {
   return new Map(atlas.ids.map((id, cell) => [id, cell]));

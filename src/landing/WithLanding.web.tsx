@@ -3,7 +3,7 @@ import { RotateCcw } from 'lucide-react';
 import type { Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { mediaUri } from '@/desktop/media';
-import { cellsById, parseAtlas, type Atlas } from './atlas';
+import { galleryPicks, parseAtlas, type Atlas } from './atlas';
 import { DEFAULT_LANDING_PRESET, LANDING_PRESETS, LANDING_STORAGE_PREFIX, LANDING_TRIALS } from './designs';
 import { Landing } from './Landing';
 import { GalleryAtlas, GalleryClips, type GalleryClip } from './Tile';
@@ -12,7 +12,7 @@ import { DEV, useTrials } from './trials';
 
 // Once someone has gone through the landing, a reload keeps them in the app.
 const APP_HASH = '#app';
-const GALLERY_SIZE = 24;
+const GALLERY_SIZE = 48;
 
 /**
  * The gallery atlas's manifest (`scripts/harvest/build_atlas.py`). Without
@@ -38,16 +38,11 @@ type Stage = 'landing' | 'launching' | 'app';
  * one would be cropped to a sliver. Bundled placeholders play their own file.
  */
 function toGallery(clips: readonly Clip[], atlas: Atlas | null): GalleryClip[] {
-  const cells = atlas ? cellsById(atlas) : null;
-  return clips
-    .map((clip, index) => ({ clip, index }))
-    .filter(({ clip }) => (clip.aspect ?? 9 / 16) < 1)
-    .slice(0, GALLERY_SIZE)
-    .map(({ clip, index }) => {
-      const video = mediaUri(clip.video);
-      const cell = clip.sourceId ? cells?.get(clip.sourceId) : undefined;
-      return { index, video, poster: mediaUri(clip.poster), tile: clip.tile ?? (clip.sourceId ? undefined : video), cell };
-    });
+  return galleryPicks(clips, atlas, GALLERY_SIZE).map(({ index, cell }) => {
+    const clip = clips[index];
+    const video = mediaUri(clip.video);
+    return { index, video, poster: mediaUri(clip.poster), tile: clip.tile ?? (clip.sourceId ? undefined : video), cell };
+  });
 }
 
 /**
