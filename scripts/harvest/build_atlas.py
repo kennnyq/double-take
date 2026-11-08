@@ -16,10 +16,13 @@ and the player appends the file to itself endlessly (atlasStream.ts). The folder
 it's immutable like the rest of media/; serve its atlas.json at the address
 the web build's EXPO_PUBLIC_GALLERY_ATLAS names (default /gallery-atlas/atlas.json).
 
-The gallery shows the feed's first `--count` portrait clips, so build it from
-the same feed, and rebuild it whenever that feed's head changes. Clips not in
-the atlas still work: their tiles fall back to their own poster.
+It takes `--count` of the feed's portrait clips: never the same footage twice
+(the same source, the same file, or near-identical frames), then as varied as
+it can. The landing's gallery shows the atlas's clips that the live feed still
+has, so rebuild it when clips leave the feed.
 """
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json
@@ -76,6 +79,59 @@ def clip_distances(video: str, cols: int, rows: int, every: int = 5) -> list[lis
     return [[dist(a, b) for b in cells] for a in cells]
 
 
+def thumb(src: str, seconds: float) -> list[float]:
+    """A clip's first `seconds`, averaged into a 9x16 colour thumbnail (0..255), like clip_distances' cells."""
+    raw = subprocess.run(
+        ["ffmpeg", "-v", "error", "-t", str(seconds), "-i", src, "-vf",
+         "fps=2,scale=9:16:force_original_aspect_ratio=increase:flags=area,crop=9:16", "-f", "rawvideo",
+         "-pix_fmt", "rgb24", "-"], check=True, capture_output=True).stdout
+    size = 9 * 16 * 3
+    frames = len(raw) // size
+    if not frames:
+        return [0.0] * size
+    return [sum(raw[f * size + i] for f in range(frames)) / frames for i in range(size)]
+
+
+def apart(a: list[float], b: list[float]) -> float:
+    """How unlike two thumbnails are, 0..1."""
+    return sum(abs(x - y) for x, y in zip(a, b)) / len(a) / 255
+
+
+# Below this, two clips are the same footage (under different ids, or re-uploaded).
+SAME_FOOTAGE = 0.04
+
+
+def source_url(c: dict) -> str | None:
+    s = c.get("source")
+    return s.get("url") if isinstance(s, dict) else s if isinstance(s, str) else None
+
+
+def pick_clips(candidates: list[dict], thumbs: dict, count: int) -> list[dict]:
+    """The gallery's clips: no footage twice (same source, same file, or alike to
+    SAME_FOOTAGE), then as varied as can be. The feed's first clip, then each time
+    the one least like any picked so far (farthest-point sampling)."""
+    kept: list[dict] = []
+    for c in candidates:
+        if any(c.get("sha256") and c.get("sha256") == k.get("sha256") for k in kept):
+            continue
+        url = source_url(c)
+        if url and any(url == source_url(k) for k in kept):
+            continue
+        if any(apart(thumbs[c["id"]], thumbs[k["id"]]) < SAME_FOOTAGE for k in kept):
+            print(f"skip {c['id']}: the same footage as one already in")
+            continue
+        kept.append(c)
+    if len(kept) <= count:
+        return kept
+    picked = [kept[0]]
+    rest = kept[1:]
+    while len(picked) < count:
+        best = max(rest, key=lambda c: min(apart(thumbs[c["id"]], thumbs[p["id"]]) for p in picked))
+        picked.append(best)
+        rest.remove(best)
+    return picked
+
+
 def annotate(folder: str) -> None:
     """Adds `distances` to an existing atlas's manifest, without encoding it again."""
     path = os.path.join(folder, "atlas.json")
@@ -126,8 +182,8 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--out", default="build", help="the build_media.py output (R2 bucket layout)")
     ap.add_argument("--feed", default="feeds/demo.json")
-    ap.add_argument("--count", type=int, default=24, help="clips in the atlas: the landing's GALLERY_SIZE")
-    ap.add_argument("--cols", type=int, default=6)
+    ap.add_argument("--count", type=int, default=48, help="clips in the atlas: the landing's GALLERY_SIZE")
+    ap.add_argument("--cols", type=int, default=8)
     ap.add_argument("--cell", default="144x256", help="cell size; 9:16, about the tiles' size on screen")
     ap.add_argument("--fps", type=int, default=15)
     ap.add_argument("--loop", type=float, default=7, help="seconds; no longer than the shortest clip minus --lead")
@@ -143,19 +199,21 @@ def main() -> None:
         feed = json.load(f)
     cw, ch = (int(x) for x in args.cell.split("x"))
 
-    clips = []
+    candidates = []
+    srcs = {}
     for c in feed["clips"]:
-        src = os.path.join(args.out, c.get("tile") or c["video"])
-        w, h, dur = probe(src)
-        # The gallery only shows portrait clips (WithLanding.web.tsx: toGallery).
+        # The gallery only shows portrait clips.
         if c.get("width") and c.get("height") and c["width"] >= c["height"]:
             continue
+        src = os.path.join(args.out, c.get("tile") or c["video"])
+        _, _, dur = probe(src)
         if dur < args.loop + args.lead:
             print(f"skip {c['id']}: {dur:.1f}s is shorter than the loop")
             continue
-        clips.append((c["id"], src))
-        if len(clips) == args.count:
-            break
+        candidates.append(c)
+        srcs[c["id"]] = src
+    thumbs = {c["id"]: thumb(srcs[c["id"]], args.loop + args.lead) for c in candidates}
+    clips = [(c["id"], srcs[c["id"]]) for c in pick_clips(candidates, thumbs, args.count)]
     if not clips:
         raise SystemExit("no clips for the atlas")
 
