@@ -157,7 +157,8 @@ const VANISH: Record<
   },
   drop: {
     ms: 620,
-    easing: 'cubic-bezier(.5,0,.9,.5)',
+    // Build speed gently, then ease into the end of the drop.
+    easing: 'cubic-bezier(.65,0,.35,1)',
     frames: (o) => [
       { opacity: o, translate: '0 0', rotate: '0deg' },
       { opacity: 0, translate: '0 70px', rotate: `${Math.random() < 0.5 ? -9 : 9}deg` },
@@ -415,7 +416,7 @@ function growOnCompositor(L: Lifted, frames: Keyframe[], target: Rect, targetRad
  * video as the growth began stalled Safari, and the growth's first frames
  * were lost (it leapt).
  */
-async function sharpen(lifted: Lifted, hi: HTMLVideoElement) {
+async function sharpen(lifted: Lifted, hi: HTMLVideoElement, fadeMs = 360) {
   await until(() => hi.readyState >= 2, 600);
   if (hi.paused) {
     hi.currentTime = Math.min(lifted.time() + 0.06, (hi.duration || 8) - 0.05);
@@ -425,7 +426,7 @@ async function sharpen(lifted: Lifted, hi: HTMLVideoElement) {
   // Moved in the same task, it keeps playing.
   lifted.layer.append(hi);
   hi.play().catch(() => {});
-  hi.animate([{ opacity: 0 }, { opacity: 1 }], { duration: 360, easing: 'ease-in-out', fill: 'forwards' });
+  hi.animate([{ opacity: 0 }, { opacity: 1 }], { duration: fadeMs, easing: 'ease-in-out', fill: 'forwards' });
 }
 
 /** Starts the full clip early, out of sight and in step with the tile's own clip, so it is playing by the time it shows. */
@@ -456,25 +457,27 @@ function warm(hi: HTMLVideoElement, root: HTMLElement, time: () => number) {
 
 // ---- The launch --------------------------------------------------------
 
-/** Setting up the growth (the beat, the full clip's first frames) takes about this long (ms), so it waits that much less. */
-const GROW_SETUP = 290;
 /** No more of the others start to leave from this long before the growth starts (ms), so the two don't share a frame. */
 const SETTLE_LEAD = 250;
 /** How long it grows, against the grow style's own length (a design on trial: `growth`). */
 const GROWTH: Record<LandingValues['growth'], number> = { fast: 1, medium: 1.25, slow: 1.6 };
-/** How long the rest of the gallery takes to fade out, from the press (ms; a design on trial: `fade`). */
+/** How long the rest of the gallery takes to fade out, from the growth (ms; a design on trial: `fade`). */
 const FADE: Record<LandingValues['fade'], number> = { slow: 2600, slower: 3400, slowest: 4400 };
 /** An ease-out: fastest at first, ever gentler, with a long faint tail. */
 const FADE_EASING = 'cubic-bezier(.33,.66,.5,1)';
-/** The app's pieces come in once it has grown and the fade is this far through, over its tail. */
-const ARRIVE_THROUGH = 0.8;
-/** From the press, the shade lifts over the fade's last part, from this far through. */
+/** Phone UI keeps its fade-relative reveal; desktop follows growth completion. */
+const ARRIVE_THROUGH = 0.5;
+const ARRIVE_LEAD_MS = 500;
+/** As the chrome appears, gently speed up only the opacity animations. */
+const FADE_ACCELERATE_MS = 600;
+const FADE_FINAL_RATE = 1.7;
+/** From the growth, the shade lifts over the fade's last part, from this far through. */
 const SHADE_FROM = 0.7;
 /** The shade over the rest no darker than this, the fade keeps it from ever brightening as the shade lifts. */
 const SHADE_UNDER = 0.85;
 
 /**
- * The fade from the press, as keyframes: the wall's opacity (an ease-out,
+ * The fade from the growth, as keyframes: the wall's opacity (an ease-out,
  * fastest at first) and the shade's (held, then lifting over the last part).
  * Where the shade was up to SHADE_UNDER dark, the wall as seen (its opacity
  * times what the shade lets through) only ever darkens: as the shade lifts,
@@ -485,7 +488,8 @@ function fadeSteps(n = 32): { at: number; wall: number; shade: number }[] {
   const smooth = (u: number) => u * u * (3 - 2 * u);
   return Array.from({ length: n + 1 }, (_, i) => {
     const at = i / n;
-    const shade = at <= SHADE_FROM ? 1 : 1 - smooth((at - SHADE_FROM) / (1 - SHADE_FROM));
+    const shadeProgress = Math.max(0, Math.min(1, (at - SHADE_FROM) / (1 - SHADE_FROM)));
+    const shade = 1 - smooth(shadeProgress);
     return { at, shade, wall: (ease(at) * (1 - SHADE_UNDER)) / (1 - SHADE_UNDER * shade) };
   });
 }
@@ -615,6 +619,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     root.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' });
     await until(() => root.scrollTop <= 2, 900);
   }
+  const deskFeed = innerWidth >= 760 && innerHeight >= 480;
+  const startMs = v.start === 'auto' ? 1400 : Number(v.start);
   root.setAttribute('data-launching', '');
   // Tiles drawn a strip at a time by the atlas get a canvas of their own as
   // they leave, one by one, and keep playing until each has gone.
@@ -630,11 +636,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const survivor = fromTile ?? pickSurvivor(tiles, v.pick, button, galleryRect);
   release?.detach(survivor);
   const clip = Number(survivor.dataset.clip) || 0;
-  // The app's desktop layout shows the clip in a card the growth aims for, so it
-  // mounts now. On a phone the feed fills the screen: the growth needs nothing
-  // from it, and the app mounts once it's done (its first render is heavy on a
-  // phone), behind the clip filling the screen, where nothing else moves.
-  const deskFeed = innerWidth >= 760 && innerHeight >= 480;
+  // Desktop mounts now to measure the growth target, as in c901688. Phones
+  // keep mounting after growth so rendering cannot stall their move.
   if (deskFeed) hooks.mountApp(clip);
 
   const hi = document.createElement('video');
@@ -662,7 +665,10 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (v.motion === 'freeze') moving.forEach((a) => a.pause());
   // ---- The others' timing: a long exit (a slow sink) is staggered over most
   // of its own length, and the one that stays starts to grow before the last go.
-  const vanish = v.vanish === 'recede' ? recede(v) : VANISH[v.vanish];
+  const exit = v.vanish === 'recede' ? recede(v) : VANISH[v.vanish];
+  const vanish = deskFeed && v.vanish === 'drop'
+    ? { ...exit, easing: 'cubic-bezier(.5,0,.9,.5)' }
+    : exit;
   const pace = Number(v.pace);
   const long = vanish.ms >= 1500;
   const spread = Math.max(pace - vanish.ms, long ? vanish.ms * 0.6 : 0);
@@ -714,7 +720,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const light = root.dataset.tier === 'phone';
   const liftNow = v.motion === 'flow' || survivor.closest('[data-exit]') !== null || light;
   // On a strip, it's lifted out at the press too (or on the lighter tier),
-  // so the rest of the gallery can fade from the start (fading the gallery
+  // so the rest of the gallery can fade independently (fading the gallery
   // would fade it with them), gliding to a stop with its strip. It comes
   // out from under the shade and blur as they were over it (coverAt), and
   // clears on its own; the shade stays over the rest until it has nearly
@@ -722,7 +728,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // has stopped, and the shade lifts as before.)
   const survivorStrip = survivor.parentElement?.closest<HTMLElement>('.lt-row, .lt-col') ?? null;
   const front = survivor.closest('.lt-front') !== null;
-  const atPress = !front && (light || survivorStrip !== null);
+  const atPress = !deskFeed && !front && (light || survivorStrip !== null);
   const cover = atPress ? coverAt(root, center(survivor.getBoundingClientRect())) : null;
   // On the lighter tier, no blur: animating one off a layer growing to the
   // whole screen repaints it every frame.
@@ -732,7 +738,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   let lifted: Lifted | null = atPress ? lift(root, survivor, coveredFilter) : liftNow ? lift(root, survivor, front ? 'none' : lateFilter) : null;
   const glide = survivorStrip ? glides.get(survivorStrip) : undefined;
   const gliding =
-    lifted && glide
+    !deskFeed && lifted && glide
       ? lifted.layer.animate([{ translate: '0px 0px' }, { translate: `${glide.x}px ${glide.y}px` }], {
           duration: glide.ms,
           easing: GLIDE_EASING,
@@ -752,13 +758,11 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
         })
       : null;
 
-  // ---- The rest of the gallery fades out, slowly (`fade`), from as soon as
-  // the one that stays is out of it: its opacity only, so nothing in it moves
-  // any differently. Fastest at first, ever gentler after (an ease-out). From
-  // the press, the shade over it lifts only over the last of the fade, and
-  // the fade then goes a little faster, so the wall never brightens.
+  // ---- Brightness has its own timeline, starting with the picked card's
+  // growth. Individual displacement keeps its original schedule below.
+  // The shade lifts over the fade's tail, compensated so the wall never brightens.
   const overlays = [...root.querySelectorAll<HTMLElement>('.lt-veil, .lt-blur')];
-  const fade: { run: Animation | null; start: number } = { run: null, start: 0 };
+  const fade: { run: Animation | null; shades: Animation[]; start: number } = { run: null, shades: [], start: 0 };
   const fadeRest = () => {
     if (fade.run || !galleryEl) return;
     fade.start = performance.now();
@@ -773,9 +777,27 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
       steps.map((x) => ({ offset: x.at, opacity: from * x.wall })),
       { duration: ms, fill: 'forwards' },
     );
-    for (const el of overlays) el.animate(steps.map((x) => ({ offset: x.at, opacity: x.shade })), { duration: ms, fill: 'forwards' });
+    fade.shades = overlays.map((el) =>
+      el.animate(steps.map((x) => ({ offset: x.at, opacity: x.shade })), { duration: ms, fill: 'forwards' }),
+    );
   };
-  if (lifted) fadeRest();
+
+  const hastenFade = () => {
+    const runs = [fade.run, ...fade.shades].filter((run): run is Animation => run !== null);
+    const start = performance.now();
+    const ramp = () => {
+      if (!alive()) return;
+      const t = Math.min(1, (performance.now() - start) / FADE_ACCELERATE_MS);
+      const smooth = t * t * (3 - 2 * t);
+      const rate = 1 + (FADE_FINAL_RATE - 1) * smooth;
+      // Preserve each animation's current position. Only wall/shade opacity
+      // is retimed; no tile, strip or picked-card movement is touched.
+      const running = runs.filter((run) => run.playState === 'running');
+      running.forEach((run) => run.updatePlaybackRate(rate));
+      if (t < 1 && running.length) requestAnimationFrame(ramp);
+    };
+    requestAnimationFrame(ramp);
+  };
 
   const pending = new Set<number>();
   const later = (ms: number, go: () => void) => {
@@ -800,33 +822,40 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   const plane = survivor.closest<HTMLElement>('[data-plane]');
   const eye = light && plane ? eyeOnPlane(plane) : null;
   const order = turns(shown, v.order, origin);
+  const desktopExits: Promise<void>[] = [];
   shown.forEach((t, i) => {
     // At its turn it gets its own canvas and starts to go, in one step.
-    later(140 + order[i] * spread, () => {
+    const leave = async () => {
       if (!alive()) return;
       release?.detach(t.el);
       const cs = getComputedStyle(t.el);
       const deep = !light && t.el.closest('.lt-tilted') !== null;
       const sunk = eye && t.el.closest('[data-plane]') === plane ? sinkOnPlane(t.el, eye, SINK_DEPTH[v.depth]) : null;
       if (sunk) t.el.style.transformOrigin = sunk.origin;
-      const leaving = t.el.animate(vanish.frames(cs.opacity, cs.filter, deep, sunk?.scale), {
+      const exitFrames = vanish.frames(cs.opacity, cs.filter, deep, sunk?.scale);
+      // Restore c901688's per-card exit/fade on desktop. Phones retain their
+      // independent wall fade and existing displacement schedule.
+      const leaving = t.el.animate(deskFeed ? exitFrames : exitFrames.map(({ opacity: _opacity, ...frame }) => frame), {
         duration: vanish.ms,
         easing: vanish.easing,
         fill: 'forwards',
       });
-      // Its clip plays on until it has gone.
-      void leaving.finished.then(() => release?.freeze(t.el), () => {});
-    });
+      if (deskFeed) await leaving.finished.then(() => release?.freeze(t.el), () => {});
+    };
+    const delay = 140 + order[i] * spread;
+    // Include departures that haven't started yet, not just running animations.
+    if (deskFeed) desktopExits.push(wait(delay).then(leave));
+    else later(delay, () => { void leave(); });
   });
 
   // ---- The shade and blur lift off, now or as the others go.
   const clearOverlays = (ms: number, delay = 0) =>
     overlays.forEach((el) =>
-      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, delay, easing: 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }),
+      el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: ms, delay, easing: deskFeed ? 'linear' : 'cubic-bezier(.4,0,.2,1)', fill: 'forwards' }),
     );
   if (atPress) {
     // The shade goes with the fade (fadeRest).
-  } else if (v.focus === 'early' || liftNow) clearOverlays(light ? 900 : 450, 100);
+  } else if (v.focus === 'early' || liftNow) clearOverlays(!deskFeed && light ? 900 : 450, 100);
   else if (v.focus === 'gradual') clearOverlays(pace, 140);
 
   // ---- A little before the growth (not in its first frame), no more of the
@@ -837,15 +866,19 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     pending.clear();
   };
 
-  // The one that stays starts forward soon after the press, over the coast and
-  // the others leaving (it waited for most to go: ~3 s, which read as late).
-  // When is a design on trial (`start`); it was ~3 s (late), then ~0.85 s (too soon).
-  // A late start waits for the others, all gone by then, the rest fading.
-  const startIn = Math.max(0, Number(v.start) - GROW_SETUP);
-  await wait(Math.max(0, startIn - SETTLE_LEAD));
-  if (!alive()) return;
-  settle();
-  await wait(Math.min(SETTLE_LEAD, startIn));
+  const beatMs = v.beat === 'none' ? 120 : v.beat === 'label' ? 760 : 560;
+  if (deskFeed) {
+    // Start 500 ms ahead of c901688's exit-based timing. The UI still follows
+    // growth completion, shifting it earlier by the same amount.
+    const exitWait = long ? 140 + spread * 0.7 + vanish.ms * 0.45 : 140 + spread + vanish.ms;
+    await wait(Math.max(0, exitWait - 500));
+  } else {
+    const startIn = Math.max(0, startMs - 290);
+    await wait(Math.max(0, startIn - SETTLE_LEAD));
+    if (!alive()) return;
+    settle();
+    await wait(Math.min(SETTLE_LEAD, startIn));
+  }
   if (!alive()) return;
 
   // ---- Alone, a beat. Lifted out first (once the gallery has stopped), so
@@ -853,11 +886,9 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (v.motion === 'decelerate') await wait(Math.max(0, 650 - (140 + spread + vanish.ms)));
   if (!alive()) return;
   if (!lifted) lifted = lift(root, survivor, v.focus === 'late' ? lateFilter : tileFilter);
-  fadeRest();
   const beatOn = lifted.layer;
   let beatEl: HTMLElement | null = null;
-  const beatMs = v.beat === 'none' ? 120 : v.beat === 'label' ? 760 : 560;
-  const sharpening = sharpen(lifted, hi);
+  const sharpening = sharpen(lifted, hi, deskFeed ? 180 : 360);
   if (v.beat === 'brackets' || v.beat === 'label') {
     const r = beatOn.getBoundingClientRect();
     beatEl = document.createElement('div');
@@ -892,7 +923,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     beatOn.animate([{ scale: '1' }, { scale: '1.07' }, { scale: '1' }], { duration: beatMs, easing: 'ease-in-out' });
   }
   // The full clip fades in over it whenever it's ready; the growth doesn't wait.
-  await Promise.all([wait(beatMs), Promise.race([sharpening, wait(250)])]);
+  await Promise.all([wait(beatMs), deskFeed ? sharpening : Promise.race([sharpening, wait(250)])]);
   if (!alive() || !lifted) return;
   const L: Lifted = lifted;
 
@@ -914,8 +945,8 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // On a phone, an ease in and out: a fast-starting curve (the spring) loses
   // its first frames whenever the phone is busy as it begins, and leaps.
   const grow = {
-    ms: GROW[v.grow].ms * GROWTH[v.growth],
-    easing: light && v.grow !== 'lift' ? 'cubic-bezier(.45,.05,.2,1)' : GROW[v.grow].easing,
+    ms: GROW[v.grow].ms * (deskFeed ? 1 : GROWTH[v.growth]),
+    easing: !deskFeed && light && v.grow !== 'lift' ? 'cubic-bezier(.45,.05,.2,1)' : GROW[v.grow].easing,
   };
   let frames: Keyframe[] = [L.start, end];
   let frameFrames: Keyframe[] = [{ transform: L.planeTransform }, { transform: L.flatTransform }];
@@ -976,21 +1007,20 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   // clip, a filter) holds it to the main thread; those follow in step.
   const only = (keep: (p: string) => boolean) =>
     frames.map((k) => Object.fromEntries(Object.entries(k).filter(([p]) => p === 'offset' || p === 'easing' || keep(p))) as Keyframe);
+  if (!deskFeed) fadeRest();
   const growing = L.layer.animate(only((p) => p === 'transform'), timing);
   L.layer.animate(only((p) => p !== 'transform'), timing);
   L.frame.animate(frameFrames, timing);
 
-  // The feed's own video takes the same moment, just before the growth ends.
+  const phone: { video: HTMLVideoElement | null } = { video: null };
   const feedVideo = stage?.querySelector('video') ?? null;
+  // The feed's own video takes the same moment, just before the growth ends.
   await wait(Math.max(0, grow.ms - 260));
   if (feedVideo) feedVideo.currentTime = Math.min(hi.currentTime + 0.26, (hi.duration || 8) - 0.05);
   await growing.finished.catch(() => {});
   if (!alive()) return;
   if (feedVideo && Math.abs(feedVideo.currentTime - hi.currentTime) > 0.15) feedVideo.currentTime = hi.currentTime;
-  const phone: { video: HTMLVideoElement | null } = { video: null };
   if (!deskFeed) {
-    // The full-screen clip plays on while the app mounts beneath, until the
-    // feed's video for it has loaded.
     hooks.mountApp(clip);
     await nextFrame();
     await until(() => {
@@ -999,19 +1029,20 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     }, 2500);
     if (!alive()) return;
   }
-
-  // ---- Arrive: the page behind goes, the app's pieces come in, the feed's
-  // video takes over under the one that grew. Over the tail of the fade: once
-  // the rest is nearly gone, not after.
-  const arriveIn = fade.start + FADE[v.fade] * ARRIVE_THROUGH - performance.now();
-  if (arriveIn > 0) await wait(arriveIn);
-  if (!alive()) return;
+  // Desktop returns to c901688's handoff immediately after growth. Phones
+  // retain their existing fade-relative wait and smooth fade acceleration.
+  if (!deskFeed) {
+    const arriveIn = fade.start + Math.max(0, FADE[v.fade] * ARRIVE_THROUGH - ARRIVE_LEAD_MS) - performance.now();
+    if (arriveIn > 0) await wait(arriveIn);
+    if (!alive()) return;
+  }
   root.style.pointerEvents = 'none';
   arriveChrome(v.arrive);
+  if (!deskFeed) hastenFade();
   await root.animate([{ backgroundColor: getComputedStyle(root).backgroundColor }, { backgroundColor: 'transparent' }], {
     duration: 260,
     fill: 'forwards',
-  }).finished;
+  }).finished.catch(() => {});
   if (!alive()) return;
   // On a phone the feed's video waits (paused) until the landing has gone, so it
   // is brought to this moment now: it would start from the top, and the swap
@@ -1025,7 +1056,9 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   sendHandoff({ muted: v.sound === 'muted' });
   hi.muted = true;
   await L.frame.animate([{ opacity: 1 }, { opacity: 0 }], { duration: 160, fill: 'forwards' }).finished;
-  // The landing goes once the last of the rest has faded (it never cuts).
-  await fade.run?.finished.catch(() => {});
+  // The feed is already visible and interactive. Keep the transparent landing
+  // layer until every remaining card has faded, even with an earlier handoff.
+  if (deskFeed) await Promise.all(desktopExits);
+  else await fade.run?.finished.catch(() => {});
   if (alive()) hooks.done();
 }
