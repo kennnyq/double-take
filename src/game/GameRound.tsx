@@ -54,6 +54,7 @@ export function GameRound() {
 }
 
 function Round({ deck, durationMs, showTruth }: { deck: { clip: Clip; truth: 'ai' | 'real' }[]; durationMs: number; showTruth: boolean }) {
+  // TODO(feat/gesture-hint): call useBlockHints() from '@/onboarding/store' here once it lands on main.
   const clips = useMemo(() => deck.map((d) => d.clip), [deck]);
   const [s, dispatch] = useReducer(roundReducer, null, () =>
     createRound(
