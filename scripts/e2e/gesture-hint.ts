@@ -1,14 +1,20 @@
 /**
- * Browser check for the first-run hints over the feed: a brand-new phone
- * viewer gets "Swipe up" first, then the double take hint, which walks through
- * hold and then double tap (Both is the default); it goes as soon as either
- * gesture opens a double take, comes back on reload until two have been
- * opened, and then never again. Desktop (a fine pointer) gets Hold Space then
- * Double-click, and no swipe hint. Reduce Motion gets a still frame. Entering from the landing's hero, the hint waits for the hand-off. Dev
- * settings → Interaction → Gesture hint plays it now, in the picked design.
+ * Browser check for the first-run gesture hint over the feed. It walks through
+ * the two ways into the double take (Both is the default): on phones a hold,
+ * then a double tap; on desktop (a fine pointer) Hold Space, then a
+ * double-click. It goes as soon as either gesture opens a double take, comes
+ * back on reload until two have been opened, and then never again. Entering
+ * from the landing's hero, it waits for the hand-off. Reduce Motion gets a
+ * still frame. Dev settings → Interaction → Gesture hint plays it now, in the
+ * picked design.
+ *
+ * It also checks the hint is actually seen: hiding it must change the screen.
+ * That caught the desktop hint painting under the pooled <video> (its stage
+ * was a stacking context), where it was in the page, opaque and invisible.
  *
  *   npm run e2e:hint                                   (dev server on 8081)
- *   BASE_URL=http://localhost:8093 npm run e2e:hint
+ *   BASE_URL=http://localhost:8086 npm run e2e:hint
+ *   PIXELS_ONLY=1 npm run e2e:hint                      (only the is-it-seen checks)
  *   FRAMES=/abs/dir npm run e2e:hint                    (also saves a frame strip of each hint)
  *
  * Needs a running dev server and a Chromium (see browser.ts).
@@ -23,6 +29,8 @@ const HINTS_KEY = 'double-take.hints.v1';
 const DEV_HINTS_KEY = 'double-take:dev-hints:v1';
 const HINT = '[data-testid="gesture-hint"]';
 const CLOSE_WALKTHROUGH = '[aria-label="Close the walkthrough"]';
+const DESKTOP_BOTH = 'Hold Space, Double-click';
+const PHONE_BOTH = 'Hold, Double tap';
 
 const failures: string[] = [];
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -38,7 +46,7 @@ const CONTEXT: Record<Layout, BrowserContextOptions> = {
 
 interface Start {
   gesture?: 'hold' | 'doubleTap' | 'both';
-  hints?: { opens: number; swiped: boolean };
+  hints?: { opens: number };
   dev?: { force?: string; design?: string; input?: string };
   reducedMotion?: boolean;
 }
@@ -83,7 +91,30 @@ const hintGone = (page: Page, ms: number) =>
   );
 const stored = (page: Page) => page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? 'null'), HINTS_KEY);
 
-/** Opens the active clip's double take with its button, then closes it. */
+/**
+ * Whether the hint is actually seen: with every video paused (so only the hint
+ * can change), hiding it must change the screen in its box. Being in the page,
+ * opaque and on top in the DOM isn't enough; a stacking context can still sink
+ * it under the video.
+ */
+async function hintPainted(page: Page): Promise<boolean | null> {
+  const box = await page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return r.width > 4 && r.height > 4 ? { x: r.x, y: r.y, width: r.width, height: r.height } : null;
+  }, HINT);
+  if (!box) return null;
+  await page.evaluate(() => document.querySelectorAll('video').forEach((v) => v.pause()));
+  await page.waitForTimeout(200);
+  const shown = await page.screenshot({ clip: box });
+  await page.evaluate((sel) => ((document.querySelector(sel) as HTMLElement).style.visibility = 'hidden'), HINT);
+  const hidden = await page.screenshot({ clip: box });
+  await page.evaluate((sel) => ((document.querySelector(sel) as HTMLElement).style.visibility = ''), HINT);
+  return !shown.equals(hidden);
+}
+
+/** Opens the active clip's double take with its button. */
 async function openDoubleTake(page: Page, layout: Layout) {
   const button = layout === 'desktop' ? 'section.slide[aria-current="true"] [aria-label^="Double take"]' : '[aria-label^="Double take"]';
   const el = page.locator(button).first();
@@ -94,18 +125,13 @@ async function openDoubleTake(page: Page, layout: Layout) {
 
 async function phoneFlow(browser: Browser) {
   const page = await open(browser, 'phone');
-  check('phone, brand-new: the swipe hint shows first', (await hintWithin(page, 6000)) === 'Swipe up', await page.getAttribute(HINT, 'aria-label').catch(() => null));
-  check('phone: it fades out on its own', await hintGone(page, 12_000));
-  check('phone: seen through, the swipe is learned', (await stored(page))?.swiped === true, await stored(page));
-  await page.reload();
-  await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
-  check('phone, next session: hold then double tap (Both, the default)', (await hintWithin(page, 6000)) === 'Hold, Double tap', await page.getAttribute(HINT, 'aria-label').catch(() => null));
+  check('phone, brand-new: hold then double tap (Both, the default), no swipe hint', (await hintWithin(page, 4000)) === PHONE_BOTH, await page.getAttribute(HINT, 'aria-label').catch(() => null));
   await openDoubleTake(page, 'phone');
   check('phone: opening a double take dismisses it', await hintGone(page, 2000));
   check('phone: one open counted', (await stored(page))?.opens === 1, await stored(page));
   await page.reload();
   await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
-  check('phone: back on the next session until learned', (await hintWithin(page, 6000)) === 'Hold, Double tap');
+  check('phone: back on the next session until learned', (await hintWithin(page, 4000)) === PHONE_BOTH);
   // The other way in: a double tap on the video.
   const v = (await page.locator('[aria-label="Pause"], [aria-label="Play"]').first().boundingBox())!;
   await page.touchscreen.tap(v.x + v.width / 2, v.y + v.height / 3);
@@ -116,7 +142,14 @@ async function phoneFlow(browser: Browser) {
   check('phone: two opens counted', (await stored(page))?.opens === 2, await stored(page));
   await page.reload();
   await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });
-  check('phone: learned, it never shows again', (await hintWithin(page, 5000)) === null);
+  check('phone: learned, it never shows again', (await hintWithin(page, 4000)) === null);
+  await page.context().close();
+}
+
+async function timesOut(browser: Browser) {
+  const page = await open(browser, 'phone', { gesture: 'hold' });
+  check('phone hold: just the hold', (await hintWithin(page, 4000)) === 'Hold');
+  check('it fades out on its own after a couple of loops', await hintGone(page, 12_000));
   await page.context().close();
 }
 
@@ -124,16 +157,16 @@ async function desktopFlow(browser: Browser) {
   for (const [gesture, words] of [
     ['hold', 'Hold Space'],
     ['doubleTap', 'Double-click'],
-    [undefined, 'Hold Space, Double-click'],
+    [undefined, DESKTOP_BOTH],
   ] as const) {
     const page = await open(browser, 'desktop', { gesture });
-    check(`desktop ${gesture ?? 'default (both)'}: no swipe hint, "${words}"`, (await hintWithin(page, 6000)) === words, await page.getAttribute(HINT, 'aria-label').catch(() => null));
+    check(`desktop ${gesture ?? 'default (both)'}: "${words}"`, (await hintWithin(page, 4000)) === words, await page.getAttribute(HINT, 'aria-label').catch(() => null));
     await page.context().close();
   }
   // With Both, either gesture dismisses it.
   for (const how of ['space', 'dblclick'] as const) {
     const page = await open(browser, 'desktop');
-    await hintWithin(page, 6000);
+    await hintWithin(page, 4000);
     const layer = page.locator('section.slide[aria-current="true"] .tap-layer');
     if (how === 'space') {
       await page.keyboard.down('Space');
@@ -142,30 +175,56 @@ async function desktopFlow(browser: Browser) {
     } else {
       await layer.dblclick({ position: { x: 120, y: 200 } });
     }
-    const opened = await page.waitForSelector(CLOSE_WALKTHROUGH, { timeout: 5000 }).then(() => true, () => false);
+    const opened = await page.waitForSelector(CLOSE_WALKTHROUGH, { timeout: 5000 }).then(
+      () => true,
+      () => false,
+    );
     check(`desktop: ${how === 'space' ? 'holding Space' : 'a double-click'} opens it and dismisses the hint`, opened && (await hintGone(page, 2000)), { opened });
     await page.context().close();
   }
 }
 
+/** Is it seen, over the video: desktop (direct, from the hero, with the dev panel open) and phone. */
+async function pixels(browser: Browser) {
+  for (const layout of ['desktop', 'phone'] as const) {
+    const page = await open(browser, layout);
+    const words = await hintWithin(page, 4000);
+    await page.waitForTimeout(800);
+    const seen = await hintPainted(page);
+    check(`${layout}: the hint is painted over the video, not under it`, words !== null && seen === true, { words, seen });
+    await page.context().close();
+  }
+  // The dev settings panel floats beside the desktop card: the hint still shows, and is seen.
+  const page = await open(browser, 'desktop');
+  await page.keyboard.press('Control+.');
+  await page.getByText('Gesture hint', { exact: true }).waitFor({ timeout: 5000 });
+  const words = await hintWithin(page, 4000);
+  await page.waitForTimeout(800);
+  const seen = await hintPainted(page);
+  check('desktop: with the dev settings panel open, the hint still shows over the video', words === DESKTOP_BOTH && seen === true, { words, seen });
+  await page.context().close();
+  await fromHero(browser, ['desktop'], true);
+}
+
 /** Dev settings → Interaction → Gesture hint: the design picker and Show now, even once learned. */
 async function devPanel(browser: Browser) {
-  const page = await open(browser, 'desktop', { hints: { opens: 2, swiped: true } });
-  check('learned: no hint by itself', (await hintWithin(page, 4000)) === null);
+  const page = await open(browser, 'desktop', { hints: { opens: 2 } });
+  check('learned: no hint by itself', (await hintWithin(page, 3000)) === null);
   await page.keyboard.press('Control+.');
   await page.getByText('Gesture hint', { exact: true }).waitFor({ timeout: 5000 });
   check('dev panel: Interaction has a Gesture hint section', true);
+  check('dev panel: no swipe hint option', (await page.getByText('Show the swipe hint now', { exact: true }).count()) === 0);
   await page.getByText('Hand', { exact: true }).click();
   await page.getByText('Show now', { exact: true }).click();
   const words = await hintWithin(page, 3000);
   const design = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}').design, DEV_HINTS_KEY);
-  check('dev panel: Show now plays it, in the picked design', words === 'Hold Space, Double-click' && design === 'hand', { words, design });
+  check('dev panel: Show now plays it, in the picked design', words === DESKTOP_BOTH && design === 'hand', { words, design });
   await page.context().close();
 }
 
 /** Entering through the landing's launch: no hint under the landing, then one soon after the hand-off. */
-async function fromHero(browser: Browser) {
-  for (const layout of ['desktop', 'phone'] as const) {
+async function fromHero(browser: Browser, layouts: readonly Layout[] = ['desktop', 'phone'], pixelCheck = false) {
+  for (const layout of layouts) {
     const context = await browser.newContext(CONTEXT[layout]);
     const page = await context.newPage();
     await page.addInitScript(() => {
@@ -191,17 +250,23 @@ async function fromHero(browser: Browser) {
     const handedOff = Date.now();
     const words = await hintWithin(page, 3000);
     const after = Date.now() - handedOff;
-    const want = layout === 'phone' ? 'Swipe up' : 'Hold Space, Double-click';
-    check(`${layout}: from the hero, the hint waits for the hand-off, then shows (${after} ms)`, !underLanding && words === want && after < 2000, { underLanding, words, after });
+    const want = layout === 'phone' ? PHONE_BOTH : DESKTOP_BOTH;
+    if (pixelCheck) {
+      await page.waitForTimeout(800);
+      const seen = await hintPainted(page);
+      check(`${layout}: from the hero, the hint is painted over the video`, words === want && seen === true, { words, seen });
+    } else {
+      check(`${layout}: from the hero, the hint waits for the hand-off, then shows (${after} ms)`, !underLanding && words === want && after < 2000, { underLanding, words, after });
+    }
     await context.close();
   }
 }
 
 async function reducedMotion(browser: Browser) {
-  const page = await open(browser, 'phone', { gesture: 'both', hints: { opens: 0, swiped: true }, reducedMotion: true });
-  const words = await hintWithin(page, 6000);
+  const page = await open(browser, 'phone', { gesture: 'both', reducedMotion: true });
+  const words = await hintWithin(page, 4000);
   const still = await page.locator(HINT).innerText().catch(() => '');
-  check('Reduce Motion: a still frame with both captions', words === 'Hold, Double tap' && still.includes('Hold · Double tap'), { words, still });
+  check('Reduce Motion: a still frame with both captions', words === PHONE_BOTH && still.includes('Hold · Double tap'), { words, still });
   await page.context().close();
 }
 
@@ -213,7 +278,6 @@ async function frames(browser: Browser, dir: string) {
     variants.push(
       { name: `${design}-phone-both`, layout: 'phone', start: { dev: { force: 'doubleTake', design, input: 'touch' } }, loopMs: 4600 },
       { name: `${design}-desktop-both`, layout: 'desktop', start: { dev: { force: 'doubleTake', design } }, loopMs: 4600 },
-      { name: `${design}-phone-swipe`, layout: 'phone', start: { dev: { force: 'swipe', design, input: 'touch' } }, loopMs: 2100 },
       { name: `${design}-still`, layout: 'phone', start: { dev: { force: 'doubleTake', design, input: 'still' } }, loopMs: 0 },
     );
   }
@@ -252,14 +316,19 @@ async function frames(browser: Browser, dir: string) {
 }
 
 async function main() {
-  const browser = await chromium.launch({ executablePath: findChrome() });
+  const browser = await chromium.launch({ executablePath: findChrome(), args: ['--autoplay-policy=no-user-gesture-required'] });
   if (process.env.FRAMES) await frames(browser, process.env.FRAMES);
-  if (process.env.FRAMES_ONLY) return browser.close();
-  await phoneFlow(browser);
-  await desktopFlow(browser);
-  await devPanel(browser);
-  await fromHero(browser);
-  await reducedMotion(browser);
+  if (!process.env.FRAMES_ONLY) {
+    await pixels(browser);
+    if (!process.env.PIXELS_ONLY) {
+      await phoneFlow(browser);
+      await timesOut(browser);
+      await desktopFlow(browser);
+      await devPanel(browser);
+      await fromHero(browser);
+      await reducedMotion(browser);
+    }
+  }
   await browser.close();
   if (failures.length) {
     console.error(`\n${failures.length} failed`);
