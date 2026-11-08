@@ -26,6 +26,7 @@ import { useSocial } from '@/social/store';
 import { appSettings, useAppSettings } from '@/settings/store';
 import { autoLabel, clipsForMode, isAppend, keepPosition, modeFilter, shownIndexOf } from './feedMode';
 import { POOL_SIZE, indexFromOffset, isOnPage, isWideLayout, poolWindow } from './pool';
+import { IDLE, planFor, type PlayerPlan } from './playback';
 import { shrinkGeometry } from './shrink';
 import { ClipItem } from './ClipItem';
 import { TopBar } from './TopBar';
@@ -95,6 +96,13 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
   const p2 = useVideoPlayer(null, setup);
   const players = useMemo(() => [p0, p1, p2], [p0, p1, p2]);
 
+  const applyPlan = useCallback((player: VideoPlayer, plan: PlayerPlan) => {
+    player.muted = plan.muted;
+    player.playbackRate = plan.rate;
+    if (plan.play) player.play();
+    else player.pause();
+  }, []);
+
   const slotIndex = useMemo(() => poolWindow(active, clips.length), [active, clips.length]);
   // Which item each player has finished loading (-1 while loading). Views only
   // attach a player once it holds their clip, so a recycled player never
@@ -128,8 +136,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
       const gen = ++loadGen.current[s];
       setLoaded((l) => (l[s] === -1 ? l : l.map((v, i) => (i === s ? -1 : v))));
       const player = players[s];
-      player.pause();
-      player.muted = true;
+      applyPlan(player, IDLE);
       player
         .replaceAsync(clips[idx].video)
         .then(() => {
@@ -138,24 +145,13 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
         })
         .catch(() => {});
     });
-  }, [slotIndex, players, clips]);
+  }, [slotIndex, players, clips, applyPlan]);
 
   // Apply play/pause/mute/rate to every player whenever anything relevant changes.
   useEffect(() => {
-    const live = focused && appActive;
+    const state = { live: focused && appActive, muted, paused, boost, slowmo };
     slotIndex.forEach((idx, s) => {
-      const player = players[s];
-      const isActive = idx === active && loaded[s] === idx;
-      if (isActive && live) {
-        player.muted = muted || slowmo;
-        player.playbackRate = boost ? 2 : slowmo ? REPLAY_RATE : 1;
-        if (paused) player.pause();
-        else player.play();
-      } else {
-        player.pause();
-        player.muted = true;
-        player.playbackRate = 1;
-      }
+      applyPlan(players[s], planFor(idx === active && loaded[s] === idx, state, REPLAY_RATE));
     });
     // Rewind clips we left once they're off screen, so revisits start over.
     const t = setTimeout(() => {
@@ -166,7 +162,7 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
       });
     }, 450);
     return () => clearTimeout(t);
-  }, [slotIndex, loaded, active, focused, appActive, muted, paused, boost, slowmo, players]);
+  }, [slotIndex, loaded, active, focused, appActive, muted, paused, boost, slowmo, players, applyPlan]);
 
   useEffect(() => {
     let live = true;
