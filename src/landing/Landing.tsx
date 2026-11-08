@@ -201,13 +201,10 @@ export function Landing({
         </div>
       </section>
 
+      {v.below !== 'none' && <Below design={v.below} pressTile={pressTile} />}
+      {/* The features tour ends straight into the last call to action and the footer. */}
       {features && <Features rootRef={rootRef} values={features} />}
-
-      {v.below !== 'none' ? (
-        <Below design={v.below} press={press} pressTile={pressTile} button={words.button} />
-      ) : (
-        features && <Closing press={press} button={words.button} />
-      )}
+      {(v.below !== 'none' || features) && <Closing press={press} button={words.button} />}
     </div>
   );
 }
@@ -259,17 +256,7 @@ function Emphasis({ design, word }: { design: LandingValues['emphasis']; word: s
   }
 }
 
-function Below({
-  design,
-  press,
-  pressTile,
-  button,
-}: {
-  design: LandingValues['below'];
-  press(e: MouseEvent<HTMLElement>): void;
-  pressTile(e: MouseEvent<HTMLElement>): void;
-  button: string;
-}) {
+function Below({ design, pressTile }: { design: LandingValues['below']; pressTile(e: MouseEvent<HTMLElement>): void }) {
   const quizRef = useRef<HTMLElement>(null);
   useTilePlayback(quizRef, design);
   useAtlasBoards(quizRef, design);
@@ -345,7 +332,6 @@ function Below({
         </section>
       )}
 
-      <Closing press={press} button={button} />
     </>
   );
 }

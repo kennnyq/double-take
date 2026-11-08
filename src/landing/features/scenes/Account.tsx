@@ -95,7 +95,7 @@ export function AccountScene() {
       const from = { x: ((i + 1.5) * CANVAS_W) / 4 * k - 60, y: 360 * k };
       const w = el.offsetWidth || 150;
       const out = d.narrow || d.pop <= 0
-        ? { x: 12 + i * ((d.sw - 24) / 3), y: d.sh * 0.78 - 40, z: 40 * d.pop }
+        ? { x: d.sw - w * 0.82 - 12, y: d.sh * 0.46 + i * 46, z: 40 * d.pop }
         : { x: s > 0 ? d.sw + Math.min(36 + 30 * d.pop + (i % 2) * 30, Math.max(8, d.roomR - w - 20)) : -Math.min(36 + 30 * d.pop + (i % 2) * 30, Math.max(8, d.roomL - w - 20)) - w, y: d.sh * 0.3 + i * 70, z: 60 * d.pop };
       paint(
         el,
@@ -105,10 +105,6 @@ export function AccountScene() {
     });
   });
 
-  const part = (i: number) => (el: HTMLElement | null) => {
-    parts.current[i] = el;
-  };
-  let cell = 0;
   return (
     <>
       <OnScreen layerRef={layer}>
@@ -123,7 +119,9 @@ export function AccountScene() {
             </span>
           </div>
           <div className="ft-profile ft-a" ref={profile} style={{ opacity: 0 }}>
-            <p className="ft-ptitle" ref={part(0)}>
+            <p className="ft-ptitle" ref={(el) => {
+                parts.current[0] = el;
+              }}>
               guest
             </p>
             <div className="ft-phead">
@@ -145,7 +143,9 @@ export function AccountScene() {
                   ))}
                 </div>
               </div>
-              <div className="ft-stats ft-a" ref={part(1)}>
+              <div className="ft-stats ft-a" ref={(el) => {
+                parts.current[1] = el;
+              }}>
                 <span>
                   <b>0</b>posts
                 </span>
@@ -157,13 +157,19 @@ export function AccountScene() {
                 </span>
               </div>
             </div>
-            <p className="ft-pname ft-a" ref={part(2)}>
+            <p className="ft-pname ft-a" ref={(el) => {
+                parts.current[2] = el;
+              }}>
               Guest
             </p>
-            <div className="ft-pbtns ft-a" ref={part(3)}>
+            <div className="ft-pbtns ft-a" ref={(el) => {
+                parts.current[3] = el;
+              }}>
               <span>Sign in to save across devices</span>
             </div>
-            <div className="ft-ptabs ft-a" ref={part(4)}>
+            <div className="ft-ptabs ft-a" ref={(el) => {
+                parts.current[4] = el;
+              }}>
               <span>
                 <Grid3x3 size={22} />
               </span>
@@ -186,11 +192,27 @@ export function AccountScene() {
                 >
                   {Array.from({ length: 9 }, (_, i) => {
                     const src = posters.length ? posters[(g * 3 + i) % posters.length] : undefined;
-                    const c = cell++;
-                    const ref = (el: HTMLElement | null) => {
-                      cells.current[c] = el;
-                    };
-                    return src ? <img key={i} src={src} alt="" ref={ref} className="ft-a" loading="lazy" /> : <em key={i} ref={ref} className="ft-a" />;
+                    const c = (g - 1) * 9 + i;
+                    return src ? (
+                      <img
+                        key={i}
+                        src={src}
+                        alt=""
+                        className="ft-a"
+                        loading="lazy"
+                        ref={(el) => {
+                          cells.current[c] = el;
+                        }}
+                      />
+                    ) : (
+                      <em
+                        key={i}
+                        className="ft-a"
+                        ref={(el) => {
+                          cells.current[c] = el;
+                        }}
+                      />
+                    );
                   })}
                 </div>
               ))}

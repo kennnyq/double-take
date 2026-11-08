@@ -49,14 +49,14 @@ async function frameTimes(page: Page, t: Track, seconds: number) {
   await page.waitForTimeout(800);
   return page.evaluate(
     ({ from, to, ms }) =>
-      new Promise<number[]>((resolve) => {
+      new Promise<[number, number][]>((resolve) => {
         const root = document.querySelector<HTMLElement>('.lt-root')!;
-        const times: number[] = [];
+        const times: [number, number][] = [];
         let start = -1;
         let last = 0;
         const frame = (now: number) => {
           if (start < 0) start = now;
-          else times.push(now - last);
+          else times.push([now - last, root.scrollTop]);
           last = now;
           const k = Math.min(1, (now - start) / ms);
           root.scrollTop = from + (to - from) * k;
@@ -69,7 +69,8 @@ async function frameTimes(page: Page, t: Track, seconds: number) {
   );
 }
 
-function summary(times: number[]) {
+function summary(times: number[]): Record<string, number> {
+  if (!times.length) return { frames: 0 };
   const sorted = [...times].sort((a, b) => a - b);
   const q = (p: number) => sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))];
   const sum = times.reduce((a, b) => a + b, 0);
@@ -94,6 +95,8 @@ for (const [w, h] of sizes) {
     const page = await ctx.newPage();
     await cacheFeed(page);
     page.on('pageerror', (e) => console.error(`[${design} ${w}] page error:`, e.message));
+    // The features' frame loop reports its own cost per frame here.
+    await page.addInitScript(() => ((window as unknown as { __ftCost: number[] }).__ftCost = []));
     await page.goto(`${BASE_URL}/?fdesign=${design}&fmeter=off`, { waitUntil: 'domcontentloaded' });
     await page.waitForSelector('#features .ft-device', { timeout: 60_000 });
     const t = await track(page);
@@ -109,8 +112,24 @@ for (const [w, h] of sizes) {
       }
     }
     if (timing) {
-      const times = await frameTimes(page, t, Math.max(8, t.total * 0.9));
-      results[`${design} ${w}x${h}`] = summary(times);
+      const frames = await frameTimes(page, t, Math.max(8, t.total * 0.9));
+      const ids = await page.evaluate(() => (document.querySelector<HTMLElement>('#features')!.dataset.ids ?? '').split(','));
+      // Each frame by where the page was: before the track, in each section, after it.
+      const at = (y: number) => {
+        const pos = (y - t.top) / t.h;
+        if (pos < 0) return 'before';
+        const i = t.starts.findLastIndex((s) => pos >= s);
+        return pos >= t.total ? 'after' : ids[i];
+      };
+      const by: Record<string, number[]> = {};
+      for (const [dt, y] of frames) (by[at(y)] ??= []).push(dt);
+      const cost = await page.evaluate(() => (window as unknown as { __ftCost: number[] }).__ftCost.splice(0));
+      const sc = [...cost].sort((a, b) => a - b);
+      results[`${design} ${w}x${h}`] = {
+        all: summary(frames.map((f) => f[0])),
+        script: `frame loop: median ${sc[Math.floor(sc.length / 2)]?.toFixed(2)} ms, p95 ${sc[Math.floor(sc.length * 0.95)]?.toFixed(2)} ms, max ${sc[sc.length - 1]?.toFixed(2)} ms (${sc.length} frames)`,
+        ...Object.fromEntries(Object.entries(by).map(([k, v]) => [k, `${summary(v).fps} fps, ${summary(v).over20}/${v.length} over 20 ms, worst ${summary(v).worst}`])),
+      };
     }
     await ctx.close();
   }

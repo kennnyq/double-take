@@ -164,8 +164,11 @@ export function Features({ rootRef, values: v }: { rootRef: RefObject<HTMLElemen
     let last = performance.now();
     let visible = true;
 
+    // Development: browser checks read each frame's own cost from `window.__ftCost` (when they set it).
+    const costs = (window as unknown as { __ftCost?: number[] }).__ftCost;
     const frame = (now: number) => {
       raf = 0;
+      const began = costs ? performance.now() : 0;
       const dt = Math.min(64, now - last);
       last = now;
       const goal = target();
@@ -205,12 +208,14 @@ export function Features({ rootRef, values: v }: { rootRef: RefObject<HTMLElemen
         paint(rail, `translate3d(${px(-railAt * pitch)}, 0, 0)`, 1);
         copies.forEach((c, i) => {
           const d = i - railAt;
-          if (v.layout === 'rail' && !dims.narrow) paint(c, `translate3d(${px(i * pitch)}, 0, 0)`, Math.max(0.15, 1 - Math.abs(d) * 0.85));
+          // Passed panels fade away (they slide behind the phone); the next one waits, dimmed.
+          if (v.layout === 'rail' && !dims.narrow) paint(c, `translate3d(${px(i * pitch)}, 0, 0)`, d < 0 ? Math.max(0, 1 + d * 1.4) : Math.max(0.22, 1 - d * 0.78));
         });
       }
       paint(deviceRef.current, `rotateY(${(turn * tilt).toFixed(3)}deg) rotateX(${(tilt ? 2 : 0).toFixed(1)}deg)`, 1);
       paint(glow, 'none', Math.max(0, Math.min(1, 1 - Math.max(0, -pos) * 1.2)));
       if (Math.abs(pos - goal) > 0.0005) schedule();
+      costs?.push(performance.now() - began);
     };
     const schedule = () => {
       if (!raf && visible) {

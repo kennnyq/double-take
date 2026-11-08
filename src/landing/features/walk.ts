@@ -7,7 +7,7 @@
  *   next tell, the text rises line by line, the card comes out of the screen
  *   and goes back) ── spotlight eases out ── 1
  */
-import { clamp01, easeInOut, easeOut, plateau, seg, stepsAt } from './timeline';
+import { clamp01, easeInOut, easeOut, plateau, seg, stepsAt } from './timeline.ts';
 
 export interface WalkFrame {
   /** The feed swiping from the first clip to the one with tells, 0..1. */
