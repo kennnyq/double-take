@@ -1,8 +1,7 @@
 /**
- * Browser check for the first-run gesture hint over the feed. It walks through
- * the two ways into the double take (Both is the default): on phones a hold,
- * then a double tap; on desktop (a fine pointer) Hold Space, then a
- * double-click. It goes as soon as either gesture opens a double take, comes
+ * Browser check for the first-run gesture hint over the feed: one hint for
+ * both ways into the double take (Both is the default), "Hold or double tap"
+ * on phones and "Hold or double-click" on desktop (a fine pointer). It goes as soon as either gesture opens a double take, comes
  * back on reload until two have been opened, and then never again. Entering
  * from the landing's hero, it waits for the hand-off. Reduce Motion gets a
  * still frame. Dev settings → Interaction → Gesture hint plays it now, in the
@@ -29,8 +28,8 @@ const HINTS_KEY = 'double-take.hints.v1';
 const DEV_HINTS_KEY = 'double-take:dev-hints:v1';
 const HINT = '[data-testid="gesture-hint"]';
 const CLOSE_WALKTHROUGH = '[aria-label="Close the walkthrough"]';
-const DESKTOP_BOTH = 'Hold Space, Double-click';
-const PHONE_BOTH = 'Hold, Double tap';
+const DESKTOP_BOTH = 'Hold or double-click';
+const PHONE_BOTH = 'Hold or double tap';
 
 const failures: string[] = [];
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -155,7 +154,7 @@ async function timesOut(browser: Browser) {
 
 async function desktopFlow(browser: Browser) {
   for (const [gesture, words] of [
-    ['hold', 'Hold Space'],
+    ['hold', 'Hold'],
     ['doubleTap', 'Double-click'],
     [undefined, DESKTOP_BOTH],
   ] as const) {
@@ -214,11 +213,11 @@ async function devPanel(browser: Browser) {
   await page.getByText('Gesture hint', { exact: true }).waitFor({ timeout: 5000 });
   check('dev panel: Interaction has a Gesture hint section', true);
   check('dev panel: no swipe hint option', (await page.getByText('Show the swipe hint now', { exact: true }).count()) === 0);
-  await page.getByText('Hand', { exact: true }).click();
+  await page.getByText('Finger', { exact: true }).click();
   await page.getByText('Show now', { exact: true }).click();
   const words = await hintWithin(page, 3000);
   const design = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}').design, DEV_HINTS_KEY);
-  check('dev panel: Show now plays it, in the picked design', words === DESKTOP_BOTH && design === 'hand', { words, design });
+  check('dev panel: Show now plays it, in the picked design', words === DESKTOP_BOTH && design === 'finger', { words, design });
   await page.context().close();
 }
 
@@ -266,7 +265,7 @@ async function reducedMotion(browser: Browser) {
   const page = await open(browser, 'phone', { gesture: 'both', reducedMotion: true });
   const words = await hintWithin(page, 4000);
   const still = await page.locator(HINT).innerText().catch(() => '');
-  check('Reduce Motion: a still frame with both captions', words === PHONE_BOTH && still.includes('Hold · Double tap'), { words, still });
+  check('Reduce Motion: a still frame with its caption', words === PHONE_BOTH && still.includes(PHONE_BOTH), { words, still });
   await page.context().close();
 }
 
@@ -274,10 +273,10 @@ async function reducedMotion(browser: Browser) {
 async function frames(browser: Browser, dir: string) {
   mkdirSync(dir, { recursive: true });
   const variants: { name: string; layout: Layout; start: Start; loopMs: number }[] = [];
-  for (const design of ['finger', 'fingertip', 'hand']) {
+  for (const design of ['hand', 'finger', 'fingertip']) {
     variants.push(
-      { name: `${design}-phone-both`, layout: 'phone', start: { dev: { force: 'doubleTake', design, input: 'touch' } }, loopMs: 4600 },
-      { name: `${design}-desktop-both`, layout: 'desktop', start: { dev: { force: 'doubleTake', design } }, loopMs: 4600 },
+      { name: `${design}-phone-both`, layout: 'phone', start: { dev: { force: 'doubleTake', design, input: 'touch' } }, loopMs: 3800 },
+      { name: `${design}-desktop-both`, layout: 'desktop', start: { dev: { force: 'doubleTake', design } }, loopMs: 3800 },
       { name: `${design}-still`, layout: 'phone', start: { dev: { force: 'doubleTake', design, input: 'still' } }, loopMs: 0 },
     );
   }
