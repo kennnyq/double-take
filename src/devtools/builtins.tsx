@@ -7,7 +7,8 @@ import { DEFAULT_PALETTE, LEGACY_PALETTES, PALETTES, PALETTE_IDS, setPalette, us
 import { AccountsTab } from './AccountsTab';
 import { registerDevSection, registerDevTab, settingChoice, useDevSection } from './api';
 import { PaletteSwatches } from './PaletteSwatches';
-import { HOLD_DELAYS, pipelineChoices } from './settings';
+import { useCloudPipeline } from './pipeline';
+import { HOLD_DELAYS, MAIN_PIPELINE, pipelineChoices } from './settings';
 import { closeDevSettings, devSettings, pinDevRow } from './store';
 
 /*
@@ -92,6 +93,7 @@ function usePipelines(): Record<string, number> {
  */
 export function BuiltInSources({ desktop, onShowLanding }: { desktop: boolean; onShowLanding?: () => void }) {
   const pipelines = usePipelines();
+  const cloudPipeline = useCloudPipeline();
   const palette = usePalette();
 
   useDevSection(() => {
@@ -118,22 +120,27 @@ export function BuiltInSources({ desktop, onShowLanding }: { desktop: boolean; o
       id: 'model/pipeline',
       tab: 'model',
       title: 'Tells pipeline',
-      note: 'One model for every clip. Clips with no tells from it show main’s.',
+      note: `One model for every clip. Clips with no tells from it show main’s. ${
+        cloudPipeline ? `Default from cloud: ${cloudPipeline}.` : `Default: ${MAIN_PIPELINE}.`
+      }`,
       rows: (s) =>
         [
-          settingChoice(
-            s,
-            'pipeline',
-            'Model',
-            pipelineChoices(Object.keys(pipelines), s.pipeline).map((n) => ({
+          settingChoice(s, 'pipelinePick', 'Model', [
+            // No pick of your own: follow the cloud's default (Supabase app_config), else main.
+            {
+              label: `Default (${cloudPipeline ?? MAIN_PIPELINE})`,
+              value: '',
+              note: cloudPipeline ? `Default from cloud: ${cloudPipeline}.` : `Default: ${MAIN_PIPELINE}.`,
+            },
+            ...pipelineChoices(Object.keys(pipelines), s.pipelinePick || MAIN_PIPELINE).map((n) => ({
               label: n,
               value: n,
               note: n === 'main' ? `The published tells${withTells ? `, on ${withTells} clips` : ''}.` : `On ${pipelines[n] ?? 0} of ${withTells} clips with tells.`,
             })),
-          ),
+          ]),
         ],
     };
-  }, [pipelines]);
+  }, [pipelines, cloudPipeline]);
 
   useDevSection(() => {
     const item = (id: PaletteId) => ({ label: PALETTES[id].name, value: id, note: PALETTES[id].blurb });

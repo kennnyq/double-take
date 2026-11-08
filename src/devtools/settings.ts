@@ -49,8 +49,11 @@ export interface DevSettings {
   holdMs: HoldDelay;
   /** Shared Home/Game order; takes effect on reload. */
   feedOrder: 'best' | 'original';
-  /** The tells pipeline ("model") every clip shows; clips without it fall back to main. */
-  pipeline: string;
+  /**
+   * The viewer's own pick of tells pipeline ("model") for every clip, or ''
+   * for the default (the cloud's `tells_pipeline`, else main). See `resolvePipeline`.
+   */
+  pipelinePick: string;
   launcher: LauncherCorner;
   /**
    * The double take's spotlight outside the tell's area: off, darken (default),
@@ -78,7 +81,7 @@ export type DevSettingKey = keyof DevSettings;
 export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   holdMs: 350,
   feedOrder: 'best',
-  pipeline: MAIN_PIPELINE,
+  pipelinePick: '',
   launcher: 'auto',
   spotlightEffect: 'darken',
   spotlightStrength: 2,
@@ -110,7 +113,13 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
   return {
     holdMs: oneOf(HOLD_DELAYS, o.holdMs, d.holdMs),
     feedOrder: oneOf(['best', 'original'] as const, o.feedOrder, d.feedOrder),
-    pipeline: typeof o.pipeline === 'string' && /^[\w.-]{1,40}$/.test(o.pipeline) ? o.pipeline : d.pipeline,
+    pipelinePick: isPipelineName(o.pipelinePick)
+      ? o.pipelinePick
+      : // Before cloud defaults, every saved state held `pipeline: 'main'`, picked or not;
+        // only a non-main value there was a real pick.
+        isPipelineName(o.pipeline) && o.pipeline !== MAIN_PIPELINE
+        ? o.pipeline
+        : d.pipelinePick,
     launcher: oneOf(LAUNCHER_CORNERS, o.launcher, d.launcher),
     spotlightEffect: oneOf(SPOTLIGHT_EFFECTS, o.spotlightEffect, d.spotlightEffect),
     spotlightStrength: oneOf(SPOTLIGHT_STRENGTHS, o.spotlightStrength, d.spotlightStrength),
@@ -189,6 +198,21 @@ export function createSettingsStore(kv: KeyValue | null): SettingsStore {
       commit({ ...read(), ...back });
     },
   };
+}
+
+/** A pipeline name as tells files are named: letters, digits, `_`, `.`, `-`. */
+export function isPipelineName(v: unknown): v is string {
+  return typeof v === 'string' && /^[\w.-]{1,40}$/.test(v);
+}
+
+/**
+ * The pipeline every clip shows: the viewer's own pick, else the cloud default
+ * if it's a valid name, else main. (A valid name no clip has still shows main,
+ * per clip, through `variantIndex`.)
+ */
+export function resolvePipeline(pick: string, cloudDefault: unknown): string {
+  if (isPipelineName(pick)) return pick;
+  return isPipelineName(cloudDefault) ? cloudDefault : MAIN_PIPELINE;
 }
 
 /**

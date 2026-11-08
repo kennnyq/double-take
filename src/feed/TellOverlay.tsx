@@ -9,6 +9,7 @@ import { readTellsFile, type UnplacedClaim } from '@/annotations/format';
 import { replayWindow, stepCopy, walkthroughSteps, type Replay } from '@/annotations/walkthrough';
 import type { TellsVariant } from '@/data/clips';
 import { variantIndex } from '@/devtools/settings';
+import { useTellsPipeline } from '@/devtools/pipeline';
 import { useDevSettings } from '@/devtools/store';
 import { pointerVerb } from '@/ui/pointer';
 import { usePalette } from '@/ui/theme';
@@ -160,8 +161,9 @@ let cardKeys = 0;
  */
 export function TellOverlay({ ref, ...p }: Props) {
   const settings = useDevSettings();
-  // One pipeline ("model") for every clip, picked in the dev settings; main if this clip lacks it.
-  const variant = variantIndex(p.variants, settings.pipeline);
+  // One pipeline ("model") for every clip: the dev pick, else the cloud default; main if this clip lacks it.
+  const pipeline = useTellsPipeline();
+  const variant = variantIndex(p.variants, pipeline);
   const [step, setStep] = useState<number | null>(null); // null: closed, -1: nothing to show
   const [cache, setCache] = useState<Record<string, Loaded>>({});
   const [cards, setCards] = useState<Card[]>([]);

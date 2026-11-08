@@ -7,6 +7,7 @@ import {
   createSettingsStore,
   parseSettings,
   pipelineChoices,
+  resolvePipeline,
   variantIndex,
   type KeyValue,
 } from './settings.ts';
@@ -61,17 +62,17 @@ test('the spotlight defaults to darken only, and a first-version pick falls back
 });
 
 test('parseSettings keeps valid values', () => {
-  const s = parseSettings(JSON.stringify({ revealGesture: 'doubleTap', holdMs: 500, pipeline: 'claude', launcher: 'topLeft' }));
+  const s = parseSettings(JSON.stringify({ revealGesture: 'doubleTap', holdMs: 500, pipelinePick: 'claude', launcher: 'topLeft' }));
   assert.equal(s.holdMs, 500);
-  assert.equal(s.pipeline, 'claude');
+  assert.equal(s.pipelinePick, 'claude');
   assert.equal('revealGesture' in s, false, 'the gesture is a user setting now');
-  assert.deepEqual(changedKeys(s).sort(), ['holdMs', 'launcher', 'pipeline']);
+  assert.deepEqual(changedKeys(s).sort(), ['holdMs', 'launcher', 'pipelinePick']);
 });
 
 test('the store reads saved settings, saves changes and notifies', () => {
-  const kv = memory({ [STORAGE_KEY]: JSON.stringify({ pipeline: 'claude' }) });
+  const kv = memory({ [STORAGE_KEY]: JSON.stringify({ pipelinePick: 'claude' }) });
   const store = createSettingsStore(kv);
-  assert.equal(store.getSnapshot().pipeline, 'claude');
+  assert.equal(store.getSnapshot().pipelinePick, 'claude');
 
   let calls = 0;
   const off = store.subscribe(() => calls++);
@@ -90,10 +91,10 @@ test('the store reads saved settings, saves changes and notifies', () => {
 
 test('the store rejects invalid values and resets keys or everything', () => {
   const store = createSettingsStore(memory());
-  store.set({ holdMs: 123 as never, pipeline: 'claude', launcher: 'topLeft' });
+  store.set({ holdMs: 123 as never, pipelinePick: 'claude', launcher: 'topLeft' });
   assert.equal(store.getSnapshot().holdMs, DEFAULT_SETTINGS.holdMs);
-  store.reset(['pipeline']);
-  assert.equal(store.getSnapshot().pipeline, 'main');
+  store.reset(['pipelinePick']);
+  assert.equal(store.getSnapshot().pipelinePick, '');
   assert.equal(store.getSnapshot().launcher, 'topLeft');
   store.reset();
   assert.deepEqual(store.getSnapshot(), DEFAULT_SETTINGS);
@@ -111,8 +112,8 @@ test('the store works without storage, or when storage throws', () => {
   for (const kv of [null, broken]) {
     const store = createSettingsStore(kv);
     assert.deepEqual(store.getSnapshot(), DEFAULT_SETTINGS);
-    store.set({ pipeline: 'claude' });
-    assert.equal(store.getSnapshot().pipeline, 'claude');
+    store.set({ pipelinePick: 'claude' });
+    assert.equal(store.getSnapshot().pipelinePick, 'claude');
   }
 });
 
@@ -126,4 +127,21 @@ test('variantIndex picks the global pipeline, else main', () => {
   assert.equal(variantIndex(v, 'claude'), 1);
   assert.equal(variantIndex(v, 'main'), 0);
   assert.equal(variantIndex(v, 'beta'), 0);
+});
+
+test('a saved pipeline from before cloud defaults counts only if it was a real pick', () => {
+  // Every old saved state had pipeline: 'main', picked or not: that now follows the default.
+  assert.equal(parseSettings(JSON.stringify({ pipeline: 'main' })).pipelinePick, '');
+  assert.equal(parseSettings(JSON.stringify({ pipeline: 'claude' })).pipelinePick, 'claude');
+  // The new key wins, and an explicit main is kept.
+  assert.equal(parseSettings(JSON.stringify({ pipeline: 'claude', pipelinePick: 'main' })).pipelinePick, 'main');
+  assert.equal(parseSettings(JSON.stringify({ pipelinePick: '../x' })).pipelinePick, '');
+});
+
+test('resolvePipeline: your pick, else a valid cloud default, else main', () => {
+  assert.equal(resolvePipeline('', null), 'main');
+  assert.equal(resolvePipeline('', 'claude'), 'claude');
+  assert.equal(resolvePipeline('main', 'claude'), 'main');
+  assert.equal(resolvePipeline('beta', 'claude'), 'beta');
+  for (const bad of [42, '', '../x', { name: 'claude' }, 'x'.repeat(41)]) assert.equal(resolvePipeline('', bad), 'main');
 });
