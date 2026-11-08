@@ -332,23 +332,24 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     retry.current = undefined;
     setCanRetry(false);
     setDemo(prepared);
-    await wait(900 + Math.min(1400, bytes / 20000));
+    await wait(2500 + Math.min(2000, bytes / 10000));
     if (!live()) return;
     // Then the check plays back step by step: each row's recorded time, scaled so the
-    // whole run takes about 6–8 s, and never less than 0.4 s a step.
+    // whole run takes about 20–25 s (stretched or squeezed to fit), and never less
+    // than 2 s a step, so a presenter can talk through each one as it lands.
     const steps = prepared.job.result?.investigation?.steps ?? [];
     const rows = rowsOf(steps);
     const ms = rows.map((r) => (r.decision?.elapsedMs ?? 0) + r.step.elapsedMs);
-    const scale = Math.min(1, 6000 / Math.max(1, ms.reduce((a, b) => a + b, 0)));
+    const scale = 20000 / Math.max(1, ms.reduce((a, b) => a + b, 0));
     setBusy(false);
     setReplay({ steps, done: 0 });
     setJob({ ...prepared.job, state: 'running', result: undefined });
     for (let i = 0; i < rows.length; i++) {
-      await wait(Math.max(400, Math.min(2200, ms[i] * scale)));
+      await wait(Math.max(2000, Math.min(7000, ms[i] * scale)));
       if (!live()) return;
       setReplay({ steps, done: i + 1 });
     }
-    await wait(rows.length ? 700 : 2600);
+    await wait(rows.length ? 1500 : 20000);
     if (!live()) return;
     setJob(prepared.job);
     locked.current = false;
