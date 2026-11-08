@@ -46,5 +46,6 @@ Kenny's rule: **"Avoid discrete motion and animation except for navigation."**
 
 - Every UI state change moves continuously: interpolated, spring or eased, and interruptible (a new target retargets from where the motion is, it never restarts or snaps). Fade, scale or morph things in and out instead of mounting or unmounting them abruptly.
 - Only navigation (tab or route changes) may cut.
+- Exception: decorative text effects Kenny has explicitly signed off on may be discrete. So far there is one: the landing hero's "twice" glitch emphasis (`.lt-em-glitch`, `steps(1)` bursts in `src/landing/landing.css`).
 - Video position: never jump straight to a timestamp. Fast-forward or rewind to it with a quick, visible, eased scrub (see `src/feed/scrub.ts`). The one allowed jump is the double take's slow-mo loop restart, which its progress line shows.
 - Prefer `react-native-reanimated` (UI-thread springs and timings) for new motion; on desktop web, CSS transitions are fine.
