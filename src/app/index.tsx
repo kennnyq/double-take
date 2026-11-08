@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useIsFocused } from 'expo-router';
+import { AuthBoot } from '@/auth/store';
 import type { Clip } from '@/data/clips';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import { DesktopApp } from '@/desktop/DesktopApp';
@@ -23,6 +24,7 @@ export default function Home() {
   const desktop = Platform.OS === 'web' && width >= 760 && height >= 480;
   return (
     <SocialProvider>
+      <AuthBoot />
       <ToastProvider>
         {/* Web shows a landing page first; the apps open on the feed. */}
         <WithLanding>
