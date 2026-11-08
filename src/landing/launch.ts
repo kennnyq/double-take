@@ -87,24 +87,57 @@ const WORD_EXITS: Record<LandingValues['words'], (from: string) => Keyframe[]> =
 
 const SINK_DEPTH: Record<LandingValues['depth'], number> = { shallow: 450, medium: 900, deep: 1600 };
 
-function recedeFrames(o: string, deep: boolean, px: number): Keyframe[] {
-  // A slow sink: it starts to fade a third of the way down.
+/**
+ * A slow sink: it starts to fade a third of the way down. `deep`: along its
+ * plane's depth; otherwise it shrinks, to `scale` (projected: see `sinkOnPlane`)
+ * or by how far it sinks.
+ */
+function recedeFrames(o: string, deep: boolean, px: number, scale = Math.max(0.3, 1 - px / 1800)): Keyframe[] {
   return [
     { opacity: o, translate: '0 0 0', scale: '1' },
     { offset: 0.35, opacity: o },
-    { opacity: 0, translate: deep ? `0 0 -${px}px` : '0 0 0', scale: deep ? '1' : String(Math.max(0.3, 1 - px / 1800)) },
+    { opacity: 0, translate: deep ? `0 0 -${px}px` : '0 0 0', scale: deep ? '1' : String(scale) },
   ];
+}
+
+/**
+ * Where the eye is, in a tilted plane's own pixels (from its top left; `z` its
+ * height above the plane), from its transform (`data-tilt`: a perspective and
+ * rotations, about its middle).
+ */
+function eyeOnPlane(plane: HTMLElement): { x: number; y: number; z: number } | null {
+  const tilt = plane.dataset.tilt;
+  const d = Number(/perspective\(([\d.]+)px\)/.exec(tilt ?? '')?.[1]);
+  if (!tilt || !d) return null;
+  const eye = new DOMMatrix(tilt.replace(/perspective\([^)]*\)/, '').trim() || 'none').inverse().transformPoint(new DOMPoint(0, 0, d));
+  return eye.z > 0 ? { x: eye.x + plane.offsetWidth / 2, y: eye.y + plane.offsetHeight / 2, z: eye.z } : null;
+}
+
+/**
+ * A tile on a tilted plane sinking `px` back along the plane's normal, drawn
+ * flat in the plane (no 3D context, which Safari redrew the whole plane for):
+ * seen from the eye, the sunk tile is the flat one scaled about the point on
+ * the plane under the eye, by its height over the plane against its height
+ * over the sunk tile. Exact for a flat tile; it only drifts as far as its
+ * strip still glides meanwhile.
+ */
+function sinkOnPlane(tile: HTMLElement, eye: { x: number; y: number; z: number }, px: number) {
+  const strip = tile.offsetParent as HTMLElement | null;
+  const m = strip ? new DOMMatrix(getComputedStyle(strip).transform === 'none' ? undefined : getComputedStyle(strip).transform) : new DOMMatrix();
+  const x = tile.offsetLeft + (strip?.offsetLeft ?? 0) + m.m41;
+  const y = tile.offsetTop + (strip?.offsetTop ?? 0) + m.m42;
+  return { scale: eye.z / (eye.z + px), origin: `${eye.x - x}px ${eye.y - y}px` };
 }
 
 /** The recede exit with the design's own length and depth. */
 function recede(v: LandingValues): (typeof VANISH)['recede'] {
-  return { ...VANISH.recede, ms: Number(v.sink), frames: (o, _f, deep) => recedeFrames(o, deep, SINK_DEPTH[v.depth]) };
+  return { ...VANISH.recede, ms: Number(v.sink), frames: (o, _f, deep, scale) => recedeFrames(o, deep, SINK_DEPTH[v.depth], scale) };
 }
 
 /** How a tile leaves. `deep`: it sits on a plane kept in 3D for the launch, so it can move along the plane's own depth. */
 const VANISH: Record<
   LandingValues['vanish'],
-  { ms: number; easing: string; frames(o: string, f: string, deep: boolean): Keyframe[] }
+  { ms: number; easing: string; frames(o: string, f: string, deep: boolean, scale?: number): Keyframe[] }
 > = {
   fade: { ms: 560, easing: 'ease-out', frames: (o) => [{ opacity: o }, { opacity: 0 }] },
   shrink: {
@@ -137,7 +170,7 @@ const VANISH: Record<
   recede: {
     ms: 3000,
     easing: 'cubic-bezier(.35,0,.25,1)',
-    frames: (o, _f, deep) => recedeFrames(o, deep, 900),
+    frames: (o, _f, deep, scale) => recedeFrames(o, deep, 900, scale),
   },
   flip: {
     ms: 520,
@@ -548,53 +581,22 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     release?.hide(t.el);
   });
   const origin = center(survivor.getBoundingClientRect());
-  // The lighter tier: each strip leaves whole, in turn (a few animations and no
-  // new canvases, rather than one of each per tile), sinking back along the
-  // plane like the tiles do on the full tier (only the plane is kept in 3D),
-  // or, on a flat gallery, shrinking toward the middle of the screen: never
-  // sideways (a strip is twice the screen's width, so its own middle is off it).
-  const strip = (t: Measured) => (light ? t.el.closest<HTMLElement>('.lt-row, .lt-col') : null);
-  const strips = [...new Set(shown.map(strip).filter((el): el is HTMLElement => el !== null))].map((el) => ({
-    el,
-    r: el.getBoundingClientRect(),
-    seen: 1,
-  }));
-  const stripOrder = turns(strips, v.order, origin);
-  const stripSpread = Math.min(spread, 900);
-  strips.forEach((s, i) => {
-    later(140 + stripOrder[i] * stripSpread, () => {
-      if (!alive()) return;
-      const cs = getComputedStyle(s.el);
-      // Flat, with no 3D context (Safari switched how the whole plane drew when
-      // it got one, a pop): each strip shrinks back toward the middle of what's
-      // on screen, in its own coordinates.
-      const plane = s.el.closest<HTMLElement>('[data-plane]');
-      if (plane) {
-        const m = new DOMMatrix(cs.transform === 'none' ? undefined : cs.transform);
-        s.el.style.transformOrigin = `${plane.offsetWidth / 2 - s.el.offsetLeft - m.m41}px ${plane.offsetHeight / 2 - s.el.offsetTop - m.m42}px`;
-      } else s.el.style.transformOrigin = `${innerWidth / 2 - s.r.left}px ${innerHeight / 2 - s.r.top}px`;
-      const leaving = s.el.animate(vanish.frames(cs.opacity, cs.filter, false), {
-        duration: vanish.ms,
-        easing: vanish.easing,
-        fill: 'forwards',
-      });
-      leavingAll.push(leaving);
-      void leaving.finished.then(
-        () => s.el.querySelectorAll<HTMLElement>('[data-tile]').forEach((t) => release?.hide(t)),
-        () => {},
-      );
-    });
-  });
-  const single = shown.filter((t) => strip(t) === null);
-  const order = turns(single, v.order, origin);
-  single.forEach((t, i) => {
+  // The lighter tier keeps no 3D context for the launch (Safari redrew the
+  // whole plane when it got one, a pop): there a tile sinks back along the
+  // plane's normal drawn flat (sinkOnPlane), which looks the same.
+  const plane = survivor.closest<HTMLElement>('[data-plane]');
+  const eye = light && plane ? eyeOnPlane(plane) : null;
+  const order = turns(shown, v.order, origin);
+  shown.forEach((t, i) => {
     // At its turn it gets its own canvas and starts to go, in one step.
     later(140 + order[i] * spread, () => {
       if (!alive()) return;
       release?.detach(t.el);
       const cs = getComputedStyle(t.el);
-      const deep = t.el.closest('.lt-tilted') !== null;
-      const leaving = t.el.animate(vanish.frames(cs.opacity, cs.filter, deep), {
+      const deep = !light && t.el.closest('.lt-tilted') !== null;
+      const sunk = eye && t.el.closest('[data-plane]') === plane ? sinkOnPlane(t.el, eye, SINK_DEPTH[v.depth]) : null;
+      if (sunk) t.el.style.transformOrigin = sunk.origin;
+      const leaving = t.el.animate(vanish.frames(cs.opacity, cs.filter, deep, sunk?.scale), {
         duration: vanish.ms,
         easing: vanish.easing,
         fill: 'forwards',
