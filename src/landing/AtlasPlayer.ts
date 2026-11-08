@@ -1,4 +1,5 @@
 import { atlasMode, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
+import { streamLoop } from './atlasStream';
 
 /**
  * Draws the gallery atlas onto "boards": one canvas under each strip of tiles
@@ -11,6 +12,12 @@ import { atlasMode, clipTime, planBoard, type Atlas, type AtlasMode, type BoardP
  * Measured on Tilted plane (1440x900, DPR 2, integrated GPU), 68 tiles on
  * screen: a <video> per tile ran at 6 fps; a canvas per tile at 43 fps;
  * one canvas per row at 58 fps, next to 60 fps for still posters.
+ *
+ * It never breaks its loop: the atlas plays as one endless Media Source
+ * timeline (`atlasStream.ts`), each cell's loop closes on an eased dissolve
+ * at its own moment (`build_atlas.py`), a strip's halves are drawn exactly a
+ * half apart so the scroll wraps without a shift, and tiles show the atlas's
+ * first frame (which the video then starts from) until it plays.
  */
 
 interface Board {
@@ -133,13 +140,30 @@ export class AtlasPlayer {
     if (this.mode === 'play') afterLoad(() => this.load());
   }
 
-  private load() {
+  /**
+   * Fetches the whole atlas first (about 2 MB), so it never stalls mid-loop
+   * waiting on the network; until then tiles show its first frame.
+   */
+  private async load() {
+    let bytes: Uint8Array<ArrayBuffer>;
+    try {
+      const res = await fetch(this.atlas.srcUrl);
+      if (!res.ok) return;
+      bytes = new Uint8Array(await res.arrayBuffer());
+    } catch {
+      return;
+    }
     const v = document.createElement('video');
-    Object.assign(v, { muted: true, loop: true, playsInline: true, preload: 'auto', src: this.atlas.srcUrl });
+    Object.assign(v, { muted: true, playsInline: true, preload: 'auto' });
     v.setAttribute('aria-hidden', 'true');
     // Kept in the document (Safari won't play it detached) but out of sight.
     v.style.cssText = 'position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none;';
     v.addEventListener('loadeddata', () => this.drawAll(), { once: true });
+    const { mime, loop } = this.atlas;
+    if (!mime || !streamLoop(v, bytes, mime, loop)) {
+      v.loop = true;
+      v.src = URL.createObjectURL(new Blob([bytes], { type: 'video/mp4' }));
+    }
     document.body.append(v);
     this.video = v;
     this.update();
