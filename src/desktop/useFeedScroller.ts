@@ -181,9 +181,16 @@ export function useFeedScroller(
       else prev();
     };
 
+    // Only a real change of size re-lands the feed. An observer reports once as
+    // soon as it's attached (this effect re-runs whenever scrolling is turned
+    // back on), and acting on that would cut a running move short into a jump.
+    let lastH = el.clientHeight;
     const ro = new ResizeObserver(() => {
+      const h = el.clientHeight;
+      if (h === lastH) return;
+      lastH = h;
       stopAnimation();
-      el.scrollTop = activeRef.current * el.clientHeight;
+      el.scrollTop = activeRef.current * h;
     });
 
     el.addEventListener('scroll', onScroll, { passive: true });
