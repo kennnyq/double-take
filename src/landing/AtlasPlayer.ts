@@ -1,6 +1,6 @@
 import { atlasMode, cellRect, clipTime, planBoard, type Atlas, type AtlasMode, type BoardPlan, type PlacedTile } from './atlas';
 import { streamLoop } from './atlasStream';
-import { nextGap, pickSwipe, snap, SWIPE_MS, swipeSlices, type ReelPace, type ReelTile } from './reels';
+import { chooseNext, handover, loopAt, snap, SWIPE_MS, swipeSlices, type Neighbour } from './reels';
 import { spreadCells, stripLoops, stripSequence, type Spot } from './spread';
 
 /**
@@ -21,12 +21,13 @@ import { spreadCells, stripLoops, stripSequence, type Spot } from './spread';
  * half apart so the scroll wraps without a shift, and tiles show the atlas's
  * first frame (which the video then starts from) until it plays.
  *
- * Now and then one tile "scrolls to the next reel" (`reels.ts`): its clip
- * slides up and out as another slides in from below, cut from the same atlas,
- * so it costs no decoder. Boards redraw every frame only while one moves.
+ * As each tile's clip ends, it "scrolls to the next reel" (`reels.ts`): the
+ * clip slides up and out as the next slides in from below, from its first
+ * frame, cut from the same atlas, so it costs no decoder. Swiping tiles
+ * redraw every frame while they move; the rest, at the atlas's 15 fps.
  */
 
-/** A tile part way through a swipe, from one cell to another. */
+/** A tile's swipe from one cell to another, starting at `start` (performance.now() ms): before then it still shows `from`. */
 interface Swipe {
   from: number;
   to: number;
@@ -136,11 +137,12 @@ export class AtlasPlayer {
   private io: IntersectionObserver;
   private frameRequested = false;
   private wantVideo = false;
-  /** How often tiles swipe; null for never. */
-  private pace: ReelPace | null = null;
-  private reelTimer = 0;
-  /** When each tile key last swiped (or, first seen, a made-up past so they don't all go at once). */
-  private lastSwipe = new Map<string, number>();
+  /** Whether tiles swipe as their clips end. */
+  private reels = false;
+  /** Atlas times of swipes coming up, to keep them from bunching (reels.ts: CLASH). */
+  private busy: number[] = [];
+  /** Tiles that found no clip to hand over to this time round, by key: the loop they're in. Their clip loops instead. */
+  private noHandover = new Map<string, number>();
   /** Swipes stop for the launch. */
   private held = false;
   private swiping = new Set<Board>();
@@ -230,14 +232,18 @@ export class AtlasPlayer {
     const v = this.video;
     if (!v || this.frameRequested) return;
     this.frameRequested = true;
-    const next = () => {
+    const next = (now: number, meta?: VideoFrameCallbackMetadata) => {
       this.frameRequested = false;
       if (!this.wantVideo) return;
+      // Where on the atlas's timeline this frame is, and when it shows.
+      const t = meta?.mediaTime ?? v.currentTime;
+      const shows = meta?.expectedDisplayTime ?? now;
+      this.tickReels(t, shows);
       this.visible.forEach((b) => this.draw(b));
       this.request();
     };
     if ('requestVideoFrameCallback' in v) v.requestVideoFrameCallback(next);
-    else requestAnimationFrame(next);
+    else requestAnimationFrame((now) => next(now));
   }
 
   private source(): CanvasImageSource | null {
@@ -246,119 +252,160 @@ export class AtlasPlayer {
     return null;
   }
 
-  private draw(b: Board, now = performance.now()) {
+  /** Draws a board's tiles (or just tiles `only`), each mid-swipe where it is. */
+  private draw(b: Board, now = performance.now(), only?: readonly number[]) {
     const src = this.source();
     const { ctx, plan, corners } = b;
-    if (src) {
-      plan.draws.forEach((d, i) => {
-        const at = (cell: number) => {
-          const c = cellRect(this.atlas, cell);
-          return { sx: c.sx + d.ox, sy: c.sy + d.oy };
-        };
-        const swipe = b.swipes[i];
-        if (swipe) {
-          const t = (now - swipe.start) / SWIPE_MS;
-          if (t < 1) {
-            for (const x of swipeSlices(snap(t), d, at(swipe.from), at(swipe.to)))
-              ctx.drawImage(src, x.sx, x.sy, x.sw, x.sh, x.dx, x.dy, x.dw, x.dh);
-            return;
-          }
-          b.swipes[i] = undefined;
+    const which = only ?? plan.draws.map((_, i) => i);
+    for (const i of which) {
+      const d = plan.draws[i];
+      if (!src) {
+        ctx.fillStyle = EMPTY;
+        ctx.fillRect(d.dx, d.dy, d.dw, d.dh);
+        continue;
+      }
+      const at = (cell: number) => {
+        const c = cellRect(this.atlas, cell);
+        return { sx: c.sx + d.ox, sy: c.sy + d.oy };
+      };
+      const swipe = b.swipes[i];
+      if (swipe) {
+        const t = (now - swipe.start) / SWIPE_MS;
+        if (t < 1) {
+          for (const x of swipeSlices(snap(t), d, at(swipe.from), at(swipe.to)))
+            ctx.drawImage(src, x.sx, x.sy, x.sw, x.sh, x.dx, x.dy, x.dw, x.dh);
+          if (only && corners) this.cornersOf(b, d);
+          continue;
         }
-        const { sx, sy } = at(b.cells[i]);
-        ctx.drawImage(src, sx, sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
-      });
-    } else {
-      ctx.fillStyle = EMPTY;
-      for (const d of plan.draws) ctx.fillRect(d.dx, d.dy, d.dw, d.dh);
+        b.swipes[i] = undefined;
+      }
+      const { sx, sy } = at(b.cells[i]);
+      ctx.drawImage(src, sx, sy, d.sw, d.sh, d.dx, d.dy, d.dw, d.dh);
+      if (only && corners) this.cornersOf(b, d);
     }
-    if (corners) {
+    if (corners && !only) {
       ctx.globalCompositeOperation = 'destination-out';
       ctx.drawImage(corners, 0, 0);
       ctx.globalCompositeOperation = 'source-over';
     }
   }
 
+  /** Rounds one tile's corners again after it alone was redrawn. */
+  private cornersOf(b: Board, d: { dx: number; dy: number; dw: number; dh: number }) {
+    const x = Math.floor(d.dx);
+    const y = Math.floor(d.dy);
+    const w = Math.ceil(d.dx + d.dw) - x;
+    const h = Math.ceil(d.dy + d.dh) - y;
+    b.ctx.globalCompositeOperation = 'destination-out';
+    b.ctx.drawImage(b.corners!, x, y, w, h, x, y, w, h);
+    b.ctx.globalCompositeOperation = 'source-over';
+  }
+
   private drawAll() {
     this.boards.forEach((b) => this.draw(b));
   }
 
-  /** How often tiles swipe to another clip (null: never), and which feed clip each cell holds. */
-  setReels(pace: ReelPace | null, clipOfCell: Map<number, number>) {
-    this.pace = this.mode === 'play' ? pace : null;
+  /** Whether tiles swipe as their clips end (false: they loop), and which feed clip each cell holds. */
+  setReels(on: boolean, clipOfCell: Map<number, number>) {
+    this.reels = on && this.mode === 'play' && !!this.atlas.phases;
     this.clipOfCell = clipOfCell;
     this.held = false;
-    this.scheduleReel();
   }
 
-  private scheduleReel() {
-    clearTimeout(this.reelTimer);
-    if (!this.pace || this.held) return;
-    this.reelTimer = window.setTimeout(() => {
-      this.reel();
-      this.scheduleReel();
-    }, nextGap(this.pace) * 1000);
-  }
-
-  /** One swipe, somewhere on screen: the tile that has waited longest, to a clip not shown near it. */
-  private reel() {
-    const pace = this.pace;
-    if (!pace || this.held || document.hidden || !this.wantVideo) return;
-    const now = performance.now();
-    // Every copy of each tile (a strip holds each twice), and where the one on screen is.
-    const members = new Map<string, [Board, number][]>();
-    const onScreen = new Map<string, ReelTile>();
-    const margin = 0.06;
+  /**
+   * On each atlas frame (`t`, which shows at `shows`, performance.now() ms):
+   * every tile on screen whose clip is coming to its end picks the clip it
+   * hands over to (reels.ts: chooseNext) and swipes the instant that one
+   * starts. Off screen, and when no clip fits, a clip just loops.
+   */
+  private tickReels(t: number, shows: number) {
+    const phases = this.atlas.phases;
+    if (!this.reels || this.held || document.hidden || !phases) return;
+    const { loop, lead } = this.atlas;
+    const span = handover(loop, lead);
+    const wallAt = (at: number) => shows + (at - t) * 1000;
+    this.busy = this.busy.filter((b) => b > t - 1);
+    // Tiles due to hand over: every copy of each (a strip holds each twice).
+    const due = new Map<string, [Board, number][]>();
     for (const b of this.visible) {
       if (!b.gate || b.frozen) continue;
       b.tiles.forEach((el, i) => {
         if (el.hasAttribute('data-hero-tile')) return;
         const key = b.keys[i];
-        members.set(key, [...(members.get(key) ?? []), [b, i]]);
-        if (b.swipes[i]) return;
-        const r = el.getBoundingClientRect();
-        const x = r.left + r.width / 2;
-        const y = r.top + r.height / 2;
-        if (x < innerWidth * margin || x > innerWidth * (1 - margin) || y < innerHeight * margin || y > innerHeight * (1 - margin)) return;
-        if (!this.lastSwipe.has(key)) this.lastSwipe.set(key, now - Math.random() * pace.each * 1000);
-        onScreen.set(key, { key, x, y, size: Math.max(r.width, r.height), cell: b.cells[i], last: this.lastSwipe.get(key)! });
+        const swipe = b.swipes[i];
+        if (swipe && wallAt(t) < swipe.start + SWIPE_MS) return;
+        const cell = b.cells[i];
+        const into = loopAt(t, phases[cell], loop);
+        if (into < span.from || into > span.until) return;
+        const round = Math.floor((t + phases[cell]) / loop);
+        if (this.noHandover.get(key) === round) return;
+        due.set(key, [...(due.get(key) ?? []), [b, i]]);
       });
     }
-    const tiles = [...onScreen.values()];
-    // A strip's tile swipes to a clip of its strip's set that the strip doesn't show yet.
-    const allowed = (key: string) => {
-      const [b, i] = members.get(key)![0];
-      const strip = b.tiles[i].parentElement?.closest('.lt-row, .lt-col');
-      const set = strip && this.stripSets.get(strip);
-      if (!set) return undefined;
-      const onStrip = new Set(b.tiles.map((_, j) => b.cells[j]));
-      const fresh = set.filter((c) => !onStrip.has(c));
-      return fresh.length ? fresh : set;
-    };
-    const pick = pickSwipe(tiles, this.atlas.ids.length, now, pace, Math.random, this.atlas.distances, allowed);
-    if (!pick) return;
-    this.lastSwipe.set(pick.key, now);
-    for (const [b, i] of members.get(pick.key)!) {
-      b.swipes[i] = { from: b.cells[i], to: pick.cell, start: now };
-      b.cells[i] = pick.cell;
-      // A press on it now opens the feed on its new clip.
-      const el = b.tiles[i];
-      el.dataset.cell = String(pick.cell);
-      const clip = this.clipOfCell.get(pick.cell);
-      if (clip !== undefined) el.dataset.clip = String(clip);
-      this.swiping.add(b);
+    if (!due.size) return;
+    // Where every tile on screen is, and the clip it shows or is about to.
+    const where = new Map<string, Neighbour & { size: number }>();
+    for (const b of this.visible) {
+      if (!b.gate || b.frozen) continue;
+      b.tiles.forEach((el, i) => {
+        const r = el.getBoundingClientRect();
+        if (r.right < 0 || r.bottom < 0 || r.left > innerWidth || r.top > innerHeight) return;
+        where.set(b.keys[i], { x: r.left + r.width / 2, y: r.top + r.height / 2, size: Math.max(r.width, r.height), cell: b.cells[i] });
+      });
     }
+    due.forEach((members, key) => {
+      const me = where.get(key);
+      if (!me) return;
+      const [b0, i0] = members[0];
+      const cell = b0.cells[i0];
+      const into = loopAt(t, phases[cell], loop);
+      const strip = b0.tiles[i0].parentElement?.closest('.lt-row, .lt-col');
+      const next = chooseNext({
+        tile: { ...me, cell },
+        t,
+        until: t + (span.until - into),
+        phases,
+        loop,
+        neighbours: [...where].filter(([k]) => k !== key).map(([, n]) => n),
+        distances: this.atlas.distances,
+        prefer: strip ? this.stripSets.get(strip) : undefined,
+        busy: this.busy,
+      });
+      if (!next) {
+        this.noHandover.set(key, Math.floor((t + phases[cell]) / loop));
+        return;
+      }
+      this.busy.push(next.at);
+      me.cell = next.cell;
+      for (const [b, i] of members) {
+        b.swipes[i] = { from: b.cells[i], to: next.cell, start: wallAt(next.at) };
+        b.cells[i] = next.cell;
+        // A press on it from now opens the feed on its new clip.
+        const el = b.tiles[i];
+        el.dataset.cell = String(next.cell);
+        const clip = this.clipOfCell.get(next.cell);
+        if (clip !== undefined) el.dataset.clip = String(clip);
+        this.swiping.add(b);
+      }
+    });
     this.animateSwipes();
   }
 
-  /** Redraws boards with a tile mid-swipe every frame, until the swipes settle. */
+  /** Redraws tiles mid-swipe every frame (only them), until their swipes settle. */
   private animateSwipes() {
     if (this.swipeFrame) return;
     const step = () => {
       const now = performance.now();
       for (const b of this.swiping) {
-        this.draw(b, now);
-        if (!b.swipes.some(Boolean)) this.swiping.delete(b);
+        const moving: number[] = [];
+        let waiting = false;
+        b.swipes.forEach((sw, i) => {
+          if (!sw) return;
+          if (now < sw.start) waiting = true;
+          else moving.push(i);
+        });
+        if (moving.length && this.visible.has(b)) this.draw(b, now, moving);
+        if (!waiting && !b.swipes.some(Boolean)) this.swiping.delete(b);
       }
       this.swipeFrame = this.swiping.size ? requestAnimationFrame(step) : 0;
     };
@@ -541,18 +588,38 @@ export class AtlasPlayer {
    */
   separate(root: HTMLElement): (tile: HTMLElement) => void {
     this.prune();
-    // No swipes while the gallery leaves.
+    // No new swipes while the gallery leaves; ones not begun yet are called off
+    // (their tiles keep the clip they show), and ones under way finish.
     this.held = true;
-    clearTimeout(this.reelTimer);
+    const now = performance.now();
+    for (const b of this.boards) {
+      b.swipes.forEach((sw, i) => {
+        if (!sw || sw.start <= now) return;
+        b.cells[i] = sw.from;
+        b.swipes[i] = undefined;
+        const el = b.tiles[i];
+        el.dataset.cell = String(sw.from);
+        const clip = this.clipOfCell.get(sw.from);
+        if (clip !== undefined) el.dataset.clip = String(clip);
+      });
+    }
     const shared = [...this.boards].filter((b) => !b.own && root.contains(b.canvas));
     for (const b of shared) {
-      const onScreen = b.tiles.filter((t) => {
+      const onScreen = b.tiles.flatMap((t, i) => {
         const r = t.getBoundingClientRect();
-        return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+        return r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth ? [i] : [];
       });
       this.removeBoard(b, false);
-      onScreen.forEach((t) => this.addBoard(t, [t]));
+      for (const i of onScreen) {
+        const own = this.addBoard(b.tiles[i], [b.tiles[i]]);
+        const swipe = b.swipes[i];
+        if (own && swipe) {
+          own.swipes[0] = swipe;
+          this.swiping.add(own);
+        }
+      }
     }
+    this.animateSwipes();
     return (tile) => {
       for (const b of this.boards) {
         if (!b.own || b.tiles[0] !== tile) continue;

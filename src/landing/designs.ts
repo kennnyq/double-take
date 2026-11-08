@@ -53,10 +53,8 @@ export const LANDING_TRIALS = {
     { value: 'fast', label: 'Fast' },
   ]),
   reels: trial(LOOK, 'Tiles swipe to the next clip', 'reels', [
-    { value: 'sometimes', label: 'Every couple of seconds' },
-    { value: 'often', label: 'Often' },
-    { value: 'rarely', label: 'Rarely' },
-    { value: 'off', label: 'Never' },
+    { value: 'end', label: 'As each clip ends' },
+    { value: 'off', label: 'Never (clips loop)' },
   ]),
   scan: trial(LOOK, 'On the tiles', 'scan', [
     { value: 'brackets', label: 'Tell boxes flicker on' },
@@ -201,7 +199,7 @@ const BASE: LandingValues = {
   veil: 'radial',
   dim: '55',
   speed: 'medium',
-  reels: 'sometimes',
+  reels: 'end',
   scan: 'brackets',
   copy: 'second',
   type: 'grotesk',

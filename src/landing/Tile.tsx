@@ -1,7 +1,6 @@
 import { createContext, useContext, useEffect, useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import type { Atlas } from './atlas';
 import { atlasPlayer } from './AtlasPlayer';
-import type { ReelPace } from './reels';
 
 /** One feed clip as the gallery shows it. */
 export interface GalleryClip {
@@ -121,9 +120,9 @@ export function useTilePlayback(rootRef: RefObject<HTMLElement | null>, key: str
 /**
  * Has the gallery atlas draw the tiles under `rootRef` that have a cell: one
  * canvas per `[data-board]` strip, one inside each other tile. With `reels`,
- * tiles also swipe to another clip now and then (null: never).
+ * each tile swipes to its next clip as its clip ends (false: clips loop).
  */
-export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: string, reels?: ReelPace | null) {
+export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: string, reels?: boolean) {
   const atlas = useContext(GalleryAtlas);
   const clips = useContext(GalleryClips);
   const loaded = clips.length;
@@ -135,7 +134,7 @@ export function useAtlasBoards(rootRef: RefObject<HTMLElement | null>, key: stri
     const unmount = player.mount(root, clipOfCell);
     if (reels !== undefined) player.setReels(reels, clipOfCell);
     return () => {
-      if (reels !== undefined) player.setReels(null, new Map());
+      if (reels !== undefined) player.setReels(false, new Map());
       unmount();
     };
   }, [rootRef, key, atlas, loaded, clips, reels]);

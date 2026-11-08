@@ -1,6 +1,5 @@
 import { memo, useEffect, useRef, type CSSProperties } from 'react';
 import type { LandingValues } from './designs';
-import { REEL_PACES } from './reels';
 import { rand, Tile, useAtlasBoards, useBox, useTilePlayback } from './Tile';
 
 type Speed = LandingValues['speed'];
@@ -304,7 +303,7 @@ export const Gallery = memo(function Gallery({
   const { w, h } = useBox(ref);
   const Layout = GALLERIES[design];
   useTilePlayback(ref, `${design}:${w}x${h}`);
-  useAtlasBoards(ref, `${design}:${w}x${h}`, reels === 'off' ? null : REEL_PACES[reels]);
+  useAtlasBoards(ref, `${design}:${w}x${h}`, reels !== 'off');
   return (
     <div className="lt-gallery" data-gallery={design} ref={ref}>
       {w > 0 && <Layout w={w} h={h} speed={SPEED[speed]} />}

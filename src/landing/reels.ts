@@ -1,25 +1,17 @@
 import { likeness } from './spread.ts';
 
 /**
- * Tiles that "scroll to the next reel": now and then one tile's clip slides up
- * and out while the next slides in from below, inside the tile, then plays on.
- * Pure logic (no DOM): the snap's easing, how a swipe cuts two atlas cells into
- * one tile, and which tile goes next and to which clip. `AtlasPlayer.ts` draws it.
+ * Tiles that "scroll to the next reel": as a tile's clip comes to its end, it
+ * slides up and out while the next clip slides in from below, from its first
+ * frame, inside the tile; that one plays to its end, and so on. Pure logic (no
+ * DOM): the snap's easing, how a swipe cuts two atlas cells into one tile, and
+ * when and to which clip a tile hands over. `AtlasPlayer.ts` draws it.
+ *
+ * Every cell loops on the atlas's one timeline, each from its own moment (its
+ * phase), so a tile can only take a clip at the instant that clip starts. Near
+ * the end of its clip, a tile looks at the clips starting before its own must
+ * stop, and takes the best of them right as it starts: no stall, no skip.
  */
-
-/** How often tiles swipe: a design on trial (`reels` in designs.ts). */
-export interface ReelPace {
-  /** Seconds between one swipe and the next, somewhere on screen (randomised ±40%). */
-  gap: number;
-  /** A tile swipes at most this often, s. */
-  each: number;
-}
-
-export const REEL_PACES = {
-  often: { gap: 1.2, each: 8 },
-  sometimes: { gap: 2.2, each: 14 },
-  rarely: { gap: 4, each: 22 },
-} satisfies Record<string, ReelPace>;
 
 /** How long a swipe takes, ms: a reel's snap. */
 export const SWIPE_MS = 420;
@@ -74,76 +66,119 @@ export function swipeSlices(
   return out;
 }
 
-/** A tile that could swipe: where it is on screen, its size, its clip, and when it last swiped (ms). */
-export interface ReelTile {
-  key: string;
-  x: number;
-  y: number;
-  size: number;
-  cell: number;
-  last: number;
+/** Where a cell is in its loop at atlas time `t` (s), given its phase. */
+export function loopAt(t: number, phase: number, loop: number): number {
+  return (((t + phase) % loop) + loop) % loop;
 }
 
-/** How much a tile at `t` showing `cell` looks like what's around it, nearer counting more (by the square of tile-widths). */
-function lookAround(t: ReelTile, cell: number, others: readonly ReelTile[], distances?: readonly (readonly number[])[]) {
+/** When, at or after atlas time `t`, a cell's loop next starts. */
+export function nextStart(t: number, phase: number, loop: number): number {
+  const at = loopAt(t, phase, loop);
+  return at === 0 ? t : t + (loop - at);
+}
+
+/**
+ * The stretch of a clip's loop (s into it) in which it may hand over. It must
+ * be gone before its loop's closing dissolve (`lead`) begins, so the last
+ * moment a swipe can start is a swipe's length before that; it looks `window`
+ * seconds ahead of that for a clip to take.
+ */
+export function handover(loop: number, lead: number, window = 2): { from: number; until: number } {
+  const until = loop - lead - SWIPE_MS / 1000;
+  return { from: Math.max(0, until - window), until };
+}
+
+/** Tiles near the one handing over: where they are, and the clip each shows (or is about to). */
+export interface Neighbour {
+  x: number;
+  y: number;
+  cell: number;
+}
+
+/** Swipes this close together (s) read as one; spread them apart if there's a choice. */
+export const CLASH = 0.15;
+/**
+ * How many atlas frames a swipe may start after its clip's first one: a
+ * nudge of up to ~130 ms (at 15 fps), so swipes due at the same instant can
+ * spread out. Each clip only starts once per loop, so without it, tiles
+ * taking clips that start together would all swipe at once.
+ */
+export const NUDGE_FRAMES = 2;
+
+/** A clip isn't put within this many tile-widths of itself, its duplicate or a close look-alike. */
+const KEEP_OFF = 2;
+/** How alike counts as close here (likeness: the same clip 1, a duplicate 0.9, a close look-alike ~0.3+). */
+const CLOSE = 0.3;
+
+/** How much a tile at `at`, `size` px across, showing `cell` would look like its neighbours: nearer counting more. */
+export function lookAround(
+  at: { x: number; y: number; size: number },
+  cell: number,
+  neighbours: readonly Neighbour[],
+  distances?: readonly (readonly number[])[],
+): number {
   let sum = 0;
-  for (const o of others) {
-    if (o.key === t.key) continue;
-    const away = Math.max(Math.hypot(o.x - t.x, o.y - t.y) / t.size, 0.5);
+  for (const o of neighbours) {
+    const away = Math.max(Math.hypot(o.x - at.x, o.y - at.y) / at.size, 0.5);
     sum += likeness(cell, o.cell, distances) / (away * away);
   }
   return sum;
 }
 
 /**
- * The next swipe: of the on-screen tiles that are due (past `each`), the one
- * that has waited longest, or sooner one the drift has brought next to its
- * own clip or a look-alike; and a clip for it that no tile near it shows and
- * that looks least like its neighbours' (`distances`, see spread.ts), then
- * the one least on screen. Null when no tile is due.
+ * The clip a tile hands over to, and when (atlas time): one starting between
+ * now (`t`) and `until`, that isn't its own, that looks least like the tiles
+ * around it and isn't near a look-alike, preferably from `prefer` (a strip's
+ * own set), not starting with (and preferably not within CLASH of) another
+ * swipe (`busy`): nudged by a frame or two if that spreads them out; then the
+ * latest of equals, so the outgoing clip plays as long as it can.
  */
-export function pickSwipe(
-  tiles: readonly ReelTile[],
-  cells: number,
-  now: number,
-  pace: ReelPace,
-  random: () => number = Math.random,
-  distances?: readonly (readonly number[])[],
-  /** The clips a tile may take, if not any (a strip keeps to its own set, see spread.ts). */
-  allowed?: (key: string) => readonly number[] | undefined,
-): { key: string; cell: number } | null {
-  const due = tiles.filter((t) => now - t.last >= pace.each * 1000);
-  if (!due.length || cells < 2) return null;
-  // Longest waiting first, or sooner one the drift has brought next to its own clip or a look-alike.
-  const ranked = due
-    .map((t) => ({ t, score: now - t.last + random() * pace.each * 500 + lookAround(t, t.cell, tiles, distances) * pace.each * 4000 }))
-    .sort((a, b) => b.score - a.score);
-  const shown = new Map<number, number>();
-  for (const t of tiles) shown.set(t.cell, (shown.get(t.cell) ?? 0) + 1);
-  for (const { t: tile } of ranked) {
-    const near = new Set(
-      tiles.filter((o) => o.key !== tile.key && Math.hypot(o.x - tile.x, o.y - tile.y) < tile.size * 3).map((o) => o.cell),
+export function chooseNext({
+  tile,
+  t,
+  until,
+  phases,
+  loop,
+  neighbours,
+  distances,
+  prefer,
+  busy = [],
+  fps = 15,
+}: {
+  tile: { x: number; y: number; size: number; cell: number };
+  t: number;
+  until: number;
+  phases: readonly number[];
+  loop: number;
+  neighbours: readonly Neighbour[];
+  distances?: readonly (readonly number[])[];
+  prefer?: readonly number[];
+  busy?: readonly number[];
+  fps?: number;
+}): { cell: number; at: number } | null {
+  let best: { cell: number; at: number } | null = null;
+  let bestScore = Infinity;
+  phases.forEach((phase, cell) => {
+    if (cell === tile.cell) return;
+    const at = nextStart(t, phase, loop);
+    if (at > until) return;
+    const beside = neighbours.some(
+      (o) => Math.hypot(o.x - tile.x, o.y - tile.y) < KEEP_OFF * tile.size && likeness(cell, o.cell, distances) >= CLOSE,
     );
-    const all = (allowed?.(tile.key) ?? Array.from({ length: cells }, (_, c) => c)).filter((c) => c !== tile.cell);
-    if (!all.length) continue;
-    const fresh = all.filter((c) => !near.has(c));
-    const pool = fresh.length ? fresh : all;
-    const scored = pool.map((c) => ({ c, look: lookAround(tile, c, tiles, distances), shown: shown.get(c) ?? 0 }));
-    const lowest = Math.min(...scored.map((x) => x.look));
-    // Nothing for it that wouldn't sit right beside its double or a look-alike: try another tile.
-    if (lowest > TOO_ALIKE) continue;
-    const calm = scored.filter((x) => x.look - lowest < 1e-3);
-    const fewest = Math.min(...calm.map((x) => x.shown));
-    const least = calm.filter((x) => x.shown === fewest);
-    return { key: tile.key, cell: least[Math.floor(random() * least.length)].c };
-  }
-  return null;
-}
-
-/** A clip whose look-alikes around a tile add up to more than this (a duplicate 2 tiles off is 0.225) isn't put there. */
-const TOO_ALIKE = 0.2;
-
-/** Seconds until the next swipe somewhere: `gap`, ±40%. */
-export function nextGap(pace: ReelPace, random: () => number = Math.random): number {
-  return pace.gap * (0.6 + random() * 0.8);
+    if (beside) return;
+    const look = lookAround(tile, cell, neighbours, distances);
+    const off = prefer && !prefer.includes(cell) ? 0.05 : 0;
+    for (let k = 0; k <= NUDGE_FRAMES; k++) {
+      const when = at + k / fps;
+      if (when > until) break;
+      const together = busy.some((b) => Math.abs(b - when) < 0.5 / fps) ? 10 : 0;
+      const near = busy.filter((b) => Math.abs(b - when) < CLASH).length * 0.5;
+      const score = look + off + together + near + k * 0.02 - (at - t) * 1e-3;
+      if (score < bestScore) {
+        bestScore = score;
+        best = { cell, at: when };
+      }
+    }
+  });
+  return best;
 }
