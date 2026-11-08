@@ -58,7 +58,8 @@
     "worktree:env": "bash scripts/worktree-env.sh",
     "check": "tsc --noEmit && expo lint && npm test && npm --prefix worker test",
     "check:prod": "cd worker && BASE_URL=\"${BASE_URL:-https://double-take-api.double-take-api.workers.dev}\" DEMO_PASSCODE=\"$(sed -n 's/^DEMO_PASSCODE=//p' .prod.vars | tr -d '\\\"')\" npm run test:e2e",
-    "e2e:space": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/hold-space.ts"
+    "e2e:space": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/hold-space.ts",
+    "e2e:taps": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/e2e/double-tap.ts"
   },
   "private": true
 }

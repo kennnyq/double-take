@@ -12,26 +12,10 @@
  * Playwright's own (`npx playwright-core install chromium`). Signs in as the
  * dev test account `alice` when `npm run dev:auth` is up; skips that otherwise.
  */
-import { existsSync, readdirSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { join } from 'node:path';
 import { chromium, type Page } from 'playwright-core';
+import { BASE_URL, findChrome } from './browser.ts';
 
-const BASE_URL = process.env.BASE_URL ?? 'http://localhost:8081';
 const HOLD_MS = 700; // past the longest hold length (500 ms)
-
-function findChrome(): string | undefined {
-  if (process.env.CHROME_PATH) return process.env.CHROME_PATH;
-  const cache = join(homedir(), '.cache', 'ms-playwright');
-  if (!existsSync(cache)) return undefined;
-  for (const dir of readdirSync(cache).filter((d) => /^chromium-\d+$/.test(d)).sort().reverse()) {
-    for (const rel of ['chrome-linux64/chrome', 'chrome-linux/chrome', 'chrome-mac/Chromium.app/Contents/MacOS/Chromium']) {
-      const p = join(cache, dir, rel);
-      if (existsSync(p)) return p;
-    }
-  }
-  return undefined;
-}
 
 const ACTIVE = 'section.slide[aria-current="true"]';
 const CLOSE_WALKTHROUGH = '[aria-label="Close the walkthrough"]';
