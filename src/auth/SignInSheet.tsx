@@ -26,6 +26,7 @@ import {
   usernameEmail,
   usernameProblem,
 } from './username';
+import { themed, usePalette } from '@/ui/theme';
 
 /**
  * Sign in or create an account with a username and password. A bottom sheet
@@ -37,6 +38,7 @@ export function SignInSheet() {
   const { open, reason } = useGate();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const tint = useTint();
   const wide = width >= 760;
   if (!supabase) return null;
 
@@ -55,7 +57,7 @@ export function SignInSheet() {
       >
         <Pressable style={StyleSheet.absoluteFill} onPress={closeSignIn} accessibilityLabel="Close sign in" />
         <View
-          style={[styles.panel, wide ? styles.panelWide : [styles.panelPhone, { paddingBottom: insets.bottom + 16 }]]}
+          style={[styles.panel, tint.panel, wide ? styles.panelWide : [styles.panelPhone, { paddingBottom: insets.bottom + 16 }]]}
           accessibilityViewIsModal
           aria-modal
           role="dialog"
@@ -84,6 +86,8 @@ export function SignInSheet() {
 type Mode = 'signIn' | 'signUp';
 
 function SignInBody({ reason }: { reason: string | null }) {
+  const c = usePalette();
+  const tint = useTint();
   const [mode, setMode] = useState<Mode>('signIn');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -227,15 +231,15 @@ function SignInBody({ reason }: { reason: string | null }) {
       <Pressable
         onPress={submit}
         disabled={busy}
-        style={({ pressed }) => [styles.primary, (pressed || busy) && styles.pressed]}
+        style={({ pressed }) => [styles.primary, tint.primary, (pressed || busy) && styles.pressed]}
         accessibilityRole="button"
       >
-        {busy ? <ActivityIndicator color="#111" /> : <Text style={styles.primaryText}>{signUp ? 'Create account' : 'Sign in'}</Text>}
+        {busy ? <ActivityIndicator color={c.onAccent} /> : <Text style={[styles.primaryText, tint.primaryText]}>{signUp ? 'Create account' : 'Sign in'}</Text>}
       </Pressable>
       <Pressable onPress={() => switchMode(signUp ? 'signIn' : 'signUp')} hitSlop={6} accessibilityRole="button" style={styles.switch}>
         <Text style={styles.sub}>
           {signUp ? 'Have an account? ' : 'New here? '}
-          <Text style={styles.link}>{signUp ? 'Sign in' : 'Create an account'}</Text>
+          <Text style={[styles.link, tint.link]}>{signUp ? 'Sign in' : 'Create an account'}</Text>
         </Text>
       </Pressable>
       {devAccountsAvailable() && <DevQuickSignIn onError={setError} />}
@@ -255,9 +259,10 @@ function DevQuickSignIn({ onError }: { onError: (e: string) => void }) {
     }
     setBusy(null);
   };
+  const tint = useTint();
   return (
-    <View style={styles.dev}>
-      <Text style={styles.devTitle}>Dev · test accounts</Text>
+    <View style={[styles.dev, tint.dev]}>
+      <Text style={[styles.devTitle, tint.devTitle]}>Dev · test accounts</Text>
       <View style={styles.devRow}>
         {[...TEST_ACCOUNTS, 'fresh' as const].map((a) => (
           <Pressable
@@ -276,13 +281,11 @@ function DevQuickSignIn({ onError }: { onError: (e: string) => void }) {
   );
 }
 
-const ACCENT = '#FFD60A';
-
 const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   backdropPhone: { justifyContent: 'flex-end' },
   backdropWide: { justifyContent: 'center', alignItems: 'center', padding: 24 },
-  panel: { backgroundColor: '#1b1d21', overflow: 'hidden' },
+  panel: { overflow: 'hidden' },
   panelPhone: { borderTopLeftRadius: 18, borderTopRightRadius: 18 },
   panelWide: {
     width: '100%',
@@ -312,8 +315,8 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.14)',
   },
   error: { color: '#ff6961', fontSize: 13 },
-  primary: { height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: ACCENT },
-  primaryText: { color: '#111', fontSize: 16, fontWeight: '700' },
+  primary: { height: 48, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  primaryText: { fontSize: 16, fontWeight: '700' },
   modes: { flexDirection: 'row', padding: 4, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.06)' },
   mode: { flex: 1, height: 34, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
   modeOn: { backgroundColor: 'rgba(255,255,255,0.14)' },
@@ -323,7 +326,7 @@ const styles = StyleSheet.create({
   eye: { position: 'absolute', right: 12, top: 6, bottom: 0, justifyContent: 'center' },
   hint: { color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 16, marginTop: -4 },
   switch: { alignItems: 'center', paddingVertical: 4 },
-  link: { color: '#8ab4ff', fontSize: 14, fontWeight: '600' },
+  link: { fontSize: 14, fontWeight: '600' },
   dev: {
     marginTop: 6,
     padding: 10,
@@ -331,10 +334,18 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: 'rgba(255,214,10,0.45)',
   },
-  devTitle: { color: ACCENT, fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
+  devTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.6, textTransform: 'uppercase' },
   devRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   devChip: { paddingHorizontal: 12, height: 30, borderRadius: 15, justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.1)' },
   devChipText: { color: '#fff', fontSize: 13, fontWeight: '600' },
 });
+
+const useTint = themed((c) => ({
+  panel: { backgroundColor: c.surface },
+  primary: { backgroundColor: c.accent },
+  primaryText: { color: c.onAccent },
+  link: { color: c.link },
+  dev: { borderColor: c.accentSoft },
+  devTitle: { color: c.accent },
+}));

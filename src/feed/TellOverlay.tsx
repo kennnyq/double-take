@@ -9,6 +9,7 @@ import { boxShownAt, replayWindow, stepCopy, walkthroughSteps, type Replay } fro
 import type { TellsVariant } from '@/data/clips';
 import { variantIndex } from '@/devtools/settings';
 import { DEV_TOOLS, useDevSettings } from '@/devtools/store';
+import { themed, usePalette } from '@/ui/theme';
 import { boxOnStage, cardPlacement, videoRect, type Box, type Fit, type Tell } from './tells';
 
 /** Lets the clip's Double take button and gestures (a user setting) open and close the walkthrough. */
@@ -86,6 +87,8 @@ const BACK_ZONE = 0.28;
  */
 export function TellOverlay({ ref, ...p }: Props) {
   const settings = useDevSettings();
+  const c = usePalette();
+  const tint = useTint();
   // One pipeline ("model") for every clip, picked in the dev settings; main if this clip lacks it.
   const variant = variantIndex(p.variants, settings.pipeline);
   const [step, setStep] = useState<number | null>(null); // null: closed, -1: nothing to show
@@ -235,7 +238,7 @@ export function TellOverlay({ ref, ...p }: Props) {
         <>
           <View style={StyleSheet.absoluteFill} pointerEvents="none">
             {rect && <Spotlight rect={rect} stageW={p.stageW} stageH={p.stageH} />}
-            {rect && <View style={[styles.box, { left: rect.x, top: rect.y, width: rect.w, height: rect.h }]} />}
+            {rect && <View style={[styles.box, tint.box, { left: rect.x, top: rect.y, width: rect.w, height: rect.h }]} />}
           </View>
           {/* Two tap zones, like stories: the left edge goes back, the rest goes on. Hold either to pause. */}
           <Pressable
@@ -284,13 +287,13 @@ export function TellOverlay({ ref, ...p }: Props) {
         <Pressable
           onPress={close}
           disabled={step === -1}
-          style={({ pressed }) => [styles.pill, styles.pillLeft, { top: p.top }, styles.pillOn, pressed && styles.pressed]}
+          style={({ pressed }) => [styles.pill, styles.pillLeft, { top: p.top }, tint.pillOn, pressed && styles.pressed]}
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={step === -1 ? 'No tells found' : 'Close the walkthrough'}
         >
-          <Ionicons name={step === -1 ? 'eye-off-outline' : 'close'} size={15} color="#111" />
-          <Text style={[styles.pillText, styles.pillTextOn]}>{step === -1 ? 'No tells found' : 'Close'}</Text>
+          <Ionicons name={step === -1 ? 'eye-off-outline' : 'close'} size={15} color={c.onTell} />
+          <Text style={[styles.pillText, tint.pillTextOn]}>{step === -1 ? 'No tells found' : 'Close'}</Text>
         </Pressable>
       ) : null}
     </>
@@ -309,12 +312,13 @@ function Callout(props: {
   hint: string;
   style: object;
 }) {
+  const tint = useTint();
   return (
     <View style={[styles.card, props.style]} pointerEvents="none" accessibilityLiveRegion="polite">
       <View style={styles.cardHead}>
         <View style={styles.progress}>
           {Array.from({ length: props.count }, (_, i) => (
-            <View key={i} style={[styles.seg, i <= props.index && styles.segOn]} />
+            <View key={i} style={[styles.seg, i <= props.index && tint.segOn]} />
           ))}
         </View>
         {props.tag ? <Text style={styles.tag}>{props.tag}</Text> : null}
@@ -361,7 +365,6 @@ function Spotlight({ rect: r, stageW, stageH }: { rect: Box; stageW: number; sta
   );
 }
 
-const ACCENT = '#FFD60A';
 
 const styles = StyleSheet.create({
   // Each pill sets only its own side: on web, `left: undefined` doesn't cancel a `left` set earlier.
@@ -377,16 +380,13 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: 'rgba(255,255,255,0.35)',
   },
-  pillOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   pillLeft: { left: 12 },
   pressed: { opacity: 0.7 },
   pillText: { color: '#fff', fontSize: 13, fontWeight: '600' },
-  pillTextOn: { color: '#111' },
   scrim: { position: 'absolute', backgroundColor: 'rgba(0,0,0,0.4)' },
   box: {
     position: 'absolute',
     borderWidth: 2.5,
-    borderColor: ACCENT,
     borderRadius: 8,
   },
   card: {
@@ -402,9 +402,15 @@ const styles = StyleSheet.create({
   cardHead: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 2 },
   progress: { flex: 1, flexDirection: 'row', gap: 4 },
   seg: { flex: 1, height: 3, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.25)' },
-  segOn: { backgroundColor: ACCENT },
   tag: { color: 'rgba(255,255,255,0.55)', fontSize: 11, fontWeight: '600' },
   title: { color: '#fff', fontSize: 17, fontWeight: '700' },
   body: { color: 'rgba(255,255,255,0.88)', fontSize: 14, lineHeight: 19 },
   hint: { color: 'rgba(255,255,255,0.5)', fontSize: 12, marginTop: 2 },
 });
+
+const useTint = themed((c) => ({
+  pillOn: { backgroundColor: c.tell, borderColor: c.tell },
+  pillTextOn: { color: c.onTell },
+  box: { borderColor: c.tell },
+  segOn: { backgroundColor: c.tell },
+}));

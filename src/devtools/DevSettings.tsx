@@ -3,6 +3,7 @@ import { Animated, Platform, Pressable, ScrollView, StyleSheet, Text, View, useW
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { loadInitialClips } from '@/data/feed';
+import { usePalette } from '@/ui/theme';
 import { AccountsTab } from './AccountsTab';
 import {
   DEFAULT_SETTINGS,
@@ -13,6 +14,7 @@ import {
   type DevSettings as Settings,
   type LauncherCorner,
 } from './settings';
+import { useDevTint } from './tint';
 import {
   DEV_TABS,
   DEV_TOOLS,
@@ -166,6 +168,8 @@ function DevSettingsInner({ desktop }: { desktop: boolean }) {
   const { open, tab } = useDevPanel();
   const insets = useSafeAreaInsets();
   const changed = changedKeys(s).length;
+  const c = usePalette();
+  const tint = useDevTint();
 
   // Escape closes the panel on web.
   useEffect(() => {
@@ -206,17 +210,17 @@ function DevSettingsInner({ desktop }: { desktop: boolean }) {
         style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [
           styles.launcher,
           launcherPos,
-          open && styles.launcherOpen,
+          open && tint.launcherOpen,
           (pressed || hovered) && styles.launcherHover,
         ]}
         hitSlop={6}
         accessibilityRole="button"
         accessibilityLabel={open ? 'Close dev settings' : 'Dev settings'}
       >
-        <Ionicons name={open ? 'close' : 'construct-outline'} size={18} color={open ? '#111' : '#fff'} />
+        <Ionicons name={open ? 'close' : 'construct-outline'} size={18} color={open ? c.onAccent : '#fff'} />
         {!open && changed > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{changed}</Text>
+          <View style={[styles.badge, tint.badge]}>
+            <Text style={[styles.badgeText, tint.badgeText]}>{changed}</Text>
           </View>
         )}
       </Pressable>
@@ -234,11 +238,12 @@ function Panel({ tab, settings: s, desktop, style }: { tab: DevTab; settings: Se
   const { height } = useWindowDimensions();
   const groups = useMemo(() => groupsFor(tab, s, pipelines, desktop), [tab, s, pipelines, desktop]);
   const tabChanged = TAB_KEYS[tab].filter((k) => s[k] !== DEFAULT_SETTINGS[k]);
+  const c = usePalette();
 
   return (
     <View style={[styles.panel, style, { maxHeight: Math.min(560, height * (desktop ? 0.7 : 0.72)) }]} accessibilityViewIsModal>
       <View style={styles.head}>
-        <Ionicons name="construct" size={16} color={ACCENT} />
+        <Ionicons name="construct" size={16} color={c.accent} />
         <Text style={styles.headTitle}>Dev settings</Text>
         <View style={{ flex: 1 }} />
         {tabChanged.length > 0 && (
@@ -286,12 +291,14 @@ function TabBar({ tab, settings: s }: { tab: DevTab; settings: Settings }) {
     Animated.spring(x, { toValue: index, useNativeDriver: Platform.OS !== 'web', speed: 24, bounciness: 4 }).start();
   }, [index, x]);
   const tabW = (w - 8) / DEV_TABS.length; // inside the bar's 4px padding
+  const c = usePalette();
+  const tint = useDevTint();
 
   return (
     <View style={styles.tabs} onLayout={(e) => setW(e.nativeEvent.layout.width)} accessibilityRole="tablist">
       {w > 0 && (
         <Animated.View
-          style={[styles.tabIndicator, { width: tabW - 8, transform: [{ translateX: Animated.multiply(x, tabW) }] }]}
+          style={[styles.tabIndicator, tint.tabIndicator, { width: tabW - 8, transform: [{ translateX: Animated.multiply(x, tabW) }] }]}
           pointerEvents="none"
         />
       )}
@@ -308,10 +315,10 @@ function TabBar({ tab, settings: s }: { tab: DevTab; settings: Settings }) {
             accessibilityLabel={n ? `${TAB_META[t].label}, ${n} changed` : TAB_META[t].label}
           >
             <View>
-              <Ionicons name={TAB_META[t].icon} size={18} color={on ? '#111' : '#bbb'} />
+              <Ionicons name={TAB_META[t].icon} size={18} color={on ? c.onAccent : '#bbb'} />
               {n > 0 && <View style={styles.tabDot} />}
             </View>
-            <Text style={[styles.tabLabel, on && styles.tabLabelOn]}>{TAB_META[t].label}</Text>
+            <Text style={[styles.tabLabel, on && tint.tabLabelOn]}>{TAB_META[t].label}</Text>
           </Pressable>
         );
       })}
@@ -325,6 +332,7 @@ const SWITCH_ITEMS: ChoiceItem[] = [
 ];
 
 function RowView({ row, settings: s }: { row: Row; settings: Settings }) {
+  const tint = useDevTint();
   if (row.kind === 'action') {
     return (
       <Pressable
@@ -357,11 +365,11 @@ function RowView({ row, settings: s }: { row: Row; settings: Settings }) {
             <Pressable
               key={String(it.value)}
               onPress={() => devSettings.set({ [row.key]: isSwitch ? it.value === 1 : it.value })}
-              style={({ pressed }) => [styles.chip, on && styles.chipOn, pressed && !on && styles.dim]}
+              style={({ pressed }) => [styles.chip, on && tint.chipOn, pressed && !on && styles.dim]}
               accessibilityRole="radio"
               accessibilityState={{ checked: on }}
             >
-              <Text style={[styles.chipText, on && styles.chipTextOn]}>{it.label}</Text>
+              <Text style={[styles.chipText, on && tint.chipTextOn]}>{it.label}</Text>
               {it.value === def && <View style={[styles.defaultDot, on && styles.defaultDotOn]} />}
             </Pressable>
           );
@@ -371,8 +379,6 @@ function RowView({ row, settings: s }: { row: Row; settings: Settings }) {
     </View>
   );
 }
-
-const ACCENT = '#FFD60A';
 
 const styles = StyleSheet.create({
   // Above the app's sheets, and on web above the landing's design trial bar (z-index 1000).
@@ -390,7 +396,6 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.28)',
     borderStyle: 'dashed',
   },
-  launcherOpen: { backgroundColor: ACCENT, borderColor: ACCENT, borderStyle: 'solid' },
   launcherHover: { transform: [{ scale: 1.06 }] },
   badge: {
     position: 'absolute',
@@ -400,11 +405,10 @@ const styles = StyleSheet.create({
     height: 17,
     paddingHorizontal: 4,
     borderRadius: 9,
-    backgroundColor: ACCENT,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  badgeText: { color: '#111', fontSize: 10, fontWeight: '800' },
+  badgeText: { fontSize: 10, fontWeight: '800' },
 
   panel: {
     position: 'absolute',
@@ -446,11 +450,10 @@ const styles = StyleSheet.create({
   dim: { opacity: 0.6 },
 
   tabs: { flexDirection: 'row', padding: 4, marginHorizontal: 10, marginTop: 10, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)' },
-  tabIndicator: { position: 'absolute', left: 8, top: 4, bottom: 4, borderRadius: 11, backgroundColor: ACCENT },
+  tabIndicator: { position: 'absolute', left: 8, top: 4, bottom: 4, borderRadius: 11 },
   tab: { flex: 1, alignItems: 'center', gap: 2, paddingVertical: 7 },
   tabDot: { position: 'absolute', top: -2, right: -5, width: 7, height: 7, borderRadius: 4, backgroundColor: '#ff6b3d' },
   tabLabel: { color: '#bbb', fontSize: 11, fontWeight: '600' },
-  tabLabelOn: { color: '#111' },
 
   body: { flexGrow: 0 },
   bodyContent: { padding: 14, gap: 18 },
@@ -475,9 +478,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  chipOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   chipText: { color: '#eee', fontSize: 13, fontWeight: '600' },
-  chipTextOn: { color: '#111' },
   /** Marks the default choice. */
   defaultDot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'rgba(255,255,255,0.45)' },
   defaultDotOn: { backgroundColor: 'rgba(0,0,0,0.45)' },

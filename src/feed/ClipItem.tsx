@@ -8,6 +8,7 @@ import { formatCount, type Clip, type Verdict } from '@/data/clips';
 import { baseReposts } from '@/social/clipRefs';
 import type { ClipCounts } from '@/social/reducer';
 import { Avatar } from '@/ui/Avatar';
+import { usePalette } from '@/ui/theme';
 import { useDevSettings } from '@/devtools/store';
 import { createTapRecognizer, gestureAction, singleTapWaits } from '@/settings/gesture';
 import { useAppSettings } from '@/settings/store';
@@ -276,11 +277,12 @@ export const ClipItem = memo(function ClipItem(p: Props) {
  */
 function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
   const { clip, h, wide } = p;
+  const c = usePalette();
   return (
     <Animated.View style={[styles.rail, wide && styles.railWide, { opacity: p.chrome }]}>
       {p.onReveal && (
         <RailButton
-          icon={<DoubleTakeIcon color={p.revealing ? ACCENT : '#fff'} />}
+          icon={<DoubleTakeIcon color={p.revealing ? c.tell : '#fff'} />}
           label="Double take"
           a11y={p.revealing ? 'Close the double take' : 'Double take: see why this clip may be AI'}
           hideLabelFromA11y
@@ -290,7 +292,7 @@ function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
       )}
       <RailButton
         icon={p.liked ? 'heart' : 'heart-outline'}
-        color={p.liked ? '#ff3040' : '#fff'}
+        color={p.liked ? c.like : '#fff'}
         label={formatCount(clip.likes + (p.others?.likes ?? 0) + (p.liked ? 1 : 0))}
         a11y={p.liked ? 'Unlike' : 'Like'}
         onPress={() => h.toggleLike(clip)}
@@ -304,7 +306,7 @@ function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
       />
       <RailButton
         icon="repeat"
-        color={p.reposted ? REPOST_TINT : '#fff'}
+        color={p.reposted ? c.repost : '#fff'}
         label={formatCount(baseReposts(clip) + (p.others?.reposts ?? 0) + (p.reposted ? 1 : 0))}
         a11y={p.reposted ? 'Undo repost' : 'Repost'}
         onPress={() => h.toggleRepost(clip)}
@@ -325,8 +327,6 @@ function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
   );
 }
 
-const REPOST_TINT = '#3ddc84';
-
 /** "Look again": an eye in a viewfinder, the double take's mark. */
 function DoubleTakeIcon({ color }: { color: string }) {
   return (
@@ -336,8 +336,6 @@ function DoubleTakeIcon({ color }: { color: string }) {
     </View>
   );
 }
-
-const ACCENT = '#FFD60A'; // the tells walkthrough's highlight
 
 function RailButton(props: {
   icon: React.ComponentProps<typeof Ionicons>['name'] | React.ReactElement;

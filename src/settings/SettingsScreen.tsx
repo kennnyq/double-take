@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { themed, usePalette } from '@/ui/theme';
 import { feedModeOptions } from './feedModeOptions';
 import { gestureOptions } from './gesture';
 import type { RevealGesture } from './settings';
@@ -26,6 +27,7 @@ export function SettingsScreen() {
   const open = useSettingsOpen();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const tint = useTint();
   const wide = width >= 760;
 
   return (
@@ -40,7 +42,7 @@ export function SettingsScreen() {
       <View style={[styles.backdrop, wide ? styles.backdropWide : styles.backdropPhone]}>
         <Pressable style={StyleSheet.absoluteFill} onPress={closeSettings} accessibilityLabel="Close settings" />
         <View
-          style={[styles.panel, wide ? styles.panelWide : [styles.panelPhone, { paddingBottom: insets.bottom + 12 }]]}
+          style={[styles.panel, tint.panel, wide ? styles.panelWide : [styles.panelPhone, { paddingBottom: insets.bottom + 12 }]]}
           accessibilityViewIsModal
           aria-modal
           role="dialog"
@@ -78,11 +80,13 @@ export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleP
   // The reveal's wording follows the gesture picked below.
   const options = feedModeOptions(revealGesture, wide);
   const gestures = gestureOptions(wide);
+  const c = usePalette();
+  const tint = useTint();
   return (
     <ScrollView style={style} contentContainerStyle={styles.body} bounces={false}>
       <Text style={styles.sectionTitle}>Feed mode</Text>
       <Text style={styles.sectionHint}>How the feed handles whether a clip is AI.</Text>
-      <View style={styles.group} role="radiogroup" aria-label="Feed mode">
+      <View style={[styles.group, tint.group]} role="radiogroup" aria-label="Feed mode">
         {options.map((o, i) => {
           const on = feedMode === o.id;
           return (
@@ -98,14 +102,14 @@ export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleP
               aria-checked={on}
               accessibilityLabel={`${o.title}. ${o.description}`}
             >
-              <View style={[styles.icon, on && styles.iconOn]}>
-                <Ionicons name={o.icon} size={18} color={on ? '#111' : '#fff'} />
+              <View style={[styles.icon, on && tint.iconOn]}>
+                <Ionicons name={o.icon} size={18} color={on ? c.onAccent : '#fff'} />
               </View>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>{o.title}</Text>
                 <Text style={styles.rowDesc}>{o.description}</Text>
               </View>
-              <View style={[styles.radio, on && styles.radioOn]}>{on && <View style={styles.radioDot} />}</View>
+              <View style={[styles.radio, on && tint.radioOn]}>{on && <View style={[styles.radioDot, tint.radioDot]} />}</View>
             </Pressable>
           );
         })}
@@ -117,7 +121,7 @@ export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleP
           ? 'The Double take button beside each clip opens it. Pick the shortcut too.'
           : 'The Double take button on each clip opens it. Pick the gesture too.'}
       </Text>
-      <View style={styles.group} role="radiogroup" aria-label="Double take gesture">
+      <View style={[styles.group, tint.group]} role="radiogroup" aria-label="Double take gesture">
         {gestures.map((o, i) => {
           const on = revealGesture === o.id;
           return (
@@ -133,14 +137,14 @@ export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleP
               aria-checked={on}
               accessibilityLabel={`${o.title}. ${o.description}`}
             >
-              <View style={[styles.icon, on && styles.iconOn]}>
-                <Ionicons name={GESTURE_ICONS[o.id]} size={18} color={on ? '#111' : '#fff'} />
+              <View style={[styles.icon, on && tint.iconOn]}>
+                <Ionicons name={GESTURE_ICONS[o.id]} size={18} color={on ? c.onAccent : '#fff'} />
               </View>
               <View style={styles.rowText}>
                 <Text style={styles.rowTitle}>{o.title}</Text>
                 <Text style={styles.rowDesc}>{o.description}</Text>
               </View>
-              <View style={[styles.radio, on && styles.radioOn]}>{on && <View style={styles.radioDot} />}</View>
+              <View style={[styles.radio, on && tint.radioOn]}>{on && <View style={[styles.radioDot, tint.radioDot]} />}</View>
             </Pressable>
           );
         })}
@@ -148,8 +152,6 @@ export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleP
     </ScrollView>
   );
 }
-
-const ACCENT = '#FFD60A'; // the tells walkthrough's highlight
 
 const GESTURE_ICONS: Record<RevealGesture, React.ComponentProps<typeof Ionicons>['name']> = {
   hold: 'finger-print-outline',
@@ -161,7 +163,7 @@ const styles = StyleSheet.create({
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
   backdropPhone: { justifyContent: 'flex-end' },
   backdropWide: { justifyContent: 'center', alignItems: 'center', padding: 24 },
-  panel: { backgroundColor: '#1b1d21', overflow: 'hidden' },
+  panel: { overflow: 'hidden' },
   panelPhone: { borderTopLeftRadius: 18, borderTopRightRadius: 18, maxHeight: '88%' },
   panelWide: {
     width: '100%',
@@ -204,7 +206,7 @@ const styles = StyleSheet.create({
   },
   sectionGap: { marginTop: 22 },
   sectionHint: { color: 'rgba(255,255,255,0.5)', fontSize: 13, marginTop: 4, marginBottom: 10, marginLeft: 4 },
-  group: { borderRadius: 14, backgroundColor: '#26282d', overflow: 'hidden' },
+  group: { borderRadius: 14, overflow: 'hidden' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   rowDivider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
   rowPressed: { backgroundColor: 'rgba(255,255,255,0.05)' },
@@ -216,7 +218,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.1)',
   },
-  iconOn: { backgroundColor: ACCENT },
   rowText: { flex: 1, gap: 2 },
   rowTitle: { color: '#fff', fontSize: 15, fontWeight: '600' },
   rowDesc: { color: 'rgba(255,255,255,0.6)', fontSize: 13, lineHeight: 17 },
@@ -229,6 +230,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  radioOn: { borderColor: ACCENT },
-  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: ACCENT },
+  radioDot: { width: 10, height: 10, borderRadius: 5 },
 });
+
+const useTint = themed((c) => ({
+  panel: { backgroundColor: c.surface },
+  group: { backgroundColor: c.surfaceRaised },
+  iconOn: { backgroundColor: c.accent },
+  radioOn: { borderColor: c.accent },
+  radioDot: { backgroundColor: c.accent },
+}));

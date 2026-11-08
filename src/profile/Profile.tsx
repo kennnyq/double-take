@@ -13,6 +13,7 @@ import type { ClipEntry, SocialState } from '@/social/reducer';
 import { useSocial } from '@/social/store';
 import { Avatar } from '@/ui/Avatar';
 import { useToast } from '@/ui/Toast';
+import { themed } from '@/ui/theme';
 import { EmptyTab, ProfileTabs, Tile } from './ProfileGrid';
 
 const LIST_FOR: Record<ProfileTab, keyof Pick<SocialState, 'reposted' | 'sent' | 'liked' | 'saved'>> = {
@@ -182,6 +183,7 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
 /** Signed out: a prompt to sign in, instead of empty grids. */
 function GuestProfile({ loading }: { loading: boolean }) {
   const insets = useSafeAreaInsets();
+  const tint = useTint();
   return (
     <View style={[styles.root, styles.guest, { paddingTop: insets.top }]}>
       {!loading && (
@@ -193,10 +195,10 @@ function GuestProfile({ loading }: { loading: boolean }) {
           <Text style={styles.guestText}>Sign in to keep your likes, saves and reposts, and pick up where you left off on any device.</Text>
           <Pressable
             onPress={() => openSignIn()}
-            style={({ pressed }) => [styles.guestButton, pressed && { opacity: 0.7 }]}
+            style={({ pressed }) => [styles.guestButton, tint.guestButton, pressed && { opacity: 0.7 }]}
             accessibilityRole="button"
           >
-            <Text style={styles.guestButtonText}>Sign in or sign up</Text>
+            <Text style={[styles.guestButtonText, tint.guestButtonText]}>Sign in or sign up</Text>
           </Pressable>
         </View>
       )}
@@ -326,9 +328,13 @@ const styles = StyleSheet.create({
     height: 46,
     paddingHorizontal: 28,
     borderRadius: 12,
-    backgroundColor: '#FFD60A',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  guestButtonText: { color: '#111', fontSize: 16, fontWeight: '700' },
+  guestButtonText: { fontSize: 16, fontWeight: '700' },
 });
+
+const useTint = themed((c) => ({
+  guestButton: { backgroundColor: c.accent },
+  guestButtonText: { color: c.onAccent },
+}));

@@ -13,6 +13,8 @@ import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
 import { DesktopFeed, type DesktopFeedHandle } from './DesktopFeed';
 import { Logo } from './Logo';
+// Sets the palette's --dt-* colours that desktop.css reads.
+import '@/ui/theme';
 import './desktop.css';
 
 type DesktopTab = 'home' | 'messages' | 'create' | 'profile';

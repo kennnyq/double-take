@@ -8,6 +8,7 @@ import { signOut, useAuth } from '@/auth/store';
 import { usernameFromEmail } from '@/auth/username';
 import { supabase } from '@/auth/supabase';
 import { reloadSocial } from '@/social/SocialSync';
+import { useDevTint } from './tint';
 
 /**
  * Dev builds: who you are signed in as, one-tap switching between guest and
@@ -190,15 +191,16 @@ function Info({ label, value }: { label: string; value: string }) {
 }
 
 function Chip({ label, on, busy, disabled, onPress }: { label: string; on?: boolean; busy?: boolean; disabled?: boolean; onPress: () => void }) {
+  const tint = useDevTint();
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled || busy}
-      style={({ pressed }) => [styles.chip, on && styles.chipOn, (pressed || busy || disabled) && styles.dim]}
+      style={({ pressed }) => [styles.chip, on && tint.chipOn, (pressed || busy || disabled) && styles.dim]}
       accessibilityRole="button"
       accessibilityState={{ selected: !!on, disabled: !!disabled }}
     >
-      <Text style={[styles.chipText, on && styles.chipTextOn]}>{busy ? '…' : label}</Text>
+      <Text style={[styles.chipText, on && tint.chipTextOn]}>{busy ? '…' : label}</Text>
     </Pressable>
   );
 }
@@ -215,8 +217,6 @@ function Action({ label, tone, busy, onPress }: { label: string; tone?: 'danger'
     </Pressable>
   );
 }
-
-const ACCENT = '#FFD60A';
 
 const styles = StyleSheet.create({
   wrap: { gap: 18 },
@@ -237,9 +237,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.1)',
   },
-  chipOn: { backgroundColor: ACCENT, borderColor: ACCENT },
   chipText: { color: '#eee', fontSize: 13, fontWeight: '600' },
-  chipTextOn: { color: '#111' },
   action: { height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.08)' },
   actionDanger: { backgroundColor: 'rgba(255,69,58,0.14)' },
   actionText: { color: '#fff', fontSize: 14, fontWeight: '600' },
