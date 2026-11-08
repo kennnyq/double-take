@@ -29,17 +29,26 @@ export interface DemoQuery {
 export const DEMO_LOOKUP_TIMEOUT_MS = 2500;
 export const DEMO_BUCKET = 'demo-media';
 
-export async function lookupDemoCheckWith(
+/**
+ * Why a lookup came back empty matters: `not_found` is a clean answer (no
+ * prepared check for this file or link), `unavailable` means the cloud didn't
+ * answer (timeout, network or server error), so the caller can retry instead
+ * of treating it as "no match".
+ */
+export type DemoLookup = { status: 'found'; check: DemoCheck } | { status: 'not_found' } | { status: 'unavailable' };
+
+export async function lookupDemoCheckStatusWith(
   client: SupabaseClient | null,
   q: DemoQuery,
   { timeoutMs = DEMO_LOOKUP_TIMEOUT_MS }: { timeoutMs?: number } = {},
-): Promise<DemoCheck | null> {
+): Promise<DemoLookup> {
   try {
-    if (!client) return null;
+    // No cloud configured (local mode) or nothing to look up: nothing is prepared.
+    if (!client) return { status: 'not_found' };
     const sha = q.sha256?.trim().toLowerCase();
     const url = q.url ? normalizeDemoUrl(q.url) : null;
     const column = sha && /^[0-9a-f]{64}$/.test(sha) ? 'sha256' : url ? 'normalized_url' : null;
-    if (!column) return null;
+    if (!column) return { status: 'not_found' };
     const value = column === 'sha256' ? sha! : url!;
 
     // AbortSignal.timeout isn't on every engine (Hermes), so a plain controller and timer.
@@ -58,7 +67,8 @@ export async function lookupDemoCheckWith(
       .abortSignal(ctrl.signal)
       .maybeSingle();
     const res = await Promise.race([query, timeout]).finally(() => clearTimeout(timer));
-    if (!res || res.error || !res.data) return null;
+    if (!res || res.error) return { status: 'unavailable' };
+    if (!res.data) return { status: 'not_found' };
 
     const row = res.data as {
       id: string;
@@ -70,9 +80,18 @@ export async function lookupDemoCheckWith(
       media_sha256: string | null;
     };
     const mediaUrl = row.media_path ? client.storage.from(DEMO_BUCKET).getPublicUrl(row.media_path).data.publicUrl : null;
-    return { id: row.id, kind: row.kind, label: row.label ?? '', result: row.result, job: row.job ?? null, mediaSha256: row.media_sha256 ?? null, mediaUrl };
+    return {
+      status: 'found',
+      check: { id: row.id, kind: row.kind, label: row.label ?? '', result: row.result, job: row.job ?? null, mediaSha256: row.media_sha256 ?? null, mediaUrl },
+    };
   } catch (e) {
     console.warn(`[demo] lookup failed: ${e instanceof Error ? e.message : e}`);
-    return null;
+    return { status: 'unavailable' };
   }
+}
+
+/** The check, or null for "not found" and "unavailable" alike (never throws). */
+export async function lookupDemoCheckWith(client: SupabaseClient | null, q: DemoQuery, opts?: { timeoutMs?: number }): Promise<DemoCheck | null> {
+  const r = await lookupDemoCheckStatusWith(client, q, opts);
+  return r.status === 'found' ? r.check : null;
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { lookupDemoCheckWith } from './lookupCore.ts';
+import { lookupDemoCheckStatusWith, lookupDemoCheckWith } from './lookupCore.ts';
 
 /** A fake client: records the filter, answers with `answer` (a promise or a delay). */
 function fake(answer: () => Promise<{ data: unknown; error: unknown }>) {
@@ -61,4 +61,19 @@ test('null for no match, bad input, errors, throws, no client and timeouts', asy
   const t0 = Date.now();
   assert.equal(await lookupDemoCheckWith(slow.client, { sha256: sha }, { timeoutMs: 30 }), null);
   assert.ok(Date.now() - t0 < 300);
+});
+
+test('tells a clean "not found" from "unavailable" (timeouts, errors, throws)', async () => {
+  const status = async (answer: () => Promise<{ data: unknown; error: unknown }>, timeoutMs?: number) => (await lookupDemoCheckStatusWith(fake(answer).client, { sha256: sha }, { timeoutMs })).status;
+  assert.equal(await status(async () => ({ data: row, error: null })), 'found');
+  assert.equal(await status(async () => ({ data: null, error: null })), 'not_found');
+  assert.equal(await status(async () => ({ data: null, error: { message: 'x' } })), 'unavailable');
+  assert.equal(
+    await status(async () => {
+      throw new Error('offline');
+    }),
+    'unavailable',
+  );
+  assert.equal(await status(() => new Promise((r) => setTimeout(() => r({ data: row, error: null }), 200)), 20), 'unavailable');
+  assert.equal((await lookupDemoCheckStatusWith(null, { sha256: sha })).status, 'not_found');
 });

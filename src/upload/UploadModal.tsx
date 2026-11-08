@@ -20,7 +20,7 @@ import { HowWeChecked, LiveTrace, rowsOf, stepLinks, type StepLink } from './Tra
 import { Processing } from '../components/investigation/Processing';
 import { DropZone } from './DropZone';
 import { ClipPreview, previewSource } from './ClipPreview';
-import { lookupDemoCheck } from '@/demo/lookup';
+import { lookupDemoCheckStatus, type DemoLookup, type DemoQuery } from '@/demo/lookup';
 import { hashAsset, preparedJob } from './demo';
 import { EASE_IN_OUT, EASE_OUT, useEased, useLatched, usePresence } from './motion';
 import { Assessments, Button, FileNotes, WouldHelp, VerdictHeadline, ErrorNote, HeaderAction, IconButton, Reveal, StepLayer, Swap, useTint } from './parts';
@@ -119,6 +119,8 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
   const [clipLength, setClipLength] = useState<number>();
   const [previewFailed, setPreviewFailed] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
+  /** The cloud didn't answer whether this is a prepared check: "Try again" repeats the whole check. */
+  const [lookupDown, setLookupDown] = useState(false);
   /** A prepared check being shown: its video plays from the cloud, and nothing polls the job runner. */
   const [demo, setDemo] = useState<Prepared>();
   /** A prepared check's steps as they play back in the card, and how many rows have finished. */
@@ -189,6 +191,11 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
       window.removeEventListener('beforeunload', unload);
     };
   }, [open, running, confirm, close]);
+
+  // Warm the cloud lookup as Create opens, so the first real one doesn't pay for a cold start.
+  useEffect(() => {
+    if (open) void lookupDemoCheckStatus({ sha256: '0'.repeat(64) }, { timeoutMs: 4000 });
+  }, [open]);
 
   // Reload mid-check: the URL's ?check= key picks the job back up once the server has it.
   useEffect(() => {
@@ -280,15 +287,38 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     setJob(undefined);
     setFailure('');
     setNotice('');
+    setLookupDown(false);
     const sha256 = chosen.kind === 'file' ? await chosen.sha256 : undefined;
-    const prepared = preparedJob(
-      chosen.kind === 'file' ? (sha256 ? await lookupDemoCheck({ sha256 }) : null) : await lookupDemoCheck({ url: chosen.url }),
-    );
+    const key: DemoQuery | null = chosen.kind === 'file' ? (sha256 ? { sha256 } : null) : { url: chosen.url };
+    const lookup = key ? await lookupWithRetry(key, gen) : ({ status: 'not_found' } as const);
     if (gen !== generation.current) return;
+    if (lookup.status === 'unavailable') {
+      // Slow or blocked cloud (venue Wi-Fi): say so in the card and keep the pick, rather than
+      // treating it as "not prepared" and sending it to a job runner that may not be there.
+      setBusy(false);
+      setLookupDown(true);
+      setFailure('Couldn’t reach Double Take just now. Check the connection and try again.');
+      locked.current = false;
+      return;
+    }
+    const prepared = lookup.status === 'found' ? preparedJob(lookup.check) : null;
     if (prepared) return playPrepared(prepared, gen, chosen.kind === 'file' ? chosen.asset.size ?? 0 : 0);
+    // Not a prepared check: the job runner (where none is configured, this ends at its usual "unavailable").
     locked.current = false;
     const id = uploadId(uuid, (bytes) => Crypto.getRandomValues(bytes));
     void perform({ id, send: () => (chosen.kind === 'file' ? upload(id, chosen.asset) : uploadLink(id, chosen.url)) });
+  }
+
+  /** The prepared-check lookup, tried up to three times (about 9 s in all) while the progress keeps moving. */
+  async function lookupWithRetry(key: DemoQuery, gen: number): Promise<DemoLookup> {
+    let last: DemoLookup = { status: 'unavailable' };
+    for (const [i, timeoutMs] of [2500, 2500, 3000].entries()) {
+      if (i) await new Promise((r) => setTimeout(r, i * 400));
+      if (gen !== generation.current) return last;
+      last = await lookupDemoCheckStatus(key, { timeoutMs });
+      if (last.status !== 'unavailable') return last;
+    }
+    return last;
   }
 
   /**
@@ -377,6 +407,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
     setJob(undefined);
     setDemo(undefined);
     setReplay(undefined);
+    setLookupDown(false);
     setBusy(false);
     setFailure('');
     setNotice('');
@@ -555,7 +586,7 @@ export function UploadModal({ open, onClose, onOpen }: { open: boolean; onClose:
                 text={failureText}
                 actions={
                   <>
-                    {(canRetry || job?.retryable) && <Button label="Try again" onPress={retryCheck} />}
+                    {lookupDown ? <Button label="Try again" onPress={check} /> : (canRetry || job?.retryable) && <Button label="Try again" onPress={retryCheck} />}
                     <Button label={shownSelection.kind === 'link' ? 'Change link' : 'Choose another'} kind="quiet" onPress={startOver} />
                   </>
                 }

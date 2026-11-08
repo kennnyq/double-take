@@ -1,7 +1,7 @@
 import { supabase } from '@/auth/supabase';
-import { lookupDemoCheckWith, type DemoCheck, type DemoQuery } from './lookupCore';
+import { lookupDemoCheckStatusWith, lookupDemoCheckWith, type DemoCheck, type DemoLookup, type DemoQuery } from './lookupCore';
 
-export type { DemoCheck, DemoQuery } from './lookupCore';
+export type { DemoCheck, DemoLookup, DemoQuery } from './lookupCore';
 export { DEMO_LOOKUP_TIMEOUT_MS } from './lookupCore';
 
 /**
@@ -15,4 +15,9 @@ export { DEMO_LOOKUP_TIMEOUT_MS } from './lookupCore';
  */
 export function lookupDemoCheck(q: DemoQuery, opts?: { timeoutMs?: number }): Promise<DemoCheck | null> {
   return lookupDemoCheckWith(supabase, q, opts);
+}
+
+/** Like `lookupDemoCheck`, but says whether an empty answer was "not found" or "couldn't reach the cloud". */
+export function lookupDemoCheckStatus(q: DemoQuery, opts?: { timeoutMs?: number }): Promise<DemoLookup> {
+  return lookupDemoCheckStatusWith(supabase, q, opts);
 }
