@@ -19,7 +19,7 @@ import { SocialProvider } from '@/social/store';
 import { SocialSync } from '@/social/SocialSync';
 import { EngagementSync } from '@/engagement/EngagementSync';
 import { Placeholder } from '@/ui/Placeholder';
-import { TABS, TabBar, onTabRequest, type TabId } from '@/ui/TabBar';
+import { TABS, TabBar, onTabRequest, tabRoute, type TabId } from '@/ui/TabBar';
 import { UploadModal } from '@/upload/UploadModal';
 import { uploadRoute } from '@/investigation/upload-flow';
 import { ToastProvider } from '@/ui/Toast';
@@ -86,9 +86,10 @@ function Screen({ startAt, onUpload, uploadOpen }: { startAt?: number; onUpload:
   // state (through `openSettings`) all go there. Leaving it on another tab
   // brings that tab up here.
   const showTab = useCallback((t: TabId) => {
+    // Create opens the upload modal over the app; Game, Skills and Settings are routes of their own.
+    const route = tabRoute(t);
     if (t === 'create') onUpload();
-    else if (t === 'settings') router.push('/settings');
-    else if (t === 'skills') router.push('/skills');
+    else if (route) router.push(route);
     else setTab(t);
   }, [onUpload]);
   const settingsAsked = useSettingsOpen();

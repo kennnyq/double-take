@@ -1,18 +1,25 @@
-import { ChartColumn, CircleUserRound, CloudUpload, House, LogIn, LogOut, Send, Settings, type LucideIcon } from 'lucide-react';
+import { ChartColumn, CircleUserRound, CloudUpload, Gamepad2, House, LogIn, LogOut, Settings, type LucideIcon } from 'lucide-react';
+import type { Href } from 'expo-router';
+import { GAME_TAB_LABEL } from '@/game/config';
 import { openSignIn, signOutToChoice } from '@/auth/gate';
 import { useAuth, useMe } from '@/auth/store';
 import { Logo } from './Logo';
+// The Game tab's dev options (Dev settings → Game, with the timed demo round).
+import '@/game/devSection';
 
-export type DesktopTab = 'home' | 'messages' | 'create' | 'profile' | 'skills';
+export type DesktopTab = 'home' | 'game' | 'skills' | 'create' | 'profile';
 
+/** The app's main features, in order (as the phone's tab bar): the feed, the game and your skills, Upload, Profile. */
 export const NAV: { id: DesktopTab; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Home', icon: House },
-  { id: 'messages', label: 'Messages', icon: Send },
+  { id: 'game', label: GAME_TAB_LABEL, icon: Gamepad2 },
+  { id: 'skills', label: 'Skills', icon: ChartColumn },
   { id: 'create', label: 'Upload', icon: CloudUpload },
   { id: 'profile', label: 'Profile', icon: CircleUserRound },
-  // Its own route (`src/app/skills.tsx`): the rail stays, the main area changes.
-  { id: 'skills', label: 'Skills', icon: ChartColumn },
 ];
+
+/** Rail tabs that are routes of their own (the rail stays, the main area changes). */
+export const RAIL_ROUTES: Partial<Record<DesktopTab, Href>> = { game: '/play', skills: '/skills' };
 
 /**
  * The desktop's left icon rail (web only). The app shows it beside the feed;

@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { router } from 'expo-router';
-import { Rail, requestDesktopTab, type DesktopTab } from '@/desktop/Rail';
+import { RAIL_ROUTES, Rail, requestDesktopTab, type DesktopTab } from '@/desktop/Rail';
 import type { TabId } from '@/ui/TabBar';
 import { openSettings } from '@/settings/store';
 import { FrameContext, isDesktop, useGameScreen } from './frame';
@@ -20,7 +20,7 @@ export { leaveForTab } from './PhoneFrame';
 export function GameFrame({ children, tab }: { children: ReactNode; tab?: TabId }) {
   const win = useWindowDimensions();
   if (!isDesktop(win.width, win.height)) return <PhoneFrame tab={tab}>{children}</PhoneFrame>;
-  return <DesktopFrame railTab={tab === 'skills' ? 'skills' : null}>{children}</DesktopFrame>;
+  return <DesktopFrame railTab={tab === 'skills' || tab === 'game' ? tab : null}>{children}</DesktopFrame>;
 }
 
 function DesktopFrame({ children, railTab }: { children: ReactNode; railTab: DesktopTab | null }) {
@@ -39,7 +39,8 @@ function DesktopFrame({ children, railTab }: { children: ReactNode; railTab: Des
         onTab={(t) => {
           if (t === railTab) return;
           // Skills is a route of its own; the other tabs are the app's, shown as it comes back.
-          if (t === 'skills') return router.replace('/skills');
+          const route = RAIL_ROUTES[t];
+          if (route) return router.replace(route);
           requestDesktopTab(t);
           back();
         }}

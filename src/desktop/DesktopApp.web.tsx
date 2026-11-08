@@ -11,7 +11,7 @@ import { ShareSheet } from '@/share/ShareSheet';
 import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
 import { DesktopFeed, type DesktopFeedHandle } from './DesktopFeed';
-import { NAV, Rail, onDesktopTabRequest, type DesktopTab } from './Rail';
+import { NAV, RAIL_ROUTES, Rail, onDesktopTabRequest, type DesktopTab } from './Rail';
 // Sets the palette's --dt-* colours that desktop.css reads.
 import '@/ui/theme';
 import './desktop.css';
@@ -54,9 +54,6 @@ export function DesktopApp({
     if (startAt !== undefined) feedRef.current?.jumpTo(startAt);
   }, [startAt]);
 
-  // A tab picked on the rail of a route on top (the timed round).
-  useEffect(() => onDesktopTabRequest(setTab), []);
-
   // Escape closes an open sheet, as a desktop dialog should.
   useEffect(() => {
     if (!sheetOpen) return;
@@ -71,6 +68,18 @@ export function DesktopApp({
   const openCreate = useCallback(() => {
     onUpload();
   }, [onUpload]);
+
+  // A tab picked on the rail: Create asks for an account, Game and Skills are routes of their own.
+  const pickTab = useCallback(
+    (t: DesktopTab) => {
+      if (t === 'create') openCreate();
+      else if (RAIL_ROUTES[t]) router.push(RAIL_ROUTES[t]);
+      else setTab(t);
+    },
+    [openCreate],
+  );
+  // …and on the rail of a route on top (Game, Skills, the timed round), which only asks for the app's own tabs.
+  useEffect(() => onDesktopTabRequest((t) => (t === 'create' ? openCreate() : setTab(t))), [openCreate]);
 
   const nav = useMemo<AppNav>(
     () => ({
@@ -100,7 +109,7 @@ export function DesktopApp({
         <Rail
           tab={tab}
           // Create goes through the app's nav (a guest is asked to sign in first); Skills is a route of its own.
-          onTab={(t) => (t === 'create' ? openCreate() : t === 'skills' ? router.push('/skills') : setTab(t))}
+          onTab={pickTab}
           onLogo={onLogo ?? (() => setTab('home'))}
           settingsOpen={settingsOpen}
           onSettings={openSettings}

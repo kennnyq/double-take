@@ -4,7 +4,7 @@ import { Redirect, router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SettingsContent } from '@/settings/SettingsScreen';
 import { openSettings } from '@/settings/store';
-import { TabBar, requestTab, type TabId } from '@/ui/TabBar';
+import { TabBar, requestTab, tabRoute, type TabId } from '@/ui/TabBar';
 import { usePalette } from '@/ui/theme';
 
 /**
@@ -30,8 +30,9 @@ export default function SettingsTab() {
 
   const onTab = (tab: TabId) => {
     if (tab === 'settings') return;
-    if (tab === 'skills') {
-      router.replace('/skills');
+    const route = tabRoute(tab);
+    if (route) {
+      router.replace(route);
       return;
     }
     requestTab(tab);

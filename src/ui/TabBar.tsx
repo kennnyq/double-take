@@ -2,23 +2,44 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import Reanimated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import type { Href } from 'expo-router';
+import { GAME_TAB_LABEL } from '@/game/config';
 import * as Haptics from 'expo-haptics';
 import { ownLayer } from '@/feed/layer';
 import { useFadeProgress } from '@/feed/motion';
+// The Game tab's dev options (Dev settings → Game, with the timed demo round).
+import '@/game/devSection';
 
-export type TabId = 'home' | 'create' | 'you' | 'skills' | 'settings';
+export type TabId = 'home' | 'game' | 'skills' | 'create' | 'you' | 'settings';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
+/**
+ * The app's main features, in order: the feed (Home), the game and your
+ * skills (a pair), Upload (its id is still 'create'), and You. Settings is reached from You (and is
+ * still a route, below).
+ */
 export const TABS: { id: TabId; label: string; icon: IconName; iconActive: IconName }[] = [
   { id: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
+  { id: 'game', label: GAME_TAB_LABEL, icon: 'game-controller-outline', iconActive: 'game-controller' },
+  { id: 'skills', label: 'Skills', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
   { id: 'create', label: 'Upload', icon: 'cloud-upload-outline', iconActive: 'cloud-upload' },
   { id: 'you', label: 'You', icon: 'person-circle-outline', iconActive: 'person-circle' },
-  // Its own route (`src/app/skills.tsx`), like Settings.
-  { id: 'skills', label: 'Skills', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
-  // Its own route (`src/app/settings.tsx`); the others are views of the Home screen.
-  { id: 'settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
 ];
+
+/**
+ * Tabs that are routes of their own, pushed over Home without animation (the
+ * others are views of the Home screen). Every tab handler goes through this.
+ */
+export const TAB_ROUTES = {
+  game: '/play',
+  skills: '/skills',
+  settings: '/settings',
+} as const satisfies Partial<Record<TabId, Href>>;
+
+export function tabRoute(tab: TabId): (typeof TAB_ROUTES)[keyof typeof TAB_ROUTES] | null {
+  return (TAB_ROUTES as Partial<Record<TabId, (typeof TAB_ROUTES)[keyof typeof TAB_ROUTES]>>)[tab] ?? null;
+}
 
 // ---- a tab picked on the Settings route, for the Home screen to show when it's back ----
 

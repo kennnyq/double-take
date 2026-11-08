@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TabBar, requestTab, type TabId } from '@/ui/TabBar';
+import { TabBar, requestTab, tabRoute, type TabId } from '@/ui/TabBar';
 import { usePalette } from '@/ui/theme';
 import { FrameContext, isDesktop, useGameScreen, type FrameSize } from './frame';
 
@@ -13,13 +13,11 @@ import { FrameContext, isDesktop, useGameScreen, type FrameSize } from './frame'
  */
 export function leaveForTab(tab: TabId, here?: TabId) {
   if (tab === here) return;
-  if (tab === 'skills') {
-    router.replace('/skills');
-    return;
-  }
-  if (tab === 'settings') {
-    if (here === 'skills') router.replace('/settings');
-    else router.dismissTo('/settings');
+  const route = tabRoute(tab);
+  if (route) {
+    // From a game screen pushed over Settings, back to it; else in place of this one.
+    if (tab === 'settings' && !here) router.dismissTo(route);
+    else router.replace(route);
     return;
   }
   requestTab(tab);
@@ -48,7 +46,7 @@ export function PhoneFrame({ children, tab = 'settings' }: { children: ReactNode
       <View style={styles.main} onLayout={onLayout}>
         <FrameContext.Provider value={frame}>{children}</FrameContext.Provider>
       </View>
-      <TabBar tab={tab} onTab={(t) => leaveForTab(t, tab === 'skills' ? 'skills' : undefined)} />
+      <TabBar tab={tab} onTab={(t) => leaveForTab(t, tabRoute(tab) && tab !== 'settings' ? tab : undefined)} />
     </View>
   );
 }
