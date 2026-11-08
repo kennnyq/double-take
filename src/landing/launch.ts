@@ -1,5 +1,6 @@
 import { playerFor } from './AtlasPlayer';
 import type { LandingValues } from './designs';
+import { neverFaster } from './ease';
 import { sendHandoff } from './handoff';
 import { slowdown } from './slowdown';
 
@@ -366,12 +367,14 @@ function warm(hi: HTMLVideoElement, root: HTMLElement, time: () => number) {
 
 /** Setting up the growth (the beat, the full clip's first frames) takes about this long (ms), so it waits that much less. */
 const GROW_SETUP = 290;
-/** The stragglers hurry this long before the growth starts (ms), so the two don't share a frame. */
-const HURRY_LEAD = 250;
+/** No more of the others start to leave from this long before the growth starts (ms), so the two don't share a frame. */
+const SETTLE_LEAD = 250;
 /** How long it grows, against the grow style's own length (a design on trial: `growth`). */
 const GROWTH: Record<LandingValues['growth'], number> = { fast: 1, medium: 1.25, slow: 1.6 };
-/** How much faster the tiles still leaving go, once it does. */
-const HURRY = 2.5;
+/** How long after that the rest of the gallery fades out (ms; a design on trial: `fade`). */
+const FADE_AFTER: Record<LandingValues['fade'], number> = { early: 0, later: 1000, late: 2000 };
+/** How long that fade takes (ms). */
+const FADE_MS = 600;
 
 const GROW: Record<LandingValues['grow'], { ms: number; easing: string }> = {
   straight: { ms: 850, easing: 'cubic-bezier(.2,.8,.2,1)' },
@@ -526,7 +529,7 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
     ? lift(root, survivor, survivor.closest('.lt-front') || light ? 'none' : lateFilter)
     : null;
 
-  // Everything leaving, so the stragglers can be hurried once the one that stays grows.
+  // Everything leaving, so the stragglers can be kept from speeding up as the rest fades.
   const leavingAll: Animation[] = [];
   const pending = new Set<number>();
   const later = (ms: number, go: () => void) => {
@@ -611,29 +614,51 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   if (v.focus === 'early' || liftNow) clearOverlays(light ? 900 : 450, 100);
   else if (v.focus === 'gradual') clearOverlays(pace, 140);
 
-  // ---- Stragglers hurry, a little before the growth (not in its first frame):
-  // those going go faster, and the rest of the gallery (the one that stays is
-  // out of it) fades as a whole, in one animation, rather than each still to
-  // go starting now (dozens of canvases in a frame).
-  const hurry = () => {
+  // ---- A little before the growth (not in its first frame), no more of the
+  // others start to leave (each would be a new canvas and animation while it
+  // grows); the ones not yet gone stay as they are, coasting.
+  const settle = () => {
     pending.forEach((id) => window.clearTimeout(id));
     pending.clear();
-    for (const a of leavingAll) if (a.playState === 'running') a.updatePlaybackRate(HURRY);
-    galleryEl?.animate([{ opacity: getComputedStyle(galleryEl).opacity }, { opacity: 0 }], {
-      duration: 600,
+  };
+  // ---- Then (`fade`) the rest of the gallery (the one that stays is out of
+  // it) fades out as a whole, in one animation: its opacity only. Nothing in
+  // it speeds up: those still leaving go on as they were, except that any
+  // still gathering speed (an exit that eases in) slows from here instead.
+  let fading: Animation | null = null;
+  let fadeTimer = 0;
+  const fadeRest = (): Animation | null => {
+    window.clearTimeout(fadeTimer);
+    if (fading || !galleryEl || !alive()) return fading;
+    for (const a of leavingAll) {
+      const effect = a.effect;
+      const t = effect?.getComputedTiming();
+      if (a.playState !== 'running' || !effect || !t || typeof t.duration !== 'number' || !t.duration) continue;
+      const calmer = neverFaster(String(t.easing), Number(t.localTime ?? 0) / t.duration);
+      try {
+        if (calmer) effect.updateTiming({ easing: calmer });
+      } catch {
+        // No linear() easing in this browser: it goes on as it was.
+      }
+    }
+    fading = galleryEl.animate([{ opacity: getComputedStyle(galleryEl).opacity }, { opacity: 0 }], {
+      duration: FADE_MS,
       easing: 'cubic-bezier(.4,0,.2,1)',
       fill: 'forwards',
     });
+    return fading;
   };
 
   // The one that stays starts forward soon after the press, over the coast and
   // the others leaving (it waited for most to go: ~3 s, which read as late).
   // When is a design on trial (`start`); it was ~3 s (late), then ~0.85 s (too soon).
   const startIn = Math.max(0, Math.min(Number(v.start), 140 + spread + vanish.ms) - GROW_SETUP);
-  await wait(Math.max(0, startIn - HURRY_LEAD));
+  await wait(Math.max(0, startIn - SETTLE_LEAD));
   if (!alive()) return;
-  hurry();
-  await wait(Math.min(HURRY_LEAD, startIn));
+  settle();
+  if (FADE_AFTER[v.fade]) fadeTimer = window.setTimeout(fadeRest, FADE_AFTER[v.fade]);
+  else fadeRest();
+  await wait(Math.min(SETTLE_LEAD, startIn));
   if (!alive()) return;
 
   // ---- Alone, a beat. Lifted out first (once the gallery has stopped), so
@@ -770,7 +795,10 @@ export async function launch(root: HTMLElement, v: LandingValues, from: HTMLElem
   }
 
   // ---- Arrive: the page behind goes, the app's pieces come in, the feed's
-  // video takes over under the one that grew.
+  // video takes over under the one that grew. The rest of the gallery has
+  // faded first (a late fade starts now, if it hasn't yet).
+  await fadeRest()?.finished.catch(() => {});
+  if (!alive()) return;
   root.style.pointerEvents = 'none';
   arriveChrome(v.arrive);
   await root.animate([{ backgroundColor: getComputedStyle(root).backgroundColor }, { backgroundColor: 'transparent' }], {
