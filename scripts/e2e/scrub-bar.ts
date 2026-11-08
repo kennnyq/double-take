@@ -3,8 +3,9 @@
  * hovering (desktop) thickens it; a click or tap fast-forwards or rewinds
  * there through several frames (never a jump); dragging along it moves the
  * video with the pointer, paused, and playback resumes after; arrow keys seek
- * (desktop); a drag on the bar doesn't scroll the feed; during a double take
- * it stays, dimmed, and ignores the pointer.
+ * (desktop); a drag on the bar doesn't scroll the feed; its ends sit at the
+ * clip's corner radius (which grows in a double take); during a double take
+ * it keeps its look but ignores the pointer.
  *
  *   npm run e2e:scrub                                   (dev server on 8081)
  *   BASE_URL=http://localhost:8089 npm run e2e:scrub
@@ -132,16 +133,76 @@ async function desktop(browser: Browser) {
   const right = eased(await samples(page), Math.min(d - 0.25, before + 5), 1.2);
   check('desktop: ArrowRight runs 5 s on', right.ok || Math.abs(right.end - Math.min(d - 0.25, before + 5)) < 0.8, right);
 
-  // During a double take the bar stays, dimmed, and ignores the pointer.
+  // The bar runs between the card's rounded corners, in the feed and during a double take,
+  // where it keeps its look (not dimmed) but ignores the pointer.
+  const feedBar = await deskBar(page);
+  check('desktop: the bar’s ends sit at the card’s corner radius', Math.abs(feedBar.leftGap - feedBar.radius) < 1.5 && Math.abs(feedBar.rightGap - feedBar.radius) < 1.5, feedBar);
   await page.click('section.slide[aria-current="true"] [aria-label^="Double take"]');
   await page.waitForTimeout(1500);
-  const faded = await page.evaluate(() => {
-    const s = document.querySelector('section.slide[aria-current="true"] .d-scrub')!;
-    const c = getComputedStyle(s);
-    return { opacity: c.opacity, events: c.pointerEvents };
-  });
-  check('desktop: the bar stays dimmed and out of reach during a double take', faded.opacity === '0.4' && faded.events === 'none', faded);
+  const inBar = await deskBar(page);
+  check(
+    'desktop: in a double take the bar keeps its look, fits the rounder corners, and is out of reach',
+    inBar.radius > feedBar.radius + 5 &&
+      Math.abs(inBar.leftGap - inBar.radius) < 1.5 &&
+      Math.abs(inBar.rightGap - inBar.radius) < 1.5 &&
+      inBar.opacity === 1 &&
+      inBar.color === feedBar.color &&
+      inBar.events === 'none',
+    { feedBar, inBar },
+  );
   await page.context().close();
+}
+
+/** Opacity of an element through all its ancestors. */
+const OPACITY_CHAIN = `(el) => { let o = 1; for (let e = el; e; e = e.parentElement) o *= +getComputedStyle(e).opacity; return o; }`;
+
+/**
+ * The desktop bar's track against its card: gaps at each end (px on screen),
+ * the card's corner radius on screen (--card-radius times the card's scale),
+ * the track's opacity through all its ancestors, its colour, and whether the
+ * strip takes the pointer.
+ */
+function deskBar(page: Page) {
+  return page.evaluate((chain) => {
+    const opacityOf = new Function(`return ${chain}`)() as (el: HTMLElement) => number;
+    const strip = document.querySelector('section.slide[aria-current="true"] .d-scrub') as HTMLElement;
+    const track = strip.querySelector('.d-scrub-track') as HTMLElement;
+    const card = strip.closest('.overlay') as HTMLElement;
+    const c = card.getBoundingClientRect();
+    const t = track.getBoundingClientRect();
+    const scale = c.width / card.offsetWidth;
+    return {
+      leftGap: +(t.left - c.left).toFixed(2),
+      rightGap: +(c.right - t.right).toFixed(2),
+      radius: +(parseFloat(getComputedStyle(track).getPropertyValue('--card-radius')) * scale).toFixed(2),
+      opacity: +opacityOf(track).toFixed(3),
+      color: getComputedStyle(track).backgroundColor,
+      events: getComputedStyle(strip).pointerEvents,
+    };
+  }, OPACITY_CHAIN);
+}
+
+/** The phone bar's track against the clip's stage, as for deskBar (the stage's corner radius is its border radius on screen). */
+function phoneBar(page: Page) {
+  return page.evaluate((chain) => {
+    const opacityOf = new Function(`return ${chain}`)() as (el: HTMLElement) => number;
+    const track = [...document.querySelectorAll('[data-testid="dt-progress-track"]')].find((e) => {
+      const r = e.getBoundingClientRect();
+      return r.bottom > 0 && r.top < innerHeight && r.width > 0;
+    }) as HTMLElement;
+    let stage = track.parentElement as HTMLElement;
+    while (stage && stage.getBoundingClientRect().height < 300) stage = stage.parentElement as HTMLElement;
+    const c = stage.getBoundingClientRect();
+    const t = track.getBoundingClientRect();
+    const scale = c.width / stage.offsetWidth;
+    return {
+      leftGap: +(t.left - c.left).toFixed(2),
+      rightGap: +(c.right - t.right).toFixed(2),
+      radius: +((parseFloat(getComputedStyle(stage).borderTopLeftRadius) || 0) * scale).toFixed(2),
+      opacity: +opacityOf(track).toFixed(3),
+      color: getComputedStyle(track).backgroundColor,
+    };
+  }, OPACITY_CHAIN);
 }
 
 async function phone(browser: Browser) {
@@ -179,6 +240,24 @@ async function phone(browser: Browser) {
   // The first move only decides it's a drag; from then on the video follows.
   check('phone: dragging along the bar moves the video with the finger', follow.slice(1).every((x) => Math.abs(x.want - x.got) < 0.6), follow);
   check('phone: a drag on the bar doesn’t scroll the feed', scrollAfter === scrollBefore, { scrollBefore, scrollAfter });
+
+  // The bar runs between the clip's corners: square in the feed, rounded once the double take insets it, where it keeps its look.
+  const feedBar = await phoneBar(page);
+  check('phone: in the feed the bar spans the clip (square corners)', feedBar.radius === 0 && Math.abs(feedBar.leftGap) < 1.5 && Math.abs(feedBar.rightGap) < 1.5, feedBar);
+  for (const b of await page.$$('[aria-label^="Double take"]')) {
+    const r = await b.boundingBox();
+    if (r && r.y > 0 && r.y < 932) {
+      await b.click();
+      break;
+    }
+  }
+  await page.waitForTimeout(1600);
+  const inBar = await phoneBar(page);
+  check(
+    'phone: in a double take the bar keeps its look and fits the rounded corners',
+    inBar.radius > 10 && Math.abs(inBar.leftGap - inBar.radius) < 1.5 && Math.abs(inBar.rightGap - inBar.radius) < 1.5 && inBar.opacity === 1 && inBar.color === feedBar.color,
+    { feedBar, inBar },
+  );
   await page.context().close();
 }
 

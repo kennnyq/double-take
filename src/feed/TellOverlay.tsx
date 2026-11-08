@@ -234,7 +234,12 @@ export function TellOverlay({ ref, ...p }: Props) {
   };
 
   const showCard = (card: Omit<Card, 'key' | 'leaving'>) =>
-    setCards((cs) => [...cs.map((c) => ({ ...c, leaving: true })), { ...card, key: ++cardKeys, leaving: false }]);
+    setCards((cs) => {
+      const active = cs.find((c) => !c.leaving);
+      return active
+        ? cs.map((c) => c === active ? { ...card, key: c.key, leaving: false } : c)
+        : [...cs, { ...card, key: ++cardKeys, leaving: false }];
+    });
   const leaveCards = () => setCards((cs) => (cs.some((c) => !c.leaving) ? cs.map((c) => ({ ...c, leaving: true })) : cs));
   const dropCard = (key: number) => setCards((cs) => cs.filter((c) => c.key !== key));
 
@@ -243,7 +248,7 @@ export function TellOverlay({ ref, ...p }: Props) {
     const last = i + 1 >= n;
     // Only the reason, and the buttons. The faint "Tap to continue / finish" line
     // is one of the dev settings' end cues; reviewers can mark model drafts (off by default).
-    const tap = settings.endCue === 'text' ? `${pointerVerb()} to ${last ? 'finish' : 'continue'}` : '';
+    const tap = n > 1 && settings.endCue === 'text' ? `${pointerVerb()} to ${last ? 'finish' : 'continue'}` : '';
     const step = { index: i, count: n };
     const tell = d.steps[i];
     if (tell) {
@@ -270,7 +275,6 @@ export function TellOverlay({ ref, ...p }: Props) {
 
   const goTo = (i: number, d: Loaded) => {
     stopScrub();
-    leaveCards();
     setStep(i);
     setStillAt(null);
     const tell = d.steps[i];
@@ -300,13 +304,17 @@ export function TellOverlay({ ref, ...p }: Props) {
     const plan = planScrub(player.currentTime, r.from);
     setSeekBadge(seekBadgeFor(plan.to - plan.from, plan.ms));
     p.onScrubPlan?.(plan);
-    // The annotations come in as the scrub nears its end, timed off its plan.
+    // A visible card responds immediately to next/back. Only the first
+    // entrance waits for the scrub; moving between tells must not wait.
+    const continuing = cards.some((c) => !c.leaving);
+    if (continuing) showCard(card);
+    // The spotlight still waits until its area is relevant in the video.
     let annotatedNow = false;
     const annotate = () => {
       if (annotatedNow) return;
       annotatedNow = true;
       setAnnotated(true);
-      showCard(card);
+      if (!continuing) showCard(card);
     };
     setAnnotated(false);
     if (plan.ms > 0) annotateTimer.current = setTimeout(annotate, Math.max(0, plan.ms - ANNOTATE_LEAD_MS));
@@ -381,7 +389,11 @@ export function TellOverlay({ ref, ...p }: Props) {
     nextRef.current = next;
   });
   const back = () => {
-    if (data && step !== null && step > 0 && !settling.current) goTo(step - 1, data);
+    if (data && step !== null && step >= 0 && !settling.current) {
+      // On the first annotation, back replays its loop through the normal
+      // eased scrub path. The card and its text remain mounted.
+      goTo(Math.max(0, step - 1), data);
+    }
   };
   const backRef = useRef(back);
   useEffect(() => {
@@ -504,10 +516,12 @@ export function TellOverlay({ ref, ...p }: Props) {
         <InfoCard
           key={c.key}
           spot={c.spot}
+          stageH={p.stageH}
           text={c.text}
           hint={c.hint}
           loop={c.loop ? loop : null}
           blur={settings.spotlightEffect === 'fullBlur'}
+          revealVariant={settings.textReveal}
           nav={
             c.step
               ? { step: c.step.index, count: c.step.count, cue: settings.endCue, onBack: () => backRef.current(), onNext: () => nextRef.current() }

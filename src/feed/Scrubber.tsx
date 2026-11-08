@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, Text, View, type GestureResponderEvent } from 'react-native';
-import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
+import Reanimated, { Easing, useAnimatedStyle, useSharedValue, withTiming, type SharedValue } from 'react-native-reanimated';
 import type { VideoPlayer } from 'expo-video';
 import { themed } from '@/ui/theme';
 import { alpha } from './glass';
@@ -20,6 +20,11 @@ interface Props {
   onDrag: (on: boolean) => void;
   /** A tap's eased seek is starting: the bar follows its plan (see Feed's followScrub). */
   onFollow: (plan: ScrubPlan) => void;
+  /**
+   * The clip's corner radius right now (px, live): the bar's ends sit that far
+   * in, so it runs along the straight bottom edge between the rounded corners.
+   */
+  endInset?: SharedValue<number>;
 }
 
 /** Seeking is a property write on the player; kept out of the component body. */
@@ -46,7 +51,7 @@ const DRAG_SEEK_MS = 40;
  *  - an up/down swipe that starts on it still moves the feed, and a press on
  *    it never reaches the clip's tap, double-tap or hold.
  */
-export function Scrubber({ player, progress, width, enabled, onHold, onDrag, onFollow }: Props) {
+export function Scrubber({ player, progress, width, enabled, onHold, onDrag, onFollow, endInset }: Props) {
   const tint = useTint();
   const thick = useSharedValue(0);
   const bubbleX = useSharedValue(0);
@@ -58,10 +63,15 @@ export function Scrubber({ player, progress, width, enabled, onHold, onDrag, onF
   const press = (on: boolean) => {
     thick.value = withTiming(on ? 1 : 0, { duration: on ? 120 : 260, easing: Easing.out(Easing.cubic) });
   };
+  /** Where along the bar (0..1) a point of the touch strip is, allowing for the inset ends. */
+  const fracOf = (x: number) => {
+    const r = endInset ? Math.max(0, endInset.value) : 0;
+    return fracAt(x - r, width - 2 * r);
+  };
   const dragTo = (x: number, force = false) => {
     const d = duration();
     if (!player || !d) return;
-    const f = fracAt(x, width);
+    const f = fracOf(x);
     progress.setValue(f);
     bubbleX.value = Math.min(width - 48, Math.max(48, x));
     setLabel(timeLabel(f * d, d));
@@ -115,7 +125,7 @@ export function Scrubber({ player, progress, width, enabled, onHold, onDrag, onF
       else if (s.mode === 'pending' && player && duration()) {
         // A tap: run there.
         s.cancel();
-        const to = fracAt(s.startX, width) * duration();
+        const to = fracOf(s.startX) * duration();
         // Hold first (the feed then leaves the bar to the plan), then run there.
         const plan = planScrub(player.currentTime, to);
         if (plan.ms > 0) {
@@ -137,12 +147,16 @@ export function Scrubber({ player, progress, width, enabled, onHold, onDrag, onF
     },
   };
 
-  const track = useAnimatedStyle(() => ({ transform: [{ scaleY: 1 + (THICK - 1) * thick.value }] }));
+  // The ends come in by the corner radius: a horizontal scale about the centre (no layout per frame).
+  const track = useAnimatedStyle(() => {
+    const r = endInset ? Math.max(0, Math.min(width / 2 - 1, endInset.value)) : 0;
+    return { transform: [{ scaleX: width > 0 ? (width - 2 * r) / width : 1 }, { scaleY: 1 + (THICK - 1) * thick.value }] };
+  });
   const bubble = useAnimatedStyle(() => ({ transform: [{ translateX: bubbleX.value - 48 }] }));
 
   return (
     <View style={[styles.hit, web.touch]} pointerEvents={enabled ? 'auto' : 'none'} {...handlers}>
-      <Reanimated.View style={[styles.track, tint.track, track]} pointerEvents="none">
+      <Reanimated.View style={[styles.track, tint.track, track]} pointerEvents="none" testID="dt-progress-track">
         <Animated.View
           testID="dt-progress-fill"
           style={[

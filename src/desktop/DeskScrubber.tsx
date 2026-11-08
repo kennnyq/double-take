@@ -6,8 +6,8 @@ import type { HtmlVideoPlayer } from './HtmlVideoPlayer';
 interface Props {
   /** The active clip's player; null for other slides (the bar shows empty). */
   player: HtmlVideoPlayer | null;
-  /** Dimmed and inert (during a double take: the walkthrough owns the clicks). */
-  dimmed: boolean;
+  /** Out of reach, though still shown as it is (during a double take: the walkthrough owns the clicks). */
+  inert: boolean;
   /** Hold the clip paused and silent while scrubbing. */
   onHold: (on: boolean) => void;
 }
@@ -27,11 +27,12 @@ const DRAG_SEEK_MS = 40;
  * rewinds there (an eased scrub, never a jump). The fill follows playback
  * every frame. Arrow keys seek too (see DesktopFeed).
  */
-export function DeskScrubber({ player, dimmed, onHold }: Props) {
+export function DeskScrubber({ player, inert, onHold }: Props) {
   const root = useRef<HTMLDivElement>(null);
   const fill = useRef<HTMLDivElement>(null);
   const bubble = useRef<HTMLDivElement>(null);
   const [dragging, setDragging] = useState(false);
+  const bubbleInset = useRef(0);
   const g = useRef({ x0: 0, y0: 0, mode: 'idle' as 'idle' | 'pending' | 'drag', lastSeek: 0, cancel: () => {} });
 
   // The fill follows playback (and the eased scrub) every frame; a drag sets it directly.
@@ -51,16 +52,20 @@ export function DeskScrubber({ player, dimmed, onHold }: Props) {
   }, [player]);
   useEffect(() => () => g.current.cancel(), []);
 
+  // Positions along the track, which runs between the card's rounded corners (--card-radius).
   const xOf = (e: RPointerEvent<HTMLDivElement>) => {
     const r = e.currentTarget.getBoundingClientRect();
-    return { x: e.clientX - r.left, w: r.width };
+    const inset = parseFloat(getComputedStyle(e.currentTarget).getPropertyValue('--card-radius')) || 0;
+    // The bubble is placed in the strip, so it gets the inset back.
+    bubbleInset.current = inset;
+    return { x: e.clientX - r.left - inset, w: r.width - 2 * inset };
   };
   const showTime = (x: number, w: number) => {
     const d = player?.duration ?? 0;
     const b = bubble.current;
     if (!b || !d) return;
     b.textContent = timeLabel(fracAt(x, w) * d, d);
-    b.style.left = `${Math.min(w - 44, Math.max(44, x))}px`;
+    b.style.left = `${bubbleInset.current + Math.min(w - 44, Math.max(44, x))}px`;
   };
   const dragTo = (x: number, w: number, force = false) => {
     const d = player?.duration ?? 0;
@@ -78,12 +83,12 @@ export function DeskScrubber({ player, dimmed, onHold }: Props) {
   return (
     <div
       ref={root}
-      className={`d-scrub fades ${dimmed ? 'dimmed' : ''} ${dragging ? 'dragging' : ''}`}
+      className={`d-scrub ${inert ? 'inert' : ''} ${dragging ? 'dragging' : ''}`}
       role="slider"
       aria-label="Seek"
       aria-valuemin={0}
       aria-valuemax={100}
-      aria-hidden={dimmed || !player}
+      aria-hidden={inert || !player}
       onPointerDown={(e) => {
         if (e.button !== 0 || !player) return;
         e.stopPropagation();

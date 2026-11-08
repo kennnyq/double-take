@@ -7,6 +7,7 @@ import type { Clip } from '@/data/clips';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import { DesktopApp } from '@/desktop/DesktopApp';
 import { DevSettings } from '@/devtools/DevSettings';
+import { useDevSettings } from '@/devtools/store';
 import { Feed, type FeedHandle } from '@/feed/Feed';
 import { WithLanding } from '@/landing/WithLanding';
 import { Profile } from '@/profile/Profile';
@@ -56,6 +57,9 @@ function Screen({ startAt }: { startAt?: number }) {
   // Shared by the open sheet (drives it) and the feed (shrinks the video with it).
   const [sheetProgress] = useState(() => new Animated.Value(0));
   const screenFocused = useIsFocused();
+  // The double take is open on the feed: the tab bar may fade with its chrome (dev setting).
+  const [inspecting, setInspecting] = useState(false);
+  const { tabBarInDoubleTake } = useDevSettings();
   const current = TABS.find((t) => t.id === tab)!;
 
   const closeSheet = useCallback(() => setSheetOpen(false), []);
@@ -108,13 +112,14 @@ function Screen({ startAt }: { startAt?: number }) {
               sheetOpen={sheet !== null}
               sheetProgress={sheetProgress}
               startAt={startAt}
+              onInspectChange={setInspecting}
               ref={feedRef}
             />
           </View>
           {tab === 'you' && <Profile tab={profileTab} onTab={setProfileTab} />}
           {tab !== 'home' && tab !== 'you' && <Placeholder title={current.label} icon={current.iconActive} />}
         </View>
-        <TabBar tab={tab} onTab={showTab} />
+        <TabBar tab={tab} onTab={showTab} faded={tabBarInDoubleTake === 'fade' && inspecting && tab === 'home'} />
         {/* Sheets sit above the tab bar; keyed by clip so composer/search state starts fresh. */}
         {sheet?.kind === 'comments' && <CommentsSheet key={sheet.clip.id} clip={sheet.clip} {...sheetProps} />}
         {sheet?.kind === 'share' && <ShareSheet key={sheet.clip.id} clip={sheet.clip} {...sheetProps} />}

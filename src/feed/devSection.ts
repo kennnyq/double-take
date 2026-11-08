@@ -52,6 +52,14 @@ registerDevSection({
       { label: 'Normal', value: 'normal', note: 'A comfortable margin around the box; the card keeps clear of it.' },
       { label: 'Roomy', value: 'roomy', note: 'Plenty of context around the box.' },
     ]),
+    settingChoice(s, 'textReveal', 'Text', [
+      { label: 'Siri', value: 'siri', note: 'Siri’s answer card: lines rise from below, their gaps closing up, the words fading in in reading order.' },
+      { label: 'WWDC', value: 'wwdc', note: 'WWDC24’s text transition: each word drops into place from just above out of a slight blur.' },
+    ]),
+    settingChoice(s, 'tabBarInDoubleTake', 'Tab bar during double take', [
+      { label: 'Stay', value: 'stay', note: 'The phone’s tab bar stays as it is.' },
+      { label: 'Fade', value: 'fade', note: 'It fades out with the clip’s chrome and back on exit; its space stays, so nothing moves.' },
+    ]),
     settingChoice(s, 'endCue', 'Last step', [
       { label: 'Check', value: 'done', note: 'On the last tell, the forward button turns into a check.' },
       { label: 'Dots', value: 'dots', note: 'Step dots between the arrows; the last one fills on the last tell.' },

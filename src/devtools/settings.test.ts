@@ -37,6 +37,15 @@ test('parseSettings reads the double take spotlight settings', () => {
   assert.equal(bad.markDrafts, false);
 });
 
+test('the text reveal defaults to the word wave, and reads the others', () => {
+  assert.equal(DEFAULT_SETTINGS.textReveal, 'siri');
+  assert.equal(parseSettings(JSON.stringify({ textReveal: 'wwdc' })).textReveal, 'wwdc');
+  assert.equal(parseSettings(JSON.stringify({ textReveal: 'typewriter' })).textReveal, 'siri');
+  assert.equal(DEFAULT_SETTINGS.tabBarInDoubleTake, 'stay');
+  assert.equal(parseSettings(JSON.stringify({ tabBarInDoubleTake: 'fade' })).tabBarInDoubleTake, 'fade');
+  assert.equal(parseSettings(JSON.stringify({ tabBarInDoubleTake: 'slide' })).tabBarInDoubleTake, 'stay');
+});
+
 test('the end cue defaults to the check, and reads the others', () => {
   assert.equal(DEFAULT_SETTINGS.endCue, 'done');
   assert.equal(parseSettings(JSON.stringify({ endCue: 'dots' })).endCue, 'dots');
