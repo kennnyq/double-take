@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  Animated,
+  Easing,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -224,7 +226,8 @@ function SignInBody({ reason }: { reason: string | null }) {
           <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#aaa" />
         </Pressable>
       </View>
-      {signUp && <Text style={styles.hint}>{PASSWORD_MIN}+ characters with letters and numbers. There’s no password reset yet, so keep it somewhere safe.</Text>}
+      {/* Space kept, faded in once there's a password, so nothing below moves. */}
+      {signUp && <FadeHint visible={password.length > 0}>{PASSWORD_MIN}+ characters with letters and numbers.</FadeHint>}
       {/* The username hint already says "taken"; don't repeat it. */}
       {error && error !== nameHint && (
         <Text style={styles.error} role="alert">
@@ -239,12 +242,6 @@ function SignInBody({ reason }: { reason: string | null }) {
       >
         {busy ? <ActivityIndicator color={c.onAccent} /> : <Text style={[styles.primaryText, tint.primaryText]}>{signUp ? 'Create account' : 'Sign in'}</Text>}
       </Pressable>
-      <Pressable onPress={() => switchMode(signUp ? 'signIn' : 'signUp')} hitSlop={6} accessibilityRole="button" style={styles.switch}>
-        <Text style={styles.sub}>
-          {signUp ? 'Have an account? ' : 'New here? '}
-          <Text style={[styles.link, tint.link]}>{signUp ? 'Sign in' : 'Create an account'}</Text>
-        </Text>
-      </Pressable>
       {!guest && (
         <Pressable
           onPress={continueAsGuest}
@@ -255,8 +252,33 @@ function SignInBody({ reason }: { reason: string | null }) {
           <Text style={styles.guestText}>Continue as guest</Text>
         </Pressable>
       )}
+      <Pressable onPress={() => switchMode(signUp ? 'signIn' : 'signUp')} hitSlop={6} accessibilityRole="button" style={styles.switch}>
+        <Text style={styles.sub}>
+          {signUp ? 'Have an account? ' : 'New here? '}
+          <Text style={[styles.link, tint.link]}>{signUp ? 'Sign in' : 'Create an account'}</Text>
+        </Text>
+      </Pressable>
       {devAccountsAvailable() && <DevQuickSignIn onError={setError} />}
     </View>
+  );
+}
+
+/** A hint that fades in and out where it stands (its space is always kept). */
+function FadeHint({ visible, children }: { visible: boolean; children: React.ReactNode }) {
+  const [opacity] = useState(() => new Animated.Value(visible ? 1 : 0));
+  useEffect(() => {
+    // Retargets from wherever it is, so quick typing and deleting never snaps.
+    Animated.timing(opacity, {
+      toValue: visible ? 1 : 0,
+      duration: 180,
+      easing: Easing.out(Easing.quad),
+      useNativeDriver: Platform.OS !== 'web',
+    }).start();
+  }, [visible, opacity]);
+  return (
+    <Animated.Text style={[styles.hint, { opacity }]} accessibilityElementsHidden={!visible} importantForAccessibility={visible ? 'auto' : 'no-hide-descendants'}>
+      {children}
+    </Animated.Text>
   );
 }
 
@@ -339,14 +361,8 @@ const styles = StyleSheet.create({
   eye: { position: 'absolute', right: 12, top: 6, bottom: 0, justifyContent: 'center' },
   hint: { color: 'rgba(255,255,255,0.6)', fontSize: 12, lineHeight: 16, marginTop: -4 },
   switch: { alignItems: 'center', paddingVertical: 4 },
-  guestButton: {
-    height: 46,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.28)',
-  },
+  // Neutral grey: secondary to the accent Sign in / Create account button.
+  guestButton: { height: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3a3a3c' },
   guestText: { color: '#fff', fontSize: 15, fontWeight: '600' },
   link: { fontSize: 14, fontWeight: '600' },
   dev: {

@@ -221,7 +221,7 @@ function GuestProfile({ loading }: { loading: boolean }) {
           >
             <Text style={[styles.guestButtonText, tint.guestButtonText]}>Sign in or sign up</Text>
           </Pressable>
-          <Pressable onPress={continueAsGuest} hitSlop={6} style={({ pressed }) => [styles.guestSecondary, pressed && { opacity: 0.7 }]} accessibilityRole="button">
+          <Pressable onPress={continueAsGuest} style={({ pressed }) => [styles.guestSecondary, pressed && { opacity: 0.7 }]} accessibilityRole="button">
             <Text style={styles.guestSecondaryText}>Continue as guest</Text>
           </Pressable>
         </View>
@@ -345,8 +345,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 6,
   },
-  guestSecondary: { paddingVertical: 10, paddingHorizontal: 16 },
-  guestSecondaryText: { color: '#e5e5e5', fontSize: 15, fontWeight: '600' },
+  guestSecondary: { height: 46, paddingHorizontal: 28, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#3a3a3c' },
+  guestSecondaryText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   guestTitle: { color: '#fff', fontSize: 22, fontWeight: '700' },
   guestText: { color: '#a8a8a8', fontSize: 15, lineHeight: 21, textAlign: 'center' },
   guestButton: {
