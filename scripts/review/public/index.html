@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="robots" content="noindex, nofollow" />
+    <meta name="color-scheme" content="dark" />
+    <title>Clip review (dev)</title>
+    <link rel="stylesheet" href="app.css" />
+  </head>
+  <body>
+    <header class="top">
+      <button class="icon only-narrow" id="filters-btn" title="Filters">☰</button>
+      <h1>Clip review <span class="dev">dev</span></h1>
+      <div class="progress" id="progress"></div>
+      <input id="search" type="search" placeholder="Search  /" autocomplete="off" />
+      <label class="sel">Group
+        <select id="group">
+          <option value="none">None</option>
+          <option value="in">Feed / batch</option>
+          <option value="status">Status</option>
+          <option value="kind">AI / real</option>
+          <option value="label">Label / tier</option>
+          <option value="tells">Tells</option>
+          <option value="platform">Source</option>
+          <option value="author">Author</option>
+          <option value="tag">Tag</option>
+          <option value="pair">Pair</option>
+          <option value="dup">Duplicate hint</option>
+        </select>
+      </label>
+      <label class="sel">Sort
+        <select id="sort">
+          <option value="feed">Feed order</option>
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+          <option value="short">Shortest</option>
+          <option value="long">Longest</option>
+          <option value="reviewed">Recently reviewed</option>
+        </select>
+      </label>
+      <button class="icon" id="settings-btn" title="Settings and tags">⚙</button>
+      <button class="icon" id="help-btn" title="Shortcuts (?)">?</button>
+    </header>
+
+    <div class="layout">
+      <aside class="facets" id="facets"></aside>
+      <main id="grid" class="grid-wrap" tabindex="-1"></main>
+    </div>
+
+    <section id="focus" class="focus" hidden></section>
+
+    <dialog id="tags-dlg" class="palette"></dialog>
+    <dialog id="help-dlg" class="sheet">
+      <h2>Shortcuts</h2>
+      <table>
+        <tr><td><kbd>J</kbd> <kbd>K</kbd> / <kbd>↓</kbd> <kbd>↑</kbd> <kbd>→</kbd> <kbd>←</kbd></td><td>Next / previous clip</td></tr>
+        <tr><td><kbd>Enter</kbd> / <kbd>O</kbd></td><td>Open the selected clip</td></tr>
+        <tr><td><kbd>Esc</kbd></td><td>Back to the grid (or leave a text field)</td></tr>
+        <tr><td><kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd></td><td>Keep / discard / needs work (again to clear)</td></tr>
+        <tr><td><kbd>0</kbd></td><td>Clear the decision</td></tr>
+        <tr><td><kbd>T</kbd></td><td>Tags (then the tag's number)</td></tr>
+        <tr><td><kbd>N</kbd></td><td>Write a note (<kbd>Ctrl</kbd>+<kbd>Enter</kbd> or <kbd>Esc</kbd> saves)</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Play / pause</td></tr>
+        <tr><td><kbd>,</kbd> <kbd>.</kbd></td><td>Seek −1 s / +1 s</td></tr>
+        <tr><td><kbd>B</kbd></td><td>Show / hide tell boxes</td></tr>
+        <tr><td><kbd>M</kbd></td><td>Mute / unmute</td></tr>
+        <tr><td><kbd>U</kbd></td><td>Undo your last change</td></tr>
+        <tr><td><kbd>/</kbd></td><td>Search</td></tr>
+        <tr><td><kbd>R</kbd></td><td>Re-apply filters (decided clips stay put until then)</td></tr>
+        <tr><td><kbd>?</kbd></td><td>This help</td></tr>
+      </table>
+      <form method="dialog"><button>Close</button></form>
+    </dialog>
+    <dialog id="settings-dlg" class="sheet"></dialog>
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
