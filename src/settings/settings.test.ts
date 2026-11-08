@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_SETTINGS,
   LEGACY_DEV_STORAGE_KEY,
+  SCHEMA,
   STORAGE_KEY,
   createSettingsStore,
   readSettings,
+  type AppSettings,
   type KeyValue,
 } from './settings.ts';
 
@@ -109,4 +111,20 @@ test('the store migrates the dev gesture and saves it as a user setting', () => 
   // The dev blob loses the key later; the user setting stays.
   kv.data.set(LEGACY_DEV_STORAGE_KEY, JSON.stringify({ holdMs: 500 }));
   assert.equal(createSettingsStore(kv).getSnapshot().revealGesture, 'doubleTap');
+});
+
+// The feed reads settings through `useSyncExternalStore`, so a change reaches
+// the clip on screen as soon as subscribers hear about it. Every setting must
+// notify synchronously, with a new snapshot that already holds the new value.
+test('every setting notifies subscribers at once with the new value', () => {
+  const alternatives: { [K in keyof AppSettings]: AppSettings[K] } = { feedMode: 'onlyReal', revealGesture: 'both' };
+  assert.deepEqual(Object.keys(alternatives).sort(), Object.keys(SCHEMA).sort(), 'a new setting needs a case here');
+  for (const key of Object.keys(alternatives) as (keyof AppSettings)[]) {
+    const store = createSettingsStore(null);
+    assert.notEqual(store.getSnapshot()[key], alternatives[key]);
+    const seen: unknown[] = [];
+    store.subscribe(() => seen.push(store.getSnapshot()[key]));
+    store.set(key, alternatives[key]);
+    assert.deepEqual(seen, [alternatives[key]], key);
+  }
 });
