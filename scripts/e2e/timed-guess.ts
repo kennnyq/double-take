@@ -420,8 +420,8 @@ function hintShown(page: Page) {
 /** The Game tab: the untimed game, then its answers on the Skills tab beside it, and back to Home. */
 async function untimed(page: Page, layout: Layout, tab: (name: string) => string) {
   const order = await page.evaluate((sel) => [...document.querySelectorAll(sel)].filter((e) => (e as HTMLElement).offsetParent).map((e) => e.getAttribute('aria-label')), layout === 'desktop' ? 'nav[aria-label="Main"] [aria-label]' : '[role="tab"][aria-label]');
-  const names = order.filter((n): n is string => !!n && ['Home', 'Game', 'Skills', 'Create', 'Profile', 'You', 'Settings'].includes(n));
-  check('the tabs run Home, Game, Skills, Create…', names.slice(0, 4).join() === 'Home,Game,Skills,Create', names);
+  const names = order.filter((n): n is string => !!n && ['Home', 'Game', 'Skills', 'Upload', 'Profile', 'You', 'Settings'].includes(n));
+  check('the tabs run Home, Game, Skills, Upload…', names.slice(0, 4).join() === 'Home,Game,Skills,Upload', names);
   await clickVisible(page, tab('Game'));
   await page.waitForURL((u) => u.pathname === '/play', { timeout: 10_000 }).catch(() => {});
   check('the Game tab opens the game', new URL(page.url()).pathname === '/play', page.url());
@@ -497,7 +497,7 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
   await page.waitForTimeout(1200);
   check('Home from the Game tab lands on the feed', new URL(page.url()).pathname === '/' && !(await anyVisible(page, '.lt-hero')), page.url());
 
-  // Create, beside the Game and Skills tabs, opens the upload modal: from Home, and from the Game screen.
+  // Upload (the 'create' tab), beside the Game and Skills tabs, opens the upload modal: from Home, and from the Game screen.
   const create = page.getByText('Select from device', { exact: true });
   const modalUp = () => create.waitFor({ timeout: 10_000 }).then(() => true).catch(() => false);
   const closeModal = async () => {
@@ -508,15 +508,15 @@ async function untimed(page: Page, layout: Layout, tab: (name: string) => string
     });
     await page.waitForTimeout(600);
   };
-  await clickVisible(page, tab('Create'));
-  check('Create opens the upload modal from Home', await modalUp());
+  await clickVisible(page, tab('Upload'));
+  check('Upload opens the upload modal from Home', await modalUp());
   await closeModal();
   await clickVisible(page, tab('Game'));
   await page.waitForURL((u) => u.pathname === '/play', { timeout: 10_000 }).catch(() => {});
   await page.waitForTimeout(1500);
-  await clickVisible(page, tab('Create'));
+  await clickVisible(page, tab('Upload'));
   const fromGame = await modalUp();
-  check('Create opens the upload modal from the Game screen, over the feed', fromGame && new URL(page.url()).pathname === '/', page.url());
+  check('Upload opens the upload modal from the Game screen, over the feed', fromGame && new URL(page.url()).pathname === '/', page.url());
   await closeModal();
 }
 
