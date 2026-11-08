@@ -18,7 +18,9 @@ partners were all discarded goes.
 CANDIDATES.jsonl rows need at least `url`; `label`, `evidence`, `views`, `likes`,
 `uploader` and `source` are carried into the feed when present, and so are the
 comparison fields `tier` (how we know a real clip is real), `pairOf` (the AI clip
-id it compares with) and `how`. `section` ("MM:SS-MM:SS") cuts a long source,
+id it compares with) and `how`. `download` fetches media from another URL than
+`url`, the clip's identity (a Reddit thread whose video is on v.redd.it); `title`
+and `uploader` then stand in for what that URL can't say. `section` ("MM:SS-MM:SS") cuts a long source,
 such as a livestream, down to that stretch before anything else.
 
 Output mirrors the R2 bucket layout:
@@ -54,6 +56,9 @@ def clip_id(url: str) -> str:
     m = re.search(r"(?:youtube\.com/(?:watch\?v=|shorts/)|youtu\.be/)([\w-]{11})", url)
     if m:
         return f"yt-{m.group(1)}"
+    m = re.search(r"reddit\.com/r/\w+/comments/(\w+)", url)
+    if m:
+        return f"rd-{m.group(1)}"
     return "u-" + hashlib.sha256(url.encode()).hexdigest()[:16]
 
 
@@ -189,7 +194,7 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
     media_dir = os.path.join(out, "media", cid, VERSION)
     with tempfile.TemporaryDirectory() as tmp:
         try:
-            src, info = download(url, tmp, cand.get("section"))
+            src, info = download(cand.get("download") or url, tmp, cand.get("section"))
             meta = probe(src)
         except Exception as e:  # dead links are expected; skip them
             print(f"skip {cid}: download failed ({(str(e).splitlines() or [repr(e)])[0][:120]})", file=sys.stderr)
@@ -225,8 +230,8 @@ def build_one(cand: dict, out: str, max_duration: float) -> dict | None:
         "source": {
             "url": url,
             "platform": cid.split("-")[0],
-            "author": info.get("uploader") or cand.get("uploader"),
-            "title": info.get("title"),
+            "author": (cand.get("uploader") if cand.get("download") else None) or info.get("uploader") or cand.get("uploader"),
+            "title": (cand.get("title") if cand.get("download") else None) or info.get("title"),
             "views": info.get("view_count") or cand.get("views"),
             "likes": info.get("like_count") or cand.get("likes"),
         },

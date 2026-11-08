@@ -40,6 +40,7 @@ LABEL_FOR_TIER = {
     "real-verified": "real",  # a helpful note or fact-check says it's real
     "real-prior": "real",     # uploaded before 2023, older than realistic text-to-video
     "real-agency": "real",    # from a channel that verifies footage before licensing it
+    "real-consensus": "real",  # a clear "it's real" consensus on an is-this-AI subreddit
     "not-ai-cgi": "not-ai-cgi",  # CGI, animation or a game: not AI, not footage
 }
 
