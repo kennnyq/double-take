@@ -5,6 +5,9 @@ import { DEV_TOOLS, closeDevSettings } from '@/devtools/store';
 import { GAME_DESIGNS, GAME_ELEMENTS } from './designs';
 import { ROUND_LENGTHS, gameDev, setGameDesign } from './devOptions';
 import { gameHistory } from './store';
+import { RankerReadout } from '@/engagement/RankerReadout';
+import { signals } from '@/engagement/store';
+import { skillStore } from '@/skills/store';
 
 /*
  * Dev settings → Game: a shorter round to reach the end quickly, a corner
@@ -34,6 +37,15 @@ function rows(): DevRow[] {
       onChange: (v) => gameDev.set({ showTruth: v }),
     },
     {
+      kind: 'switch',
+      id: 'adaptive',
+      label: 'Adaptive difficulty',
+      note: 'Deal clips you should get right about two times in three, from your skills. Off: a plain shuffle.',
+      value: s.adaptive,
+      defaultValue: gameDev.defaults.adaptive,
+      onChange: (v) => gameDev.set({ adaptive: v }),
+    },
+    {
       kind: 'action',
       label: 'Start a round',
       run: () => {
@@ -47,6 +59,13 @@ function rows(): DevRow[] {
       note: 'Best score, round history and recently dealt clips.',
       tone: 'danger',
       run: () => gameHistory.clear(),
+    },
+    {
+      kind: 'action',
+      label: 'Reset skills',
+      note: 'Skill scores and every clip’s learned difficulty.',
+      tone: 'danger',
+      run: () => skillStore.reset(),
     },
   ];
 }
@@ -69,6 +88,26 @@ function designRows(): DevRow[] {
 }
 
 function register() {
+  registerDevSection({
+    id: 'game/ranker',
+    tab: 'game',
+    title: 'Feed ranker',
+    note: 'A proof of concept of a For You order from what you do on this device (likes, saves, shares, game answers). Applies on the next load.',
+    order: 20,
+    rows: [
+      {
+        kind: 'switch',
+        id: 'rankFeed',
+        label: 'Rank the feed',
+        value: gameDev.getSnapshot().rankFeed,
+        defaultValue: gameDev.defaults.rankFeed,
+        onChange: (v) => gameDev.set({ rankFeed: v }),
+      },
+      { kind: 'action', label: 'Forget what I engaged with', tone: 'danger', run: () => signals.reset() },
+    ],
+    Component: RankerReadout,
+    keywords: 'ranker engagement feed order why for you algorithm',
+  });
   registerDevSection({ id: 'game/round', tab: 'game', title: 'Timed guessing', rows: rows(), keywords: 'game round timer score play' });
   registerDevSection({
     id: 'game/designs',

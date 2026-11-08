@@ -4,11 +4,13 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
+import type { SkillCategory } from '@/skills/categories';
 import { WheelGestureDetector, normalizeWheelDelta } from '@/desktop/wheelGesture';
 import { themed, usePalette } from '@/ui/theme';
 import { GAME } from './config';
 import { buildDeck, clipKey } from './deck';
-import { useGameDev } from './devOptions';
+import { buildAdaptiveDeck } from './adaptive';
+import { gameDev, useGameDev } from './devOptions';
 import { stageSize, useFrame } from './frame';
 import { GameStage, type Stamp } from './GameStage';
 import { recentClipKeys } from './history';
@@ -20,7 +22,11 @@ import { loadPlayableClips } from './playable';
 import { ResolveText } from './ResolveText';
 import { createRound, remaining, roundReducer, type Phase } from './round';
 import { roundStats } from './score';
-import { gameHistory, setFinishedRound } from './store';
+import { getFinishedRound, gameHistory, setFinishedRound } from './store';
+import { signals } from '@/engagement/store';
+import { clipMeta, loadMetas } from '@/skills/loadMeta';
+import { difficultyOf } from '@/skills/state';
+import { skillStore } from '@/skills/store';
 
 const now = () => performance.now();
 /** How often the clock checks the deadline and refreshes the readout. */
@@ -39,10 +45,24 @@ export function GameRound() {
   const c = usePalette();
   useEffect(() => {
     let live = true;
-    loadPlayableClips().then((clips) => {
-      if (!live) return;
+    loadPlayableClips().then(async (clips) => {
       const recent = recentClipKeys(gameHistory.getSnapshot());
-      setDeck(buildDeck(clips, { recent }));
+      let dealt: Dealt[];
+      if (gameDev.getSnapshot().adaptive) {
+        // Near the player's skill: each clip's categories and difficulty first.
+        const metas = await loadMetas(clips);
+        const state = skillStore.getSnapshot();
+        const sources = clips.map((c) => {
+          const m = metas.get(clipKey(c))!;
+          return { ...c, cats: m.cats, difficulty: difficultyOf(state, clipKey(c), m.prior) };
+        });
+        dealt = buildAdaptiveDeck(sources, { skills: state.skills, recent });
+      } else {
+        dealt = buildDeck(clips, { recent });
+        // Warm the metadata the end of the round needs.
+        loadMetas(dealt.map((d) => d.clip));
+      }
+      if (live) setDeck(dealt);
     });
     return () => {
       live = false;
@@ -230,7 +250,19 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
       },
       clips.map(clipKey),
     );
-    setFinishedRound({ round: s, stats, newBest, best: gameHistory.getSnapshot().best, clips: new Map(clips.map((cl) => [cl.id, cl])) });
+    const byId = new Map(clips.map((cl) => [cl.id, cl]));
+    const finished = { round: s, stats, newBest, best: gameHistory.getSnapshot().best, clips: byId };
+    setFinishedRound(finished);
+    // Skills: each answer, with its clip's categories and difficulty; the results show the change once it's in.
+    const answered = s.guesses.map((g) => ({ g, clip: byId.get(g.clipId)! })).filter((x) => x.clip);
+    for (const { g, clip } of answered) signals.note(clipKey(clip), { kind: 'answer', correct: g.correct });
+    Promise.all(answered.map(({ clip }) => clipMeta(clip))).then((metas) => {
+      const change = skillStore.recordRound(
+        answered.map(({ g, clip }, i) => ({ key: clipKey(clip), correct: g.correct, cats: metas[i].cats, prior: metas[i].prior })),
+      );
+      const touched = [...new Set(metas.flatMap((m) => Object.keys(m.cats)))] as SkillCategory[];
+      if (getFinishedRound()?.round === s) setFinishedRound({ ...finished, skills: { ...change, touched } });
+    });
   }, [s, clips]);
   const toResults = s.phase === 'over' && s.endReason !== 'quit';
   useEffect(() => {

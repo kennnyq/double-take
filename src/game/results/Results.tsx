@@ -6,7 +6,10 @@ import { requestTab } from '@/ui/TabBar';
 import { themed, usePalette } from '@/ui/theme';
 import type { GameDesigns } from '../designs';
 import { stageSize, useFrame } from '../frame';
-import { NATIVE, lerp } from '../motion';
+import { NATIVE, lerp, useEased } from '../motion';
+import { SKILL_CATEGORIES } from '@/skills/categories';
+import { SkillBars } from '@/skills/SkillBars';
+import { useScorableCategories } from '@/skills/useScorable';
 import { ResolveText } from '../ResolveText';
 import type { FinishedRound } from '../store';
 import { Expand, type Rect } from './Expand';
@@ -57,6 +60,8 @@ export function Results({ done, designs, actions = true }: Props) {
   const c = usePalette();
   const tint = useTint();
   const entries = useMemo(() => resultEntries(done), [done]);
+  const { categories: scorable } = useScorableCategories();
+  const skillsIn = useEased(done.skills ? 1 : 0, 420);
   const sched = useMemo(() => revealSchedule(entries.length, designs.reveal), [entries.length, designs.reveal]);
 
   // ---- the reveal: one linear clock (ms) for every tile ----
@@ -138,6 +143,19 @@ export function Results({ done, designs, actions = true }: Props) {
           </View>
         </View>
 
+        {/* Skills: how this round moved them, once recorded. */}
+        <Animated.View style={[styles.skills, tint.card, { width: contentW, opacity: skillsIn, transform: [{ translateY: lerp(skillsIn, [0, 1], [10, 0]) }] }]}>
+          {done.skills && (
+            <SkillBars
+              skills={done.skills.after}
+              before={done.skills.before}
+              categories={SKILL_CATEGORIES.filter((c) => done.skills!.touched.includes(c) || scorable.includes(c))}
+              touched={done.skills.touched}
+              delay={Math.max(0, sched.total - 600)}
+            />
+          )}
+        </Animated.View>
+
         <View style={[styles.grid, { width: contentW, gap }]} accessibilityLabel={`${entries.length} clips`}>
           {entries.map((entry, i) => {
             return (
@@ -168,6 +186,9 @@ export function Results({ done, designs, actions = true }: Props) {
               accessibilityRole="button"
             >
               <Text style={[styles.primaryText, tint.primaryText]}>Play again</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/game/skills')} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">
+              <Text style={[styles.secondaryText, tint.dim]}>Your skills</Text>
             </Pressable>
             <Pressable onPress={backToFeed} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">
               <Text style={[styles.secondaryText, tint.dim]}>Back to feed</Text>
@@ -241,6 +262,7 @@ const styles = StyleSheet.create({
   statValue: { fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'] },
   statLabel: { fontSize: 12, fontWeight: '600' },
   grid: { flexDirection: 'row', flexWrap: 'wrap' },
+  skills: { borderRadius: 16, padding: 16, minHeight: 60 },
   actions: { gap: 4 },
   primary: { height: 50, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   primaryText: { fontSize: 17, fontWeight: '700' },

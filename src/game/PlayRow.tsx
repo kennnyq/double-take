@@ -10,6 +10,8 @@ import { loadPlayableClips } from './playable';
 // Registers Dev settings → Game; Settings is always in the bundle.
 import './devSection';
 import { useGameHistory } from './store';
+import { generalSkill, toScore } from '@/skills/skill';
+import { useSkillState } from '@/skills/store';
 
 /**
  * Whether the round can be offered. Production builds wait for enough clips of
@@ -81,6 +83,7 @@ export function PlayRow({ wide }: { wide: boolean }) {
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   rowPressed: { backgroundColor: 'rgba(255,255,255,0.05)' },
+  divider: { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(255,255,255,0.1)' },
   disabled: { opacity: 0.5 },
   icon: { width: 34, height: 34, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   text: { flex: 1, gap: 2 },
@@ -92,7 +95,40 @@ const styles = StyleSheet.create({
 
 const useTint = themed((c) => ({
   icon: { backgroundColor: c.accent },
+  iconQuiet: { backgroundColor: c.surface },
   chip: { backgroundColor: c.surface },
   text: { color: c.text },
   dim: { color: c.textDim },
 }));
+
+/** Settings → Play: the player's skill scores. */
+export function SkillsRow({ wide }: { wide: boolean }) {
+  const { skills, answers } = useSkillState();
+  const c = usePalette();
+  const tint = useTint();
+  const general = toScore(generalSkill(skills)).score;
+  return (
+    <Pressable
+      onPress={() => {
+        if (wide) closeSettings();
+        router.push('/game/skills');
+      }}
+      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.row, styles.divider, (pressed || hovered) && styles.rowPressed]}
+      accessibilityRole="button"
+      accessibilityLabel={answers ? `Your skills. General score ${general}` : 'Your skills'}
+    >
+      <View style={[styles.icon, tint.iconQuiet]}>
+        <Ionicons name="stats-chart-outline" size={17} color={c.text} />
+      </View>
+      <View style={styles.text}>
+        <Text style={[styles.title, tint.text]}>Your skills</Text>
+      </View>
+      {answers > 0 && (
+        <View style={[styles.chip, tint.chip]}>
+          <Text style={[styles.chipText, tint.text]}>{general}</Text>
+        </View>
+      )}
+      <Ionicons name="chevron-forward" size={18} color={c.textDim} />
+    </Pressable>
+  );
+}

@@ -14,11 +14,15 @@ export interface GameDev {
   roundMs: number;
   showTruth: boolean;
   designs: GameDesigns;
+  /** Deal clips near the player's skill (adaptive difficulty) instead of a plain shuffle. */
+  adaptive: boolean;
+  /** Order the feed with the engagement ranker (a proof of concept; applies on the next load). */
+  rankFeed: boolean;
 }
 
 export const ROUND_LENGTHS = [60_000, 20_000, 8_000] as const;
 const KEY = 'double-take:game-dev:v1';
-const DEFAULTS: GameDev = { roundMs: GAME.roundMs, showTruth: false, designs: DEFAULT_DESIGNS };
+const DEFAULTS: GameDev = { roundMs: GAME.roundMs, showTruth: false, designs: DEFAULT_DESIGNS, adaptive: false, rankFeed: false };
 
 function read(): GameDev {
   if (!DEV_TOOLS) return DEFAULTS;
@@ -28,6 +32,8 @@ function read(): GameDev {
       roundMs: ROUND_LENGTHS.includes(o?.roundMs as (typeof ROUND_LENGTHS)[number]) ? o!.roundMs! : DEFAULTS.roundMs,
       showTruth: o?.showTruth === true,
       designs: parseDesigns(o?.designs),
+      adaptive: o?.adaptive === true,
+      rankFeed: o?.rankFeed === true,
     };
   } catch {
     return DEFAULTS;

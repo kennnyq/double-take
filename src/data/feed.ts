@@ -1,5 +1,6 @@
 import { makeClips, type Clip } from './clips';
 import { fetchRemoteClips, toClip } from './remote';
+import { orderFeed } from '@/engagement/feedOrder';
 
 const MIN_CLIPS = 24;
 
@@ -32,5 +33,6 @@ async function load(): Promise<Clip[]> {
       console.warn(`[feed] using placeholders only: ${e instanceof Error ? e.message : e}`);
     }
   }
-  return [...remote, ...makeClips(remote.length, Math.max(MIN_CLIPS - remote.length, 12))];
+  // The engagement ranker's order when it's on (a dev setting); else as served.
+  return orderFeed([...remote, ...makeClips(remote.length, Math.max(MIN_CLIPS - remote.length, 12))]);
 }

@@ -17,6 +17,7 @@ import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
 import { SocialProvider } from '@/social/store';
 import { SocialSync } from '@/social/SocialSync';
+import { EngagementSync } from '@/engagement/EngagementSync';
 import { Placeholder } from '@/ui/Placeholder';
 import { TABS, TabBar, onTabRequest, type TabId } from '@/ui/TabBar';
 import { UploadModal } from '@/upload/UploadModal';
@@ -41,6 +42,7 @@ export default function Home() {
     <SocialProvider>
       <AuthBoot />
       <SocialSync />
+      <EngagementSync />
       <ToastProvider>
         {/* Web shows a landing page first; the apps open on the feed. */}
         <WithLanding>
