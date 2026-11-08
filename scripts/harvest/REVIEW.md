@@ -80,6 +80,21 @@ One clip at a time, shown on a phone-shaped stage the way the app shows it.
   - **P** picks the tell on screen (live or in the double take) without opening the grid.
   - Picks and notes show on the card ("★ Picked" and the note), as a ring on the tell's timeline marker, and in the drawer.
 - **Outlines (B):** every run's boxes over the video while they apply. The selected run is solid and labelled; the others are dashed.
+- **Needs your eyes:** the hill climb's ranked queue of clips where your input would help.
+  - **Source:** `REVIEW_NEEDS_EYES` names the file (default: `~/.t3/worktrees/double-take/t3-45a3c420/build/hill/needs-eyes.v1.json`).
+  - **Validation:** checked against its schema, `REVIEW_NEEDS_EYES_SCHEMA`, defaulting to the hill climb's `bench/schemas/needs-eyes.v1.schema.json`, else the copy in `scripts/review/schemas/`.
+  - **Refresh:** the server re-reads the file when it changes, and the page polls every 30 s.
+  - **Bad data:** a missing or empty file, or a bad one, never breaks the page. Invalid items are left out and the rest still show.
+  - **Matching:** items match clips by `sourceClipId ?? clipId`.
+  - **Where it shows:**
+    - an eye button with the open count in the top bar (hidden when there's nothing);
+    - a "Needs your eyes (N)" entry at the top of the queue sheet;
+    - an "Eyes" chip in the clip grid, which sorts by rank when you pick it, plus a #rank badge on each clip.
+  - **On a clip in the queue:**
+    - the question and why a person helps sit right above Keep / Drop;
+    - its `timeRange` is a band on the timeline, and the player scrubs there when the clip opens.
+  - **Answering:** keep, drop, a note or a ★ answers it. The hill climb reads `decisions.jsonl`; the page just marks the item "✓ Answered" and moves on to the next open one.
+  - **When the queue is empty**, the site says "Nothing needs your eyes right now".
 - **Clip info (E):** behind compact icon tabs, all collapsed by default; the last one you open is remembered.
   - **Evidence:** the Community Note, the subreddit consensus, or the batch evidence.
   - **Clip:** stats, label/tier, sources, any earlier decision, and the AI↔real partner for the older paired clips.

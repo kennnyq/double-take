@@ -13,7 +13,8 @@ import { REPLAY_RATE, activeTells, boxShownAt, replayWindow, seekTimeFor, walkth
 import { DEFAULT_PALETTE, PALETTES, cssVariables } from '/app/src/ui/theme/palettes.ts';
 import { DEFAULT_FILTER, buildQueue, decided, nextIndex, sourceId, sourceOptions } from '/app/scripts/review/web/queue.ts';
 import { clock, markers, runLabel, stepFrom, tellRef } from '/app/scripts/review/web/timeline.ts';
-import { GROUPS, SORTS, chipCounts, facetValues, filterItems, groupItems, sortItems } from '/app/scripts/review/web/library.ts';
+import { EYES, GROUPS, SORTS, chipCounts, facetValues, filterItems, groupItems, sortItems } from '/app/scripts/review/web/library.ts';
+import { answered, eyesIndex, eyesQueue, reasonLabel } from '/app/scripts/review/web/eyes.ts';
 
 // The app's defaults (src/devtools/settings.ts): feathered spotlight, darken, medium strength.
 const SHAPE = 'feather';
@@ -198,7 +199,8 @@ function renderQueueLabel() {
   if (f.source !== 'all') parts.push(f.source.replace(/^(feed|batch):/, ''));
   if (f.vetted !== 'any') parts.push(f.vetted === 'vetted' ? 'worker-vetted' : 'not vetted');
   if (f.tells !== 'any') parts.push(f.tells === 'with' ? 'with tells' : 'no tells');
-  $('#queue-label').textContent = S.adhoc ? `Clips grid (${S.queue.length})` : parts.join(' · ');
+  $('#queue-label').textContent =
+    S.adhoc === EYES ? `Needs your eyes (${S.queue.length})` : S.adhoc ? `Clips grid (${S.queue.length})` : parts.join(' · ');
   $('#queue-btn').title = S.adhoc ? `From the clips grid: ${S.adhoc}. Pick a queue (F) to go back.` : 'Queue (F)';
   const inQueue = S.queue.indexOf(S.key);
   $('#pos').textContent = S.queue.length ? `${inQueue >= 0 ? inQueue + 1 : '–'} / ${S.queue.length}` : '0';
@@ -212,6 +214,7 @@ async function openClip(key) {
   S.live = null;
   S.scrubbing = false;
   S.key = key || null;
+  renderAsk(false);
   history.replaceState(null, '', key ? `#${encodeURIComponent(key)}` : '#');
   renderQueueLabel();
   renderDecision();
@@ -254,6 +257,7 @@ async function openClip(key) {
   if (S.key !== key) return;
   renderRuns();
   renderDrawer();
+  renderAsk(true);
   if (gridOpen) renderGrid();
   prefetch(S.queue[S.i + 1]);
 }
@@ -839,6 +843,7 @@ async function send(key, body, what) {
     if (key === S.key) {
       renderDecision();
       renderDrawer();
+      renderAsk(false);
     }
     return true;
   } catch (e) {
@@ -1076,7 +1081,9 @@ function renderQueueSheet() {
     `<div class="seg" data-seg="${name}">${opts.map(([v, l]) => `<button data-v="${v}" class="${f[name] === v ? 'on' : ''}">${l}</button>`).join('')}</div>`;
   const src = sourceOptions(S.items.filter((it) => f.unbuilt || it.media), S.sourceOrder);
   const total = S.items.filter((it) => f.unbuilt || it.media).length;
+  const eyesN = eyesQueue(S.eyes.items, (k) => S.byKey.has(k)).length;
   $('#queue-sheet').innerHTML = `<h2>Queue</h2>
+    <button class="qeyes" data-eyes ${eyesN ? '' : 'disabled'}><span>${eyesN ? 'Needs your eyes' : esc(eyesEmptyText())}</span><span>${eyesN || ''}</span></button>
     ${seg('status', [['unreviewed', 'Unreviewed'], ['keep', 'Kept'], ['discard', 'Dropped'], ['all', 'All']])}
     <h4>Worker</h4>${seg('vetted', [['any', 'Any'], ['vetted', 'Vetted'], ['unvetted', 'Not vetted']])}
     <h4>Annotations</h4>${seg('tells', [['any', 'Any'], ['with', 'With tells'], ['without', 'None']])}
@@ -1097,6 +1104,10 @@ function setFilter(patch) {
 $('#queue-sheet').addEventListener('click', (e) => {
   const b = e.target.closest('button');
   if (!b) return;
+  if (b.dataset.eyes !== undefined) {
+    toggleSheet('queue-sheet');
+    return openEyesQueue();
+  }
   const seg = b.closest('[data-seg]');
   if (seg) setFilter({ [seg.dataset.seg]: b.dataset.v });
   else if (b.dataset.src) setFilter({ source: b.dataset.src });
@@ -1318,6 +1329,7 @@ let libOpen = false;
 let libOrder = [];
 const LIB = { group: 'status', sort: 'queue', q: '', chips: {}, unbuilt: false, ...store.get('lib', {}) };
 const LIB_FACETS = [
+  ['eyes', 'Eyes'],
   ['status', 'Decision'],
   ['kind', 'AI / real'],
   ['reviewer', 'By'],
@@ -1328,7 +1340,7 @@ const LIB_FACETS = [
 /** Shipped-run tell counts and categories, fetched in the background for grouping and sorting. */
 const tellStats = new Map();
 let statsStarted = false;
-const libCtx = () => ({ states: S.states, vetted: S.vetted, tellStats, worker: 'worker-vetted' });
+const libCtx = () => ({ states: S.states, vetted: S.vetted, tellStats, worker: 'worker-vetted', eyes: eyesIdx });
 
 $('#lib-group').innerHTML = Object.entries(GROUPS).map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
 $('#lib-sort').innerHTML = Object.entries(SORTS).map(([v, l]) => `<option value="${v}">${esc(l)}</option>`).join('');
@@ -1387,6 +1399,7 @@ function renderChips() {
   $('#lib-chips').innerHTML =
     LIB_FACETS.map(([f, title]) => {
       const on = LIB.chips[f] ?? [];
+      if (f === 'eyes' && !eyesIdx.size) return `<div class="facet"><span>${esc(title)}</span><span class="eyes-note">${esc(eyesEmptyText())}</span></div>`;
       const vals = counts[f].filter(([v]) => !v.includes('counting'));
       for (const v of on) if (!vals.some(([x]) => x === v)) vals.push([v, 0]);
       if (!vals.length) return '';
@@ -1409,7 +1422,7 @@ function libCell(it) {
   const kind = v.kind[0] === 'AI' ? 'AI' : v.kind[0] === 'Real' ? 'Real' : v.kind[0];
   return `<button class="lc s-${d || 'open'}${it.key === S.key ? ' cur' : ''}" data-key="${esc(it.key)}" title="${esc(it.key)}">
     <div class="lthumb">${thumb}
-      <div class="lb"><span class="bdg">${esc(kind)}</span>${S.vetted.has(it.key) && st?.by === 'worker-vetted' ? '<span class="bdg dim">vetted</span>' : ''}${badge}</div>
+      <div class="lb">${eyesIdx.has(it.key) ? `<span class="bdg keep" title="Needs your eyes">#${eyesIdx.get(it.key).rank}</span>` : ''}<span class="bdg">${esc(kind)}</span>${S.vetted.has(it.key) && st?.by === 'worker-vetted' ? '<span class="bdg dim">vetted</span>' : ''}${badge}</div>
       <div class="lbr">${picks ? `<span class="bdg">★ ${picks}</span>` : ''}${noted ? '<span class="bdg">✎</span>' : ''}${it.media?.tells.length && stats?.count !== 0 ? `<span class="bdg">${stats ? `${stats.count} tell${stats.count === 1 ? '' : 's'}` : 'tells'}</span>` : ''}${it.media ? `<span class="bdg">${clock(it.media.duration).replace(/\.\d$/, '')}</span>` : '<span class="bdg dim">not built</span>'}</div>
     </div>
     <div class="lmeta"><span class="who">@${esc(it.author || it.platform || it.key)}</span></div></button>`;
@@ -1482,7 +1495,10 @@ $('#lib-chips').addEventListener('click', (e) => {
   if (b.dataset.clear !== undefined) LIB.chips = {};
   else {
     const cur = LIB.chips[b.dataset.f] ?? [];
-    LIB.chips = { ...LIB.chips, [b.dataset.f]: cur.includes(b.dataset.v) ? cur.filter((x) => x !== b.dataset.v) : [...cur, b.dataset.v] };
+    const turningOn = !cur.includes(b.dataset.v);
+    LIB.chips = { ...LIB.chips, [b.dataset.f]: turningOn ? [...cur, b.dataset.v] : cur.filter((x) => x !== b.dataset.v) };
+    // Needs your eyes reads best in the hill climb's order.
+    if (b.dataset.f === 'eyes' && turningOn) $('#lib-sort').value = LIB.sort = 'eyes';
   }
   saveLib();
   renderLibrary(false);
@@ -1643,6 +1659,84 @@ window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1 / 1)').addEventLi
 });
 $('#info-btn').classList.toggle('on', wideLayout() && !!S.infoTab);
 
+// ---------------------------------------------------------------- needs your eyes
+/** The hill climb's ranked clips where a reviewer would help (/api/needs-eyes, re-read every 30 s). */
+S.eyes = { ok: true, exists: false, generatedAt: null, items: [], invalid: [] };
+let eyesIdx = new Map();
+let eyesStamp = '';
+const eyesEmptyText = () => (S.eyes.ok ? 'Nothing needs your eyes right now' : `Needs-eyes file unreadable: ${S.eyes.error ?? 'invalid'}`);
+
+async function loadEyes() {
+  try {
+    S.eyes = await api('/api/needs-eyes');
+  } catch (e) {
+    S.eyes = { ok: false, error: e.message, items: [], invalid: [], generatedAt: null };
+  }
+  const stamp = JSON.stringify([S.eyes.ok, S.eyes.generatedAt, S.eyes.items.map((i) => [i.id, i.rank])]);
+  if (stamp === eyesStamp) return;
+  eyesStamp = stamp;
+  eyesIdx = eyesIndex(S.eyes.items);
+  renderEyesBadge();
+  renderAsk(false);
+  if (S.adhoc === EYES) renderQueueLabel();
+  if (libOpen) renderLibrary(false);
+  if (openSheet === 'queue-sheet') renderQueueSheet();
+}
+
+function renderEyesBadge() {
+  const n = eyesQueue(S.eyes.items, (k) => S.byKey.has(k)).filter((k) => !answered(S.states[k], S.eyes.generatedAt)).length;
+  const btn = $('#eyes-btn');
+  btn.hidden = !eyesIdx.size;
+  $('#eyes-cnt').textContent = n ? String(n) : '';
+  btn.title = n ? `Needs your eyes: ${n} open (by rank)` : 'Needs your eyes: all answered';
+}
+
+function openEyesQueue() {
+  const keys = eyesQueue(S.eyes.items, (k) => S.byKey.has(k));
+  if (!keys.length) return toast(eyesEmptyText());
+  // The first one not answered yet, in rank order.
+  const first = keys.find((k) => !answered(S.states[k], S.eyes.generatedAt)) ?? keys[0];
+  S.queue = keys;
+  S.adhoc = EYES;
+  S.i = keys.indexOf(first);
+  saveNote();
+  openClip(first);
+}
+$('#eyes-btn').onclick = openEyesQueue;
+
+/** The question near the decision controls, and its time range on the timeline; jump there when the clip opens. */
+function renderAsk(jump) {
+  const item = eyesIdx.get(S.key);
+  const box = $('#ask');
+  const band = $('#eyes-range');
+  if (!item) {
+    box.hidden = true;
+    band.hidden = true;
+    return;
+  }
+  const done = answered(S.states[S.key], S.eyes.generatedAt);
+  box.hidden = false;
+  box.classList.toggle('answered', done);
+  box.innerHTML = `<div class="h"><span>Your eyes #${item.rank}</span><span>${esc(reasonLabel(item.reason))}</span>${item.timeRange ? `<span>${clock(item.timeRange.t0).replace(/^0:/, '')}–${clock(item.timeRange.t1).replace(/^0:/, '')}s</span>` : ''}${done ? '<span class="done">✓ Answered</span>' : ''}</div>
+    <p class="q">${esc(item.question)}</p><p class="w">${esc(item.whyHumanHelps)}</p>`;
+  renderEyesBadge();
+  const d = current()?.media?.duration;
+  if (item.timeRange && d) {
+    band.hidden = false;
+    band.style.left = `${Math.min(100, (item.timeRange.t0 / d) * 100)}%`;
+    band.style.width = `${Math.max(0.6, ((item.timeRange.t1 - item.timeRange.t0) / d) * 100)}%`;
+  } else band.hidden = true;
+  if (jump && item.timeRange) {
+    // An eased scrub to the range, once the video knows its length (never a jump cut).
+    const key = S.key;
+    const seek = () => S.key === key && seekTo(item.timeRange.t0);
+    if (video.readyState >= 1) seek();
+    else video.addEventListener('loadedmetadata', seek, { once: true });
+  }
+}
+
+setInterval(loadEyes, 30_000);
+
 // ---------------------------------------------------------------- start
 (async () => {
   try {
@@ -1652,6 +1746,7 @@ $('#info-btn').classList.toggle('on', wideLayout() && !!S.infoTab);
     $('#empty').textContent = `Couldn't load: ${e.message}`;
     return;
   }
+  await loadEyes();
   const want = decodeURIComponent(location.hash.slice(1));
   rebuildQueue(want);
   openClip(want && S.byKey.has(want) ? want : S.queue[S.i]);

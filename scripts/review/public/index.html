@@ -19,6 +19,9 @@
       <button id="next" class="icon" title="Next clip (J)" aria-label="Next clip">
         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" /></svg>
       </button>
+      <button id="eyes-btn" class="icon eyes-btn" title="Needs your eyes" aria-label="Needs your eyes" hidden>
+        <svg viewBox="0 0 24 24"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z" /><circle cx="12" cy="12" r="3" /></svg><span class="cnt" id="eyes-cnt"></span>
+      </button>
       <button id="grid-btn" class="icon" title="All clips (G)" aria-label="All clips">
         <svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5" /><rect x="13" y="4" width="7" height="7" rx="1.5" /><rect x="4" y="13" width="7" height="7" rx="1.5" /><rect x="13" y="13" width="7" height="7" rx="1.5" /></svg>
       </button>
@@ -56,7 +59,7 @@
           </div>
           <div class="timeline" id="timeline">
             <div class="lanes" id="lanes"></div>
-            <div class="track" id="track"><div class="played" id="played"></div></div>
+            <div class="track" id="track"><div class="eyes-range" id="eyes-range" hidden></div><div class="played" id="played"></div></div>
             <div class="head" id="head"></div>
             <div class="tip" id="tip" hidden></div>
           </div>
@@ -69,6 +72,7 @@
               <button data-mode="live" role="radio">Live</button><button data-mode="step" role="radio">Step</button>
             </div>
           </div>
+          <div class="ask" id="ask" hidden></div>
           <div class="actions">
             <button id="drop" class="decide drop" title="Drop (X)">Drop</button>
             <input id="note" class="note" type="text" placeholder="Note" autocomplete="off" title="Note (N)" />
