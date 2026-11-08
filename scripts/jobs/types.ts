@@ -57,6 +57,27 @@ export interface TraceEntry {
   observation: ToolObservation;
   elapsedMs: number;
 }
+/** Public action log, not model chain-of-thought or raw tool output. */
+export interface InvestigationSummary {
+  version: 1;
+  strategy: 'adaptive' | 'fixed';
+  replay: boolean;
+  plannerModel: string;
+  outcome: 'complete' | 'partial';
+  steps: {
+    id: string;
+    kind: 'plan' | 'tool' | 'replan' | 'verdict';
+    tool?: string;
+    why: string;
+    result: string;
+    status: 'ok' | 'unavailable' | 'skipped';
+    models: string[];
+    elapsedMs: number;
+    observationIds: string[];
+    evidenceIds: string[];
+  }[];
+  budget: { maxHostedAttempts: number; hostedAttempts: number };
+}
 export interface OverallVerdict {
   label: 'likely_ai' | 'likely_real';
   drivers: string[];
@@ -76,6 +97,7 @@ export interface AnalysisResult {
   /** Factual inspection coverage; never evidence of authenticity or a clean bill. */
   inspection?: InspectionReport;
   verdict?: OverallVerdict;
+  investigation?: InvestigationSummary;
 }
 export interface InspectionReport {
   version: 1;
@@ -115,9 +137,45 @@ export function publicVerdict(value: unknown): OverallVerdict | undefined {
   }
   return verdict;
 }
+/** Closed, bounded action log. Reject unsafe prose and never spread analyzer objects. */
+export function publicInvestigation(value: unknown): InvestigationSummary | undefined {
+  const object = (v: unknown): Record<string, unknown> | null => v && typeof v === 'object' && !Array.isArray(v) ? v as Record<string, unknown> : null;
+  const text = (v: unknown) => typeof v === 'string' && v.trim().length > 0 && v.length <= 240 &&
+    !/[\u0000-\u001f\u007f]|nvapi-|Bearer\s|(?:https?|file|data):|(?:\/home\/|\/private\/|\/tmp\/|[A-Z]:\\)/i.test(v);
+  const id = (v: unknown) => typeof v === 'string' && /^[a-z][a-z0-9_.:-]{0,79}$/i.test(v);
+  const ids = (v: unknown) => Array.isArray(v) && v.length <= 24 && v.every(id);
+  const models = new Set(['nvidia/nemotron-3.5-bolt-e4b','nvidia/nemotron-3.5-super-vl-120b-a12b',
+    'nvidia/nemotron-3-nano-omni-30b-a3b-reasoning','nvidia/Cosmos-Reason2-8B']);
+  const tools = new Set(['probe_media','sample_frames','detect_shots','inspect_region','inspect_visuals','ground_tells',
+    'inspect_audio','audio_window','validate_provenance','synthetic_video_detector','source_evidence']);
+  const v = object(value), budget = object(v?.budget);
+  if (!v || v.version !== 1 || !['adaptive','fixed'].includes(v.strategy as string) || typeof v.replay !== 'boolean' ||
+      v.plannerModel !== 'nvidia/nemotron-3.5-bolt-e4b' || !['complete','partial'].includes(v.outcome as string) ||
+      !Array.isArray(v.steps) || v.steps.length < 1 || v.steps.length > 24 || !budget ||
+      !Number.isInteger(budget.maxHostedAttempts) || (budget.maxHostedAttempts as number) < 0 || (budget.maxHostedAttempts as number) > 40 ||
+      !Number.isInteger(budget.hostedAttempts) || (budget.hostedAttempts as number) < 0 || (budget.hostedAttempts as number) > (budget.maxHostedAttempts as number)) return undefined;
+  const steps: InvestigationSummary['steps'] = [], seen = new Set<string>();
+  for (const raw of v.steps) {
+    const step = object(raw);
+    if (!step || !id(step.id) || seen.has(step.id as string) || !['plan','tool','replan','verdict'].includes(step.kind as string) ||
+        !text(step.why) || !text(step.result) || !['ok','unavailable','skipped'].includes(step.status as string) ||
+        !Array.isArray(step.models) || step.models.length > 3 || !step.models.every(m => typeof m === 'string' && models.has(m)) ||
+        typeof step.elapsedMs !== 'number' || !Number.isFinite(step.elapsedMs) || step.elapsedMs < 0 || step.elapsedMs > 600000 ||
+        !ids(step.observationIds) || !ids(step.evidenceIds) || (step.tool !== undefined && !tools.has(step.tool as string))) return undefined;
+    seen.add(step.id as string);
+    steps.push({id:step.id as string,kind:step.kind as InvestigationSummary['steps'][number]['kind'],
+      ...(step.tool === undefined ? {} : {tool:step.tool as string}),why:(step.why as string).trim(),result:(step.result as string).trim(),
+      status:step.status as InvestigationSummary['steps'][number]['status'],models:[...step.models] as string[],elapsedMs:step.elapsedMs,
+      observationIds:[...step.observationIds as string[]],evidenceIds:[...step.evidenceIds as string[]]});
+  }
+  return {version:1,strategy:v.strategy as InvestigationSummary['strategy'],replay:v.replay,plannerModel:v.plannerModel,
+    outcome:v.outcome as InvestigationSummary['outcome'],steps,
+    budget:{maxHostedAttempts:budget.maxHostedAttempts as number,hostedAttempts:budget.hostedAttempts as number}};
+}
 /** Analyzer authors own public prose and inspection. Private trace never crosses HTTP. */
 export function publicResult(r: AnalysisResult) {
   const verdict = publicVerdict(r.verdict);
+  const investigation = publicInvestigation(r.investigation);
   const stripTrace = (value: unknown): unknown => {
     if (Array.isArray(value)) return value.map(stripTrace);
     if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => key !== 'trace').map(([key, v]) => [key, stripTrace(v)]));
@@ -125,5 +183,5 @@ export function publicResult(r: AnalysisResult) {
   };
   return stripTrace({ version: r.version, clipId: r.clipId, mediaSha256: r.mediaSha256,
     mode: r.mode, components: r.components, evidence: r.evidence, limitations: r.limitations,
-    elapsedMs: r.elapsedMs, ...(r.inspection ? { inspection: r.inspection } : {}), ...(verdict ? { verdict } : {}) });
+    elapsedMs: r.elapsedMs, ...(r.inspection ? { inspection: r.inspection } : {}), ...(verdict ? { verdict } : {}), ...(investigation ? { investigation } : {}) });
 }

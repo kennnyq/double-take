@@ -53,6 +53,27 @@ export interface InvestigationInput {
   track: 'signals-only' | 'evidence-assisted';
   sourceEvidence?: { text: string; url?: string; claim?: { component: Component; origin: 'generated' | 'camera'; basis: 'creator-disclosure' | 'documented-source'; quote: string } }[];
 }
+/** Public action log, not model chain-of-thought or raw tool output. */
+export interface InvestigationSummary {
+  version: 1;
+  strategy: 'adaptive' | 'fixed';
+  replay: boolean;
+  plannerModel: string;
+  outcome: 'complete' | 'partial';
+  steps: {
+    id: string;
+    kind: 'plan' | 'tool' | 'replan' | 'verdict';
+    tool?: string;
+    why: string;
+    result: string;
+    status: 'ok' | 'unavailable' | 'skipped';
+    models: string[];
+    elapsedMs: number;
+    observationIds: string[];
+    evidenceIds: string[];
+  }[];
+  budget: { maxHostedAttempts: number; hostedAttempts: number };
+}
 export interface OverallVerdict {
   label: 'likely_ai' | 'likely_real';
   /** Selected-label probability; absent when no matching empirical calibration is published. */
@@ -73,6 +94,7 @@ export interface InvestigationResult {
   /** Factual inspection coverage; never evidence of authenticity or a clean bill. */
   inspection?: InspectionReport;
   verdict?: OverallVerdict;
+  investigation?: InvestigationSummary;
   fusion?: { version: 1; selectedBy: 'nemotron' | 'rule_fallback'; signals: FusionSignal[] };
 }
 export interface FusionSignal {
