@@ -19,7 +19,10 @@ export default function RootLayout() {
   return (
     <>
       <StatusBar style="light" />
-      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }} />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }}>
+        {/* The phone's Settings tab: no slide or swipe-back, so it behaves like the other tabs. */}
+        <Stack.Screen name="settings" options={{ animation: 'none', gestureEnabled: false }} />
+      </Stack>
     </>
   );
 }

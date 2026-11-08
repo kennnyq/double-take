@@ -1,6 +1,6 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Platform, StyleSheet, View, useWindowDimensions } from 'react-native';
-import { useIsFocused } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { SignInSheet } from '@/auth/SignInSheet';
 import { AuthBoot } from '@/auth/store';
 import type { Clip } from '@/data/clips';
@@ -10,14 +10,14 @@ import { DevSettings } from '@/devtools/DevSettings';
 import { Feed, type FeedHandle } from '@/feed/Feed';
 import { WithLanding } from '@/landing/WithLanding';
 import { Profile } from '@/profile/Profile';
-import { SettingsScreen } from '@/settings/SettingsScreen';
+import { closeSettings, useSettingsOpen } from '@/settings/store';
 import { ShareSheet } from '@/share/ShareSheet';
 import { clipIndex } from '@/social/clipRefs';
 import { AppNavContext, type AppNav, type ProfileTab, type SheetKind } from '@/social/nav';
 import { SocialProvider } from '@/social/store';
 import { SocialSync } from '@/social/SocialSync';
 import { Placeholder } from '@/ui/Placeholder';
-import { TABS, TabBar, type TabId } from '@/ui/TabBar';
+import { TABS, TabBar, onTabRequest, type TabId } from '@/ui/TabBar';
 import { ToastProvider } from '@/ui/Toast';
 
 export default function Home() {
@@ -61,6 +61,21 @@ function Screen({ startAt }: { startAt?: number }) {
   const closeSheet = useCallback(() => setSheetOpen(false), []);
   const onSheetClosed = useCallback(() => setSheet(null), []);
 
+  // Settings is its own route: the tab, the profile menu and the feed's empty
+  // state (through `openSettings`) all go there. Leaving it on another tab
+  // brings that tab up here.
+  const showTab = useCallback((t: TabId) => {
+    if (t === 'settings') router.push('/settings');
+    else setTab(t);
+  }, []);
+  const settingsAsked = useSettingsOpen();
+  useEffect(() => {
+    if (!settingsAsked) return;
+    closeSettings();
+    router.push('/settings');
+  }, [settingsAsked]);
+  useEffect(() => onTabRequest(setTab), []);
+
   const nav = useMemo<AppNav>(
     () => ({
       openProfile: (t) => {
@@ -99,11 +114,10 @@ function Screen({ startAt }: { startAt?: number }) {
           {tab === 'you' && <Profile tab={profileTab} onTab={setProfileTab} />}
           {tab !== 'home' && tab !== 'you' && <Placeholder title={current.label} icon={current.iconActive} />}
         </View>
-        <TabBar tab={tab} onTab={setTab} />
+        <TabBar tab={tab} onTab={showTab} />
         {/* Sheets sit above the tab bar; keyed by clip so composer/search state starts fresh. */}
         {sheet?.kind === 'comments' && <CommentsSheet key={sheet.clip.id} clip={sheet.clip} {...sheetProps} />}
         {sheet?.kind === 'share' && <ShareSheet key={sheet.clip.id} clip={sheet.clip} {...sheetProps} />}
-        <SettingsScreen />
       </View>
     </AppNavContext.Provider>
   );

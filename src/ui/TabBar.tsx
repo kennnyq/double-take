@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 
-export type TabId = 'home' | 'create' | 'you';
+export type TabId = 'home' | 'create' | 'you' | 'settings';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -11,7 +11,33 @@ export const TABS: { id: TabId; label: string; icon: IconName; iconActive: IconN
   { id: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
   { id: 'create', label: 'Create', icon: 'add-circle-outline', iconActive: 'add-circle' },
   { id: 'you', label: 'You', icon: 'person-circle-outline', iconActive: 'person-circle' },
+  // Its own route (`src/app/settings.tsx`); the others are views of the Home screen.
+  { id: 'settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
 ];
+
+// ---- a tab picked on the Settings route, for the Home screen to show when it's back ----
+
+let pending: TabId | null = null;
+let listener: ((tab: TabId) => void) | null = null;
+
+/** Ask the Home screen to show `tab` (the Settings route calls this as it goes back). */
+export function requestTab(tab: TabId) {
+  if (listener) listener(tab);
+  else pending = tab;
+}
+
+/** The Home screen listens for requested tabs; one asked for before it listened arrives at once. */
+export function onTabRequest(fn: (tab: TabId) => void): () => void {
+  listener = fn;
+  if (pending) {
+    const t = pending;
+    pending = null;
+    fn(t);
+  }
+  return () => {
+    if (listener === fn) listener = null;
+  };
+}
 
 const STRIP_TOP = 8;
 const PILL_H = 58;
@@ -62,6 +88,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     paddingHorizontal: 6,
   },
-  tab: { height: 44, width: 84, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  // Four tabs fit a 320pt-wide phone: each shrinks below 84 when it must.
+  tab: { height: 44, flex: 1, maxWidth: 84, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   tabOn: { backgroundColor: '#3d3d3d' },
 });
