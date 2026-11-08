@@ -205,6 +205,8 @@ async function run(browser: Browser, layout: Layout) {
   const expected = Math.max(0, guesses.reduce((n, g) => n + (g.guess === 'ai' ? (g.truth === 'ai' ? 1 : -1) : 0), 0));
   const score = Number(await page.locator('[data-testid="game-score"]').innerText());
   check('the score counts up to the guesses’ score', score === expected, { score, expected });
+  const skillCard = await page.waitForSelector('[data-testid="skill-bars"]', { timeout: 10_000 }).then(() => true).catch(() => false);
+  check('the results show how the round moved your skills', skillCard);
   check('posters loaded on the results (no black tiles)', (await brokenImages(page, '[data-testid="result-tile"]')) === 0, await brokenImages(page, '[data-testid="result-tile"]'));
 
   if (tiles > 0) {
@@ -229,6 +231,16 @@ async function run(browser: Browser, layout: Layout) {
     check('it closes back into the grid', true);
   }
 
+  await page.getByRole('button', { name: 'Your skills', exact: true }).click();
+  await page.waitForURL((u) => u.pathname === '/game/skills', { timeout: 10_000 }).catch(() => {});
+  await page.waitForSelector('[data-testid="skill-bars"]', { timeout: 10_000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  // The results' own copy stays mounted underneath: the skills view's is the last.
+  const general = await page.locator('[data-testid="general-score"]').last().innerText().catch(() => '');
+  check('Your skills shows a general score', /^\d+$/.test(general.trim()), general);
+  // The app's own back (a browser Back drops #app and brings the landing page up).
+  await page.locator('[aria-label="Back"]').last().click();
+  await page.waitForURL((u) => u.pathname === '/game/results', { timeout: 10_000 }).catch(() => {});
   await page.getByText('Back to feed', { exact: true }).click();
   await page.waitForURL((u) => u.pathname === '/', { timeout: 10_000 }).catch(() => {});
   check('Back to feed lands on /', new URL(page.url()).pathname === '/', page.url());

@@ -174,6 +174,11 @@ try {
       }
     }
   }
+  // The simulations: a skill bot over rounds, a viewer for the feed ranker.
+  await page.click('[data-testid="lab-el-skills"]');
+  check('skill bot: the simulation runs', await page.waitForSelector('[data-testid="lab-sim-skills"]', { timeout: 60_000 }).then(() => true).catch(() => false));
+  await page.click('[data-testid="lab-el-ranker"]');
+  check('feed ranker: the simulation runs', await page.waitForSelector('[data-testid="lab-sim-ranker"]', { timeout: 60_000 }).then(() => true).catch(() => false));
   check('no page errors', errors.length === 0, errors);
   if (SHOTS) await strips(browser, SHOTS);
 } finally {
