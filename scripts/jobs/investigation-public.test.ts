@@ -30,3 +30,9 @@ test('replay, unavailable steps and partial final results remain explicit',()=>{
   assert.equal(publicInvestigation(undefined),undefined);
   const clean=publicInvestigation(base)!;clean.steps[0].models.push('changed');assert.deepEqual(base.steps[0].models,[model]);
 });
+
+test("unknown historical admission totals are explicitly preserved",()=>{
+ const value={...base,budget:{maxHostedAttempts:0,hostedAttempts:0,recorded:false}};
+ assert.deepEqual(publicInvestigation(value),value);
+ assert.equal(publicInvestigation({...base,budget:{...base.budget,recorded:"no"}}),undefined);
+});

@@ -72,7 +72,8 @@ export interface InvestigationSummary {
     observationIds: string[];
     evidenceIds: string[];
   }[];
-  budget: { maxHostedAttempts: number; hostedAttempts: number };
+  /** recorded:false means historical totals are unavailable; hide numeric placeholders. */
+  budget: { maxHostedAttempts: number; hostedAttempts: number; recorded?: boolean };
 }
 export interface OverallVerdict {
   label: 'likely_ai' | 'likely_real';

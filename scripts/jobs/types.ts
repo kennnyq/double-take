@@ -76,7 +76,8 @@ export interface InvestigationSummary {
     observationIds: string[];
     evidenceIds: string[];
   }[];
-  budget: { maxHostedAttempts: number; hostedAttempts: number };
+  /** recorded:false means historical totals are unavailable; hide numeric placeholders. */
+  budget: { maxHostedAttempts: number; hostedAttempts: number; recorded?: boolean };
 }
 export interface OverallVerdict {
   label: 'likely_ai' | 'likely_real';
@@ -152,6 +153,7 @@ export function publicInvestigation(value: unknown): InvestigationSummary | unde
   if (!v || v.version !== 1 || !['adaptive','fixed'].includes(v.strategy as string) || typeof v.replay !== 'boolean' ||
       v.plannerModel !== 'nvidia/nemotron-3.5-bolt-e4b' || !['complete','partial'].includes(v.outcome as string) ||
       !Array.isArray(v.steps) || v.steps.length < 1 || v.steps.length > 24 || !budget ||
+      (budget.recorded !== undefined && typeof budget.recorded !== 'boolean') ||
       !Number.isInteger(budget.maxHostedAttempts) || (budget.maxHostedAttempts as number) < 0 || (budget.maxHostedAttempts as number) > 40 ||
       !Number.isInteger(budget.hostedAttempts) || (budget.hostedAttempts as number) < 0 || (budget.hostedAttempts as number) > (budget.maxHostedAttempts as number)) return undefined;
   const steps: InvestigationSummary['steps'] = [], seen = new Set<string>();
@@ -170,7 +172,7 @@ export function publicInvestigation(value: unknown): InvestigationSummary | unde
   }
   return {version:1,strategy:v.strategy as InvestigationSummary['strategy'],replay:v.replay,plannerModel:v.plannerModel,
     outcome:v.outcome as InvestigationSummary['outcome'],steps,
-    budget:{maxHostedAttempts:budget.maxHostedAttempts as number,hostedAttempts:budget.hostedAttempts as number}};
+    budget:{maxHostedAttempts:budget.maxHostedAttempts as number,hostedAttempts:budget.hostedAttempts as number,...(typeof budget.recorded==='boolean'?{recorded:budget.recorded}:{})}};
 }
 /** Analyzer authors own public prose and inspection. Private trace never crosses HTTP. */
 export function publicResult(r: AnalysisResult) {
