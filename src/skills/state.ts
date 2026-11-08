@@ -6,8 +6,9 @@
  */
 import type { KeyValue } from '../settings/settings.ts';
 import { SKILL_CATEGORIES, type SkillCategory } from './categories.ts';
+import { NO_STATS, addAnswer, pushHistory, pushMiss, type SkillStats } from './insights.ts';
 import { DIFFICULTY_PRIOR_VAR } from './difficulty.ts';
-import { SKILL_PRIOR, freshSkills, generalSkill, recordAnswer, skillForClip, updateDifficulty, updateSkill, type Belief, type Skills } from './skill.ts';
+import { SKILL_PRIOR, freshSkills, generalSkill, recordAnswer, skillForClip, toScore, updateDifficulty, updateSkill, type Belief, type Skills } from './skill.ts';
 
 export const SKILLS_KEY = 'double-take.skills.v1';
 
@@ -25,10 +26,16 @@ export interface SkillState {
   cats: Record<string, Partial<Record<SkillCategory, number>>>;
   answers: number;
   rounds: number;
+  /** Right answers, AI caught, streaks (counted from when they were added). */
+  stats: SkillStats;
+  /** The general score after each of the last answers. */
+  history: number[];
+  /** Clips answered wrong, most recent first, per skill. */
+  misses: Partial<Record<SkillCategory, string[]>>;
 }
 
 export function emptySkillState(): SkillState {
-  return { skills: freshSkills(), overall: { ...SKILL_PRIOR }, clips: {}, cats: {}, answers: 0, rounds: 0 };
+  return { skills: freshSkills(), overall: { ...SKILL_PRIOR }, clips: {}, cats: {}, answers: 0, rounds: 0, stats: { ...NO_STATS }, history: [], misses: {} };
 }
 
 const isBelief = (b: unknown): b is Belief =>
@@ -46,6 +53,13 @@ export function parseSkillState(raw: string | null | undefined): SkillState {
     for (const [k, c] of Object.entries(o.cats ?? {})) if (c && typeof c === 'object') s.cats[k] = c;
     s.answers = typeof o.answers === 'number' ? o.answers : 0;
     s.rounds = typeof o.rounds === 'number' ? o.rounds : 0;
+    const st = (o.stats ?? {}) as Partial<SkillStats>;
+    for (const k of Object.keys(NO_STATS) as (keyof SkillStats)[]) if (typeof st[k] === 'number' && Number.isFinite(st[k])) s.stats[k] = st[k];
+    if (Array.isArray(o.history)) s.history = o.history.filter((v): v is number => typeof v === 'number' && Number.isFinite(v));
+    for (const c of SKILL_CATEGORIES) {
+      const m = (o.misses as Record<string, unknown> | undefined)?.[c];
+      if (Array.isArray(m)) s.misses[c] = m.filter((k): k is string => typeof k === 'string');
+    }
   } catch {
     // Corrupt storage: start over.
   }
@@ -58,6 +72,8 @@ export interface Answer {
   cats: Partial<Record<SkillCategory, number>>;
   /** The clip's difficulty prior, for a clip this device hasn't seen answered. */
   prior: number;
+  /** What the clip was (for AI caught). */
+  truth?: 'ai' | 'real';
 }
 
 /** A round's answers folded in, in the order they were given (`round`: counts as a round played). */
@@ -66,6 +82,9 @@ export function applyRound(state: SkillState, answers: readonly Answer[], round 
   let overall = state.overall;
   const clips = { ...state.clips };
   const cats = { ...state.cats };
+  let stats = state.stats;
+  let history = state.history;
+  let misses = state.misses;
   for (const a of answers) {
     const d = clips[a.key] ?? { mu: a.prior, v: DIFFICULTY_PRIOR_VAR, n: 0 };
     const theta = skillForClip(skills, a.cats);
@@ -73,8 +92,12 @@ export function applyRound(state: SkillState, answers: readonly Answer[], round 
     overall = updateSkill(overall, d.mu, a.correct);
     clips[a.key] = updateDifficulty(d, theta, a.correct);
     cats[a.key] = a.cats;
+    stats = addAnswer(stats, a);
+    history = pushHistory(history, toScore(overall).score);
+    if (!a.correct) misses = pushMiss(misses, a.key, a.cats);
   }
-  return { skills, overall, clips, cats, answers: state.answers + answers.length, rounds: state.rounds + (round && answers.length ? 1 : 0) };
+  const rounds = state.rounds + (round && answers.length ? 1 : 0);
+  return { skills, overall, clips, cats, answers: state.answers + answers.length, rounds, stats: { ...stats, rounds }, history, misses };
 }
 
 /** A clip's current difficulty: answered here, else its prior. */
