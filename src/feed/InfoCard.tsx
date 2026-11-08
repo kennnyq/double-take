@@ -28,8 +28,6 @@ interface Props {
   loop?: SharedValue<number> | null;
   /** Live blur behind the glass (only with the spotlight's full blur: it's expensive over video). */
   blur?: boolean;
-  /** The text fades in as one block (a temporary crash check). */
-  plainText?: boolean;
   /** Back and forward buttons along the bottom (walkthrough steps). */
   nav?: CardNav;
   /** Set to play the exit; `onGone` follows once it's done. */
@@ -67,7 +65,7 @@ const TEXT_RISE = 6;
  * Everything animates transform and opacity only; nothing is laid out again
  * while the card moves.
  */
-export function InfoCard({ spot, text, hint, loop, blur, plainText, nav, leaving, onGone }: Props) {
+export function InfoCard({ spot, text, hint, loop, blur, nav, leaving, onGone }: Props) {
   const g = useGlass();
   const W = spot.width;
   const down = spot.from === 'above' ? -1 : 1;
@@ -108,6 +106,7 @@ export function InfoCard({ spot, text, hint, loop, blur, plainText, nav, leaving
       style={[styles.card, ownLayer, { width: W, left: spot.cx - W / 2 }, spot.side === 'top' ? { top: spot.offset } : { bottom: spot.offset }, cardStyle]}
       pointerEvents={nav && !leaving ? 'box-none' : 'none'}
       accessibilityLiveRegion="polite"
+      testID="dt-card"
     >
       <View style={[StyleSheet.absoluteFill, styles.glass, g.glass, blur ? g.tint : g.tintSolid]} pointerEvents="none">
         {blur ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
@@ -120,7 +119,6 @@ export function InfoCard({ spot, text, hint, loop, blur, plainText, nav, leaving
           hintStyle={[styles.hint, g.hint]}
           clock={clock}
           onReady={setTotal}
-          plain={plainText}
         />
         {nav ? (
           <Footer nav={nav} loop={loop ?? null} clock={clock} total={total} />

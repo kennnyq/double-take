@@ -281,9 +281,7 @@ export function TellOverlay({ ref, ...p }: Props) {
     onScrub(true);
     loop.set(withTiming(0, { duration: 200 }));
     const card = cardFor(d, i);
-    // (A temporary crash check can go straight there instead.)
-    const plan = settings.dbgScrub ? planScrub(player.currentTime, r.from) : { from: r.from, to: r.from, ms: 0, stepMs: 33 };
-    if (!settings.dbgScrub) safeSeek(player, r.from);
+    const plan = planScrub(player.currentTime, r.from);
     setSeekBadge(seekBadgeFor(plan.to - plan.from, plan.ms));
     cancelScrub.current = runScrub(player, plan, () => {
       setSeekBadge(null);
@@ -483,7 +481,6 @@ export function TellOverlay({ ref, ...p }: Props) {
           hint={c.hint}
           loop={c.loop ? loop : null}
           blur={settings.spotlightEffect === 'fullBlur'}
-          plainText={!settings.dbgLineText}
           nav={
             c.step
               ? { step: c.step.index, count: c.step.count, cue: settings.endCue, onBack: () => backRef.current(), onNext: () => nextRef.current() }

@@ -58,13 +58,6 @@ export interface DevSettings {
   /** Reviewers: mark tells that are unreviewed model drafts in the double take. Off: the card shows only the reason. */
   markDrafts: boolean;
   endCue: EndCue;
-  /**
-   * Temporary, to find what closes Expo Go on entering the double take: turn
-   * pieces off one at a time. All on by default.
-   */
-  dbgCornerCaps: boolean;
-  dbgLineText: boolean;
-  dbgScrub: boolean;
 }
 
 export type DevSettingKey = keyof DevSettings;
@@ -79,9 +72,6 @@ export const DEFAULT_SETTINGS: Readonly<DevSettings> = Object.freeze({
   spotlightPadding: 'normal',
   markDrafts: false,
   endCue: 'done',
-  dbgCornerCaps: true,
-  dbgLineText: true,
-  dbgScrub: true,
 });
 
 export const STORAGE_KEY = 'double-take:dev-settings:v1';
@@ -110,9 +100,6 @@ export function parseSettings(raw: string | null | undefined): DevSettings {
     spotlightPadding: oneOf(SPOTLIGHT_PADDINGS, o.spotlightPadding, d.spotlightPadding),
     markDrafts: typeof o.markDrafts === 'boolean' ? o.markDrafts : d.markDrafts,
     endCue: oneOf(END_CUES, o.endCue, d.endCue),
-    dbgCornerCaps: typeof o.dbgCornerCaps === 'boolean' ? o.dbgCornerCaps : d.dbgCornerCaps,
-    dbgLineText: typeof o.dbgLineText === 'boolean' ? o.dbgLineText : d.dbgLineText,
-    dbgScrub: typeof o.dbgScrub === 'boolean' ? o.dbgScrub : d.dbgScrub,
   };
 }
 

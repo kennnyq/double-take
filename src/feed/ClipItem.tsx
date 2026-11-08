@@ -58,7 +58,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   const longPressed = useRef(false);
   const tells = useRef<TellOverlayHandle>(null);
   const { revealGesture } = useAppSettings();
-  const { holdMs, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength, dbgCornerCaps } = useDevSettings();
+  const { holdMs, spotlightEffect, spotlightShape, spotlightPadding, spotlightStrength: strength } = useDevSettings();
   const hasTells = !!clip.tellsUrl && p.isActive;
   // The tells walkthrough is open: show the whole frame and get the chrome out of the way.
   // Only the active clip can be inspecting (the overlay also closes itself when unmounted).
@@ -338,7 +338,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
           onDrag={h.setBarDrag}
         />
       </Reanimated.View>
-      {roundWithCaps && dbgCornerCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
+      {roundWithCaps && p.isActive && <CornerCaps radius={inset.radius} progress={mode} />}
     </Reanimated.View>
   );
 
