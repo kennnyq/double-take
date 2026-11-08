@@ -1,4 +1,4 @@
-# Handoff: harvesting AI videos, and real ones to compare them with
+# Handoff: harvesting AI videos, and real ones for "AI or real?"
 
 For an agent picking up the clip-harvesting work. Read the repo `README.md` (tells pipeline) and `worker/README.md` (serving) first; this file covers what they don't.
 
@@ -6,7 +6,7 @@ For an agent picking up the clip-harvesting work. Read the repo `README.md` (tel
 
 - The live feed (`build/feeds/demo.json`, served at `/feed`) has **119 clips**, all labelled `confirmed` AI. 80 of them have tells. `build/` lives on Kenny's Mac only.
 - AI candidate batches live in this folder: `spot_test.jsonl`, `batch-2026-11-07*.jsonl`. Each row carries the Community Note that flagged the clip.
-- **Real clips:** the first batch is `real-2026-11-07.jsonl` (18 real clips plus the 10 AI clips they pair with), and the curation log is `real-2026-11-07.md`. It's built into `feeds/compare.json` and is ready to merge into `demo.json`; see "Shipping real clips" below. `real-2026-11-07b.jsonl` adds 21 standalone real clips with no AI pair. Neither is deployed yet.
+- **Real clips:** the first batch is `real-2026-11-07.jsonl` (18 real clips plus the 10 AI clips they pair with), and the curation log is `real-2026-11-07.md`. `real-2026-11-07b.jsonl` adds 21 standalone real clips and `reddit-2026-11-07.jsonl` 33 Reddit clips (21 AI, 12 real). All go into `demo` as standalone clips; see "Shipping real clips" below. None is deployed yet.
 - `scripts/annotate/notes.jsonl` holds the notes the tells pipeline reads. It's for AI clips only: real clips' notes stay in their batch rows, so the tells pipeline never drafts "AI tells" from a "this is not AI" note.
 - **Review:** `npm run review` (on kenny-wsl, port 8090 over the tailnet) shows every clip from both Workers and all the batches, with AI↔real pairs side by side. Decisions go to `review/decisions.jsonl`, and `build_media.py --exclude-discarded` acts on them. See [`REVIEW.md`](REVIEW.md).
 - Every AI clip so far comes from X Community Notes. YouTube comment mining was tried in the spot test and was much noisier. Reddit (r/isthisAI) is read in a browser and scored by comment consensus (`pick_reddit.py`, below): the first batch is `reddit-2026-11-07.jsonl`, with 21 AI and 12 real clips.
@@ -67,7 +67,7 @@ Expect roughly half of what you probe to be gone: deleted posts, suspended accou
 
 ## Real videos for comparison
 
-Goal, confirmed by the first batch: for an AI clip, find **real footage of the same kind of thing** (a real llama pushing into a car next to the AI alpaca spitting on a windshield), and keep a pool of **real clips people mistook for AI**. Both give the app honest negatives, and the first gives side-by-side pairs.
+**Goal: real clips for "is this AI or real?" detection.** A real clip doesn't need an AI counterpart; it just has to be clearly real footage of the feed's kind of subject. The first batch read Kenny's "non-AI videos that can be used as a comparison" as one-to-one AI↔real pairs; that was a misreading, so **pairs aren't a goal and the `compare` feed isn't shipped**. The pairing tooling (`pairOf`, `--feed compare`, the review site's pair view) stays in place, dormant. Real clips found by searching for an AI clip's subject are still good real clips; they just stand alone in `demo`.
 
 ### The real-clip workflow
 
@@ -84,8 +84,8 @@ python3 -I scripts/harvest/search_real.py ai_pick.jsonl lookalikes.jsonl --per-c
 
 # 3. Look at every candidate (frame sheets: see real-2026-11-07.md), curate, and write the batch:
 #    each AI clip's row ({source, url, label: "confirmed", evidence}) followed by its real rows.
-# 4. Build the compare feed. AI clips already in demo are reused, never re-encoded.
-python3 -I scripts/harvest/build_media.py scripts/harvest/real-<date>.jsonl --out build --feed compare --jobs 4
+# 4. Build into demo (only the clips the review kept). Every real clip stands alone there.
+python3 -I scripts/harvest/build_media.py scripts/harvest/real-<date>.jsonl --out build --merge --jobs 4 --only-kept --exclude-discarded
 ```
 
 - **`pick_real.py`** writes `negative` rows (the noted post is real: tier `real-verified`, or `not-ai-cgi` for CGI, animation and games) and `pair` rows (`url` is the linked footage, with `pairOf: x-<ai post>`, `realUrl` and `how: "note-link"`). `--ai` puts pairs whose AI clip we already have first. Notes on politics, war, news, named public figures, sexual content, minors, films, music videos and ads are dropped unless `--all-genres`.
@@ -124,17 +124,12 @@ Lessons:
 
 ### Shipping real clips
 
-The Worker already serves `/feed?name=compare`; `npm run check:prod` now checks it (it needs `compare.json` deployed), along with 404/400 for unknown or bad feed names.
-
-Recommendation: **merge real clips into `demo`, and also publish `compare`.**
-- `demo` is what the app shows, and Auto label and **Only real** work from `label`. Real clips in a separate feed would be invisible to those modes.
-- `compare` (each AI clip followed by its real counterparts) is the input for a future side-by-side or "AI or real?" round, and can be deployed any time; the app doesn't read it yet.
+Real clips go into **`demo`**, the feed the app and the guessing game read; Auto label and **Only real** work from `label`. They stand alone there: `build_media.py` drops `pairOf` from demo rows. **`compare` isn't shipped.** The e2e suite checks it only if a Worker serves one, so `npm run check:prod` passes without it.
 
 On the Mac, from the repo root with `build/` in place:
 
 ```bash
 brew install deno                       # yt-dlp needs it for YouTube downloads
-python3 -I scripts/harvest/build_media.py scripts/harvest/real-2026-11-07.jsonl --out build --feed compare --jobs 4 --only-kept --exclude-discarded
 for b in real-2026-11-07 real-2026-11-07b reddit-2026-11-07; do    # demo: only clips the review kept
   python3 -I scripts/harvest/build_media.py scripts/harvest/$b.jsonl --out build --merge --jobs 4 --only-kept --exclude-discarded
 done
@@ -143,7 +138,7 @@ cd worker && npm run deploy && cd .. && npm run check:prod
 
 **Nothing reaches a feed by merging a batch file.** `build/` changes only when `build_media.py` runs on a batch, and `--only-kept` builds only the clips marked keep in the review site. The new batches (`real-2026-11-07b`, `reddit-2026-11-07`) are unreviewed, so leave out `--only-kept` only after reviewing every clip.
 
-The second build reuses everything the first one downloaded. AI partners already in `demo` are never re-encoded.
+Clips already in `demo` are never re-encoded. The candidate built this way on kenny-wsl is `~/Developer/double-take/build-next` (182 clips: 131 AI, 51 real), served by the 8787 dev Worker.
 
 ### Standalone real clips
 
@@ -184,4 +179,4 @@ Most r/isthisAI posts are photos: only video posts (Reddit-hosted, or linking X/
 1. **A reveal for clips without tells.** The data is there (`verdictWhy`); the hold/double-tap reveal still needs a path that doesn't go through `TellOverlay`, on phone and desktop, to show the "Not AI" verdict with that line.
 2. **Model queries.** Swap `subject_query` for the Nemotron text model (the hosted one the tells pipeline uses; nothing runs locally yet). The heuristic is fine for titled posts, but about a third of AI posts have only a t.co link for a title.
 3. **Poster similarity** on the 4080 (a CLIP-style embedding of the AI poster against each hit's thumbnail) to rank lookalikes when titles tie.
-4. More pairs: the clips in `ai_titles` with clear subjects (wildlife, weather, food) that weren't searched yet.
+4. More real clips: standalone subject searches (`search_real.py` with `{"query": …}` rows) in the feed's genres, and the rest of r/isthisAI.

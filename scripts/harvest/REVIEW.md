@@ -1,6 +1,6 @@
 # Reviewing clips, and feeding the review back into the build
 
-The review site is a dev tool for triaging every clip we have (live AI clips, real comparison clips and their pairs, and unbuilt candidates) and recording a decision per clip. The decisions are a committed file, so the feed build on the Mac can act on them.
+The review site is a dev tool for triaging every clip we have (live AI clips, real clips, and unbuilt candidates) and recording a decision per clip. The decisions are a committed file, so the feed build on the Mac can act on them.
 
 ## Run it
 
@@ -18,11 +18,11 @@ All of these are merged into one list, with one item per clip key (`build_media.
 | Source | What | Config |
 | --- | --- | --- |
 | `prod` | the deployed Worker's `/feed?name=demo` and `compare` | `EXPO_PUBLIC_API_URL` and `EXPO_PUBLIC_DEMO_PASSCODE` from `.env.local` |
-| `local` | a `wrangler dev` Worker serving a local `build/` (`http://localhost:8787`, also reachable at `kenny-wsl…:8787`): `demo` has 10 AI + 18 real clips, and in `compare` each AI clip is followed by its real ones | `DEMO_PASSCODE` from `worker/.dev.vars` |
+| `local` | a `wrangler dev` Worker serving a local build (`http://localhost:8787`, also reachable at `kenny-wsl…:8787`); on kenny-wsl it serves the deploy candidate `~/Developer/double-take/build-next` (182 clips: 131 AI, 51 real) | `DEMO_PASSCODE` from `worker/.dev.vars` |
 | batches | every `scripts/harvest/*.jsonl` (`spot_test`, `batch-*`, `real-*`) | none |
 | notes | `scripts/annotate/notes.jsonl`, attached to X clips | none |
 
-- A feed that doesn't exist yet (such as prod `compare` before it's deployed) or a Worker that's down shows as ✕ in the sidebar. Neither is fatal.
+- A feed that doesn't exist (such as `compare`, which isn't shipped) or a Worker that's down shows as ✕ in the sidebar. Neither is fatal.
 - Media comes from the first source that has the clip, prod before local.
 - The local Worker's signed URLs are rewritten to the host the browser used, so they also play on a phone over the tailnet.
 - Batch rows that were never built show as "Not built yet", with their evidence and source link.
@@ -34,7 +34,7 @@ All of these are merged into one list, with one item per clip key (`build_media.
 - **Filters:** the sidebar has the same facets, with counts. Values within a facet are OR'd, and facets are AND'd. Search matches the key, author, title, evidence, note, tags and your feedback.
 - **Sort:** feed order, newest, oldest, shortest, longest, or recently reviewed.
 - The URL keeps the current view, so a link reopens the same filters and clip.
-- **Pairs:** opening any clip in an AI↔real pair (`pairOf`) shows the AI clip next to all its real partners, playing together. "Review this one" switches between them.
+- **Pairs:** opening any clip in an AI↔real pair (`pairOf`, from the first real batch) shows the AI clip next to its real partners. Pairs aren't a goal any more and `compare` isn't shipped; the view is kept for those older clips.
 - **Duplicate hints:** the site flags clips with the same file hash, the same evidence text, or a near-identical poster (a 64-bit difference hash). Clips in one pair are exempt, because they share a note on purpose.
 - Deciding a clip doesn't drop it from the current list, so the next/previous order stays stable. Press **R** to re-apply the filters.
 
@@ -90,11 +90,10 @@ python3 -I scripts/harvest/review.py --tag "wrong label"
    git pull
    python3 -I scripts/harvest/review.py --status needs-work      # anything to fix by hand first
    python3 -I scripts/harvest/build_media.py <candidates>.jsonl --out build --merge --only-kept --exclude-discarded
-   python3 -I scripts/harvest/build_media.py scripts/harvest/real-<date>.jsonl --out build --feed compare --merge --exclude-discarded
    ```
    - `--only-kept` builds only the new candidates marked keep, so a partly reviewed batch never ships its unreviewed clips. Rows already in the feed stay.
    - `--exclude-discarded` leaves discarded clips out of both the new candidates and the kept feed (`--merge`). Both read `--decisions PATH` if you pass one.
-   - In a pair feed (any `--feed` other than `demo`, such as `compare`), a discarded clip also takes its pair with it:
+   - The `compare` feed isn't shipped (real clips stand alone in `demo`). If a pair feed is ever built (any `--feed` other than `demo`), a discarded clip also takes its pair with it:
      - a discarded real clip drops out of its pair;
      - an AI clip whose real partners were all discarded drops out;
      - a discarded AI clip takes its real partners out of that feed.
