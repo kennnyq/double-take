@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SettingsContent } from '@/settings/SettingsScreen';
 import { openSettings } from '@/settings/store';
 import { TabBar, requestTab, type TabId } from '@/ui/TabBar';
+import { usePalette } from '@/ui/theme';
 
 /**
  * The phone's Settings tab. Pushed over the Home screen without animation, so
@@ -18,6 +19,7 @@ import { TabBar, requestTab, type TabId } from '@/ui/TabBar';
 export default function SettingsTab() {
   const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
+  const c = usePalette();
   // Same test as Home's for the desktop layout.
   const desktop = Platform.OS === 'web' && width >= 760 && height >= 480;
 
@@ -34,7 +36,7 @@ export default function SettingsTab() {
   };
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: c.bg }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title} role="heading">
           Settings
@@ -47,7 +49,7 @@ export default function SettingsTab() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#000' },
+  root: { flex: 1 },
   header: { paddingHorizontal: 20, paddingBottom: 8 },
   title: { color: '#fff', fontSize: 28, fontWeight: '700' },
   content: { flex: 1 },
