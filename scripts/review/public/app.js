@@ -938,6 +938,27 @@ function marksHtml(st) {
   return `<section><h3>Your marks <a href="#" data-open-grid>All tells</a></h3>${rows.join('')}</section>`;
 }
 
+const INFO_ICONS = {
+  evidence: '<svg viewBox="0 0 24 24"><path d="M7 7h4v4H8.5c0 2 .8 3 2.5 3.5M14 7h4v4h-2.5c0 2 .8 3 2.5 3.5"/></svg>',
+  clip: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>',
+  runs: '<svg viewBox="0 0 24 24"><path d="M12 4l8 4-8 4-8-4 8-4zM4 12l8 4 8-4M4 16l8 4 8-4"/></svg>',
+  marks: '<svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
+  out: '<svg viewBox="0 0 24 24"><path d="M14 5h5v5M19 5l-8 8M18 14v5H5V6h5"/></svg>',
+};
+const INFO_TABS = [
+  ['evidence', 'Evidence: Community Note, consensus'],
+  ['clip', 'Clip: author, label, sources, decision'],
+  ['runs', 'Annotation runs: models and dates'],
+  ['marks', 'Your marks: picked tells and notes'],
+];
+/** Which info panel is open (null: all collapsed, the default); remembered across clips and reloads. */
+S.infoTab = store.get('infoTab', null);
+
+/**
+ * The secondary information, behind compact icon tabs: one line (who, what, how
+ * long) is always there; each panel opens on demand. Wide windows show the tab row
+ * in the side column; phones show it in the sheet the info button opens.
+ */
 function renderDrawer() {
   const it = current();
   const dr = $('#drawer');
@@ -959,22 +980,59 @@ function renderDrawer() {
     })
     .join('');
   const unplaced = S.runs[S.run]?.file?.unplaced ?? [];
+  const evidence = [
+    noteText ? `<section><h3>Community Note ${it.note.url ? `<a href="${esc(it.note.url)}" target="_blank" rel="noopener" title="Open the note">↗</a>` : ''}</h3><div class="quote">${esc(noteText)}</div></section>` : '',
+    it.consensus ? consensusHtml(it) : '',
+    it.evidence && it.evidence !== noteText && !it.consensus ? `<section><h3>Evidence</h3><div class="quote">${esc(it.evidence)}</div></section>` : '',
+  ].join('');
+  const decision = st
+    ? `<section><h3>Decision</h3><p>${esc(decided(st) === 'discard' ? 'Dropped' : decided(st) === 'keep' ? 'Kept' : st.status || 'Open')} · ${esc(st.by)} · ${esc(st.at.slice(0, 16).replace('T', ' '))}</p>${st.note ? `<div class="quote">${esc(st.note)}</div>` : ''}</section>`
+    : '';
+  const compare = partners.length
+    ? `<section><h3>Compare with</h3>${partners.map((k) => `<p><a href="#${esc(k)}" data-goto="${esc(k)}">${esc(S.byKey.get(k).author ? `@${S.byKey.get(k).author}` : k)}</a> <span class="sub">${esc([S.byKey.get(k).label, S.byKey.get(k).tier].filter(Boolean).join(' · '))}</span></p>`).join('')}</section>`
+    : '';
+  const panels = {
+    evidence: evidence || '<p class="sub">No note or evidence for this clip.</p>',
+    clip: `<section><div class="meta">${esc(meta)}${label ? `<br>${esc(label)}` : ''}</div>
+      <div class="chips">${sources}${S.vetted.has(it.key) ? '<span class="chip">worker-vetted</span>' : ''}</div>
+      <div class="sub">${esc(it.key)}</div></section>${decision}${compare}`,
+    runs: runs
+      ? `<section><div class="runs">${runs}</div>${unplaced.length ? `<div class="sub" style="margin-top:8px">Not placed: ${unplaced.map((u) => `“${esc(u.quote)}”`).join(' ')}</div>` : ''}</section>`
+      : '<p class="sub">No annotations for this clip.</p>',
+    marks: marksHtml(st) || '<p class="sub">No marks yet. Pick tells with ★ in All tells (T), or P on the one on screen.</p>',
+  };
+  const marked = Object.keys(st?.tells ?? {}).length;
+  const dot = { evidence: !!evidence, marks: marked > 0, runs: S.runs.length > 1 };
   dr.innerHTML = `
-    <button class="icon dr-close" data-close-drawer title="Close (E)" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
-    <section><p class="who">@${esc(it.author || it.platform || '?')}</p>
-      <div class="meta">${esc(meta)}${label ? `<br>${esc(label)}` : ''}</div>
-      <div style="margin-top:8px">${sources}${S.vetted.has(it.key) ? '<span class="chip">worker-vetted</span>' : ''}</div>
-      ${it.url ? `<div class="sub"><a href="${esc(it.url)}" target="_blank" rel="noopener">Source ↗</a> · <span>${esc(it.key)}</span></div>` : ''}</section>
-    ${st ? `<section><h3>Decision</h3><p>${esc(decided(st) === 'discard' ? 'Dropped' : decided(st) === 'keep' ? 'Kept' : st.status || 'Open')} · ${esc(st.by)} · ${esc(st.at.slice(0, 16).replace('T', ' '))}</p>${st.note ? `<div class="quote">${esc(st.note)}</div>` : ''}</section>` : ''}
-    ${noteText ? `<section><h3>Community Note ${it.note.url ? `<a href="${esc(it.note.url)}" target="_blank" rel="noopener">↗</a>` : ''}</h3><div class="quote">${esc(noteText)}</div></section>` : ''}
-    ${it.consensus ? consensusHtml(it) : ''}
-    ${it.evidence && it.evidence !== noteText && !it.consensus ? `<section><h3>Evidence</h3><div class="quote">${esc(it.evidence)}</div></section>` : ''}
-    ${runs ? `<section><h3>Annotation runs</h3><div class="runs">${runs}</div>${unplaced.length ? `<div class="sub" style="margin-top:10px">Not placed: ${unplaced.map((u) => `“${esc(u.quote)}”`).join(' ')}</div>` : ''}</section>` : ''}
-    ${marksHtml(st)}
-    ${partners.length ? `<section><h3>Compare with</h3>${partners.map((k) => `<p><a href="#${esc(k)}" data-goto="${esc(k)}">${esc(S.byKey.get(k).author ? `@${S.byKey.get(k).author}` : k)}</a> <span class="sub">${esc([S.byKey.get(k).label, S.byKey.get(k).tier].filter(Boolean).join(' · '))}</span></p>`).join('')}</section>` : ''}`;
+    <div class="itabs" role="tablist" aria-label="Clip information">
+      <span class="who" title="${esc(it.title || '')}">@${esc(it.author || it.platform || '?')}<span> · ${esc(m ? clock(m.duration).replace(/\.\d$/, '') : 'not built')}${label ? ` · ${esc(label)}` : ''}</span></span>
+      ${INFO_TABS.map(
+        ([id, tip]) =>
+          `<button class="itab${S.infoTab === id ? ' on' : ''}" role="tab" data-tab="${id}" aria-selected="${S.infoTab === id}" title="${esc(tip)}" aria-label="${esc(tip)}">${INFO_ICONS[id]}${dot[id] ? '<i class="dot"></i>' : ''}</button>`,
+      ).join('')}
+      ${it.url ? `<a class="itab" href="${esc(it.url)}" target="_blank" rel="noopener" title="Open the source post" aria-label="Open the source post">${INFO_ICONS.out}</a>` : ''}
+      <button class="itab dr-close" data-close-drawer title="Close (E)" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18" /></svg></button>
+    </div>
+    ${INFO_TABS.map(([id]) => `<div class="ipanel${S.infoTab === id ? ' open' : ''}" data-panel="${id}" role="tabpanel"><div>${panels[id]}</div></div>`).join('')}`;
 }
+
+/** Open one info panel (or collapse them all with null); remembered. */
+function setInfoTab(id) {
+  S.infoTab = id;
+  store.set('infoTab', id);
+  if (id) store.set('infoTabLast', id);
+  for (const b of document.querySelectorAll('#drawer .itab[data-tab]')) {
+    const on = b.dataset.tab === id;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', String(on));
+  }
+  for (const p of document.querySelectorAll('#drawer .ipanel')) p.classList.toggle('open', p.dataset.panel === id);
+}
+
 $('#drawer').addEventListener('click', (e) => {
   if (e.target.closest('[data-close-drawer]')) return toggleDrawer(false);
+  const tab = e.target.closest('.itab[data-tab]');
+  if (tab) return setInfoTab(S.infoTab === tab.dataset.tab ? null : tab.dataset.tab);
   if (e.target.closest('[data-open-grid]')) {
     e.preventDefault();
     return toggleGrid(true);
@@ -995,8 +1053,17 @@ $('#drawer').addEventListener('click', (e) => {
   openClip(a.dataset.goto);
 });
 const wideLayout = () => window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1 / 1)').matches;
-function toggleDrawer(on = !$('#drawer').classList.contains('open')) {
-  if (wideLayout()) store.set('drawerWide', on);
+function toggleDrawer(on) {
+  // Wide windows always show the tab row; E opens the last panel or collapses them.
+  if (wideLayout()) {
+    const open = on ?? !S.infoTab;
+    setInfoTab(open ? (S.infoTab ?? store.get('infoTabLast', 'evidence')) : null);
+    $('#info-btn').classList.toggle('on', !!S.infoTab);
+    return;
+  }
+  on ??= !$('#drawer').classList.contains('open');
+  // On a phone the sheet opens on the last panel, so it never opens empty.
+  if (on && !S.infoTab) setInfoTab(store.get('infoTabLast', 'evidence'));
   $('#drawer').classList.toggle('open', on);
   $('#info-btn').classList.toggle('on', on);
   if (window.matchMedia('(max-width: 760px)').matches) $('#scrim').classList.toggle('on', on);
@@ -1499,7 +1566,7 @@ document.addEventListener('keydown', (e) => {
     if (openSheet) return run(() => toggleSheet(openSheet));
     if (gridOpen) return run(() => toggleGrid(false));
     if (libOpen) return run(() => toggleLibrary(false));
-    if ($('#drawer').classList.contains('open')) return run(() => toggleDrawer(false));
+    if (!wideLayout() && $('#drawer').classList.contains('open')) return run(() => toggleDrawer(false));
     if (S.dt.on) return run(() => exitDoubleTake());
     return;
   }
@@ -1568,14 +1635,13 @@ window.addEventListener('hashchange', () => {
   }
 });
 
-// Wide windows have room for the evidence beside the controls: open by default there.
-if (wideLayout() && store.get('drawerWide', true)) toggleDrawer(true);
-// Narrowing the window turns it back into a sheet over the stage: close it then; widening reopens it.
-window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1 / 1)').addEventListener('change', (e) => {
-  $('#drawer').classList.toggle('open', e.matches && store.get('drawerWide', true));
-  $('#info-btn').classList.toggle('on', $('#drawer').classList.contains('open'));
+// Switching between wide and narrow: the phone sheet starts closed.
+window.matchMedia('(min-width: 900px) and (min-aspect-ratio: 1 / 1)').addEventListener('change', () => {
+  $('#drawer').classList.remove('open');
   $('#scrim').classList.remove('on');
+  $('#info-btn').classList.toggle('on', wideLayout() && !!S.infoTab);
 });
+$('#info-btn').classList.toggle('on', wideLayout() && !!S.infoTab);
 
 // ---------------------------------------------------------------- start
 (async () => {

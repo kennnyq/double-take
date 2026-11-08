@@ -131,6 +131,8 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 /* ---------- dock: run switcher, timeline, decision ---------- */
 .runs-row { display: flex; gap: 6px; align-items: stretch; }
 .runs-row .models { flex: 1; min-width: 0; }
+.run-icon { flex: none; width: 32px; height: 32px; border-radius: 10px; background: var(--dt-surface); }
+.run-icon svg { width: 17px; height: 17px; }
 .chip-btn {
   flex: none; padding: 0 12px; border-radius: 12px; background: var(--dt-surface); font-size: 13px; color: var(--dt-text-dim);
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
@@ -179,7 +181,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 
 .actions { display: grid; grid-template-columns: 1fr 2fr 1fr; gap: 8px; }
 .decide {
-  height: 38px; border-radius: 12px; font-weight: 600; font-size: 15px; background: var(--dt-surface); border: 1px solid var(--line);
+  height: 38px; border-radius: 12px; font-weight: 600; font-size: 15px; background: var(--dt-surface); border: 1px solid transparent;
   transition: background 0.22s var(--ease), color 0.22s var(--ease), border-color 0.22s linear, transform 0.15s var(--ease);
 }
 .decide:hover { background: var(--dt-surface-raised); }
@@ -187,10 +189,10 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .decide.keep.on { background: var(--dt-text); color: #000; border-color: transparent; }
 .decide.drop.on { background: transparent; border-color: rgba(245, 245, 247, 0.6); color: var(--dt-text); }
 .note {
-  height: 38px; border-radius: 12px; background: transparent; border: 1px solid var(--line); padding: 0 12px; min-width: 0;
+  height: 38px; border-radius: 12px; background: var(--dt-surface); border: 1px solid transparent; padding: 0 12px; min-width: 0;
   transition: border-color 0.2s linear, background 0.2s linear;
 }
-.note:focus { outline: none; border-color: rgba(245, 245, 247, 0.4); background: var(--dt-surface); }
+.note:focus { outline: none; border-color: rgba(245, 245, 247, 0.3); }
 .note::placeholder { color: var(--dt-text-dim); }
 
 /* ---------- evidence drawer ---------- */
@@ -201,16 +203,36 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
   transition: margin-right 0.42s var(--ease), opacity 0.3s linear, transform 0.42s var(--ease), visibility 0s 0.42s;
 }
 .drawer.open { margin-right: 0; opacity: 1; transform: none; visibility: visible; transition-delay: 0s; }
-.dr-close { position: sticky; top: 8px; float: right; z-index: 2; margin: 8px -8px 0 0; background: var(--dt-surface); }
-.drawer section { padding: 14px 0; border-bottom: 1px solid var(--line); }
-.drawer section:last-child { border-bottom: 0; }
-.drawer h3 { margin: 0 0 8px; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--dt-text-dim); display: flex; justify-content: space-between; }
+/* Info: one line and icon tabs; each panel opens on demand (height eases open, nothing pops). */
+.itabs {
+  display: flex; align-items: center; gap: 2px; padding: 6px 0; position: sticky; top: 0; z-index: 1; background: inherit;
+}
+.itabs .who { flex: 1; min-width: 0; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 6px; }
+.itabs .who span { font-weight: 400; color: var(--dt-text-dim); }
+.itab {
+  position: relative; flex: none; width: 30px; height: 30px; border-radius: 9px; display: grid; place-items: center; color: var(--dt-text-dim);
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.itab svg { width: 16px; height: 16px; }
+.itab:hover { color: var(--dt-text); }
+.itab.on { background: var(--dt-surface); color: var(--dt-text); }
+.itab .dot { position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; border-radius: 3px; background: var(--dt-text); opacity: 0.7; }
+.ipanel {
+  display: grid; grid-template-rows: 0fr; opacity: 0; visibility: hidden;
+  transition: grid-template-rows 0.32s var(--ease), opacity 0.22s linear, visibility 0s 0.32s;
+}
+.ipanel.open { grid-template-rows: 1fr; opacity: 1; visibility: visible; transition-delay: 0s; }
+.ipanel > div { min-height: 0; overflow: hidden; }
+.ipanel > div > :first-child { margin-top: 2px; }
+.drawer .chips { margin: 6px 0 4px; }
+.drawer section { padding: 6px 0 8px; }
+.drawer h3 { margin: 0 0 5px; font-size: 11px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--dt-text-dim); display: flex; justify-content: space-between; }
 .drawer h3 a { text-transform: none; letter-spacing: 0; font-weight: 500; }
 .drawer p { margin: 0 0 8px; line-height: 1.5; }
 .drawer .who { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
 .drawer .meta { color: var(--dt-text-dim); font-size: 13px; line-height: 1.6; }
-.drawer .quote { font-size: 13px; line-height: 1.55; color: rgba(245, 245, 247, 0.88); white-space: pre-wrap; overflow-wrap: anywhere; }
-.drawer .quote + .quote { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--soft); }
+.drawer .quote { font-size: 13px; line-height: 1.5; color: rgba(245, 245, 247, 0.88); white-space: pre-wrap; overflow-wrap: anywhere; }
+.drawer .quote + .quote { margin-top: 8px; }
 .drawer .sub { color: var(--dt-text-dim); font-size: 12px; margin-top: 4px; }
 .drawer .runs { display: flex; flex-direction: column; gap: 8px; }
 .drawer .run { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; }
@@ -218,7 +240,7 @@ svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width:
 .drawer .run span { color: var(--dt-text-dim); text-align: right; }
 .meter { height: 4px; border-radius: 2px; background: rgba(245, 245, 247, 0.16); overflow: hidden; margin: 8px 0 4px; }
 .meter i { display: block; height: 100%; background: var(--dt-text); }
-.chip { display: inline-block; font-size: 12px; padding: 2px 8px; border-radius: 10px; background: var(--dt-surface); border: 1px solid var(--line); margin: 0 4px 4px 0; }
+.chip { display: inline-block; font-size: 11px; padding: 2px 7px; border-radius: 9px; background: var(--dt-surface); margin: 0 4px 4px 0; color: var(--dt-text-dim); }
 
 /* ---------- all tells: a grid of every run's annotations ---------- */
 .gridview {
@@ -375,6 +397,7 @@ kbd {
     opacity: 1; padding-bottom: max(30px, env(safe-area-inset-bottom));
   }
   .drawer.open { transform: none; }
+  .drawer { padding-top: 6px; }
   .sheet { top: auto; bottom: 0; border-radius: 22px 22px 0 0; width: 100vw; transform: translate(-50%, 24px); max-height: 80vh; padding-bottom: max(20px, env(safe-area-inset-bottom)); }
   .sheet.open { transform: translate(-50%, 0); }
   .toast { bottom: 140px; }
@@ -403,10 +426,12 @@ kbd {
   .dock { grid-area: dock; width: auto; align-self: end; padding: 0 16px 16px 4px; gap: 9px; }
   /* The evidence sits in the column's free space, between the bar and the controls: it costs the video nothing. */
   .drawer {
-    grid-area: info; width: auto; min-height: 0; margin: 0; border-left: 0; padding: 0 16px 8px 4px; transform: translateY(8px);
+    grid-area: info; width: auto; min-height: 0; margin: 0; border-left: 0; padding: 0 16px 8px 4px;
+    opacity: 1; transform: none; visibility: visible; background: var(--dt-bg);
   }
-  .drawer.open { transform: none; }
   .dr-close { display: none; }
+  /* The info tabs are right there: the bar's info button would only repeat them. */
+  #info-btn { display: none; }
   .toast { left: auto; right: 200px; transform: translate(50%, 10px); }
   .toast.on { transform: translate(50%, 0); }
 }
