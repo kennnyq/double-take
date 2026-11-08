@@ -1,0 +1,12 @@
+{"v":1,"id":"e1","at":"2026-11-07T10:00:00.000Z","by":"kenny","key":"x-1","set":{"status":"keep"},"url":"https://x.com/i/status/1"}
+{"v":1,"id":"e2","at":"2026-11-07T10:01:00.000Z","by":"kenny","key":"x-1","set":{"tags":["great example","great example"]}}
+{"v":1,"id":"e3","at":"2026-11-07T10:02:00.000Z","by":"kenny","key":"x-1","set":{"status":"discard"}}
+{"v":1,"id":"u1","at":"2026-11-07T10:03:00.000Z","by":"kenny","key":"x-1","undo":"e3"}
+{"v":1,"id":"e5","at":"2026-11-07T10:05:00.000Z","by":"ana","key":"yt-abcdefghijk","set":{"status":"discard","note":"repost"}}
+<<<<<<< HEAD
+{"v":1,"id":"e4","at":"2026-11-07T10:04:00.000Z","by":"kenny","key":"yt-abcdefghijk","set":{"status":"needs-work","note":"crop it"}}
+=======
+not json
+{"v":1,"id":"e6","at":"2026-11-07T10:06:00.000Z","by":"kenny","key":"x-2","set":{"status":"needs-work"}}
+{"v":1,"id":"e7","at":"2026-11-07T10:07:00.000Z","by":"kenny","key":"x-2","set":{"status":null,"note":"looked again"}}
+{"v":1,"id":"e8","at":"2026-11-07T10:08:00.000Z","by":"kenny","key":"x-3","set":{"status":"bogus"}}

@@ -1,0 +1,2 @@
+# Review decisions are an append-only log: keep both sides when branches add events.
+scripts/harvest/review/decisions.jsonl merge=union
