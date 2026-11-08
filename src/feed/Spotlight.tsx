@@ -1,4 +1,4 @@
-import { Image, Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { BlurView } from 'expo-blur';
 import type { VideoPlayer } from 'expo-video';
@@ -60,8 +60,11 @@ export function Spotlight(p: SpotlightProps) {
 }
 
 function Dim({ m, dim, image }: { m: SpotlightMotion; dim: number; image: number }) {
-  const style = useAnimatedStyle(() => ({
-    opacity: dim * Math.min(1, Math.max(0, m.on.value * 1.3)),
+  // No opacity on this view: it has a child, and iOS composites a view with a
+  // child at partial opacity offscreen every frame. The border's colour and
+  // the image carry the alpha instead.
+  const frame = useAnimatedStyle(() => ({
+    borderColor: `rgba(0,0,0,${(dim * Math.min(1, Math.max(0, m.on.value * 1.3))).toFixed(3)})`,
     transform: [
       { translateX: m.x.value + m.w.value / 2 },
       { translateY: m.y.value + m.h.value / 2 },
@@ -69,9 +72,10 @@ function Dim({ m, dim, image }: { m: SpotlightMotion; dim: number; image: number
       { scaleY: Math.max(0.01, m.h.value / MASK_BOX) },
     ],
   }));
+  const fade = useAnimatedStyle(() => ({ opacity: dim * Math.min(1, Math.max(0, m.on.value * 1.3)) }));
   return (
-    <Animated.View style={[styles.dim, style]}>
-      <Image source={image} style={styles.image} fadeDuration={0} />
+    <Animated.View style={[styles.dim, frame]}>
+      <Animated.Image source={image} style={[styles.image, fade]} fadeDuration={0} />
     </Animated.View>
   );
 }
@@ -98,7 +102,6 @@ const styles = StyleSheet.create({
     width: SIDE,
     height: SIDE,
     borderWidth: BORDER,
-    borderColor: '#000',
   },
   image: { width: MASK_SIZE, height: MASK_SIZE },
   band: { position: 'absolute', overflow: 'hidden' },
