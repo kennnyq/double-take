@@ -26,7 +26,7 @@ import { loadPlayableClips } from './playable';
 import { ResolveText } from './ResolveText';
 import { createRound, remaining, roundReducer, type Phase, type RoundState } from './round';
 import { RoundFeed, type RoundFeedHandle } from './RoundFeed';
-import { roundStats } from './score';
+import { roundStats, scoreRound } from './score';
 import { getFinishedRound, gameHistory, setFinishedRound } from './store';
 
 const now = () => performance.now();
@@ -41,38 +41,57 @@ type Dealt = { clip: Clip; truth: 'ai' | 'real' };
 type Point = { x: number; y: number };
 type Designs = ReturnType<typeof useGameDev>['designs'];
 
-/** The `/game` screen: deals a deck of clips whose media loads, then plays one round in the feed. */
-export function GameRound() {
+/** The untimed game deals this many clips at a time, and deals more once this few are left. */
+const BATCH = 20;
+const DEAL_AHEAD = 5;
+
+/**
+ * Deals clips whose media loads: near the player's skill when adaptive dealing
+ * is on (Dev settings), else an even shuffle; clips in `avoid` (the last rounds,
+ * or this game so far) come last.
+ */
+async function deal(avoid: Iterable<string>, cap?: number): Promise<Dealt[]> {
+  const clips = await loadPlayableClips();
+  const recent = [...recentClipKeys(gameHistory.getSnapshot()), ...avoid];
+  if (gameDev.getSnapshot().adaptive) {
+    // Near the player's skill: each clip's categories and difficulty first.
+    const metas = await loadMetas(clips);
+    const state = skillStore.getSnapshot();
+    const sources = clips.map((cl) => {
+      const m = metas.get(clipKey(cl))!;
+      return { ...cl, cats: m.cats, difficulty: difficultyOf(state, clipKey(cl), m.prior) };
+    });
+    return buildAdaptiveDeck(sources, { skills: state.skills, recent, cap });
+  }
+  const dealt = buildDeck(clips, { recent, cap });
+  // Warm the metadata the answers will need.
+  loadMetas(dealt.map((d) => d.clip));
+  return dealt;
+}
+
+/**
+ * A game in the feed: the timed round (60 s, the demo, from Dev settings) or,
+ * with `timed={false}`, the untimed game of the Game tab: no countdown and no
+ * clock, clip after clip, every answer going to Your skills.
+ */
+export function GameRound({ timed = true }: { timed?: boolean }) {
   const [deck, setDeck] = useState<Dealt[] | null>(null);
   const dev = useGameDev();
   const c = usePalette();
   useEffect(() => {
     let live = true;
-    loadPlayableClips().then(async (clips) => {
-      const recent = recentClipKeys(gameHistory.getSnapshot());
-      let dealt: Dealt[];
-      if (gameDev.getSnapshot().adaptive) {
-        // Near the player's skill: each clip's categories and difficulty first.
-        const metas = await loadMetas(clips);
-        const state = skillStore.getSnapshot();
-        const sources = clips.map((cl) => {
-          const m = metas.get(clipKey(cl))!;
-          return { ...cl, cats: m.cats, difficulty: difficultyOf(state, clipKey(cl), m.prior) };
-        });
-        dealt = buildAdaptiveDeck(sources, { skills: state.skills, recent });
-      } else {
-        dealt = buildDeck(clips, { recent });
-        // Warm the metadata the end of the round needs.
-        loadMetas(dealt.map((d) => d.clip));
-      }
-      if (live) setDeck(dealt);
-    });
+    void deal([], timed ? undefined : BATCH).then((d) => live && setDeck(timed ? d : relabel(d, 0)));
     return () => {
       live = false;
     };
-  }, []);
+  }, [timed]);
   if (!deck) return <View style={[styles.root, { backgroundColor: c.bg }]} />;
-  return <Round deck={deck} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
+  return <Round deck={deck} timed={timed} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
+}
+
+/** The untimed game can deal a clip again later: each deal's clips get ids of their own (the feed keys its pages by id). */
+function relabel(d: Dealt[], batch: number): Dealt[] {
+  return d.map((x) => ({ ...x, clip: { ...x.clip, id: `${x.clip.id}~${batch}` } }));
 }
 
 /** What the overlay over the feed draws from: the round, and what it can do. */
@@ -90,6 +109,8 @@ interface RoundUi {
   resume: () => void;
   askQuit: () => void;
   quit: () => void;
+  /** The untimed game's last answer, for its brief ✓ / ✕ (keyed so each one plays). */
+  last: { key: number; correct: boolean } | null;
 }
 const RoundContext = createContext<RoundUi | null>(null);
 
@@ -101,15 +122,54 @@ const RoundContext = createContext<RoundUi | null>(null);
  * round's state and draws the overlay: the clock, the countdown, the veil and
  * the round's buttons.
  */
-function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durationMs: number; showTruth: boolean; designs: Designs }) {
-  const clips = useMemo(() => deck.map((d) => d.clip), [deck]);
+function Round({ deck, timed, durationMs, showTruth, designs }: { deck: Dealt[]; timed: boolean; durationMs: number; showTruth: boolean; designs: Designs }) {
+  // The untimed game's deck grows as it's dealt.
+  const [dealt, setDealt] = useState(deck);
+  const clips = useMemo(() => dealt.map((d) => d.clip), [dealt]);
   const [s, dispatch] = useReducer(roundReducer, null, () =>
     createRound(
       deck.map((d) => ({ id: d.clip.id, truth: d.truth })),
       durationMs,
+      timed,
     ),
   );
   const tint = useTint();
+
+  // ---- the untimed game: no countdown, more clips as it goes, every answer to Your skills ----
+  useEffect(() => {
+    if (!timed) dispatch({ type: 'START', now: now() });
+  }, [timed]);
+  const dealing = useRef(false);
+  const batches = useRef(1);
+  useEffect(() => {
+    if (timed || dealing.current || s.index < dealt.length - DEAL_AHEAD) return;
+    dealing.current = true;
+    void deal(dealt.map((d) => clipKey(d.clip)), BATCH).then((more) => {
+      const next = relabel(more, batches.current++);
+      dealing.current = false;
+      if (!next.length) return;
+      setDealt((d) => [...d, ...next]);
+      dispatch({ type: 'DEAL', cards: next.map((d) => ({ id: d.clip.id, truth: d.truth })) });
+    });
+  }, [timed, s.index, dealt]);
+  const recorded = useRef(0);
+  const [last, setLast] = useState<RoundUi['last']>(null);
+  useEffect(() => {
+    if (timed || s.guesses.length <= recorded.current) return;
+    const fresh = s.guesses.slice(recorded.current);
+    recorded.current = s.guesses.length;
+    const g = fresh[fresh.length - 1];
+    setLast({ key: s.guesses.length, correct: g.correct });
+    const byId = new Map(dealt.map((d) => [d.clip.id, d.clip]));
+    const answered = fresh.map((x) => ({ g: x, clip: byId.get(x.clipId)! })).filter((x) => x.clip);
+    for (const { g: x, clip } of answered) signals.note(clipKey(clip), { kind: 'answer', correct: x.correct });
+    void Promise.all(answered.map(({ clip }) => clipMeta(clip))).then((metas) =>
+      skillStore.recordRound(
+        answered.map(({ g: x, clip }, i) => ({ key: clipKey(clip), correct: x.correct, cats: metas[i].cats, prior: metas[i].prior })),
+        false,
+      ),
+    );
+  }, [timed, s.guesses, dealt]);
 
   // ---- the clock ---------------------------------------------------------------
   const [clock, setClock] = useState(0);
@@ -224,6 +284,7 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'Escape') {
+        if (!s.timed) return;
         e.preventDefault();
         if (quitAsked || phaseRef.current === 'ready') quit();
         else askQuit();
@@ -238,7 +299,7 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [askQuit, quit, quitAsked]);
+  }, [askQuit, quit, quitAsked, s.timed]);
 
   // ---- the end ---------------------------------------------------------------------
   const ended = useRef(false);
@@ -294,6 +355,7 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
       guesses: s.guesses,
       deck: s.deck,
       endReason: s.endReason,
+      timed: s.timed,
       designs,
     };
   }, [s, shown, busy, designs]);
@@ -312,6 +374,7 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
     resume,
     askQuit,
     quit,
+    last,
   };
   return (
     <View style={[styles.root, tint.root]}>
@@ -322,15 +385,22 @@ function Round({ deck, durationMs, showTruth, designs }: { deck: Dealt[]; durati
   );
 }
 
-/** Over the feed, on the active clip's stage: the veil, the clock, the countdown and the round's buttons. */
+/** Over the feed, on the active clip's stage: the timed round's or the untimed game's. */
 function RoundOverlay({ stage }: { stage: StageRect }) {
+  const ui = useContext(RoundContext)!;
+  const frame = useFrame();
+  // Under the status bar when the stage starts at the top of a phone screen.
+  const top = !frame.desktop && stage.y === 0 ? frame.top : 0;
+  return ui.s.timed ? <TimedOverlay stage={stage} top={top} /> : <UntimedOverlay stage={stage} top={top} />;
+}
+
+/** The timed round's overlay: the veil, the clock, the countdown and the round's buttons. */
+function TimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
   const ui = useContext(RoundContext)!;
   const { s, designs } = ui;
   const frame = useFrame();
   const tint = useTint();
   const c = usePalette();
-  // Under the status bar when the stage starts at the top of a phone screen.
-  const top = !frame.desktop && stage.y === 0 ? frame.top : 0;
 
   // The countdown holds its last end time while it flies into the timer.
   const [cdEnd, setCdEnd] = useState<number | null>(null);
@@ -421,6 +491,64 @@ function RoundOverlay({ stage }: { stage: StageRect }) {
   );
 }
 
+/** The untimed game's overlay: the stamp, and the score with a brief ✓ / ✕ after each answer. */
+function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
+  const ui = useContext(RoundContext)!;
+  const frame = useFrame();
+  const tint = useTint();
+  const c = usePalette();
+  const score = scoreRound(ui.s.guesses);
+  // The ✓ / ✕ eases in after an answer and away again.
+  const [showing, setShowing] = useState<RoundUi['last']>(null);
+  const [off, setOff] = useState<number | null>(null);
+  if (ui.last && ui.last.key !== showing?.key) setShowing(ui.last);
+  useEffect(() => {
+    if (!showing) return;
+    const t = setTimeout(() => setOff(showing.key), RESULT_MS);
+    return () => clearTimeout(t);
+  }, [showing]);
+  const result = useEased(showing && off !== showing.key ? 1 : 0, 240);
+  return (
+    <View
+      style={[styles.stage, { left: stage.x, top: stage.y, width: stage.w, height: stage.h }, (frame.desktop || stage.y > 0) && styles.stageCard]}
+      pointerEvents="box-none"
+      testID="round-overlay"
+    >
+      {ui.stamp && (
+        <View style={StyleSheet.absoluteFill} pointerEvents="none">
+          <MarkStamp key={ui.stamp.key} x={ui.stamp.x} y={ui.stamp.y} leaving={ui.stamp.leaving} />
+        </View>
+      )}
+      <View style={[styles.scoreRow, { top: top + ROW_Y }]} pointerEvents="none">
+        <View style={[styles.scorePill, tint.pill]} accessibilityLabel={`Score ${score}, ${ui.s.guesses.length} judged`} testID="game-score-live">
+          <Text style={[styles.scoreText, tint.text]}>{score}</Text>
+          <View style={styles.judged}>
+            <Ionicons name="layers-outline" size={13} color={c.textDim} />
+            <Text style={[styles.judgedText, tint.dim]}>{ui.s.guesses.length}</Text>
+          </View>
+          <Animated.View
+            style={[
+              styles.result,
+              { backgroundColor: showing?.correct ? c.correct : c.incorrect, opacity: result, transform: [{ scale: lerp(result, [0, 1], [0.6, 1]) }] },
+            ]}
+            accessibilityLabel={showing ? (showing.correct ? 'Right' : 'Wrong') : undefined}
+          >
+            <Ionicons name={showing?.correct ? 'checkmark' : 'close'} size={14} color={c.onAccent} />
+          </Animated.View>
+        </View>
+      </View>
+      {__DEV__ && ui.showTruth && ui.truth && (
+        <View style={[styles.truth, { top: top + ROW_Y + ROW_H + 8 }]} pointerEvents="none">
+          <Text style={[styles.truthText, { color: c.textDim }]}>dev: {ui.truth}</Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+/** How long the untimed game's ✓ / ✕ stays after an answer. */
+const RESULT_MS = 900;
+
 /** A centred layer that eases in and out with `value`; it takes touches only while `on`. */
 function Fade({ value, on, children }: { value: Animated.Value; on: boolean; children: React.ReactNode }) {
   return (
@@ -476,6 +604,12 @@ const styles = StyleSheet.create({
   secondaryText: { fontSize: 15, fontWeight: '600' },
   pressed: { opacity: 0.7 },
   big: { fontSize: 56, fontWeight: '900', letterSpacing: 1 },
+  scoreRow: { position: 'absolute', left: 0, right: 0, height: ROW_H, alignItems: 'center', justifyContent: 'center' },
+  scorePill: { height: 34, borderRadius: 17, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  scoreText: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] },
+  judged: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  judgedText: { fontSize: 13, fontWeight: '600', fontVariant: ['tabular-nums'] },
+  result: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   truth: { position: 'absolute', left: 14, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8, backgroundColor: 'rgba(0,0,0,0.5)' },
   truthText: { fontSize: 12, fontWeight: '700' },
 });
@@ -483,6 +617,7 @@ const styles = StyleSheet.create({
 const useTint = themed((c) => ({
   root: { backgroundColor: c.bg },
   card: { backgroundColor: c.surface },
+  pill: { backgroundColor: 'rgba(0,0,0,0.45)', borderWidth: StyleSheet.hairlineWidth, borderColor: c.accentSoft },
   primary: { backgroundColor: c.accent },
   primaryText: { color: c.onAccent },
   text: { color: c.text },

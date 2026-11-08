@@ -3,6 +3,9 @@
  * through the screens. Pure (no React Native), so the reducer and its tests
  * read the same numbers.
  */
+/** The Game tab's name (the untimed game). One place, so it can be renamed. */
+export const GAME_TAB_LABEL = 'Game';
+
 export const GAME = {
   /** How long a round lasts. Dev builds can shorten it (Dev settings → Game). */
   roundMs: 60_000,
