@@ -2,8 +2,10 @@
  * Browser check for the timed round, at phone size (touch) and desktop size:
  * Settings → Timed guessing → countdown → mark (double tap / double click / A)
  * and skip (swipe / wheel / J) → a hidden tab freezes the clock → results →
- * the gallery shows exactly the wrong guesses → a miss replays with its
- * explanation → Back to feed lands on the feed.
+ * every clip of the round shows, the wrong ones marked → a clip opens full
+ * size with its explanation and closes back → Back to feed lands on the feed.
+ * The app's rail (desktop) or tab bar (phone) stays throughout, and no poster
+ * fails to load.
  *
  *   npm run e2e:game                                    (dev server on 8081)
  *   BASE_URL=http://localhost:8092 npm run e2e:game
@@ -17,7 +19,7 @@ import { BASE_URL, findChrome } from './browser.ts';
 const GAME_DEV_KEY = 'double-take:game-dev:v1';
 
 type Guess = { clipId: string; guess: 'ai' | 'real'; truth: 'ai' | 'real'; correct: boolean };
-type Snapshot = { phase: string; index: number; shown: number; busy: boolean; remainingMs: number; guesses: Guess[]; endReason: string | null };
+type Snapshot = { phase: string; index: number; shown: number; busy: boolean; remainingMs: number; guesses: Guess[]; endReason: string | null; deck: { id: string; truth: string }[] };
 
 const failures: string[] = [];
 function check(name: string, ok: boolean, detail?: unknown) {
@@ -53,6 +55,22 @@ async function leaks(page: Page) {
     const text = [...document.querySelectorAll('div, span')].filter((e) => e.childElementCount === 0 && /^(Auto label|Not AI)$/.test(e.textContent ?? '') && visible(e));
     return [...found, ...text.map((e) => e.textContent)];
   });
+}
+
+/** Images inside `within` that failed to load (a 404 poster would leave a black card). */
+async function brokenImages(page: Page, within: string) {
+  return page.evaluate(
+    (sel) => [...document.querySelectorAll(`${sel} img`)].filter((i) => (i as HTMLImageElement).complete && (i as HTMLImageElement).naturalWidth === 0 && (i as HTMLImageElement).src.startsWith('http')).length,
+    within,
+  );
+}
+
+/** Whether any element matching `sel` is on screen (the Home screen's own copy stays mounted, hidden, underneath). */
+async function anyVisible(page: Page, sel: string) {
+  return page.evaluate((s) => [...document.querySelectorAll(s)].some((e) => {
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== 'hidden' && e.closest('[aria-hidden="true"]') === null && !!(e as HTMLElement).offsetParent;
+  }), sel);
 }
 
 /** The middle of the round's stage. */
@@ -126,6 +144,9 @@ async function run(browser: Browser, layout: Layout) {
   await waitFor(page, 'playing', (s) => s.phase === 'playing');
   await page.waitForTimeout(300);
   check('no verdict, double take or Auto label while playing', (await leaks(page)).length === 0, await leaks(page));
+  const chrome = layout === 'desktop' ? 'nav[aria-label="Main"]' : '[role="tab"][aria-label="Home"]';
+  check(`the app's ${layout === 'desktop' ? 'rail' : 'tab bar'} stays during the round`, await anyVisible(page, chrome));
+  check('the clip on screen and the next one load (no broken posters)', (await brokenImages(page, '[data-testid="game-stage"]')) === 0, await brokenImages(page, '[data-testid="game-stage"]'));
   const playingVideos = await page.evaluate(() => [...document.querySelectorAll('video')].filter((v) => !v.paused).length);
   check('only the round plays (the feed underneath is paused)', playingVideos <= 1, playingVideos);
 
@@ -172,20 +193,29 @@ async function run(browser: Browser, layout: Layout) {
   await page.waitForSelector('[data-testid="game-score"]', { timeout: 10_000 });
   await page.waitForTimeout(1200);
 
-  const wrong = (over?.guesses ?? []).filter((g) => !g.correct).length;
-  const tiles = await page.locator('[data-testid="miss-tile"]').count();
-  check('the gallery shows each wrong guess', tiles === wrong, { tiles, wrong });
-  const expected = Math.max(0, (over?.guesses ?? []).reduce((n, g) => n + (g.guess === 'ai' ? (g.truth === 'ai' ? 1 : -1) : 0), 0));
+  // Let the reveal finish (tiles turn, the score lands).
+  await page.waitForTimeout(4500);
+  const guesses = over?.guesses ?? [];
+  const wrong = guesses.filter((g) => !g.correct).length;
+  const shownClips = guesses.length + (over?.endReason === 'time' && over.index < over.deck.length ? 1 : 0);
+  const tiles = await page.locator('[data-testid="result-tile"]').count();
+  check('the results show every clip of the round', tiles === shownClips, { tiles, shownClips });
+  const wrongTiles = await page.locator('[data-testid="result-tile"][aria-label^="Wrong"]').count();
+  check('each wrong guess is marked wrong (✕ and colour)', wrongTiles === wrong, { wrongTiles, wrong });
+  const expected = Math.max(0, guesses.reduce((n, g) => n + (g.guess === 'ai' ? (g.truth === 'ai' ? 1 : -1) : 0), 0));
   const score = Number(await page.locator('[data-testid="game-score"]').innerText());
-  check('the score matches the guesses', score === expected, { score, expected });
+  check('the score counts up to the guesses’ score', score === expected, { score, expected });
+  check('posters loaded on the results (no black tiles)', (await brokenImages(page, '[data-testid="result-tile"]')) === 0, await brokenImages(page, '[data-testid="result-tile"]'));
 
   if (tiles > 0) {
-    await page.locator('[data-testid="miss-tile"]').first().click();
+    await page.locator('[data-testid="result-tile"]').first().click();
     const card = page.locator('[data-testid="miss-explanation"]');
     await card.waitFor({ timeout: 10_000 });
-    check('a miss replays with its explanation', /Why it was (AI|real)/.test(await card.innerText()));
-    await page.click('[aria-label="Back to results"]');
-    await page.waitForSelector('[data-testid="game-score"]', { timeout: 10_000 });
+    await page.waitForTimeout(700);
+    check('a clip opens full size with its explanation', /Why it was (AI|real)/.test(await card.innerText()));
+    await page.click('[data-testid="clip-expanded"] [aria-label="Close"]');
+    await page.waitForSelector('[data-testid="clip-expanded"]', { state: 'detached', timeout: 10_000 });
+    check('it closes back into the grid', true);
   }
 
   await page.getByText('Back to feed', { exact: true }).click();
