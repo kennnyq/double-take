@@ -240,7 +240,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         }}
       >
         {p.paused && !inspecting && (
-          <View style={styles.pausedIcon} pointerEvents="none">
+          <View style={styles.pausedIcon} pointerEvents="none" testID="paused-icon">
             <Ionicons name="play" size={38} color="#fff" style={{ marginLeft: 5 }} />
           </View>
         )}
