@@ -2,14 +2,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Platform } from 'react-native';
 import { useDevPanel } from '@/devtools/store';
 import { useAppSettings, useSettingsOpen } from '@/settings/store';
-import { demoSteps, hintTimeout, SHOW_DELAY_MS, type HintEnd } from './hints';
+import { hintTimeout, SHOW_DELAY_MS, type HintEnd } from './hints';
 import { HintView } from './HintView';
 import { hints, useHints } from './store';
 import './dev';
 
 /**
  * A first-run hint over the active clip: a demo of the gestures that open the
- * double take (with Both, hold and then double tap). When it shows and goes
+ * double take ("Hold or double tap" with Both, the default). When it shows and goes
  * is decided in `hints.ts`; this reports what happened and `HintView` draws it.
  *
  * Mount one in each clip of a feed; only the active one ever draws. It counts
@@ -23,7 +23,7 @@ export interface GestureHintProps {
   doubleTakeOpen: boolean;
   /** Something else holds or covers the clip: it's paused, a panel is open… */
   blocked?: boolean;
-  /** `phone`: holds and taps. `desktop`: Space holds, with a mouse. */
+  /** Which feed it's in: `desktop` (the desktop web feed) or `phone`. */
   layout: 'phone' | 'desktop';
   /** Fades the hint with the feed's chrome (the phone's sheets). */
   opacity?: Animated.AnimatedInterpolation<number> | Animated.Value;
@@ -102,10 +102,8 @@ export function GestureHint(p: GestureHintProps) {
     return () => clearTimeout(t);
   }, [covered, on, p.clipId, p.hasTells, request, s.epoch, s.force]);
 
-  const steps = demoSteps(revealGesture);
-
   // Twice through, then it goes by itself (with "Keep showing" it stays, for looking at).
-  const timeout = hintTimeout(steps);
+  const timeout = hintTimeout(revealGesture);
   useEffect(() => {
     if (!on || s.force !== 'off') return;
     const t = setTimeout(() => hide('timeout'), timeout);
@@ -126,9 +124,9 @@ export function GestureHint(p: GestureHintProps) {
   if (!drawn) return null;
   return (
     <HintView
-      steps={steps}
+      demo={revealGesture}
       design={s.design}
-      input={{ mouse, spaceKey: p.layout === 'desktop' }}
+      mouse={mouse}
       still={still}
       on={on}
       opacity={p.opacity}

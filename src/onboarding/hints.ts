@@ -1,6 +1,6 @@
 /**
  * The first-run gesture hint over the feed: a demo of how to open the double
- * take (with Both, a hold and then a double tap), on the first clips with
+ * take ("Hold or double tap" with Both, the default), on the first clips with
  * tells, each session, until the viewer has opened a double take
  * `OPENS_TO_LEARN` times. Pure (no React Native), so it runs under
  * `node --test`; `store.ts` binds it to the device's storage and React, and
@@ -88,30 +88,27 @@ export function parseProgress(raw: string | null | undefined): HintProgress {
   return { opens };
 }
 
-/** What the gesture demo plays, in order, for the viewer's setting. */
-export type DemoStep = 'doubleTap' | 'hold';
+/**
+ * What the hint demonstrates: the viewer's gesture setting. Both is one demo,
+ * not two in turn: a double tap, then a press and hold, under one caption.
+ */
+export type Demo = 'hold' | 'doubleTap' | 'both';
 
-/** Both: hold first (Space on desktop), then double tap (double-click). */
-export function demoSteps(mode: 'hold' | 'doubleTap' | 'both'): DemoStep[] {
-  if (mode === 'both') return ['hold', 'doubleTap'];
-  return [mode];
-}
-
-/** One pass of each demo, ms: short, so the whole walk-through stays brief. */
-export const STEP_MS: Readonly<Record<DemoStep, number>> = Object.freeze({ hold: 2600, doubleTap: 2000 });
-
-/** One pass through every step, ms. */
-export function loopMs(steps: readonly DemoStep[]): number {
-  return steps.reduce((n, st) => n + STEP_MS[st], 0);
-}
+/** One pass of each demo, ms: short, so the whole hint stays brief. */
+export const DEMO_MS: Readonly<Record<Demo, number>> = Object.freeze({ hold: 2600, doubleTap: 2000, both: 3800 });
 
 /** How long a hint stays before fading out by itself: LOOPS full passes, at least HINT_TIMEOUT_MS. */
-export function hintTimeout(steps: readonly DemoStep[]): number {
-  return Math.max(HINT_TIMEOUT_MS, LOOPS * loopMs(steps));
+export function hintTimeout(demo: Demo): number {
+  return Math.max(HINT_TIMEOUT_MS, LOOPS * DEMO_MS[demo]);
 }
 
-/** The hint's only words. `mouse`: a fine pointer; `spaceKey`: the layout opens it with Space (desktop feed). */
-export function demoCaption(step: DemoStep, input: { mouse: boolean; spaceKey: boolean }): string {
-  if (step === 'doubleTap') return input.mouse ? 'Double-click' : 'Double tap';
-  return input.mouse && input.spaceKey ? 'Hold Space' : 'Hold';
+/**
+ * The hint's only words. `mouse`: a fine pointer, where a tap is a click (a
+ * click and hold opens it too, so "Hold" stays true on desktop).
+ */
+export function demoCaption(demo: Demo, input: { mouse: boolean }): string {
+  const twice = input.mouse ? 'double-click' : 'double tap';
+  if (demo === 'both') return `Hold or ${twice}`;
+  if (demo === 'doubleTap') return input.mouse ? 'Double-click' : 'Double tap';
+  return 'Hold';
 }

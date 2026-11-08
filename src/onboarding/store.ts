@@ -28,13 +28,12 @@ const DEV_KEY = 'double-take:dev-hints:v1';
 
 /**
  * The hint's designs, on trial in the dev settings, all something physical
- * pressing the clip with no panel behind it: a drawn finger with ripples and
- * a filling ring, the same finger with only its shadows and a pressed glow,
- * or a hand silhouette with a soft drop shadow.
+ * pressing the clip: a hand silhouette with a soft drop shadow (the default),
+ * a drawn finger, or the same finger with only its shadows and a pressed glow.
  */
-export const HINT_DESIGNS = ['finger', 'fingertip', 'hand'] as const;
+export const HINT_DESIGNS = ['hand', 'finger', 'fingertip'] as const;
 export type HintDesign = (typeof HINT_DESIGNS)[number];
-/** Which input the hint shows: by the pointer (a fine one gets mouse and keyboard), or forced; `still` as with Reduce Motion. */
+/** Which input the hint's words name: by the pointer (a fine one says "click"), or forced; `still` as with Reduce Motion. */
 export const HINT_INPUTS = ['auto', 'touch', 'mouse', 'still'] as const;
 export type HintInput = (typeof HINT_INPUTS)[number];
 const FORCES: readonly HintForce[] = ['off', 'doubleTake'];
@@ -62,7 +61,7 @@ function safe<T>(fn: () => T, fallback: T): T {
 }
 
 type DevPart = Pick<HintState, 'force' | 'design' | 'input'>;
-export const DEV_DEFAULTS: Readonly<DevPart> = Object.freeze({ force: 'off', design: 'finger', input: 'auto' });
+export const DEV_DEFAULTS: Readonly<DevPart> = Object.freeze({ force: 'off', design: 'hand', input: 'auto' });
 
 function oneOf<T>(list: readonly T[], v: unknown, fallback: T): T {
   return list.includes(v as T) ? (v as T) : fallback;

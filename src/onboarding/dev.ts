@@ -30,9 +30,9 @@ function register(s: HintState) {
         id: 'design',
         label: 'Design',
         items: [
-          { label: 'Finger', value: 'finger', note: 'A fingertip pressing in, with its shadows; taps ripple, a hold fills a ring.' },
+          { label: 'Hand', value: 'hand', note: 'A hand with a soft drop shadow; taps ripple, a hold fills a ring.' },
+          { label: 'Finger', value: 'finger', note: 'A drawn fingertip pressing in, with its shadows, the ripples and ring.' },
           { label: 'Fingertip', value: 'fingertip', note: 'The same finger with only its contact shadow and a pressed glow that swells as it holds.' },
-          { label: 'Hand', value: 'hand', note: 'A hand silhouette with a soft drop shadow, with the ripples and ring.' },
         ],
         value: s.design,
         defaultValue: DEV_DEFAULTS.design,
@@ -43,7 +43,7 @@ function register(s: HintState) {
         id: 'input',
         label: 'Input',
         items: [
-          { label: 'Auto', value: 'auto', note: 'Touch on touch screens; mouse and keyboard with a fine pointer.' },
+          { label: 'Auto', value: 'auto', note: 'The same hand everywhere; with a fine pointer the words say double-click.' },
           { label: 'Touch', value: 'touch' },
           { label: 'Mouse', value: 'mouse' },
           { label: 'Still', value: 'still', note: 'As with Reduce Motion on: a still icon and its caption.' },

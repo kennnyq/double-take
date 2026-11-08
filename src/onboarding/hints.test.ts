@@ -2,17 +2,15 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   FRESH,
+  DEMO_MS,
   HINT_TIMEOUT_MS,
   LOOPS,
   MAX_TRIES_PER_SESSION,
-  STEP_MS,
   NEW_SESSION,
   OPENS_TO_LEARN,
   demoCaption,
-  demoSteps,
   endHint,
   hintTimeout,
-  loopMs,
   parseProgress,
   recordOpen,
   shouldShow,
@@ -81,29 +79,21 @@ test('stored progress parses defensively, and older saves with a swipe flag stil
   assert.deepEqual(parseProgress('{"opens":-3.5}'), { opens: 0 });
 });
 
-test('the demo follows the gesture setting', () => {
-  assert.deepEqual(demoSteps('hold'), ['hold']);
-  assert.deepEqual(demoSteps('doubleTap'), ['doubleTap']);
-  // Both walks through the two in turn: hold (Space), then double tap (double-click).
-  assert.deepEqual(demoSteps('both'), ['hold', 'doubleTap']);
+test('a hint plays its demo twice before it goes, and each demo stays short', () => {
+  for (const demo of ['hold', 'doubleTap', 'both'] as const) {
+    assert.equal(hintTimeout(demo), Math.max(HINT_TIMEOUT_MS, LOOPS * DEMO_MS[demo]));
+    assert.ok(DEMO_MS[demo] <= 4000, demo);
+  }
 });
 
-test('a hint plays its whole walk-through twice before it goes', () => {
-  const both = demoSteps('both');
-  assert.equal(loopMs(both), STEP_MS.hold + STEP_MS.doubleTap);
-  assert.equal(hintTimeout(both), LOOPS * loopMs(both));
-  assert.ok(hintTimeout(['doubleTap']) >= HINT_TIMEOUT_MS, 'never shorter than the floor');
-  for (const st of Object.values(STEP_MS)) assert.ok(st <= 3000, 'each step stays short');
+test('Both is one hint with one caption: hold or double tap', () => {
+  assert.equal(demoCaption('both', { mouse: false }), 'Hold or double tap');
+  assert.equal(demoCaption('both', { mouse: true }), 'Hold or double-click');
 });
 
-test('captions are a word or two, worded for the input', () => {
-  const touch = { mouse: false, spaceKey: false };
-  assert.equal(demoCaption('doubleTap', touch), 'Double tap');
-  assert.equal(demoCaption('hold', touch), 'Hold');
-  assert.equal(demoCaption('doubleTap', { mouse: true, spaceKey: true }), 'Double-click');
-  assert.equal(demoCaption('hold', { mouse: true, spaceKey: true }), 'Hold Space');
-  // A mouse on the phone layout has no Space key to hold.
-  assert.equal(demoCaption('hold', { mouse: true, spaceKey: false }), 'Hold');
-  // A touch screen on the desktop layout holds the clip, not a key.
-  assert.equal(demoCaption('hold', { mouse: false, spaceKey: true }), 'Hold');
+test('a single gesture gets a word or two, worded for the input', () => {
+  assert.equal(demoCaption('hold', { mouse: false }), 'Hold');
+  assert.equal(demoCaption('hold', { mouse: true }), 'Hold');
+  assert.equal(demoCaption('doubleTap', { mouse: false }), 'Double tap');
+  assert.equal(demoCaption('doubleTap', { mouse: true }), 'Double-click');
 });
