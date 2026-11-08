@@ -18,11 +18,13 @@ export interface GameDev {
   adaptive: boolean;
   /** Order the feed with the engagement ranker (a proof of concept; applies on the next load). */
   rankFeed: boolean;
+  /** The Game tab: scrolling back to a clip already judged opens its double take, to learn from it. On by default (production too). */
+  review: boolean;
 }
 
 export const ROUND_LENGTHS = [60_000, 20_000, 8_000] as const;
 const KEY = 'double-take:game-dev:v1';
-const DEFAULTS: GameDev = { roundMs: GAME.roundMs, showTruth: false, designs: DEFAULT_DESIGNS, adaptive: false, rankFeed: false };
+const DEFAULTS: GameDev = { roundMs: GAME.roundMs, showTruth: false, designs: DEFAULT_DESIGNS, adaptive: false, rankFeed: false, review: true };
 
 function read(): GameDev {
   if (!DEV_TOOLS) return DEFAULTS;
@@ -34,6 +36,7 @@ function read(): GameDev {
       designs: parseDesigns(o?.designs),
       adaptive: o?.adaptive === true,
       rankFeed: o?.rankFeed === true,
+      review: o?.review !== false,
     };
   } catch {
     return DEFAULTS;

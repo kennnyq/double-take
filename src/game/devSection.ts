@@ -4,6 +4,7 @@ import type { DevRow } from '@/devtools/registry';
 import { DEV_TOOLS, closeDevSettings } from '@/devtools/store';
 import { GAME_DESIGNS, GAME_ELEMENTS } from './designs';
 import { ROUND_LENGTHS, gameDev, setGameDesign } from './devOptions';
+import { gameIntro } from './intro';
 import { gameHistory } from './store';
 import { RankerReadout } from '@/engagement/RankerReadout';
 import { signals } from '@/engagement/store';
@@ -44,6 +45,20 @@ function rows(): DevRow[] {
       value: s.adaptive,
       defaultValue: gameDev.defaults.adaptive,
       onChange: (v) => gameDev.set({ adaptive: v }),
+    },
+    {
+      kind: 'switch',
+      id: 'review',
+      label: 'Learn from clips looked back at',
+      note: 'Game tab: scrolling back to a clip already judged opens its double take.',
+      value: s.review,
+      defaultValue: gameDev.defaults.review,
+      onChange: (v) => gameDev.set({ review: v }),
+    },
+    {
+      kind: 'action',
+      label: 'Show the Game intro again',
+      run: () => gameIntro.reset(),
     },
     {
       kind: 'action',

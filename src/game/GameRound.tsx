@@ -5,8 +5,11 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
 import { signals } from '@/engagement/store';
-import type { FeedMode, StageRect } from '@/feed/mode';
-import type { SkillCategory } from '@/skills/categories';
+import type { FeedMode, PressEvent, StageRect } from '@/feed/mode';
+import { revealHow } from '@/settings/gesture';
+import { useAppSettings } from '@/settings/store';
+import { CATEGORY_INFO, type SkillCategory } from '@/skills/categories';
+import { SKILL_ICONS } from '@/skills/insights';
 import { clipMeta, loadMetas } from '@/skills/loadMeta';
 import { difficultyOf } from '@/skills/state';
 import { skillStore } from '@/skills/store';
@@ -20,7 +23,10 @@ import { recentClipKeys } from './history';
 import { Countdown } from './hud/Countdown';
 import { Hud, ROW_H, ROW_Y, hudAnchor, useTimeFraction } from './hud/Hud';
 import { safeClip } from './leaks';
+import { GameIntro } from './GameIntro';
+import { gameIntro, useGameIntroSeen } from './intro';
 import { MarkStamp } from './MarkStamp';
+import { PressRing, Ripple } from './PressRing';
 import { lerp, useEased } from './motion';
 import { media, takeLoading } from './media';
 import { loadDealableClips } from './playable';
@@ -54,8 +60,8 @@ const BATCH = 20;
  * session found don't load are left out. Their media is checked only as
  * they're about to be dealt.
  */
-async function deal(avoid: Iterable<string>, cap?: number): Promise<Dealt[]> {
-  const clips = (await loadDealableClips()).filter((c) => media.known(c) !== false);
+async function deal(avoid: Iterable<string>, cap?: number, focus?: SkillCategory): Promise<Dealt[]> {
+  const clips = practise((await loadDealableClips()).filter((c) => media.known(c) !== false), focus);
   const recent = [...recentClipKeys(gameHistory.getSnapshot()), ...avoid];
   if (gameDev.getSnapshot().adaptive) {
     // Near the player's skill: each clip's categories and difficulty first.
@@ -70,6 +76,20 @@ async function deal(avoid: Iterable<string>, cap?: number): Promise<Dealt[]> {
   return buildDeck(clips, { recent, cap });
 }
 
+/**
+ * Practising one skill (from Your skills): its AI clips, with the real ones
+ * mixed in as ever (a deck of only AI clips makes it trivial). Its clips are
+ * those this device has worked out to have that kind of giveaway; with too
+ * few of those, everything is dealt.
+ */
+function practise(clips: Clip[], focus: SkillCategory | undefined): Clip[] {
+  if (!focus || focus === 'real') return clips;
+  const cats = skillStore.getSnapshot().cats;
+  const ai = clips.filter((c) => c.verdict === 'ai' && (cats[clipKey(c)]?.[focus] ?? 0) > 0);
+  return ai.length >= MIN_PRACTICE ? [...ai, ...clips.filter((c) => c.verdict === 'real')] : clips;
+}
+const MIN_PRACTICE = 4;
+
 /** The next `want` clips of `queue` that load; their metadata warmed for the answers. */
 async function takeDealt(queue: Dealt[], want: number): Promise<Dealt[]> {
   const out = await takeLoading(media, queue, want);
@@ -82,13 +102,13 @@ async function takeDealt(queue: Dealt[], want: number): Promise<Dealt[]> {
  * with `timed={false}`, the untimed game of the Game tab: no countdown and no
  * clock, clip after clip, every answer going to Your skills.
  */
-export function GameRound({ timed = true }: { timed?: boolean }) {
+export function GameRound({ timed = true, focus }: { timed?: boolean; focus?: SkillCategory }) {
   const [start, setStart] = useState<{ deck: Dealt[]; queue: Dealt[] } | null>(null);
   const dev = useGameDev();
   const c = usePalette();
   useEffect(() => {
     let live = true;
-    void deal([], timed ? undefined : BATCH).then(async (order) => {
+    void deal([], timed ? undefined : BATCH, focus).then(async (order) => {
       const queue = timed ? order : relabel(order, 0);
       const deck = await takeDealt(queue, AHEAD);
       if (live) setStart({ deck, queue });
@@ -96,9 +116,9 @@ export function GameRound({ timed = true }: { timed?: boolean }) {
     return () => {
       live = false;
     };
-  }, [timed]);
+  }, [timed, focus]);
   if (!start) return <View style={[styles.root, { backgroundColor: c.bg }]} />;
-  return <Round deck={start.deck} queue={start.queue} timed={timed} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
+  return <Round deck={start.deck} queue={start.queue} timed={timed} focus={focus} review={!timed && dev.review} durationMs={dev.roundMs} showTruth={dev.showTruth} designs={dev.designs} />;
 }
 
 /** The untimed game can deal a clip again later: each deal's clips get ids of their own (the feed keys its pages by id). */
@@ -123,6 +143,16 @@ interface RoundUi {
   quit: () => void;
   /** The untimed game's last answer, for its brief ✓ / ✕ (keyed so each one plays). */
   last: { key: number; correct: boolean } | null;
+  /** A press that may become the marking hold. */
+  ring: { key: number; x: number; y: number; holdMs: number; holding: boolean } | null;
+  /** The clip's double take is open (the overlay steps aside). */
+  inspecting: boolean;
+  /** The clip on screen was judged already and is looked back at: its answer. */
+  review: { truth: 'ai' | 'real'; correct: boolean } | null;
+  /** The first-run intro is up. */
+  intro: boolean;
+  /** Practising one skill. */
+  focus?: SkillCategory;
 }
 const RoundContext = createContext<RoundUi | null>(null);
 
@@ -138,6 +168,8 @@ function Round({
   deck,
   queue: firstQueue,
   timed,
+  focus,
+  review,
   durationMs,
   showTruth,
   designs,
@@ -146,6 +178,10 @@ function Round({
   /** The clips still to deal, in order, unchecked. */
   queue: Dealt[];
   timed: boolean;
+  /** Practising one skill (more of its clips are dealt). */
+  focus?: SkillCategory;
+  /** Scrolling back to a clip already judged opens its double take (the untimed game). */
+  review: boolean;
   durationMs: number;
   showTruth: boolean;
   designs: Designs;
@@ -187,7 +223,7 @@ function Round({
       for (;;) {
         next.push(...(await takeDealt(queue.current, want - next.length)));
         if (next.length >= want || timed || exhausted.current) break;
-        const more = await deal(seen(), BATCH);
+        const more = await deal(seen(), BATCH, focus);
         if (!more.length) exhausted.current = true;
         queue.current.push(...relabel(more, batches.current++));
       }
@@ -196,7 +232,7 @@ function Round({
       if (next.length) setDealt((d) => [...d, ...next]);
       if (next.length || !left) dispatch({ type: 'DEAL', now: now(), cards: next.map((d) => ({ id: d.clip.id, truth: d.truth })), more: left });
     })();
-  }, [timed, s.index, dealt, over]);
+  }, [timed, focus, s.index, dealt, over]);
   const recorded = useRef(0);
   const [last, setLast] = useState<RoundUi['last']>(null);
   useEffect(() => {
@@ -210,7 +246,7 @@ function Round({
     for (const { g: x, clip } of answered) signals.note(clipKey(clip), { kind: 'answer', correct: x.correct });
     void Promise.all(answered.map(({ clip }) => clipMeta(clip))).then((metas) =>
       skillStore.recordRound(
-        answered.map(({ g: x, clip }, i) => ({ key: clipKey(clip), correct: x.correct, cats: metas[i].cats, prior: metas[i].prior })),
+        answered.map(({ g: x, clip }, i) => ({ key: clipKey(clip), correct: x.correct, truth: x.truth, cats: metas[i].cats, prior: metas[i].prior })),
         false,
       ),
     );
@@ -251,18 +287,25 @@ function Round({
   const playing = s.phase === 'playing';
   const canAct = playing && !busy && s.index === shown;
 
+  // A press that may become that hold: a ring fills around it.
+  const [ring, setRing] = useState<{ key: number; x: number; y: number; holdMs: number; holding: boolean } | null>(null);
+  // The furthest clip the feed has rested on: those before it (and judged) are looked back at.
+  const [furthest, setFurthest] = useState(0);
   const onActive = (i: number) => {
     if (i > shown && shown === s.index && playing && !busy) dispatch({ type: 'SKIP', now: now(), index: shown });
     setShown(i);
+    setFurthest((f) => Math.max(f, i));
     setBusy(false);
     setStamp(null);
+    setRing(null);
   };
   const markAI = (at: Point) => {
     if (!canAct) return;
     dispatch({ type: 'MARK_AI', now: now(), index: shown });
     setBusy(true);
-    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    if (Platform.OS !== 'web') Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
     setStamp({ key: shown, x: at.x, y: at.y, leaving: false });
+    setRing((r) => (r ? { ...r, holding: false } : r));
     const next = shown + 1;
     advanceTimer.current = setTimeout(() => {
       if (next >= clips.length) return setBusy(false);
@@ -270,36 +313,62 @@ function Round({
       feed.current?.goTo(next);
     }, GAME.markAdvanceMs);
   };
-  const onDoubleTap = (i: number, at: Point, stage: StageRect | null) => {
+  /** Where a gesture landed, or the middle of the clip when it has no place (Space, or a browser that leaves it unset). */
+  const placed = (at: Point, stage: StageRect | null): Point =>
+    Number.isFinite(at.x) && Number.isFinite(at.y) ? at : { x: (stage?.w ?? 0) / 2, y: (stage?.h ?? 0) / 2 };
+  // The double take's gesture, as the viewer set it (hold, double tap or both; Space on desktop), marks the clip AI.
+  const onReveal = (i: number, at: Point, stage: StageRect | null) => {
     if (i !== shown) return;
-    // Browsers can leave a tap's position unset: the stamp goes to the middle then.
-    const ok = Number.isFinite(at.x) && Number.isFinite(at.y);
-    markAI(ok ? at : { x: (stage?.w ?? 0) / 2, y: (stage?.h ?? 0) / 2 });
+    gameIntro.done();
+    markAI(placed(at, stage));
   };
+  const ringKey = useRef(0);
+  const onPress = (i: number, e: PressEvent, stage: StageRect | null) => {
+    if (i !== shown) return;
+    gameIntro.done();
+    if (e.phase === 'end') return setRing((r) => (r ? { ...r, holding: false } : r));
+    if (!canAct) return;
+    const at = placed(e, stage);
+    setRing({ key: ++ringKey.current, x: at.x, y: at.y, holdMs: e.holdMs, holding: true });
+  };
+  // Looking back at a clip already judged: it shows as itself (its answer no longer matters) and opens its double take.
+  const reviewing = (i: number) => review && i < s.index && i < furthest;
+  const [inspecting, setInspecting] = useState(false);
   // The mode stays the same object across the clock's ticks; its callbacks reach the latest round through refs.
-  const events = useRef({ onActive, onDoubleTap, markAI });
+  const events = useRef({ onActive, onReveal, onPress, markAI, reviewing });
   useEffect(() => {
-    events.current = { onActive, onDoubleTap, markAI };
+    events.current = { onActive, onReveal, onPress, markAI, reviewing };
   });
   const lastStage = useRef<StageRect | null>(null);
   const scrollEnabled = playing && !busy;
+  // Stripped once per clip, so the feed's pages keep their clip objects across answers.
+  const [stripped] = useState(() => new WeakMap<Clip, Clip>());
+  const reviewKey = review ? Math.min(s.index, furthest) : 0;
   const mode = useMemo<FeedMode>(
     () => ({
       clips,
-      present: safeClip,
-      onDoubleTap: (i, at) => events.current.onDoubleTap(i, at, lastStage.current),
+      present: (clip, i) => {
+        if (i < reviewKey) return clip;
+        let safe = stripped.get(clip);
+        if (!safe) stripped.set(clip, (safe = safeClip(clip)));
+        return safe;
+      },
+      onReveal: (i, at) => events.current.onReveal(i, at, lastStage.current),
+      onPress: (i, e) => events.current.onPress(i, e, lastStage.current),
+      review: (i) => i < reviewKey,
+      // A hold never plays at 2x, and a tap never pauses: the clip keeps running while it's judged.
       noHold: true,
       noTapPause: true,
       lockControls: true,
-      keys: false,
       scrollEnabled,
       onActive: (i) => events.current.onActive(i),
+      onInspect: setInspecting,
       overlay: (stage) => {
         lastStage.current = stage;
         return <RoundOverlay stage={stage} />;
       },
     }),
-    [clips, scrollEnabled],
+    [clips, scrollEnabled, reviewKey, stripped],
   );
 
   // ---- pausing and quitting -----------------------------------------------------
@@ -333,12 +402,10 @@ function Round({
         e.preventDefault();
         if (quitAsked || phaseRef.current === 'ready') quit();
         else askQuit();
-      } else if (e.key === ' ') {
-        // Nothing: a stray Space must not count as a guess.
-        e.preventDefault();
       } else if (e.key === 'a' || e.key === 'A') {
         e.preventDefault();
         const st = lastStage.current;
+        gameIntro.done();
         events.current.markAI({ x: (st?.w ?? 0) / 2, y: (st?.h ?? 0) / 2 });
       }
     };
@@ -374,7 +441,7 @@ function Round({
     for (const { g, clip } of answered) signals.note(clipKey(clip), { kind: 'answer', correct: g.correct });
     Promise.all(answered.map(({ clip }) => clipMeta(clip))).then((metas) => {
       const change = skillStore.recordRound(
-        answered.map(({ g, clip }, i) => ({ key: clipKey(clip), correct: g.correct, cats: metas[i].cats, prior: metas[i].prior })),
+        answered.map(({ g, clip }, i) => ({ key: clipKey(clip), correct: g.correct, truth: g.truth, cats: metas[i].cats, prior: metas[i].prior })),
       );
       const touched = [...new Set(metas.flatMap((m) => Object.keys(m.cats)))] as SkillCategory[];
       if (getFinishedRound()?.round === s) setFinishedRound({ ...finished, skills: { ...change, touched } });
@@ -387,6 +454,14 @@ function Round({
     return () => clearTimeout(t);
   }, [toResults]);
 
+  // ---- the first-run intro (the Game tab): until the first press or answer ----
+  const introSeen = useGameIntroSeen();
+  const introOn = !timed && !introSeen && playing;
+  useEffect(() => {
+    if (s.guesses.length > 0) gameIntro.done();
+  }, [s.guesses.length]);
+
+  const reviewingShown = reviewing(shown);
   // Dev (web): the round's state for the browser checks.
   useEffect(() => {
     if (!__DEV__ || Platform.OS !== 'web') return;
@@ -402,8 +477,11 @@ function Round({
       endReason: s.endReason,
       timed: s.timed,
       designs,
+      reviewing: reviewingShown,
+      inspecting,
+      intro: introOn,
     };
-  }, [s, shown, busy, designs]);
+  }, [s, shown, busy, designs, inspecting, introOn, reviewingShown]);
 
   const ui: RoundUi = {
     s,
@@ -420,6 +498,11 @@ function Round({
     askQuit,
     quit,
     last,
+    ring,
+    inspecting,
+    review: reviewingShown && s.guesses[shown] ? { truth: s.guesses[shown].truth, correct: s.guesses[shown].correct } : null,
+    intro: introOn,
+    focus,
   };
   return (
     <View style={[styles.root, tint.root]}>
@@ -442,6 +525,7 @@ function RoundOverlay({ stage }: { stage: StageRect }) {
 /** The timed round's overlay: the veil, the clock, the countdown and the round's buttons. */
 function TimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
   const ui = useContext(RoundContext)!;
+  const { revealGesture } = useAppSettings();
   const { s, designs } = ui;
   const frame = useFrame();
   const tint = useTint();
@@ -472,11 +556,7 @@ function TimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
         <View style={[StyleSheet.absoluteFill, styles.dim]} />
       </Animated.View>
 
-      {ui.stamp && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <MarkStamp key={ui.stamp.key} x={ui.stamp.x} y={ui.stamp.y} leaving={ui.stamp.leaving} />
-        </View>
-      )}
+      <Marks ui={ui} />
 
       {/* The timer grows out of where the countdown lands. */}
       <Hud design={designs.hud} frac={frac} durationMs={s.durationMs} displayMs={displayMs} judged={s.guesses.length} width={stage.w} top={top} appear={morph} />
@@ -499,7 +579,7 @@ function TimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
       {/* Ready: how to play, and Start. */}
       <Fade value={readyCard} on={s.phase === 'ready'}>
         <View style={[styles.card, tint.card]}>
-          <Hint icon="hand-left-outline" text={frame.desktop ? 'Double-click or A: AI' : 'Double tap: AI'} />
+          <Hint icon="hand-left-outline" text={`${capital(revealHow(revealGesture, frame.desktop))}: AI`} />
           <Hint icon="arrow-up-outline" text={frame.desktop ? 'Scroll or ↓: skip, counts as real' : 'Swipe up: skip, counts as real'} />
           <Pressable onPress={ui.start} style={({ pressed }) => [styles.primary, tint.primary, pressed && styles.pressed]} accessibilityRole="button">
             <Text style={[styles.primaryText, tint.primaryText]}>Start</Text>
@@ -553,18 +633,33 @@ function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
     return () => clearTimeout(t);
   }, [showing]);
   const result = useEased(showing && off !== showing.key ? 1 : 0, 240);
+  // The double take of a clip looked back at has the stage: the HUD steps aside.
+  const hud = useEased(ui.inspecting ? 0 : 1, 240);
+  const reviewOn = useEased(ui.review && !ui.inspecting ? 1 : 0, 240);
+  // The pill keeps its last answer while it fades out.
+  const [lastReview, setLastReview] = useState(ui.review);
+  if (ui.review && (ui.review.truth !== lastReview?.truth || ui.review.correct !== lastReview?.correct)) setLastReview(ui.review);
   return (
     <View
       style={[styles.stage, { left: stage.x, top: stage.y, width: stage.w, height: stage.h }, (frame.desktop || stage.y > 0) && styles.stageCard]}
       pointerEvents="box-none"
       testID="round-overlay"
     >
-      {ui.stamp && (
-        <View style={StyleSheet.absoluteFill} pointerEvents="none">
-          <MarkStamp key={ui.stamp.key} x={ui.stamp.x} y={ui.stamp.y} leaving={ui.stamp.leaving} />
-        </View>
+      <Marks ui={ui} />
+      <GameIntro on={ui.intro} desktop={frame.desktop} />
+      {lastReview && (
+        <Animated.View style={[styles.reviewRow, { top: top + ROW_Y + ROW_H + 10, opacity: reviewOn, transform: [{ translateY: lerp(reviewOn, [0, 1], [-6, 0]) }] }]} pointerEvents="none">
+          <View
+            style={[styles.reviewPill, tint.pill]}
+            testID="review-truth"
+            accessibilityLabel={`It was ${lastReview.truth === 'ai' ? 'AI' : 'real'}; you were ${lastReview.correct ? 'right' : 'wrong'}`}
+          >
+            <Text style={[styles.reviewText, tint.text]}>{lastReview.truth === 'ai' ? 'AI' : 'Real'}</Text>
+            <Ionicons name={lastReview.correct ? 'checkmark' : 'close'} size={14} color={lastReview.correct ? c.correct : c.incorrect} />
+          </View>
+        </Animated.View>
       )}
-      <View style={[styles.scoreRow, { top: top + ROW_Y }]} pointerEvents="none">
+      <Animated.View style={[styles.scoreRow, { top: top + ROW_Y, opacity: hud }]} pointerEvents="none">
         <View style={[styles.scorePill, tint.pill]} accessibilityLabel={`Score ${score}, ${ui.s.guesses.length} judged`} testID="game-score-live">
           <Text style={[styles.scoreText, tint.text]}>{score}</Text>
           <View style={styles.judged}>
@@ -580,8 +675,13 @@ function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
           >
             <Ionicons name={showing?.correct ? 'checkmark' : 'close'} size={14} color={c.onAccent} />
           </Animated.View>
+          {ui.focus && (
+            <View style={styles.judged} accessibilityLabel={`Practising ${CATEGORY_INFO[ui.focus].label}`}>
+              <Ionicons name={SKILL_ICONS[ui.focus] as React.ComponentProps<typeof Ionicons>['name']} size={13} color={c.textDim} />
+            </View>
+          )}
         </View>
-      </View>
+      </Animated.View>
       {__DEV__ && ui.showTruth && ui.truth && (
         <View style={[styles.truth, { top: top + ROW_Y + ROW_H + 8 }]} pointerEvents="none">
           <Text style={[styles.truthText, { color: c.textDim }]}>dev: {ui.truth}</Text>
@@ -590,6 +690,19 @@ function UntimedOverlay({ stage, top }: { stage: StageRect; top: number }) {
     </View>
   );
 }
+
+/** What a mark leaves over the clip: the ring a hold fills, the ripple and the stamp where it landed. */
+function Marks({ ui }: { ui: RoundUi }) {
+  return (
+    <View style={StyleSheet.absoluteFill} pointerEvents="none">
+      {ui.ring && <PressRing key={ui.ring.key} x={ui.ring.x} y={ui.ring.y} holdMs={ui.ring.holdMs} holding={ui.ring.holding} />}
+      {ui.stamp && !ui.stamp.leaving && <Ripple key={`ripple-${ui.stamp.key}`} x={ui.stamp.x} y={ui.stamp.y} />}
+      {ui.stamp && <MarkStamp key={ui.stamp.key} x={ui.stamp.x} y={ui.stamp.y} leaving={ui.stamp.leaving} />}
+    </View>
+  );
+}
+
+const capital = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
 
 /** How long the untimed game's ✓ / ✕ stays after an answer. */
 const RESULT_MS = 900;
@@ -649,6 +762,9 @@ const styles = StyleSheet.create({
   secondaryText: { fontSize: 15, fontWeight: '600' },
   pressed: { opacity: 0.7 },
   big: { fontSize: 56, fontWeight: '900', letterSpacing: 1 },
+  reviewRow: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  reviewPill: { height: 28, borderRadius: 14, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  reviewText: { fontSize: 13, fontWeight: '800' },
   scoreRow: { position: 'absolute', left: 0, right: 0, height: ROW_H, alignItems: 'center', justifyContent: 'center' },
   scorePill: { height: 34, borderRadius: 17, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
   scoreText: { fontSize: 17, fontWeight: '800', fontVariant: ['tabular-nums'] },
