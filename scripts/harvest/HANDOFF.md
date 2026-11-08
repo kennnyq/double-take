@@ -6,10 +6,10 @@ For an agent picking up the clip-harvesting work. Read the repo `README.md` (tel
 
 - The live feed (`build/feeds/demo.json`, served at `/feed`) has **119 clips**, all labelled `confirmed` AI. 80 of them have tells. `build/` lives on Kenny's Mac only.
 - AI candidate batches live in this folder: `spot_test.jsonl`, `batch-2026-11-07*.jsonl`. Each row carries the Community Note that flagged the clip.
-- **Real clips:** the first batch is `real-2026-11-07.jsonl` (18 real clips plus the 10 AI clips they pair with), and the curation log is `real-2026-11-07.md`. It's built into `feeds/compare.json` and is ready to merge into `demo.json`; see "Shipping real clips" below. It is not deployed yet.
+- **Real clips:** the first batch is `real-2026-11-07.jsonl` (18 real clips plus the 10 AI clips they pair with), and the curation log is `real-2026-11-07.md`. It's built into `feeds/compare.json` and is ready to merge into `demo.json`; see "Shipping real clips" below. `real-2026-11-07b.jsonl` adds 21 standalone real clips with no AI pair. Neither is deployed yet.
 - `scripts/annotate/notes.jsonl` holds the notes the tells pipeline reads. It's for AI clips only: real clips' notes stay in their batch rows, so the tells pipeline never drafts "AI tells" from a "this is not AI" note.
 - **Review:** `npm run review` (on kenny-wsl, port 8090 over the tailnet) shows every clip from both Workers and all the batches, with AI↔real pairs side by side. Decisions go to `review/decisions.jsonl`, and `build_media.py --exclude-discarded` acts on them. See [`REVIEW.md`](REVIEW.md).
-- Every AI clip so far comes from X Community Notes. YouTube comment mining was tried in the spot test and was much noisier; Reddit needs OAuth and was never set up.
+- Every AI clip so far comes from X Community Notes. YouTube comment mining was tried in the spot test and was much noisier. Reddit (r/isthisAI) has a harvester with consensus scoring (`pick_reddit.py`, below) that is waiting on OAuth credentials.
 
 ## Tools
 
@@ -102,6 +102,7 @@ python3 -I scripts/harvest/build_media.py scripts/harvest/real-<date>.jsonl --ou
 | `real-verified` | A helpful note or fact-check says it's real, or the note links it as the real footage | `real` |
 | `real-prior` | Uploaded before 2023, before realistic text-to-video | `real` |
 | `real-agency` | From a licensing channel that verifies footage | `real` |
+| `real-consensus` | A clear "it's real" consensus on an is-this-AI subreddit | `real` |
 | `not-ai-cgi` | CGI, animation or a game: not AI, but not footage either | `not-ai-cgi` (unknown in the app; kept out of the feed) |
 
 So `verdictFromLabel` already understands every shipped label, and nothing there needs extending. `LABEL_FOR_TIER` in `pick_real.py` is the single source of the mapping.
@@ -139,6 +140,39 @@ cd worker && npm run deploy && cd .. && npm run check:prod
 ```
 
 The second build reuses everything the first one downloaded. AI partners already in `demo` are never re-encoded.
+
+### Standalone real clips
+
+A real clip doesn't need an AI counterpart. `search_real.py` takes rows with only a `query` and keeps pre-2023 or agency footage of that subject, with no `pairOf`:
+
+```bash
+printf '%s\n' '{"query": "fox dives into snow"}' '{"query": "cuttlefish camouflage"}' > queries.jsonl
+python3 -I scripts/harvest/search_real.py queries.jsonl standalone.jsonl --per-clip 2 --hits 10
+```
+
+The first run (`real-2026-11-07b`) kept 21 of 34 hits from 24 queries. The best subjects are real footage that looks unreal: camouflage, mimicry, freezing bubbles, waterspouts, breaching whales. Expect news segments (anchors, lower thirds) among the hits; cut them with a `section`, or drop them.
+
+## Reddit: r/isthisAI (AI and real, with comment consensus)
+
+`pick_reddit.py` reads is-this-AI subreddits, scores each thread's consensus (`consensus.py`) and writes candidates for both verdicts: AI → `confirmed`, real → `real` with tier `real-consensus`. Each row keeps `consensus` (verdict, confidence, AI and real weights, voters, flair, the top supporting comments with scores, and the tells they cite) and `thread` (sub, URL, title, flair, score, created). The review site shows both in a Consensus panel, with a Consensus facet.
+
+**Access.** Reddit answers unauthenticated JSON from kenny-wsl with 403 "blocked by network security" (www, old and api hosts alike). RSS works but has no scores or flair, so it can't give a consensus. The OAuth endpoint works, so the harvester uses app-only OAuth: create a "script" app at reddit.com/prefs/apps and save `client_id:client_secret` in a file outside the repo. No Reddit password is needed. v.redd.it media needs no login: it downloads from the post's HLS playlist (yt-dlp's Reddit extractor asks for cookies, so it isn't used).
+
+```bash
+python3 -I scripts/harvest/pick_reddit.py reddit.jsonl --creds ~/.config/reddit-app \
+  --sub isthisAI --listing top:year --listing top:all --listing new --pages 5 --cache <scratch>/reddit-cache \
+  --exclude scripts/harvest/real-2026-11-07.jsonl --exclude scripts/harvest/real-2026-11-07b.jsonl
+python3 -I scripts/harvest/pick_reddit.py reddit.jsonl --offline --cache <scratch>/reddit-cache --min-confidence 0.7   # re-score, no network
+```
+
+**Scoring** (`consensus.py`; the module docstring has the details):
+- A comment's stance comes from what it says ("it's AI", "Sora", "not real" → AI; "not AI", "the original video", "posted in 2019" → real; one-word "AI"/"Real" votes count).
+- Its weight is sqrt(score + 1). Moderators count 5×. Bots, the asker and CGI talk don't vote.
+- A verdict flair weighs 1.5× all comments together (at least 5). That settles a split thread but can't overturn a unanimous one.
+- The verdict needs a margin of at least 0.5 and 3 voters (or a flair). Only confidence ≥ 0.6 is kept.
+- The flair names (`FLAIR` in `consensus.py`) are a guess until the first real run: check what the sub uses and adjust.
+
+Most r/isthisAI posts are photos: only video posts (Reddit-hosted, or linking X/YouTube/TikTok/Instagram) become candidates, so expect a small share of each listing.
 
 ### Next
 
