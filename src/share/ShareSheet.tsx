@@ -6,6 +6,7 @@ import * as Clipboard from 'expo-clipboard';
 import type { Clip } from '@/data/clips';
 import { FRIENDS, filterFriends } from '@/data/friends';
 import { useSocialActions } from '@/social/actions';
+import { clipKey } from '@/social/clipRefs';
 import { clipLink } from '@/social/me';
 import { hasClip } from '@/social/reducer';
 import { useSocial } from '@/social/store';
@@ -34,7 +35,7 @@ export function ShareSheet({ clip, open, progress, onRequestClose, onClosed }: P
   const insets = useSafeAreaInsets();
   const keyboard = useKeyboardVisible();
   const friends = useMemo(() => filterFriends(query, FRIENDS), [query]);
-  const reposted = hasClip(social.reposted, clip.id);
+  const reposted = hasClip(social.reposted, clipKey(clip));
   const link = clipLink(clip.id);
 
   const toggleFriend = (handle: string) =>

@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Clip } from '@/data/clips';
 import { formatAgo, makeComments, makeReplies, type StandInComment } from '@/data/comments';
 import { useSocialActions } from '@/social/actions';
+import { clipKey } from '@/social/clipRefs';
 import { ME } from '@/social/me';
 import type { MyComment } from '@/social/reducer';
 import { useSocial } from '@/social/store';
@@ -52,7 +53,7 @@ interface Props {
 }
 
 export function CommentsSheet({ clip, open, progress, onRequestClose, onClosed }: Props) {
-  const clipId = clip.id;
+  const clipId = clipKey(clip);
   const standIn = useMemo(() => makeComments(clip), [clip]);
   const social = useSocial();
   const mine = social.comments[clipId] ?? EMPTY;

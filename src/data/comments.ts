@@ -21,6 +21,8 @@ export interface StandInComment {
 /** The parts of a clip the generator needs (structurally matches `Clip`). */
 export interface CommentSeed {
   id: string;
+  /** Remote clips' stable id; seeds the comments when present, so they survive reloads. */
+  sourceId?: string;
   author: string;
   likes: number;
 }
@@ -125,7 +127,8 @@ const MINUTES_IN_8_WEEKS = 60 * 24 * 56;
 
 /** 12–20 top-level comments for a clip, the same every time for the same clip. */
 export function makeComments(clip: CommentSeed): StandInComment[] {
-  const r = rng(hash(clip.id));
+  const key = clip.sourceId ?? clip.id;
+  const r = rng(hash(key));
   const n = 12 + Math.floor(r() * 9);
   const handles = shuffled(
     HANDLES.filter((h) => h !== clip.author),
@@ -140,8 +143,8 @@ export function makeComments(clip: CommentSeed): StandInComment[] {
     const replyRoll = r();
     const replyCount = replyRoll < 0.45 ? 0 : 1 + Math.floor(r() * r() * 40);
     out.push({
-      id: `${clip.id}-c${i}`,
-      clipId: clip.id,
+      id: `${key}-c${i}`,
+      clipId: key,
       handle: isAuthor ? clip.author : handles[i % handles.length],
       text: isAuthor ? AUTHOR_TEXTS[Math.floor(r() * AUTHOR_TEXTS.length)] : texts[i % texts.length],
       ago: 20 + Math.floor(r() * MINUTES_IN_8_WEEKS),

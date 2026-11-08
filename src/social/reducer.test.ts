@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Clip } from '../data/clips.ts';
 import { hasClip, initialSocialState, socialReducer, type SocialState } from './reducer.ts';
-import { clipIndex } from './clipRefs.ts';
+import { clipIndex, clipKey, isPersistable } from './clipRefs.ts';
 import { shrinkGeometry, sheetHeight } from '../feed/shrink.ts';
 
 const clip = (i: number, poster: unknown = { uri: `https://example.test/${i}.jpg` }) =>
@@ -78,4 +78,23 @@ test('shrunk video fits between the status bar and the sheet', () => {
   assert.ok(Math.abs(shrunkTop - (top + 6)) < 0.001);
   assert.ok(shrunkBottom <= winH - sheetHeight(winH));
   assert.deepEqual(shrinkGeometry(0, winH, top), { scale: 1, dy: 0 });
+});
+
+test('remote clips are keyed by source id, so a moved clip keeps its state', () => {
+  const remote = { ...clip(0), sourceId: 'x-123' } as Clip;
+  let s = socialReducer(initialSocialState, { type: 'toggle', kind: 'liked', clip: remote, at: 1 });
+  assert.deepEqual(
+    s.liked.map((e) => e.id),
+    ['x-123'],
+  );
+  // The same clip at another feed position is still liked, and unliking it works.
+  const moved = { ...remote, id: 'clip-9' } as Clip;
+  assert.equal(clipKey(moved), 'x-123');
+  assert.ok(hasClip(s.liked, clipKey(moved)));
+  s = socialReducer(s, { type: 'toggle', kind: 'liked', clip: moved, at: 2 });
+  assert.deepEqual(s.liked, []);
+  // Placeholders have no source id and fall back to the positional id.
+  assert.equal(clipKey(clip(4)), 'clip-4');
+  assert.equal(isPersistable(clip(4)), false);
+  assert.equal(isPersistable(remote), true);
 });

@@ -2,7 +2,8 @@
  * In-memory social state for the signed-in user. Pure (no React Native
  * runtime imports) so it can be unit-tested with `node --test`.
  */
-import type { Clip } from '@/data/clips';
+import type { Clip } from '../data/clips.ts';
+import { clipKey } from './clipRefs.ts';
 
 /** Lists of clips, newest first. */
 export type ClipListKind = 'liked' | 'saved' | 'reposted' | 'sent';
@@ -12,6 +13,7 @@ export type ClipListKind = 'liked' | 'saved' | 'reposted' | 'sent';
  * from this, since a clip can't be rebuilt reliably from its id.
  */
 export interface ClipEntry {
+  /** The clip's stable key (`clipKey`). */
   id: string;
   clip: Clip;
   at: number;
@@ -19,6 +21,7 @@ export interface ClipEntry {
 
 export interface MyComment {
   id: string;
+  /** The clip's stable key (`clipKey`). */
   clipId: string;
   text: string;
   /** Top-level comment this replies to, or null for a top-level comment. */
@@ -33,7 +36,7 @@ export interface SocialState {
   sent: ClipEntry[];
   /** Author handles. */
   followed: string[];
-  /** Your comments per clip id, newest first. */
+  /** Your comments per clip key, newest first. */
   comments: Record<string, MyComment[]>;
   /** Comment ids (stand-in or yours) you've liked. */
   likedComments: Record<string, true>;
@@ -63,7 +66,7 @@ export function socialReducer(state: SocialState, action: SocialAction): SocialS
   switch (action.type) {
     case 'toggle': {
       const list = state[action.kind];
-      const { id } = action.clip;
+      const id = clipKey(action.clip);
       const has = hasClip(list, id);
       const on = action.on ?? !has;
       if (on === has) return state;
@@ -73,7 +76,7 @@ export function socialReducer(state: SocialState, action: SocialAction): SocialS
       };
     }
     case 'sent': {
-      const { id } = action.clip;
+      const id = clipKey(action.clip);
       return { ...state, sent: [{ id, clip: action.clip, at: action.at }, ...state.sent.filter((e) => e.id !== id)] };
     }
     case 'follow': {

@@ -21,6 +21,7 @@ import { makeClips, type Clip } from '@/data/clips';
 import { loadInitialClips } from '@/data/feed';
 import { receiveHandoff } from '@/landing/handoff';
 import { useSocialActions } from '@/social/actions';
+import { clipKey } from '@/social/clipRefs';
 import { useAppNav } from '@/social/nav';
 import { useSocial } from '@/social/store';
 import { appSettings, useAppSettings } from '@/settings/store';
@@ -492,12 +493,12 @@ export function Feed({ focused, sheetOpen, sheetProgress, startAt, ref }: FeedPr
         isActive={index === active}
         paused={index === active && paused}
         boost={index === active && boost}
-        liked={liked.has(item.id)}
-        saved={saved.has(item.id)}
-        reposted={reposted.has(item.id)}
-        sent={sent.has(item.id)}
+        liked={liked.has(clipKey(item))}
+        saved={saved.has(clipKey(item))}
+        reposted={reposted.has(clipKey(item))}
+        sent={sent.has(clipKey(item))}
         followed={followed.has(item.author)}
-        myComments={social.comments[item.id]?.length ?? 0}
+        myComments={social.comments[clipKey(item)]?.length ?? 0}
         label={autoLabel(item, feedMode)}
         progress={progress}
         chrome={chrome}

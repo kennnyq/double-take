@@ -3,6 +3,7 @@ import * as Haptics from 'expo-haptics';
 import type { Clip } from '@/data/clips';
 import { useToast } from '@/ui/Toast';
 import { useAppNav } from './nav';
+import { clipKey } from './clipRefs';
 import { hasClip, type ClipListKind } from './reducer';
 import { useSocialStore } from './store';
 
@@ -44,11 +45,11 @@ export function useSocialActions() {
       },
       toggleLike(clip: Clip) {
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-        set('liked', clip, !has('liked', clip.id));
+        set('liked', clip, !has('liked', clipKey(clip)));
       },
       toggleSave(clip: Clip) {
         Haptics.selectionAsync();
-        const on = !has('saved', clip.id);
+        const on = !has('saved', clipKey(clip));
         set('saved', clip, on);
         toast.show(
           on
@@ -58,7 +59,7 @@ export function useSocialActions() {
       },
       toggleRepost(clip: Clip) {
         Haptics.selectionAsync();
-        setRepost(clip, !has('reposted', clip.id), true);
+        setRepost(clip, !has('reposted', clipKey(clip)), true);
       },
       toggleFollow(author: string) {
         Haptics.selectionAsync();

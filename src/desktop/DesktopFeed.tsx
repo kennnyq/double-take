@@ -36,7 +36,7 @@ import { FeedEmpty, VerdictBadge } from '@/feed/VerdictBadge';
 import { receiveHandoff } from '@/landing/handoff';
 import { fitFor, type Fit } from '@/feed/tells';
 import { useSocialActions } from '@/social/actions';
-import { baseReposts } from '@/social/clipRefs';
+import { baseReposts, clipKey } from '@/social/clipRefs';
 import { useAppNav } from '@/social/nav';
 import { useAppSettings } from '@/settings/store';
 import { useSocial } from '@/social/store';
@@ -325,12 +325,12 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             isActive={i === active}
             paused={i === active && paused}
             muted={muted}
-            liked={liked.has(clip.id)}
-            saved={saved.has(clip.id)}
-            reposted={reposted.has(clip.id)}
-            sent={sent.has(clip.id)}
+            liked={liked.has(clipKey(clip))}
+            saved={saved.has(clipKey(clip))}
+            reposted={reposted.has(clipKey(clip))}
+            sent={sent.has(clipKey(clip))}
             followed={followed.has(clip.author)}
-            myComments={social.comments[clip.id]?.length ?? 0}
+            myComments={social.comments[clipKey(clip)]?.length ?? 0}
             label={autoLabel(clip, feedMode)}
             inspecting={i === active && inspecting}
             fit={fitOf(i)}

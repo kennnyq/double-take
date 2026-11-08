@@ -54,3 +54,10 @@ test('relative time formatting', () => {
   assert.equal(formatAgo(2 * 24 * 60), '2d');
   assert.equal(formatAgo(5 * 7 * 24 * 60 + 30), '5w');
 });
+
+test('stand-in comments follow the source id, not the feed position', () => {
+  const a = makeComments({ id: 'clip-0', sourceId: 'x-42', author: 'a', likes: 1000 });
+  const b = makeComments({ id: 'clip-17', sourceId: 'x-42', author: 'a', likes: 1000 });
+  assert.deepEqual(a, b);
+  assert.ok(a.every((c) => c.id.startsWith('x-42-c') && c.clipId === 'x-42'));
+});
