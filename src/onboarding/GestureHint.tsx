@@ -3,6 +3,7 @@ import { AccessibilityInfo, Animated, AppState, Platform } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
 import { useDevPanel } from '@/devtools/store';
+import { useGuestChosen } from '@/auth/guest';
 import { useAuth } from '@/auth/store';
 import { useGate } from '@/auth/gate';
 import { useAppSettings, useSettingsOpen } from '@/settings/store';
@@ -41,9 +42,10 @@ export function GestureHint(p: GestureHintProps) {
   const { status } = useAuth();
   const signInOpen = useGate().open;
   const foreground = useForeground();
-  // TODO(guest onboarding): include the persisted explicit "Continue as guest"
-  // choice here when that flow exists. Browsing from the hero is not that choice.
-  const rememberSeen = status === 'member';
+  const guest = useGuestChosen();
+  // Members and guests who chose "Continue as guest" remember having seen it
+  // (on this device). Just browsing, signed out, from the hero is not that choice.
+  const rememberSeen = status === 'member' || (status === 'guest' && guest);
   const settingsOpen = useSettingsOpen();
   const devOpen = useDevPanel().open;
   const { revealGesture } = useAppSettings();
