@@ -98,6 +98,10 @@ export const ClipItem = memo(function ClipItem(p: Props) {
     }
   };
 
+  // The Double take button opens it whatever the gesture setting (and closes it on iPad, where the rail stays).
+  const toggleReveal = () => (inspecting ? tells.current?.close() : tells.current?.open());
+  const onReveal = clip.tellsUrl ? toggleReveal : undefined;
+
   // Stage geometry: full-bleed on iPhone, a centred 9:16 card on iPad that
   // starts below the status bar so the clock doesn't sit on the card.
   const insets = useSafeAreaInsets();
@@ -223,7 +227,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         </Animated.View>
       )}
 
-      {!wide && !inspecting && <Rail {...p} />}
+      {!wide && !inspecting && <Rail {...p} onReveal={onReveal} revealing={inspecting} />}
 
       <View style={styles.progressTrack} pointerEvents="none">
         <Animated.View
@@ -249,7 +253,7 @@ export const ClipItem = memo(function ClipItem(p: Props) {
         <View style={styles.wideRow}>
           {stage}
           <View style={styles.wideRail}>
-            <Rail {...p} />
+            <Rail {...p} onReveal={onReveal} revealing={inspecting} />
           </View>
         </View>
       ) : (
@@ -259,10 +263,24 @@ export const ClipItem = memo(function ClipItem(p: Props) {
   );
 });
 
-function Rail(p: Props) {
+/**
+ * The clip's actions. `onReveal` is set for clips with tells: its Double take
+ * button sits above the like and opens the walkthrough whatever the gesture setting.
+ */
+function Rail(p: Props & { onReveal?: () => void; revealing: boolean }) {
   const { clip, h, wide } = p;
   return (
     <Animated.View style={[styles.rail, wide && styles.railWide, { opacity: p.chrome }]}>
+      {p.onReveal && (
+        <RailButton
+          icon={<DoubleTakeIcon color={p.revealing ? ACCENT : '#fff'} />}
+          label="Double take"
+          a11y={p.revealing ? 'Close the double take' : 'Double take: see why this clip may be AI'}
+          hideLabelFromA11y
+          compactLabel
+          onPress={p.onReveal}
+        />
+      )}
       <RailButton
         icon={p.liked ? 'heart' : 'heart-outline'}
         color={p.liked ? '#ff3040' : '#fff'}
@@ -302,11 +320,27 @@ function Rail(p: Props) {
 
 const REPOST_TINT = '#3ddc84';
 
+/** "Look again": an eye in a viewfinder, the double take's mark. */
+function DoubleTakeIcon({ color }: { color: string }) {
+  return (
+    <View style={styles.doubleTakeIcon}>
+      <Ionicons name="scan-outline" size={30} color={color} style={styles.iconShadow} />
+      <Ionicons name="eye" size={14} color={color} style={styles.doubleTakeEye} />
+    </View>
+  );
+}
+
+const ACCENT = '#FFD60A'; // the tells walkthrough's highlight
+
 function RailButton(props: {
-  icon: React.ComponentProps<typeof Ionicons>['name'];
+  icon: React.ComponentProps<typeof Ionicons>['name'] | React.ReactElement;
   label: string;
   /** Spoken label when the visible label is a count. */
   a11y?: string;
+  /** Speak only `a11y` (the label repeats it). */
+  hideLabelFromA11y?: boolean;
+  /** A word label rather than a count: smaller, so it stays on one line. */
+  compactLabel?: boolean;
   onPress: () => void;
   color?: string;
   pop?: boolean;
@@ -322,12 +356,20 @@ function RailButton(props: {
       hitSlop={6}
       style={styles.railBtn}
       accessibilityRole="button"
-      accessibilityLabel={props.a11y ? `${props.a11y}, ${props.label}` : props.label}
+      accessibilityLabel={
+        props.a11y ? (props.hideLabelFromA11y ? props.a11y : `${props.a11y}, ${props.label}`) : props.label
+      }
     >
       <Animated.View style={{ transform: [{ scale }] }}>
-        <Ionicons name={props.icon} size={30} color={props.color ?? '#fff'} style={styles.iconShadow} />
+        {typeof props.icon === 'string' ? (
+          <Ionicons name={props.icon} size={30} color={props.color ?? '#fff'} style={styles.iconShadow} />
+        ) : (
+          props.icon
+        )}
       </Animated.View>
-      <Text style={styles.railLabel}>{props.label}</Text>
+      <Text style={[styles.railLabel, props.compactLabel && styles.railLabelCompact]} numberOfLines={1}>
+        {props.label}
+      </Text>
     </Pressable>
   );
 }
@@ -417,7 +459,10 @@ const styles = StyleSheet.create({
   railWide: { position: 'relative', right: 0, bottom: 0 },
   railBtn: { alignItems: 'center', gap: 3 },
   iconShadow: { ...textShadow },
-  railLabel: { color: '#fff', fontSize: 12, fontWeight: '500', ...textShadow },
+  doubleTakeIcon: { width: 30, height: 30, alignItems: 'center', justifyContent: 'center' },
+  doubleTakeEye: { position: 'absolute' },
+  railLabel: { color: '#fff', fontSize: 12, fontWeight: '500', textAlign: 'center', ...textShadow },
+  railLabelCompact: { fontSize: 11, letterSpacing: -0.2 },
   soundThumb: { width: 36, height: 36, borderRadius: 8, borderWidth: 2, borderColor: '#fff', marginTop: 4 },
   progressTrack: {
     position: 'absolute',

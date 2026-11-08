@@ -20,6 +20,7 @@ import {
   Music2,
   Play,
   Repeat2,
+  ScanEye,
   Send,
   Sparkles,
   Volume2,
@@ -657,6 +658,18 @@ const Slide = memo(function Slide(p: SlideProps) {
           </div>
         </div>
         <div className="d-actions">
+          {clip.tellsUrl && (
+            <ActionBtn
+              label="Double take"
+              name={p.inspecting ? 'Close the double take' : 'Double take: see why this clip may be AI'}
+              nameOnly
+              onClick={() => (p.inspecting ? tells.current?.close() : isActive && tells.current?.open())}
+              className={`double-take ${p.inspecting ? 'on' : ''}`}
+              pressed={p.inspecting}
+            >
+              <ScanEye size={26} />
+            </ActionBtn>
+          )}
           <ActionBtn
             label={likes}
             onClick={() => h.toggleLike(clip)}
@@ -705,13 +718,15 @@ function ActionBtn(props: {
   onClick: () => void;
   className?: string;
   pressed?: boolean;
+  /** Name it by `name` alone (the label repeats it). */
+  nameOnly?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <button
       className={`action-btn ${props.className ?? ''}`}
       onClick={props.onClick}
-      aria-label={props.label ? `${props.name} (${props.label})` : props.name}
+      aria-label={props.label && !props.nameOnly ? `${props.name} (${props.label})` : props.name}
       aria-pressed={props.pressed}
     >
       {props.children}

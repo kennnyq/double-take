@@ -497,6 +497,11 @@
   color: var(--repost);
 }
 
+/* The double take, on: the walkthrough's highlight. */
+.desk .action-btn.double-take.on svg {
+  color: #ffd60a;
+}
+
 .desk .action-btn.liked svg,
 .desk .action-btn.reposted svg,
 .desk .action-btn.saved svg {

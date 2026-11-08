@@ -11,9 +11,10 @@ import { variantIndex } from '@/devtools/settings';
 import { DEV_TOOLS, useDevSettings } from '@/devtools/store';
 import { boxOnStage, cardPlacement, videoRect, type Box, type Fit, type Tell } from './tells';
 
-/** Lets the clip's own gesture (hold or double tap, a dev setting) start the walkthrough. */
+/** Lets the clip's Double take button and gestures (a user setting) open and close the walkthrough. */
 export interface TellOverlayHandle {
   open: () => void;
+  close: () => void;
 }
 
 interface Props {
@@ -198,7 +199,11 @@ export function TellOverlay({ ref, ...p }: Props) {
   useEffect(() => {
     openRef.current = open;
   });
-  useImperativeHandle(ref, () => ({ open: () => void openRef.current() }), []);
+  useImperativeHandle(
+    ref,
+    () => ({ open: () => void openRef.current(), close: () => closeRef.current() }),
+    [],
+  );
 
   // A new pick in the dev settings ends a walkthrough of the old pipeline's tells.
   const shownUrl = useRef(url);
