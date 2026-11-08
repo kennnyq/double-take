@@ -4,7 +4,7 @@
  * hold and then double tap (Both is the default); it goes as soon as either
  * gesture opens a double take, comes back on reload until two have been
  * opened, and then never again. Desktop (a fine pointer) gets Hold Space then
- * Double-click, and no swipe hint. Reduce Motion gets a still icon. Dev
+ * Double-click, and no swipe hint. Reduce Motion gets a still frame. Entering from the landing's hero, the hint waits for the hand-off. Dev
  * settings → Interaction → Gesture hint plays it now, in the picked design.
  *
  *   npm run e2e:hint                                   (dev server on 8081)
@@ -155,19 +155,53 @@ async function devPanel(browser: Browser) {
   await page.keyboard.press('Control+.');
   await page.getByText('Gesture hint', { exact: true }).waitFor({ timeout: 5000 });
   check('dev panel: Interaction has a Gesture hint section', true);
-  await page.getByText('Pill', { exact: true }).click();
+  await page.getByText('Hand', { exact: true }).click();
   await page.getByText('Show now', { exact: true }).click();
   const words = await hintWithin(page, 3000);
-  const box = await page.locator(HINT).boundingBox();
-  check('dev panel: Show now plays it in the picked design (pill)', words === 'Hold Space, Double-click' && !!box && box.width > box.height * 2, { words, box });
+  const design = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) ?? '{}').design, DEV_HINTS_KEY);
+  check('dev panel: Show now plays it, in the picked design', words === 'Hold Space, Double-click' && design === 'hand', { words, design });
   await page.context().close();
+}
+
+/** Entering through the landing's launch: no hint under the landing, then one soon after the hand-off. */
+async function fromHero(browser: Browser) {
+  for (const layout of ['desktop', 'phone'] as const) {
+    const context = await browser.newContext(CONTEXT[layout]);
+    const page = await context.newPage();
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      localStorage.clear();
+    });
+    await page.goto(`${BASE_URL}/`);
+    const cta = page.locator('.lt-cta').first();
+    await cta.waitFor({ timeout: 60_000 });
+    await page.waitForTimeout(1000);
+    if (layout === 'phone') await cta.tap();
+    else await cta.click();
+    // Sample until the app has the page to itself.
+    let underLanding = false;
+    const deadline = Date.now() + 30_000;
+    while (Date.now() < deadline) {
+      const st = await page.evaluate((hint) => ({ app: location.hash === '#app', hint: !!document.querySelector(hint) }), HINT);
+      if (!st.app && st.hint) underLanding = true;
+      if (st.app) break;
+      await page.waitForTimeout(100);
+    }
+    const handedOff = Date.now();
+    const words = await hintWithin(page, 3000);
+    const after = Date.now() - handedOff;
+    const want = layout === 'phone' ? 'Swipe up' : 'Hold Space, Double-click';
+    check(`${layout}: from the hero, the hint waits for the hand-off, then shows (${after} ms)`, !underLanding && words === want && after < 2000, { underLanding, words, after });
+    await context.close();
+  }
 }
 
 async function reducedMotion(browser: Browser) {
   const page = await open(browser, 'phone', { gesture: 'both', hints: { opens: 0, swiped: true }, reducedMotion: true });
   const words = await hintWithin(page, 6000);
   const still = await page.locator(HINT).innerText().catch(() => '');
-  check('Reduce Motion: a still icon with both captions', words === 'Hold, Double tap' && still.includes('Hold · Double tap'), { words, still });
+  check('Reduce Motion: a still frame with both captions', words === 'Hold, Double tap' && still.includes('Hold · Double tap'), { words, still });
   await page.context().close();
 }
 
@@ -175,7 +209,7 @@ async function reducedMotion(browser: Browser) {
 async function frames(browser: Browser, dir: string) {
   mkdirSync(dir, { recursive: true });
   const variants: { name: string; layout: Layout; start: Start; loopMs: number }[] = [];
-  for (const design of ['tile', 'ring', 'pill']) {
+  for (const design of ['finger', 'fingertip', 'hand']) {
     variants.push(
       { name: `${design}-phone-both`, layout: 'phone', start: { dev: { force: 'doubleTake', design, input: 'touch' } }, loopMs: 4600 },
       { name: `${design}-desktop-both`, layout: 'desktop', start: { dev: { force: 'doubleTake', design } }, loopMs: 4600 },
@@ -188,7 +222,7 @@ async function frames(browser: Browser, dir: string) {
     await page.waitForSelector(HINT, { timeout: 8000 });
     await page.waitForTimeout(600);
     const box = (await page.locator(HINT).boundingBox())!;
-    const pad = 28;
+    const pad = 12;
     const clip = { x: box.x - pad, y: box.y - pad, width: box.width + pad * 2, height: box.height + pad * 2 };
     // Shoot as fast as the browser allows across one loop, then keep ten evenly spaced.
     const taken: { t: number; b64: string }[] = [];
@@ -224,6 +258,7 @@ async function main() {
   await phoneFlow(browser);
   await desktopFlow(browser);
   await devPanel(browser);
+  await fromHero(browser);
   await reducedMotion(browser);
   await browser.close();
   if (failures.length) {
