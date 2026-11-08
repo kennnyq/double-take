@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
-import { CircleUserRound, House, LogIn, LogOut, Plus, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
+import { CircleUserRound, CloudUpload, House, LogIn, LogOut, Send, Settings, Sparkles, type LucideIcon } from 'lucide-react';
 import { openSignIn, signOutToChoice } from '@/auth/gate';
 import { useAuth, useMe } from '@/auth/store';
 import { CommentsSheet } from '@/comments/CommentsSheet';
@@ -22,7 +22,7 @@ type DesktopTab = 'home' | 'messages' | 'create' | 'profile';
 const NAV: { id: DesktopTab; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Home', icon: House },
   { id: 'messages', label: 'Messages', icon: Send },
-  { id: 'create', label: 'Create', icon: Plus },
+  { id: 'create', label: 'Upload', icon: CloudUpload },
   { id: 'profile', label: 'Profile', icon: CircleUserRound },
 ];
 

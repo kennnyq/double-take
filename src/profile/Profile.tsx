@@ -140,10 +140,10 @@ function MemberProfile({ tab, onTab }: { tab: ProfileTab; onTab: (t: ProfileTab)
         <Pressable
           onPress={nav.openCreate}
           hitSlop={8}
-          accessibilityLabel="Create"
+          accessibilityLabel="Upload"
           style={styles.topBtn}
         >
-          <Ionicons name="add" size={30} color="#fff" />
+          <Ionicons name="cloud-upload-outline" size={27} color="#fff" />
         </Pressable>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>

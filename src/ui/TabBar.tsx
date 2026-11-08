@@ -12,7 +12,7 @@ type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 export const TABS: { id: TabId; label: string; icon: IconName; iconActive: IconName }[] = [
   { id: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
-  { id: 'create', label: 'Create', icon: 'add-circle-outline', iconActive: 'add-circle' },
+  { id: 'create', label: 'Upload', icon: 'cloud-upload-outline', iconActive: 'cloud-upload' },
   { id: 'you', label: 'You', icon: 'person-circle-outline', iconActive: 'person-circle' },
   // Its own route (`src/app/settings.tsx`); the others are views of the Home screen.
   { id: 'settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
