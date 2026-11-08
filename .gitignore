@@ -48,3 +48,6 @@ worker/.wrangler/
 worker/node_modules/
 .dev.vars
 .prod.vars
+
+# Python bytecode from the harvest scripts
+__pycache__/
