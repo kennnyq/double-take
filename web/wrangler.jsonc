@@ -11,6 +11,8 @@
   },
   // doubletake.photo (registered via Porkbun, zone on the second Cloudflare
   // account). Both names serve this Worker; double-take-api has no custom name.
+  // Keep the original workers.dev link working too (setting routes turns it off).
+  "workers_dev": true,
   "routes": [
     { "pattern": "doubletake.photo", "custom_domain": true },
     { "pattern": "www.doubletake.photo", "custom_domain": true }
