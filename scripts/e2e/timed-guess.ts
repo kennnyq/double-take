@@ -81,15 +81,19 @@ async function stageCenter(page: Page) {
 
 async function swipeUp(page: Page) {
   const cdp = await page.context().newCDPSession(page);
-  const { x, y } = await stageCenter(page);
+  const { x } = await stageCenter(page);
   const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', ty: number) =>
     cdp.send('Input.dispatchTouchEvent', { type, touchPoints: type === 'touchEnd' ? [] : [{ x, y: ty }] });
-  await touch('touchStart', y + 200);
-  for (let ty = y + 180; ty >= y - 200; ty -= 40) {
+  // Most of a page, as a real swipe: the feed's paging snaps back from anything under half.
+  const h = page.viewportSize()!.height;
+  const from = Math.round(h * 0.85);
+  const to = Math.round(h * 0.12);
+  await touch('touchStart', from);
+  for (let ty = from - 30; ty >= to; ty -= 30) {
     await touch('touchMove', ty);
-    await page.waitForTimeout(16);
+    await page.waitForTimeout(12);
   }
-  await touch('touchEnd', y - 200);
+  await touch('touchEnd', to);
   await cdp.detach();
 }
 
@@ -144,6 +148,32 @@ async function run(browser: Browser, layout: Layout) {
   await waitFor(page, 'playing', (s) => s.phase === 'playing');
   await page.waitForTimeout(300);
   check('no verdict, double take or Auto label while playing', (await leaks(page)).length === 0, await leaks(page));
+  // The feed's chrome is there (caption, author, rail) but locked, and says nothing about the answer.
+  const stageText = await page.evaluate(() => {
+    const stage = document.querySelector('[data-testid="game-stage"]') as HTMLElement | null;
+    if (!stage) return '';
+    const clone = stage.cloneNode(true) as HTMLElement;
+    // The round's own overlay (clock, instructions, stamp) isn't the clip's.
+    clone.querySelectorAll('[data-testid="mark-stamp"], [data-testid="round-overlay"]').forEach((n) => n.remove());
+    return clone.innerText;
+  });
+  check('the clips show the feed’s author and buttons', /Subscribe|Follow/.test(stageText), stageText.slice(0, 80));
+  check('nothing on the clips names AI or real', !/\b(ai|a\.i\.|real|generated|fake|sora|veo|deepfake|verdict)\b/i.test(stageText), stageText.match(/.{0,30}\b(ai|real|generated|fake|sora|veo|deepfake|verdict)\b.{0,30}/i)?.[0]);
+  const locked = await page.evaluate(() => {
+    const like = [...document.querySelectorAll('[data-testid="game-stage"] [aria-label^="Like"]')][0] as HTMLElement | undefined;
+    if (!like) return null;
+    let e: HTMLElement | null = like;
+    let opacity = 1;
+    let off = false;
+    while (e) {
+      const st = getComputedStyle(e);
+      opacity *= Number(st.opacity);
+      if (st.pointerEvents === 'none') off = true;
+      e = e.parentElement;
+    }
+    return { opacity, off };
+  });
+  check('the clip’s buttons are dimmed and out of reach', !!locked && locked.opacity < 0.6 && locked.off, locked);
   const chrome = layout === 'desktop' ? 'nav[aria-label="Main"]' : '[role="tab"][aria-label="Home"]';
   check(`the app's ${layout === 'desktop' ? 'rail' : 'tab bar'} stays during the round`, await anyVisible(page, chrome));
   check('the clip on screen and the next one load (no broken posters)', (await brokenImages(page, '[data-testid="game-stage"]')) === 0, await brokenImages(page, '[data-testid="game-stage"]'));

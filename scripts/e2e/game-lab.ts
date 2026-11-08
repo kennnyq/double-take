@@ -20,7 +20,6 @@ const SHOTS = process.env.SHOTS;
 const DESIGNS: Record<string, string[]> = {
   countdown: ['ring', 'resolve', 'roll'],
   hud: ['bar', 'pill', 'ring'],
-  transition: ['slide', 'stack', 'fade'],
   reveal: ['settle', 'flip', 'sweep'],
   grid: ['glow', 'ring', 'strip'],
   expand: ['morph', 'lift', 'zoom'],
@@ -49,14 +48,6 @@ function plan(el: string): { query: string; crop: string; start: (p: Page) => Pr
       return { query: '', crop: STAGE_CROP, start: replay, frames: [150, 700, 1300, 1900, 2500, 2950, 3150, 3300, 3450, 3650, 4100] };
     case 'hud':
       return { query: '&left=10', crop: STAGE_CROP, start: replay, frames: [3200, 3500, 3900, 6000, 9000, 12500] };
-    case 'transition':
-      return {
-        query: '',
-        crop: STAGE_CROP,
-        start: (p) => p.click('[data-testid="lab-mark"]'),
-        frames: [0, 200, 300, 340, 380, 420, 460, 520, 640, 1660, 1700, 1740, 1780, 1840, 1950, 2150],
-        later: [{ at: 1650, act: (p) => p.click('[data-testid="lab-skip"]') }],
-      };
     case 'reveal':
       return { query: '&n=11', crop: RESULTS_CROP, start: replay, frames: [100, 450, 800, 1100, 1400, 1700, 2000, 2400, 3000, 3600] };
     case 'grid':
@@ -150,14 +141,6 @@ try {
       if (el === 'countdown' || el === 'hud') {
         await page.waitForTimeout(4200);
         check(`${name}: the countdown lands in a running timer`, await page.locator('[data-testid="game-timer"]').isVisible());
-      } else if (el === 'transition') {
-        await page.waitForTimeout(1200);
-        await page.click('[data-testid="lab-mark"]');
-        await page.waitForTimeout(150);
-        check(`${name}: a mark stamps the clip`, (await page.locator('[data-testid="mark-stamp"]').count()) > 0);
-        await page.waitForTimeout(1000);
-        await page.click('[data-testid="lab-skip"]');
-        await page.waitForTimeout(800);
       } else {
         await page.click('[data-testid="lab-replay"]');
         await page.waitForTimeout(3600);
