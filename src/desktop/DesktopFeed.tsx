@@ -500,6 +500,7 @@ export function DesktopFeed({ visible, scrollEnabled, ref }: Props) {
             key={clip.id}
             clip={clip}
             isActive={i === active}
+            preloadPoster={Math.abs(i - active) <= 2}
             paused={i === active && paused}
             muted={muted}
             liked={liked.has(clipKey(clip))}
@@ -603,6 +604,8 @@ interface SlideHandlers {
 
 interface SlideProps {
   clip: Clip;
+  /** Eagerly load the current poster and two neighbours in each direction. */
+  preloadPoster: boolean;
   isActive: boolean;
   paused: boolean;
   muted: boolean;
@@ -642,7 +645,10 @@ const Slide = memo(function Slide(p: SlideProps) {
   const [clicks] = useState(createTapRecognizer);
   const { reveal: tells, revealGesture, holdMs } = h;
   const hasTells = !!clip.tellsUrl && isActive;
-  const poster = mediaUri(clip.poster);
+  // Gate every use, including the sound thumbnail: leaving that eager would
+  // still fetch the whole feed. Keep nearby images eager so the next slide
+  // already has a decoded poster when it starts moving into view.
+  const poster = p.preloadPoster ? mediaUri(clip.poster) : undefined;
 
   const cancelHold = () => window.clearTimeout(gesture.current.timer);
   useEffect(() => cancelHold, []);
@@ -753,6 +759,7 @@ const Slide = memo(function Slide(p: SlideProps) {
               <img
                 className="poster contained"
                 src={poster}
+                decoding="async"
                 alt=""
                 draggable={false}
                 style={{ transform: `scale(${p.inspecting ? 1 : p.zoom})`, transition: ZOOM_TRANSITION }}
@@ -761,11 +768,11 @@ const Slide = memo(function Slide(p: SlideProps) {
           ) : p.fit === 'contain' ? (
             <>
               {/* Faded out in the walkthrough: plain dark bands, no blur. */}
-              <img className={`poster blurred fades ${p.inspecting ? 'faded' : ''}`} src={poster} alt="" draggable={false} />
-              <img className="poster contained" src={poster} alt="" draggable={false} />
+              <img className={`poster blurred fades ${p.inspecting ? 'faded' : ''}`} src={poster} decoding="async" alt="" draggable={false} />
+              <img className="poster contained" src={poster} decoding="async" alt="" draggable={false} />
             </>
           ) : (
-            <img className="poster" src={poster} alt="" draggable={false} />
+            <img className="poster" src={poster} decoding="async" alt="" draggable={false} />
           )}
           </div>
           <div className="overlay">
@@ -889,7 +896,7 @@ const Slide = memo(function Slide(p: SlideProps) {
           <ActionBtn onClick={() => h.soon('More options')} name="More">
             <MoreHorizontal size={24} />
           </ActionBtn>
-          <img className="sound-thumb" src={poster} alt="" />
+          <img className="sound-thumb" src={poster} decoding="async" alt="" />
         </div>
       </div>
     </section>
