@@ -168,7 +168,7 @@ export const PALETTES: Readonly<Record<PaletteId, Palette>> = Object.freeze({
 });
 
 /** The palette the app ships with; dev builds can switch it in Dev settings → Colors. */
-export const DEFAULT_PALETTE: PaletteId = 'yellow';
+export const DEFAULT_PALETTE: PaletteId = 'mono';
 
 export function parsePaletteId(raw: unknown): PaletteId {
   return PALETTE_IDS.includes(raw as PaletteId) ? (raw as PaletteId) : DEFAULT_PALETTE;
