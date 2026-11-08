@@ -20,6 +20,8 @@ war, news, named people, sexual content or minors are skipped unless --all-genre
 (the demo stays on harmless genres), and so are notes about film, music videos and
 ads (real, but staged by named people).
 """
+from __future__ import annotations
+
 import argparse
 import csv
 import json

@@ -29,6 +29,8 @@ Output mirrors the R2 bucket layout:
     media/{clipId}/v1/tile.mp4                                  small silent copy for the web landing's gallery
     feeds/<name>.json                                           the feed (demo by default)
 """
+from __future__ import annotations
+
 import argparse
 import hashlib
 import json

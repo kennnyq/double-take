@@ -25,6 +25,8 @@ How a thread is scored:
     at least MIN_MARGIN and enough people weighed in (MIN_VOTERS stance comments,
     or a verdict flair); otherwise unsure. confidence = |margin|.
 """
+from __future__ import annotations
+
 import math
 import re
 

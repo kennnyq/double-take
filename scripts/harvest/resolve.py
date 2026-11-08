@@ -13,6 +13,8 @@ asks yt-dlp for each post's metadata, without downloading media. A row is kept w
 Stops after N keepers (default: all). Kept rows get a `probe` object with the
 metadata later steps need (duration, size, uploader, title, upload date, media id).
 """
+from __future__ import annotations
+
 import argparse
 import json
 import re

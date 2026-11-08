@@ -15,6 +15,8 @@ Ranks notes that name concrete tells (hands, text, physics, timestamps...) above
 templated ones. Each output row is a build_media.py candidate plus the note, in the
 shape scripts/annotate/notes.jsonl uses.
 """
+from __future__ import annotations
+
 import argparse
 import csv
 import io
