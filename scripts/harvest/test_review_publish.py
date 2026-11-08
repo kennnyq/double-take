@@ -147,5 +147,31 @@ class Commit(unittest.TestCase):
             self.assertEqual(rp.commit_file(ctx, "main", rp.DECISIONS_REL, "old\n", "noop"), g("rev-parse", "main"))
 
 
+class Collect(unittest.TestCase):
+    def test_uncommitted_decisions_in_a_review_checkout_are_merged_and_committed(self):
+        with tempfile.TemporaryDirectory() as d, tempfile.TemporaryDirectory() as review:
+            g = lambda *a: subprocess.run(["git", "-C", d, *a], capture_output=True, text=True, check=True).stdout.strip()  # noqa: E731
+            g("init", "-q", "-b", "main")
+            g("config", "user.email", "t@example.com")
+            g("config", "user.name", "t")
+            a, b = ev(1, "2026-11-08T01:00:00Z"), ev(2, "2026-11-08T02:00:00Z", key="x-2", set={"status": "discard"})
+            for root, events in ((d, (a,)), (review, (a, b))):  # the review checkout has one more, uncommitted
+                os.makedirs(os.path.join(root, "scripts/harvest/review"), exist_ok=True)
+                with open(os.path.join(root, rp.DECISIONS_REL), "w") as f:
+                    f.write(log(*events))
+            g("add", ".")
+            g("commit", "-qm", "init")
+            null = open(os.devnull, "w")
+            self.addCleanup(null.close)
+            ctx = rp.Ctx(d, log=null)
+            got = rp.collect_decisions(ctx, g("rev-parse", "main"), [d, review], "s")
+            self.assertEqual([e["id"] for e in got["new"]], ["e2"])
+            self.assertEqual(got["sources"], [os.path.join(d, rp.DECISIONS_REL), os.path.join(review, rp.DECISIONS_REL)])
+            self.assertEqual(g("show", f"{rp.BRANCH}:{rp.DECISIONS_REL}"), log(a, b).strip())
+            self.assertEqual(g("rev-parse", "main^{tree}") != g("rev-parse", f"{rp.BRANCH}^{{tree}}"), True)
+            # Nothing new: no commit.
+            self.assertIsNone(rp.collect_decisions(ctx, g("rev-parse", "main"), [d], "s")["commit"])
+
+
 if __name__ == "__main__":
     unittest.main()

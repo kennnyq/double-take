@@ -56,4 +56,5 @@ __pycache__/
 /build-next/
 /build-prev/
 /build-prev-*/
+/build-prev.*/
 /.review-publish/

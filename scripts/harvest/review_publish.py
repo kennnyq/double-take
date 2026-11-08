@@ -320,6 +320,34 @@ def git_show(ctx: Ctx, ref: str, rel: str) -> str | None:
         return None
 
 
+def collect_decisions(ctx: Ctx, base_sha: str, checkouts: list[str], stamp: str, base: str = "main") -> dict:
+    """Merge main's decision log with the review checkouts' working copies, write the
+    result to the state folder, and commit new events on BRANCH. Returns
+    {path, text, new, commit, sources}."""
+    main_log = git_show(ctx, base_sha, DECISIONS_REL) or ""
+    others, sources = [], []
+    for co in checkouts:
+        p = os.path.join(co, DECISIONS_REL)
+        if os.path.isfile(p):
+            with open(p) as f:
+                others.append(f.read())
+            sources.append(p)
+            ctx.say(f"decisions from {p}")
+    merged, new_events = merge_logs(main_log, others)
+    path = ctx.path("decisions.jsonl")
+    with open(path, "w") as f:
+        f.write(merged)
+    commit = None
+    if new_events:
+        commit = commit_file(ctx, base_sha, DECISIONS_REL, merged,
+                             f"chore(harvest): record review decisions for publish {stamp}\n\n"
+                             f"- {len(new_events)} decision(s) not yet on {base}, from the review checkouts")
+        ctx.say(f"committed {len(new_events)} new decision(s) on branch {BRANCH}: {commit[:7]} (not pushed)")
+    else:
+        ctx.say(f"no decisions beyond {base}; nothing to commit")
+    return {"path": path, "text": merged, "new": new_events, "commit": commit, "sources": sources}
+
+
 def load_feed(root: str) -> list[dict]:
     data = read_json(os.path.join(root, "feeds", "demo.json"))
     return (data or {}).get("clips", [])
@@ -331,26 +359,9 @@ def prepare(ctx: Ctx, base: str, checkouts: list[str], jobs: int) -> dict:
     ctx.say(f"review publish prepare from {base} {base_sha[:7]} in {ctx.root}")
 
     # 1. Decisions: main's log plus uncommitted ones from the review checkouts.
-    main_log = git_show(ctx, base_sha, DECISIONS_REL) or ""
-    others = []
-    for co in checkouts:
-        p = os.path.join(co, DECISIONS_REL)
-        if os.path.isfile(p):
-            with open(p) as f:
-                others.append(f.read())
-            ctx.say(f"decisions from {p}")
-    merged, new_events = merge_logs(main_log, others)
-    decisions_path = ctx.path("decisions.jsonl")
-    with open(decisions_path, "w") as f:
-        f.write(merged)
-    commit = base_sha
-    if new_events:
-        commit = commit_file(ctx, base_sha, DECISIONS_REL, merged,
-                             f"chore(harvest): record review decisions for publish {stamp}\n\n"
-                             f"- {len(new_events)} decision(s) not yet on {base}, from the review checkouts")
-        ctx.say(f"committed {len(new_events)} new decision(s) on branch {BRANCH}: {commit[:7]} (not pushed)")
-    else:
-        ctx.say(f"no decisions beyond {base}; nothing to commit")
+    got = collect_decisions(ctx, base_sha, checkouts, stamp, base)
+    merged, new_events, decisions_path = got["text"], got["new"], got["path"]
+    commit = got["commit"] or base_sha
     marker = json.loads(git_show(ctx, base_sha, MARKER_REL) or "null")
     all_events = [e for e, _ in parse_events(merged)]
     session = session_events(all_events, marker)
