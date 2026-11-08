@@ -74,7 +74,7 @@ STAGED = re.compile(r"\b(film|movie|music video|trailer|commercial|advert\w*|epi
 OFF_GENRE = re.compile(
     r"\b(trump|biden|harris|obama|putin|netanyahu|zelensk\w*|israel\w*|gaza|palestin\w*|hamas|idf|"
     r"iran\w*|ukrain\w*|russia\w*|war|military|soldiers?|army|missiles?|bomb\w*|drone strike|"
-    r"protest\w*|riot\w*|police|ice agents?|bodycam|arrest\w*|election\w*|president|minister|"
+    r"protest\w*|riot\w*|police|scam\w*|ice agents?|bodycam|arrest\w*|election\w*|president|minister|"
     r"government|politic\w*|candidate|senator|congress|propaganda|regime|terror\w*|shoot\w*|"
     r"killed|crash\w*|accident|dead|death|princess|prince|king|queen|influencer|"
     r"child(ren)?|kids?|students?|school|teens?|toddlers?|minors?)\b",

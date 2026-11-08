@@ -13,7 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from build_media import COMPARE_FIELDS, clip_id, reuse  # noqa: E402
 from consensus import consensus, flair_verdict, flatten, stance, summary  # noqa: E402
-from pick_reddit import media_of, row_for, skip_reason  # noqa: E402
+from pick_reddit import from_capture, media_of, post_from_capture, row_for, skip_reason  # noqa: E402
 from pick_real import LABEL_FOR_TIER, classify, harmless, real_links  # noqa: E402
 from resolve import keep  # noqa: E402
 from search_real import overlap, subject_query, tier_for  # noqa: E402
@@ -265,6 +265,37 @@ class RedditRows(unittest.TestCase):
                                                     "evidence": [], "tells": []})
         self.assertEqual(ai["label"], "confirmed")
         self.assertNotIn("tier", ai)
+
+    def test_browser_capture_converts_to_api_shapes(self):
+        listed = {"listing": "top:year", "id": "t3_1abc", "permalink": "/r/isthisAI/comments/1abc/goat/",
+                  "content-href": "https://v.redd.it/xyz9", "post-type": "video", "score": "1204",
+                  "comment-count": "88", "created-timestamp": "2026-01-01T17:02:36.603000+0000",
+                  "post-title": "Goat on a cliff?", "author": "someone", "flair": "Solved [Not AI]"}
+        post = post_from_capture(listed)
+        self.assertEqual((post["id"], post["score"], post["num_comments"], post["over_18"]), ("1abc", 1204, 88, False))
+        self.assertEqual(post["link_flair_text"], "Solved [Not AI]")
+        self.assertEqual(flair_verdict(post["link_flair_text"]), "real")
+        self.assertEqual(flair_verdict("Solved [AI]"), "ai")
+        self.assertEqual(int(post["created_utc"]), 1767286956)
+        m = media_of(post)
+        self.assertEqual((m["download"], m["duration"], m["hosted"]), ("https://v.redd.it/xyz9/HLSPlaylist.m3u8", None, True))
+        self.assertIsNone(media_of(post_from_capture({**listed, "post-type": "image", "content-href": "https://i.redd.it/a.jpeg"})))
+        self.assertTrue(post_from_capture({**listed, "nsfw": ""})["over_18"])
+
+        import tempfile
+        with tempfile.NamedTemporaryFile("w", suffix=".jsonl", delete=False) as f:
+            f.write(json.dumps(listed) + "\n")
+            f.write(json.dumps({**listed, "id": "t3_other", "permalink": "/r/pics/comments/other/x/"}) + "\n")
+            f.write(json.dumps({"thread": "t3_1abc", "comments": [
+                {"body": "Real. I've seen this video in 2019", "score": "40", "depth": 0, "author": "a", "permalink": "/c/1"},
+                {"body": "AI", "score": 2, "depth": 1, "author": "b", "mod": True}]}) + "\n")
+        posts, comments = from_capture([f.name], "isthisAI")
+        os.unlink(f.name)
+        self.assertEqual(list(posts), ["1abc"])
+        self.assertEqual([c["score"] for c in comments["1abc"]], [40, 2])
+        self.assertEqual(comments["1abc"][1]["distinguished"], "moderator")
+        c = consensus(posts["1abc"], comments["1abc"])
+        self.assertEqual(c["verdict"], "real")
 
     def test_committed_reddit_batches(self):
         for path in sorted(glob.glob(os.path.join(HERE, "reddit-*.jsonl"))):

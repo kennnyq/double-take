@@ -20,6 +20,12 @@ same cache. --fetch-only stops after filling the cache (listings, plus the comme
 trees of video posts that pass curation). Copy that cache to the harvest machine
 and run --offline there.
 
+--capture FILE reads what a browser saw instead of the API: JSONL from the rendered
+pages, one row per listed post (the `shreddit-post` element's attributes plus its
+flair text and `listing`) and one per comment page ({"thread": "t3_<id>",
+"comments": [{id, parent, depth, score, author, body, permalink, mod}]}).
+`from_capture` turns them into the API's shapes, so scoring is the same.
+
 For each video post (Reddit-hosted, or linking X / YouTube / TikTok / Instagram):
   - curation: no NSFW, removed posts, or off-genre titles (pick_real.OFF_GENRE);
   - consensus.py scores flair and comments; only clear verdicts are kept
@@ -148,12 +154,74 @@ def media_of(post: dict) -> dict | None:
     return None
 
 
+def _int(v) -> int:
+    try:
+        return int(float(v))
+    except (TypeError, ValueError):
+        return 0
+
+
+def post_from_capture(o: dict) -> dict:
+    """A listed post as the browser rendered it (shreddit-post attributes) → the API's t3 data."""
+    from datetime import datetime
+    href = o.get("content-href") or ""
+    created = o.get("created-timestamp") or ""
+    try:
+        ts = datetime.fromisoformat(created.replace("+0000", "+00:00")).timestamp()
+    except ValueError:
+        ts = 0
+    post = {
+        "id": (o.get("id") or "").removeprefix("t3_"),
+        "permalink": o.get("permalink") or "",
+        "title": o.get("post-title"),
+        "link_flair_text": o.get("flair"),
+        "score": _int(o.get("score")),
+        "num_comments": _int(o.get("comment-count")),
+        "created_utc": ts,
+        "author": o.get("author"),
+        "over_18": "nsfw" in o,
+        "url": href,
+    }
+    if o.get("post-type") == "video" and VREDDIT.search(href):
+        post["secure_media"] = {"reddit_video": {"source": "browser"}}  # duration unknown: probed later
+    return post
+
+
+def comment_from_capture(c: dict) -> dict:
+    return {
+        "body": c.get("body") or "",
+        "score": _int(c.get("score")),
+        "author": c.get("author"),
+        "permalink": c.get("permalink"),
+        "depth": _int(c.get("depth")),
+        **({"distinguished": "moderator"} if c.get("mod") else {}),
+    }
+
+
+def from_capture(paths: list[str], sub: str) -> tuple[dict[str, dict], dict[str, list[dict]]]:
+    """Posts by id and comments by post id, from browser-captured JSONL files."""
+    posts: dict[str, dict] = {}
+    comments: dict[str, list[dict]] = {}
+    for path in paths:
+        with open(path) as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                o = json.loads(line)
+                if o.get("thread"):
+                    comments[o["thread"].removeprefix("t3_")] = [comment_from_capture(c) for c in o.get("comments", [])]
+                elif o.get("permalink", "").lower().startswith(f"/r/{sub.lower()}/"):
+                    p = post_from_capture(o)
+                    posts.setdefault(p["id"], p)
+    return posts, comments
+
+
 def skip_reason(post: dict, all_genres: bool) -> str | None:
     if post.get("over_18"):
         return "nsfw"
     if post.get("removed_by_category") or post.get("removed_by"):
         return "removed"
-    text = f"{post.get('title', '')} {post.get('selftext', '')}"
+    text = f"{post.get('title', '')} {post.get('selftext', '')} {post.get('link_flair_text') or ''}"
     if SKIP.search(text):
         return "sexual or minors"
     if not all_genres and OFF_GENRE.search(text):
@@ -219,6 +287,7 @@ def main() -> None:
     ap.add_argument("--offline", action="store_true")
     ap.add_argument("--public", action="store_true", help="public JSON endpoints, no credentials")
     ap.add_argument("--fetch-only", action="store_true", help="fill --cache and stop (no scoring, no yt-dlp)")
+    ap.add_argument("--capture", action="append", default=[], help="browser-captured JSONL instead of the API")
     ap.add_argument("--min-confidence", type=float, default=0.6)
     ap.add_argument("--min-duration", type=float, default=3)
     ap.add_argument("--max-duration", type=float, default=90)
@@ -242,7 +311,10 @@ def main() -> None:
 
     for sub in subs:
         posts: dict[str, dict] = {}
-        for spec in listings:
+        captured: dict[str, list[dict]] | None = None
+        if args.capture:
+            posts, captured = from_capture(args.capture, sub)
+        for spec in [] if args.capture else listings:
             for p in listing_posts(r, sub, spec, args.pages):
                 posts.setdefault(p["id"], p)
         print(f"r/{sub}: {len(posts)} posts", file=sys.stderr)
@@ -259,22 +331,29 @@ def main() -> None:
             if key in seen or key in have:
                 drop("duplicate")
                 continue
-            try:
-                tree = r.get(f"/r/{sub}/comments/{post['id']}", limit=500, depth=6, sort="top")
-            except FileNotFoundError:
-                drop("comments not cached")
-                continue
+            if captured is not None:
+                if post["id"] not in captured:
+                    drop("comments not captured")
+                    continue
+                thread_comments = captured[post["id"]]
+            else:
+                try:
+                    tree = r.get(f"/r/{sub}/comments/{post['id']}", limit=500, depth=6, sort="top")
+                except FileNotFoundError:
+                    drop("comments not cached")
+                    continue
+                thread_comments = flatten(tree[1] if isinstance(tree, list) and len(tree) > 1 else tree)
             if args.fetch_only:
                 fetched += 1
                 continue
-            c = consensus(post, flatten(tree[1] if isinstance(tree, list) and len(tree) > 1 else tree))
+            c = consensus(post, thread_comments)
             if c["verdict"] == "unsure" or c["confidence"] < args.min_confidence:
                 drop("no clear consensus")
                 continue
             if not args.offline:
                 dur = media.get("duration")
-                if not media["hosted"]:
-                    pr = probe(media["url"])
+                if not media["hosted"] or not dur:
+                    pr = probe(media.get("download") or media["url"])
                     dur = pr["duration"] if pr else None
                     if not pr:
                         drop("link gone")

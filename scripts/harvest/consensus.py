@@ -35,7 +35,7 @@ FLAIR_FACTOR = 1.5
 MIN_MARGIN = 0.5
 MIN_VOTERS = 3
 MOD_WEIGHT = 5.0
-BOTS = {"automoderator", "[deleted]", "isthisai-bot", "visualmod"}
+BOTS = {"automoderator", "[deleted]", "isthisai-bot", "visualmod", "qualityvote2"}
 
 # Flair text → verdict. Checked in order: "not ai" must win over "ai".
 FLAIR = [
