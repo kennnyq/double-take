@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { DEFAULT_PALETTE, PALETTES, PALETTE_IDS, setPalette, usePalette, type Palette } from '@/ui/theme';
+import { DEFAULT_PALETTE, LEGACY_PALETTES, PALETTES, PALETTE_IDS, setPalette, usePalette, type Palette, type PaletteId } from '@/ui/theme';
 import { useDevTint } from './tint';
 
 /**
@@ -9,40 +9,52 @@ import { useDevTint } from './tint';
  * use the default.
  */
 export function PalettePicker() {
-  const live = usePalette();
-  const tint = useDevTint();
+  const current = PALETTE_IDS.filter((id) => !LEGACY_PALETTES.includes(id));
   return (
     <View style={styles.wrap}>
       <View style={styles.group}>
         <Text style={styles.groupTitle}>Palette</Text>
         <Text style={styles.groupNote}>Applies everywhere at once. The dot marks the default the app ships with.</Text>
       </View>
-      <View style={styles.list} accessibilityRole="radiogroup" accessibilityLabel="Palette">
-        {PALETTE_IDS.map((id) => {
-          const p = PALETTES[id];
-          const on = id === live.id;
-          return (
-            <Pressable
-              key={id}
-              onPress={() => setPalette(id)}
-              style={({ pressed }) => [styles.item, on && { borderColor: live.accent }, pressed && !on && styles.dim]}
-              accessibilityRole="radio"
-              accessibilityState={{ checked: on }}
-              accessibilityLabel={`${p.name}${id === DEFAULT_PALETTE ? ', default' : ''}`}
-            >
-              <Swatches p={p} />
-              <View style={styles.text}>
-                <View style={styles.nameRow}>
-                  <Text style={styles.name}>{p.name}</Text>
-                  {id === DEFAULT_PALETTE && <View style={styles.defaultDot} />}
-                </View>
-                <Text style={styles.blurb}>{p.blurb}</Text>
-              </View>
-              <View style={[styles.check, on && tint.chipOn]}>{on && <Ionicons name="checkmark" size={14} color={live.onAccent} />}</View>
-            </Pressable>
-          );
-        })}
+      <PaletteList ids={current} label="Palette" />
+      <View style={styles.group}>
+        <Text style={styles.groupTitle}>Legacy</Text>
+        <Text style={styles.groupNote}>The old look, to compare against.</Text>
       </View>
+      <PaletteList ids={LEGACY_PALETTES} label="Legacy palette" />
+    </View>
+  );
+}
+
+function PaletteList({ ids, label }: { ids: readonly PaletteId[]; label: string }) {
+  const live = usePalette();
+  const tint = useDevTint();
+  return (
+    <View style={styles.list} accessibilityRole="radiogroup" accessibilityLabel={label}>
+      {ids.map((id) => {
+        const p = PALETTES[id];
+        const on = id === live.id;
+        return (
+          <Pressable
+            key={id}
+            onPress={() => setPalette(id)}
+            style={({ pressed }) => [styles.item, on && { borderColor: live.accent }, pressed && !on && styles.dim]}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: on }}
+            accessibilityLabel={`${p.name}${id === DEFAULT_PALETTE ? ', default' : ''}`}
+          >
+            <Swatches p={p} />
+            <View style={styles.text}>
+              <View style={styles.nameRow}>
+                <Text style={styles.name}>{p.name}</Text>
+                {id === DEFAULT_PALETTE && <View style={styles.defaultDot} />}
+              </View>
+              <Text style={styles.blurb}>{p.blurb}</Text>
+            </View>
+            <View style={[styles.check, on && tint.chipOn]}>{on && <Ionicons name="checkmark" size={14} color={live.onAccent} />}</View>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
