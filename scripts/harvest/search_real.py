@@ -4,7 +4,9 @@ Usage:
     python3 -I scripts/harvest/search_real.py AI.jsonl OUT.jsonl
         [--per-clip 2] [--hits 10] [--query CLIPID=TEXT ...]
 
-AI.jsonl rows need a `url`; a `query`, `title` or `evidence` helps. For each AI clip:
+AI.jsonl rows need a `url`; a `query`, `title` or `evidence` helps. A row with only a
+`query` (no `url`) is a standalone search: its keepers are plain real clips with no
+`pairOf`, e.g. {"query": "hailstorm on a car roof"}. For each row:
   1. Subject query: the row's `query`, a --query override, or 3-6 words picked from the
      post's title and note by `subject_query` (a keyword heuristic; a local text model
      could replace it later). Rows with no usable subject are skipped.
@@ -119,18 +121,18 @@ def tier_for(p: dict) -> str | None:
     return None
 
 
-def evidence_for(p: dict, tier: str, query: str, ai_id: str) -> str:
+def evidence_for(p: dict, tier: str, query: str, ai_id: str | None) -> str:
     d = p.get("uploadDate") or ""
     date = f"{d[:4]}-{d[4:6]}-{d[6:]}" if len(d) == 8 else "an unknown date"
     who = p.get("channel") or p.get("uploader") or "an unknown channel"
     why = ("before realistic text-to-video existed" if tier == "real-prior"
            else "a licensing channel that verifies footage before buying it")
     return (f"Uploaded {date} by {who}: {why}. Found by searching \"{query}\" "
-            f"as real footage to compare with {ai_id}.")
+            + (f"as real footage to compare with {ai_id}." if ai_id else "for real footage of the subject."))
 
 
 def candidates_for(row: dict, query: str, hits: int, lo: float, hi: float) -> list[dict]:
-    ai_id = clip_id(row["url"])
+    ai_id = clip_id(row["url"]) if row.get("url") else None
     found = []
     for e in search(query, hits):
         title = e.get("title") or ""
@@ -152,7 +154,7 @@ def candidates_for(row: dict, query: str, hits: int, lo: float, hi: float) -> li
             "label": LABEL_FOR_TIER[tier],
             "tier": tier,
             "evidence": evidence_for(p, tier, query, ai_id),
-            "pairOf": ai_id,
+            **({"pairOf": ai_id} if ai_id else {}),
             "how": "subject-search",
             "query": query,
             "score": round(overlap(query, p.get("title") or title), 3),
@@ -179,7 +181,7 @@ def main() -> None:
     seen: set[str] = set()
     with open(args.out, "w") as f:
         for row in rows:
-            ai_id = clip_id(row["url"])
+            ai_id = clip_id(row["url"]) if row.get("url") else f"query {row.get('query')!r}"
             query = overrides.get(ai_id) or row.get("query") or subject_query(
                 row.get("title") or (row.get("probe") or {}).get("title"), row.get("evidence"),
                 row.get("uploader") or (row.get("probe") or {}).get("uploader"))
