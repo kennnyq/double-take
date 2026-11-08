@@ -14,7 +14,7 @@
  * dev test account `alice` when `npm run dev:auth` is up; skips that otherwise.
  */
 import { chromium, type Page } from 'playwright-core';
-import { BASE_URL, findChrome } from './browser.ts';
+import { BASE_URL, cacheFeed, findChrome } from './browser.ts';
 
 const HOLD_MS = 700; // past the longest hold length (500 ms)
 
@@ -82,6 +82,7 @@ async function holdOpens(page: Page, name: string, setup: () => Promise<void>, {
 async function main() {
   const browser = await chromium.launch({ executablePath: findChrome() });
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await cacheFeed(page);
   await page.addInitScript(() => localStorage.clear()); // default settings: Hold
   await page.goto(`${BASE_URL}/#app`);
   // The first clip with tells has a Double take button.

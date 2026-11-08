@@ -13,7 +13,7 @@
  *   BASE_URL=http://localhost:8089 npm run e2e:overlay
  */
 import { chromium, type Page } from 'playwright-core';
-import { BASE_URL, findChrome } from './browser.ts';
+import { BASE_URL, cacheFeed, findChrome } from './browser.ts';
 
 const failures: string[] = [];
 function check(name: string, ok: boolean, detail: unknown) {
@@ -40,6 +40,7 @@ async function painted(page: Page, selector: string): Promise<boolean | null> {
 async function main() {
   const browser = await chromium.launch({ executablePath: findChrome(), args: ['--autoplay-policy=no-user-gesture-required'] });
   const page = await (await browser.newContext({ viewport: { width: 1280, height: 800 } })).newPage();
+  await cacheFeed(page);
   await page.addInitScript(() => localStorage.clear());
   await page.goto(`${BASE_URL}/#app`);
   await page.waitForSelector('[aria-label^="Double take"]', { timeout: 90_000 });

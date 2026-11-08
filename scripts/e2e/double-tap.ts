@@ -12,7 +12,7 @@
  * (except the double take's own while it scrubs to a tell).
  */
 import { chromium, type Browser, type Page } from 'playwright-core';
-import { BASE_URL, findChrome } from './browser.ts';
+import { BASE_URL, cacheFeed, findChrome } from './browser.ts';
 
 const SETTINGS_KEY = 'double-take.settings.v1';
 const CLOSE_WALKTHROUGH = '[aria-label="Close the walkthrough"]';
@@ -32,6 +32,7 @@ async function open(browser: Browser, layout: Layout, revealGesture: 'hold' | 'd
       : { viewport: { width: 430, height: 932 }, hasTouch: true, isMobile: true },
   );
   const page = await context.newPage();
+  await cacheFeed(page);
   await page.addInitScript(
     ([key, gesture]) => {
       localStorage.clear();

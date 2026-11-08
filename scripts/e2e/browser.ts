@@ -1,3 +1,4 @@
+import type { Page } from 'playwright-core';
 /** Shared by the browser checks in scripts/e2e/. */
 import { existsSync, readdirSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -18,4 +19,22 @@ export function findChrome(): string | undefined {
     }
   }
   return undefined;
+}
+
+// Keep the same successfully fetched clips across reloads/contexts in one test
+// run. These are gesture tests; an intermittent remote feed timeout would
+// otherwise replace the feed with placeholders that have no walkthroughs.
+const feeds = new Map<string, string>();
+export async function cacheFeed(page: Page): Promise<void> {
+  await page.route('**/feed', async (route) => {
+    const key = route.request().url();
+    const cached = feeds.get(key);
+    if (cached !== undefined) {
+      await route.fulfill({ status: 200, contentType: 'application/json', body: cached });
+      return;
+    }
+    const response = await route.fetch();
+    if (response.ok()) feeds.set(key, await response.text());
+    await route.fulfill({ response });
+  });
 }
