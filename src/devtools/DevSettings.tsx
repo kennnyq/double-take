@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { loadInitialClips } from '@/data/feed';
 import { usePalette } from '@/ui/theme';
 import { AccountsTab } from './AccountsTab';
+import { PalettePicker } from './PalettePicker';
 import {
   DEFAULT_SETTINGS,
   HOLD_DELAYS,
@@ -50,6 +51,7 @@ interface Group {
 const TAB_META: Record<DevTab, { label: string; icon: IconName }> = {
   interaction: { label: 'Interaction', icon: 'hand-left-outline' },
   model: { label: 'Model', icon: 'hardware-chip-outline' },
+  colors: { label: 'Colors', icon: 'color-palette-outline' },
   accounts: { label: 'Accounts', icon: 'people-outline' },
   panel: { label: 'Menu', icon: 'options-outline' },
 };
@@ -58,6 +60,7 @@ const TAB_META: Record<DevTab, { label: string; icon: IconName }> = {
 const TAB_KEYS: Record<DevTab, DevSettingKey[]> = {
   interaction: ['holdMs'],
   model: ['pipeline'],
+  colors: [],
   accounts: [],
   panel: ['launcher'],
 };
@@ -80,8 +83,8 @@ function usePipelines(): Record<string, number> {
 }
 
 function groupsFor(tab: DevTab, s: Settings, pipelines: Record<string, number>, desktop: boolean): Group[] {
-  // The Accounts tab renders its own live view (AccountsTab).
-  if (tab === 'accounts') return [];
+  // The Accounts and Colors tabs render their own live views.
+  if (tab === 'accounts' || tab === 'colors') return [];
   if (tab === 'interaction') {
     const hold = desktop ? 'Holding Space (or the mouse button)' : 'A press';
     return [
@@ -266,6 +269,7 @@ function Panel({ tab, settings: s, desktop, style }: { tab: DevTab; settings: Se
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
         {tab === 'accounts' && <AccountsTab />}
+        {tab === 'colors' && <PalettePicker />}
         {groups.map((g) => (
           <View key={g.title} style={styles.group}>
             <Text style={styles.groupTitle}>{g.title}</Text>
