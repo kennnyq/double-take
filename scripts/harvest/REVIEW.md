@@ -43,6 +43,22 @@ All of these are merged into one list, with one item per clip key (`build_media.
 
 One clip at a time, shown on a phone-shaped stage the way the app shows it.
 
+- **Layout:**
+  - In a wide window the stage takes the full height. The controls sit in a column beside it: the bar, the evidence (open by default, since it costs the video nothing there) and the dock.
+  - On a phone the stage fills the width, with compact controls under it.
+- **All clips (G):** a grid of every clip, from the grid button in the top bar.
+  - **Group by:** decision, AI/real, batch or feed, who reviewed it (worker-vetted or a reviewer), tell count, or tell category. Tell counts load in the background from each clip's shipped run.
+  - **Sort:** feed order, newest, oldest, longest, shortest, most tells, or recently reviewed.
+  - **Filter:** chips for decision, AI/real, reviewer, tells, marks (★ picked tells, notes) and source, plus search over authors, titles, evidence and notes.
+  - **Each cell:** the poster, playing a muted preview on hover; an AI/real badge; the decision; ★ picks; a ✎ when there's a note; the tell count and duration.
+  - Click a cell to open it in the reviewer. The grid's order becomes the queue ("Clips grid (N)"), so J/K walk the same clips.
+- **Placement:** boxes land where the app's double take puts them.
+  - The video is always contained and scaled up to fill the stage while it plays, like `ClipItem`'s cover zoom.
+  - The double take zooms it out to the whole frame (`contain`), so no box is cropped, and insets the stage with the app's `inspectInset`.
+  - `scripts/review/web/placement.ts` uses the app's `videoRect`, `boxOnStage`, `fitFor` and `inspectInset`.
+  - `placement.test.ts` fails if `ClipItem`/`TellOverlay` change those rules, and checks real portrait and landscape tells against them.
+  - In the browser, `await reviewPlacementCheck()` (in the console) measures where each outline and the spotlight land against the video's own pixels. On 4 clips, portrait and landscape, playing and in the double take, the error is under half a pixel.
+
 - **The app's own presentation:** the double take runs on the app's own modules: spotlight geometry and masks, info-card placement, eased scrubbing, step order, slow-motion replay windows and the palette.
   - The server serves those files type-stripped under `/app/` (`scripts/review/appModules.ts`), so the reviewer can't drift from the app.
   - `appModules.test.ts` fails if one of them starts importing something the browser can't load.
@@ -56,8 +72,8 @@ One clip at a time, shown on a phone-shaped stage the way the app shows it.
   - Hover a marker to see its label.
   - Click a marker to open that tell in the double take; it scrubs there.
   - Click the track to ease to that time, or drag to scrub directly.
-- **All tells (G):** every annotation from every run for this clip, by time or by run.
-  - Open it from the grid button in the top bar, the "All tells" chip by the run switcher, or the link in the drawer's "Your marks".
+- **All tells (T):** every annotation from every run for this clip, by time or by run.
+  - Open it from the "All tells" chip by the run switcher, or the link in the drawer's "Your marks".
   - Each cell has the frame at the tell's focus time with its box spotlighted, the run, the time, and the tell's label and reason.
   - ★ picks a tell as a good one; the field beside it takes a short note on that tell.
   - Click a frame or label to jump the player there, in the double take.
@@ -94,7 +110,8 @@ One clip at a time, shown on a phone-shaped stage the way the app shows it.
 | `1`–`9`, `V` | pick / cycle the annotation run |
 | `B` | outline every run's boxes |
 | `L` | annotations live while playing / only when stepping |
-| `G` | all tells: every run's annotations in a grid |
+| `G` | all clips: the clip grid |
+| `T` | all tells: this clip's annotations from every run |
 | `P` | pick (★) the annotation on screen |
 | `A` / `X` | keep / drop (again to clear) |
 | `N` | note |
