@@ -234,7 +234,12 @@ export function TellOverlay({ ref, ...p }: Props) {
   };
 
   const showCard = (card: Omit<Card, 'key' | 'leaving'>) =>
-    setCards((cs) => [...cs.map((c) => ({ ...c, leaving: true })), { ...card, key: ++cardKeys, leaving: false }]);
+    setCards((cs) => {
+      const active = cs.find((c) => !c.leaving);
+      return active
+        ? cs.map((c) => c === active ? { ...card, key: c.key, leaving: false } : c)
+        : [...cs, { ...card, key: ++cardKeys, leaving: false }];
+    });
   const leaveCards = () => setCards((cs) => (cs.some((c) => !c.leaving) ? cs.map((c) => ({ ...c, leaving: true })) : cs));
   const dropCard = (key: number) => setCards((cs) => cs.filter((c) => c.key !== key));
 
@@ -270,7 +275,6 @@ export function TellOverlay({ ref, ...p }: Props) {
 
   const goTo = (i: number, d: Loaded) => {
     stopScrub();
-    leaveCards();
     setStep(i);
     setStillAt(null);
     const tell = d.steps[i];
@@ -504,6 +508,7 @@ export function TellOverlay({ ref, ...p }: Props) {
         <InfoCard
           key={c.key}
           spot={c.spot}
+          stageH={p.stageH}
           text={c.text}
           hint={c.hint}
           loop={c.loop ? loop : null}

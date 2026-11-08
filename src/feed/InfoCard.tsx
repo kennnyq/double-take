@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Animated, {
@@ -22,6 +22,7 @@ import { RevealText } from './RevealText';
 
 interface Props {
   spot: CardSpot;
+  stageH: number;
   text: string;
   /** Faint line under the text, e.g. "Tap to continue". */
   hint?: string;
@@ -60,33 +61,42 @@ function footerStart(total: number, variant?: RevealVariant): number {
 }
 
 /**
- * The double take's info card. The card fades in with a short springy move
- * from its side of the subject (rising from below when it sits under it,
- * dropping from above when over it) and leaves the same way, faster.
- *
- * The text comes in the way Siri's answer card does: line after line rising
- * from below, the gaps between them closing up, the words fading in in reading
- * order (see reveal.ts). It starts while the card is still settling, and
- * leaves in reverse. One timeline drives it
- * on the UI thread (see RevealText and reveal.ts).
- *
- * Everything animates transform and opacity only; nothing is laid out again
- * while the card moves.
+ * One shell for the whole walkthrough. Its bottom row stays mounted while
+ * the text exits and enters. Position and glass size retarget continuously;
+ * only the glass scales, never the type or controls.
  */
-export function InfoCard({ spot, text, hint, loop, blur, nav, revealVariant, leaving, onGone }: Props) {
+export function InfoCard({ spot, stageH, text, hint, loop, blur, nav, revealVariant, leaving, onGone }: Props) {
   const g = useGlass();
-  const W = spot.width;
-  const down = spot.from === 'above' ? -1 : 1;
-  // The reveal's length, once the text's lines are known; nothing shows until then.
   const [total, setTotal] = useState(0);
+  const [textHeight, setTextHeight] = useState(20);
+  const footerHeight = nav ? 40 : loop ? 11 : 4;
+  const height = 13 + textHeight + footerHeight + 9;
+  const bottom = spot.side === 'top' ? spot.offset + height : stageH - spot.offset;
+  const card = useSharedValue(0);
+  const shown = useSharedValue(0);
+  // This clock belongs to the shell: it never restarts between tells.
+  const clock = useSharedValue(0);
+  const x = useSharedValue(spot.cx - spot.width / 2);
+  const y = useSharedValue(bottom - 60);
+  const h = useSharedValue(height);
+  const positioned = useRef(false);
 
-  const card = useSharedValue(0); // 0: away, 1: in place (springs past 1 a little)
-  const shown = useSharedValue(0); // opacity
-  const clock = useSharedValue(0); // ms into the text's reveal
+  useEffect(() => {
+    const motion = { duration: 420, easing: Easing.inOut(Easing.cubic) };
+    if (!positioned.current) {
+      x.value = spot.cx - spot.width / 2;
+      y.value = bottom - 60;
+      h.value = height;
+      positioned.current = !!total;
+    } else {
+      x.value = withTiming(spot.cx - spot.width / 2, motion);
+      y.value = withTiming(bottom - 60, motion);
+      h.value = withTiming(height, motion);
+    }
+  }, [spot.cx, spot.width, bottom, height, total, x, y, h]);
 
   useEffect(() => {
     if (leaving) {
-      // The text runs back (last words first), gently, as the card goes.
       clock.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) });
       card.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.cubic) });
       shown.value = withTiming(0, { duration: 260, easing: Easing.in(Easing.quad) }, (done) => {
@@ -99,48 +109,90 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, revealVariant, lea
     card.value = withSpring(1, CARD_SPRING);
     const duration = Math.max(total, footerStart(total, revealVariant) + 24 + SIRI.settle);
     clock.value = withDelay(TEXT_START_MS, withTiming(duration, { duration, easing: Easing.linear }));
-    // onGone is stable per card (keyed by the overlay).
+    // total is set only by the first text; subsequent text has its own clock.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving, total]);
 
+  const [direction] = useState(spot.from === 'above' ? -1 : 1);
   const cardStyle = useAnimatedStyle(() => ({
     opacity: shown.value,
-    transform: [{ translateY: (1 - card.value) * TRAVEL * down }, { scale: 0.96 + 0.04 * card.value }],
+    transform: [{ translateX: x.value }, { translateY: y.value + (1 - card.value) * TRAVEL * direction }, { scale: 0.96 + 0.04 * card.value }],
+  }));
+  const glassStyle = useAnimatedStyle(() => ({
+    transform: [{ scaleY: h.value / 200 }],
   }));
 
   return (
     <Animated.View
-      style={[styles.card, ownLayer, { width: W, left: spot.cx - W / 2 }, spot.side === 'top' ? { top: spot.offset } : { bottom: spot.offset }, cardStyle]}
+      style={[styles.card, ownLayer, { width: spot.width }, cardStyle]}
       pointerEvents={nav && !leaving ? 'box-none' : 'none'}
       accessibilityLiveRegion="polite"
       testID="dt-card"
     >
-      <View style={[StyleSheet.absoluteFill, styles.glass, g.glass, blur ? g.tint : g.tintSolid]} pointerEvents="none">
+      <Animated.View style={[styles.glass, ownLayer, g.glass, blur ? g.tint : g.tintSolid, glassStyle]} pointerEvents="none">
         {blur ? <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} /> : null}
-      </View>
-      <Animated.View style={styles.content} pointerEvents="box-none" accessible accessibilityLabel={hint ? `${text}. ${hint}` : text}>
-        <RevealText
-          text={text}
-          hint={hint}
-          textStyle={[styles.text, g.text]}
-          hintStyle={[styles.hint, g.hint]}
-          clock={clock}
-          onReady={setTotal}
-          variant={revealVariant}
+      </Animated.View>
+      <View style={[styles.copy, { bottom: footerHeight + 9 }]} pointerEvents="none">
+        <CardText
+          text={text} hint={hint} step={nav?.step} variant={revealVariant} leaving={leaving}
+          onReady={(duration) => setTotal((old) => old || duration)}
+          onHeight={setTextHeight}
         />
+      </View>
+      <View style={styles.bottom} pointerEvents="box-none">
         {nav ? (
           <Footer nav={nav} loop={loop ?? null} clock={clock} start={footerStart(total, revealVariant)} />
-        ) : loop ? (
-          <View style={styles.soloProgress}>
-            <FooterItem clock={clock} start={footerStart(total, revealVariant)}>
-              <LoopLine loop={loop} />
-            </FooterItem>
-          </View>
         ) : (
-          <View style={styles.lineSpace} />
+          <FooterItem clock={clock} start={footerStart(total, revealVariant)}>
+            {loop ? <LoopLine loop={loop} /> : <View style={styles.lineSpace} />}
+          </FooterItem>
         )}
-      </Animated.View>
+      </View>
     </Animated.View>
+  );
+}
+
+/** Exit the old copy before mounting new copy, even when the user changes direction mid-transition. */
+function CardText({ text, hint, step, variant, leaving, onReady, onHeight }: {
+  text: string; hint?: string; step?: number; variant?: RevealVariant; leaving: boolean;
+  onReady: (duration: number) => void; onHeight: (height: number) => void;
+}) {
+  const g = useGlass();
+  const target = JSON.stringify([text, hint, step, variant]);
+  const [displayed, setDisplayed] = useState({ key: target, text, hint, variant });
+  const clock = useSharedValue(0);
+  const ready = useRef(0);
+  const first = useRef(true);
+  const previousTarget = useRef(target);
+  useEffect(() => {
+    const reversed = previousTarget.current !== target;
+    previousTarget.current = target;
+    if (leaving || target !== displayed.key) {
+      clock.value = withTiming(0, { duration: 180, easing: Easing.in(Easing.quad) }, (done) => {
+        if (done && !leaving) runOnJS(setDisplayed)({ key: target, text, hint, variant });
+      });
+    } else if (ready.current && reversed) {
+      // Also handles a quick reversal back to the still-displayed text.
+      clock.value = withTiming(ready.current, { duration: ready.current, easing: Easing.linear });
+    }
+    // The key contains all the copy and variant fields.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [target, displayed.key, leaving]);
+  return (
+    <View onLayout={(e) => onHeight(e.nativeEvent.layout.height)} accessible accessibilityLabel={displayed.hint ? `${displayed.text}. ${displayed.hint}` : displayed.text}>
+      <RevealText
+        key={displayed.key}
+        text={displayed.text} hint={displayed.hint} variant={displayed.variant}
+        textStyle={[styles.text, g.text]} hintStyle={[styles.hint, g.hint]}
+        clock={clock}
+        onReady={(duration) => {
+          ready.current = duration;
+          onReady(duration);
+          if (!leaving) clock.set(withDelay(first.current ? TEXT_START_MS : 80, withTiming(duration, { duration, easing: Easing.linear })));
+          first.current = false;
+        }}
+      />
+    </View>
   );
 }
 
@@ -158,7 +210,7 @@ function Footer({ nav, loop, clock, start }: { nav: CardNav; loop: SharedValue<n
       <View style={styles.statusSpace} pointerEvents="none">
         <FooterItem clock={clock} start={start}>
           <View style={styles.status}>
-            {loop ? <LoopLine loop={loop} /> : null}
+            <LoopLine loop={loop} />
             {nav.cue === 'dots' ? (
               <View style={styles.dots}>
                 {Array.from({ length: nav.count }, (_, i) => (
@@ -205,50 +257,71 @@ function NavButton(p: {
   filled?: boolean;
   color?: string;
 }) {
-  const t = useNavTint();
   const c = usePalette();
+  const checked = useSharedValue(p.icon === 'checkmark' ? 1 : 0);
+  const opacity = useSharedValue(p.disabled ? 0.3 : 1);
+  const pressed = useSharedValue(1);
+  const background = useSharedValue(p.filled ? c.tell : alpha(c.text, 0.1));
+  useEffect(() => {
+    checked.set(withTiming(p.icon === 'checkmark' ? 1 : 0, { duration: 180 }));
+    opacity.set(withTiming(p.disabled ? 0.3 : 1, { duration: 180 }));
+    background.set(withTiming(p.filled ? c.tell : alpha(c.text, 0.1), { duration: 180 }));
+  }, [p.icon, p.disabled, p.filled, c.tell, c.text, checked, opacity, background]);
+  const buttonStyle = useAnimatedStyle(() => ({ opacity: opacity.value * pressed.value, backgroundColor: background.value }));
+  const arrowStyle = useAnimatedStyle(() => ({ opacity: 1 - checked.value }));
+  const checkStyle = useAnimatedStyle(() => ({ opacity: checked.value }));
   return (
     <Pressable
       onPress={p.onPress}
+      onPressIn={() => pressed.set(withTiming(0.6, { duration: 80 }))}
+      onPressOut={() => pressed.set(withTiming(1, { duration: 140 }))}
       disabled={p.disabled}
       hitSlop={{ top: 7, bottom: 7, left: 0, right: 0 }}
       accessibilityRole="button"
       accessibilityLabel={p.label}
       accessibilityState={{ disabled: !!p.disabled }}
-      style={({ pressed }) => [styles.navBtn, p.filled ? t.navFilled : t.nav, p.disabled && styles.navOff, pressed && styles.navPressed]}
     >
-      <Ionicons name={p.icon} size={16} color={p.color ?? alpha(c.text, 0.85)} />
+      <Animated.View style={[styles.navBtn, buttonStyle]}>
+        <Animated.View style={[styles.navIcon, arrowStyle]}>
+          <Ionicons name={p.icon === 'chevron-back' ? 'chevron-back' : 'chevron-forward'} size={16} color={alpha(c.text, 0.85)} />
+        </Animated.View>
+        <Animated.View style={[styles.navIcon, checkStyle]}>
+          <Ionicons name="checkmark" size={16} color={c.onTell} />
+        </Animated.View>
+      </Animated.View>
     </Pressable>
   );
 }
 
 const useNavTint = themed((c) => ({
-  nav: { backgroundColor: alpha(c.text, 0.1) },
-  navFilled: { backgroundColor: c.tell },
   dot: { backgroundColor: alpha(c.text, 0.22) },
   dotOn: { backgroundColor: alpha(c.text, 0.75) },
   count: { color: alpha(c.textDim, 0.85) },
 }));
 
 /** A short, faint line under the text that fills as the slow-mo loop plays; it restarts with the loop. */
-function LoopLine({ loop }: { loop: SharedValue<number> }) {
+function LoopLine({ loop }: { loop: SharedValue<number> | null }) {
   const g = useGlass();
-  const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.min(1, Math.max(0, loop.value)) }] }));
+  const visible = useSharedValue(loop ? 1 : 0);
+  useEffect(() => { visible.set(withTiming(loop ? 1 : 0, { duration: 180 })); }, [loop, visible]);
+  const trackStyle = useAnimatedStyle(() => ({ opacity: visible.value }));
+  const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.min(1, Math.max(0, loop?.value ?? 0)) }] }));
   return (
-    <View style={[styles.track, g.track]}>
+    <Animated.View style={[styles.track, g.track, trackStyle]}>
       <Animated.View style={[styles.fill, g.fill, ownLayer, fill]} />
-    </View>
+    </Animated.View>
   );
 }
 
 const LINE_W = 56;
 
 const styles = StyleSheet.create({
-  card: { position: 'absolute' },
+  card: { position: 'absolute', left: 0, top: 0, height: 60 },
   // Clips (it holds at most a blur view) so iOS draws its hairline border with
   // Core Animation rather than into a bitmap.
-  glass: { borderRadius: 22, overflow: 'hidden' },
-  content: { paddingHorizontal: 16, paddingTop: 13, paddingBottom: 9 },
+  glass: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 200, transformOrigin: 'bottom', borderRadius: 22, overflow: 'hidden' },
+  copy: { position: 'absolute', left: 16, right: 16 },
+  bottom: { position: 'absolute', left: 16, right: 16, bottom: 9 },
   text: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 6 },
   track: {
@@ -261,13 +334,11 @@ const styles = StyleSheet.create({
   fill: { width: LINE_W * 2, height: 2, marginLeft: -LINE_W },
   lineSpace: { height: 4 },
   footer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },
-  soloProgress: { marginTop: 9 },
   statusSpace: { flex: 1 },
   status: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
   arrows: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   navBtn: { width: 44, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  navOff: { opacity: 0.3 },
-  navPressed: { opacity: 0.6 },
+  navIcon: { position: 'absolute', alignItems: 'center', justifyContent: 'center' },
   dots: { flexDirection: 'row', gap: 5 },
   dot: { width: 5, height: 5, borderRadius: 2.5 },
   dotNow: { transform: [{ scale: 1.3 }] },
