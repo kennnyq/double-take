@@ -116,12 +116,12 @@ export function InfoCard({ spot, text, hint, loop, leaving, onGone }: Props) {
 
   return (
     <Animated.View
-      style={[styles.glass, top ? { top: spot.offset } : { bottom: spot.offset }, glass]}
+      style={[styles.glass, g.glass, top ? { top: spot.offset } : { bottom: spot.offset }, glass]}
       pointerEvents="none"
       accessibilityLiveRegion="polite"
     >
       <BlurView intensity={36} tint="dark" style={StyleSheet.absoluteFill} />
-      <View style={[styles.tint, g.glass]} />
+      <View style={[StyleSheet.absoluteFill, g.tint]} />
       <Animated.View style={[styles.content, { width: W }, top ? { top: 0 } : { bottom: 0 }, content]} onLayout={onLayout}>
         <View ref={textRef}>
           <Text style={[styles.text, g.text]}>{text}</Text>
@@ -148,7 +148,6 @@ const LINE_W = 56;
 
 const styles = StyleSheet.create({
   glass: { position: 'absolute', overflow: 'hidden' },
-  tint: { ...StyleSheet.absoluteFill, borderRadius: RADIUS },
   content: { position: 'absolute', paddingHorizontal: 16, paddingTop: 13, paddingBottom: 9 },
   text: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 6 },

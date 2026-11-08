@@ -15,7 +15,8 @@ export function alpha(hex: string, a: number): string {
  * the palette's text and its `tell` colour for the loop line.
  */
 export const useGlass = themed((c) => ({
-  glass: { backgroundColor: alpha(c.surface, 0.62), borderColor: alpha(c.text, 0.1), borderWidth: StyleSheet.hairlineWidth },
+  glass: { borderColor: alpha(c.text, 0.1), borderWidth: StyleSheet.hairlineWidth },
+  tint: { backgroundColor: alpha(c.surface, 0.62) },
   button: { backgroundColor: alpha(c.surface, 0.58), borderColor: alpha(c.text, 0.18), borderWidth: StyleSheet.hairlineWidth },
   text: { color: alpha(c.text, 0.94) },
   hint: { color: alpha(c.textDim, 0.75) },
