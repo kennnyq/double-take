@@ -17,7 +17,7 @@ import { themed, usePalette } from '@/ui/theme';
 import type { CardSpot } from './card';
 import { alpha, useGlass } from './glass';
 import { ownLayer } from './layer';
-import type { RevealVariant } from './reveal';
+import { revealFrame, SIRI, type RevealVariant } from './reveal';
 import { RevealText } from './RevealText';
 
 interface Props {
@@ -54,8 +54,10 @@ const TRAVEL = 18;
 const CARD_SPRING = { stiffness: 260, damping: 17, mass: 1 };
 /** The text starts this long into the card's entrance, while the card is still settling. */
 const TEXT_START_MS = 140;
-/** The buttons and loop line fade in over the last of the text. */
-const FOOTER_FADE_MS = 300;
+/** Controls follow the text's last line by one line stagger, on the same clock. */
+function footerStart(total: number, variant?: RevealVariant): number {
+  return variant === 'wwdc' ? 100 : Math.max(0, total - SIRI.settle) + SIRI.lineStagger;
+}
 
 /**
  * The double take's info card. The card fades in with a short springy move
@@ -95,7 +97,8 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, revealVariant, lea
     if (!total) return;
     shown.value = withTiming(1, { duration: 220, easing: Easing.out(Easing.quad) });
     card.value = withSpring(1, CARD_SPRING);
-    clock.value = withDelay(TEXT_START_MS, withTiming(total, { duration: total, easing: Easing.linear }));
+    const duration = Math.max(total, footerStart(total, revealVariant) + 24 + SIRI.settle);
+    clock.value = withDelay(TEXT_START_MS, withTiming(duration, { duration, easing: Easing.linear }));
     // onGone is stable per card (keyed by the overlay).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [leaving, total]);
@@ -126,9 +129,13 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, revealVariant, lea
           variant={revealVariant}
         />
         {nav ? (
-          <Footer nav={nav} loop={loop ?? null} clock={clock} total={total} />
+          <Footer nav={nav} loop={loop ?? null} clock={clock} start={footerStart(total, revealVariant)} />
         ) : loop ? (
-          <LoopLine loop={loop} clock={clock} total={total} />
+          <View style={styles.soloProgress}>
+            <FooterItem clock={clock} start={footerStart(total, revealVariant)}>
+              <LoopLine loop={loop} />
+            </FooterItem>
+          </View>
         ) : (
           <View style={styles.lineSpace} />
         )}
@@ -138,42 +145,56 @@ export function InfoCard({ spot, text, hint, loop, blur, nav, revealVariant, lea
 }
 
 /**
- * Back and forward along the bottom of the card, with the loop's line between
- * them, and the cue that the next tap ends the walkthrough: the forward
- * button turning into a check, step dots, a count, or none (the hint says so).
- * Fades in with the last of the text.
+ * Playback status at the text's left edge; the paired arrows at the right.
+ * Each piece rises with the text instead of waiting for it to finish.
  */
-function Footer({ nav, loop, clock, total }: { nav: CardNav; loop: SharedValue<number> | null; clock: SharedValue<number>; total: number }) {
+function Footer({ nav, loop, clock, start }: { nav: CardNav; loop: SharedValue<number> | null; clock: SharedValue<number>; start: number }) {
   const t = useNavTint();
   const c = usePalette();
   const last = nav.step + 1 >= nav.count;
   const done = last && nav.cue === 'done';
-  const shown = useAnimatedStyle(() => ({
-    opacity: total ? Math.min(1, Math.max(0, (clock.value - (total - FOOTER_FADE_MS)) / FOOTER_FADE_MS)) : 0,
-  }));
   return (
-    <Animated.View style={[styles.footer, shown]} pointerEvents="box-none">
-      <NavButton icon="chevron-back" label="Previous tell" disabled={nav.step === 0} onPress={nav.onBack} />
-      <View style={styles.middle} pointerEvents="none">
-        {nav.cue === 'dots' ? (
-          <View style={styles.dots}>
-            {Array.from({ length: nav.count }, (_, i) => (
-              <View key={i} style={[styles.dot, i <= nav.step ? t.dotOn : t.dot, i === nav.step && styles.dotNow]} />
-            ))}
+    <View style={styles.footer} pointerEvents="box-none">
+      <View style={styles.statusSpace} pointerEvents="none">
+        <FooterItem clock={clock} start={start}>
+          <View style={styles.status}>
+            {loop ? <LoopLine loop={loop} /> : null}
+            {nav.cue === 'dots' ? (
+              <View style={styles.dots}>
+                {Array.from({ length: nav.count }, (_, i) => (
+                  <View key={i} style={[styles.dot, i <= nav.step ? t.dotOn : t.dot, i === nav.step && styles.dotNow]} />
+                ))}
+              </View>
+            ) : null}
+            {nav.cue === 'count' ? <Text style={[styles.count, t.count]}>{`${nav.step + 1} / ${nav.count}`}</Text> : null}
           </View>
-        ) : null}
-        {nav.cue === 'count' ? <Text style={[styles.count, t.count]}>{`${nav.step + 1} / ${nav.count}`}</Text> : null}
-        {loop ? <LoopLine loop={loop} clock={clock} total={total} /> : null}
+        </FooterItem>
       </View>
-      <NavButton
-        icon={done ? 'checkmark' : 'chevron-forward'}
-        label={last ? 'Finish the walkthrough' : 'Next tell'}
-        filled={done}
-        onPress={nav.onNext}
-        color={done ? c.onTell : undefined}
-      />
-    </Animated.View>
+      <View style={styles.arrows} pointerEvents="box-none">
+        <FooterItem clock={clock} start={start + 12}>
+          <NavButton icon="chevron-back" label="Previous tell" disabled={nav.step === 0} onPress={nav.onBack} />
+        </FooterItem>
+        <FooterItem clock={clock} start={start + 24}>
+          <NavButton
+            icon={done ? 'checkmark' : 'chevron-forward'}
+            label={last ? 'Finish the walkthrough' : 'Next tell'}
+            filled={done}
+            onPress={nav.onNext}
+            color={done ? c.onTell : undefined}
+          />
+        </FooterItem>
+      </View>
+    </View>
   );
+}
+
+/** Same gentle rise and settle as Siri text; reversing the clock also reverses the exit. */
+function FooterItem({ clock, start, children }: { clock: SharedValue<number>; start: number; children: React.ReactNode }) {
+  const look = useAnimatedStyle(() => {
+    const f = revealFrame('siri', clock.value, { move: start, fade: start }, { lineHeight: 20, descent: 3.6 });
+    return { opacity: f.opacity, transform: [{ translateY: f.translateY }] };
+  });
+  return <Animated.View style={[ownLayer, look]} pointerEvents="box-none">{children}</Animated.View>;
 }
 
 function NavButton(p: {
@@ -190,7 +211,7 @@ function NavButton(p: {
     <Pressable
       onPress={p.onPress}
       disabled={p.disabled}
-      hitSlop={10}
+      hitSlop={{ top: 7, bottom: 7, left: 0, right: 0 }}
       accessibilityRole="button"
       accessibilityLabel={p.label}
       accessibilityState={{ disabled: !!p.disabled }}
@@ -210,17 +231,13 @@ const useNavTint = themed((c) => ({
 }));
 
 /** A short, faint line under the text that fills as the slow-mo loop plays; it restarts with the loop. */
-function LoopLine({ loop, clock, total }: { loop: SharedValue<number>; clock: SharedValue<number>; total: number }) {
+function LoopLine({ loop }: { loop: SharedValue<number> }) {
   const g = useGlass();
   const fill = useAnimatedStyle(() => ({ transform: [{ scaleX: Math.min(1, Math.max(0, loop.value)) }] }));
-  // Appears with the last of the text.
-  const shown = useAnimatedStyle(() => ({
-    opacity: total ? Math.min(1, Math.max(0, (clock.value - (total - FOOTER_FADE_MS)) / FOOTER_FADE_MS)) : 0,
-  }));
   return (
-    <Animated.View style={[styles.track, g.track, shown]}>
-      <Animated.View style={[styles.fill, g.fill, fill]} />
-    </Animated.View>
+    <View style={[styles.track, g.track]}>
+      <Animated.View style={[styles.fill, g.fill, ownLayer, fill]} />
+    </View>
   );
 }
 
@@ -235,19 +252,20 @@ const styles = StyleSheet.create({
   text: { fontSize: 15, lineHeight: 20, fontWeight: '500' },
   hint: { fontSize: 12, lineHeight: 16, marginTop: 6 },
   track: {
-    alignSelf: 'center',
     width: LINE_W,
     height: 2,
     borderRadius: 1,
-    marginTop: 9,
     overflow: 'hidden',
   },
   // Scaled from its centre: centre it on the track's left end first.
   fill: { width: LINE_W * 2, height: 2, marginLeft: -LINE_W },
   lineSpace: { height: 4 },
   footer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, gap: 10 },
-  middle: { flex: 1, alignItems: 'center', gap: 6 },
-  navBtn: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  soloProgress: { marginTop: 9 },
+  statusSpace: { flex: 1 },
+  status: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 12 },
+  arrows: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  navBtn: { width: 44, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
   navOff: { opacity: 0.3 },
   navPressed: { opacity: 0.6 },
   dots: { flexDirection: 'row', gap: 5 },
