@@ -11,6 +11,30 @@ For an agent picking up the clip-harvesting work. Read the repo `README.md` (tel
 - **Review:** `npm run review` (on kenny-wsl, port 8090 over the tailnet) shows every clip from both Workers and all the batches, with AI↔real pairs side by side. Decisions go to `review/decisions.jsonl`, and `build_media.py --exclude-discarded` acts on them. See [`REVIEW.md`](REVIEW.md).
 - Every AI clip so far comes from X Community Notes. YouTube comment mining was tried in the spot test and was much noisier. Reddit (r/isthisAI) is read in a browser and scored by comment consensus (`pick_reddit.py`, below): the first batch is `reddit-2026-11-07.jsonl`, with 21 AI and 12 real clips.
 
+## Publishing a review session
+
+Reviewed clips reach production through two commands, run on kenny-wsl from the main checkout (`~/Developer/double-take`, whose `build/` is the live build). Both return at once: the work runs in a detached tmux session, streams to a log in `.review-publish/`, writes a status file there, and drops a 2–4 line note in `~/.t3/orchestrator-inbox/review-publish-<time>.msg` when it ends. A lock keeps two runs from overlapping, and both are safe to re-run.
+
+```bash
+npm run review:publish-prepare                 # tmux review-publish-prepare: decisions commit + build-next + summary
+npm run review:publish-deploy -- --dry-run     # inline, changes nothing: the exact deploy plan
+npm run review:publish-deploy                  # tmux review-publish-deploy: only after Kenny's yes
+```
+
+- **A review session** is every decision since the last successful publish. `scripts/harvest/review/published.json` records the last published decision (time and id), the commit and the deployed Worker version. Only a deploy that passes `npm run check:prod` moves it. It was seeded from the 841ae6f deploy (235 clips).
+- **prepare** never touches `build/`:
+  1. It merges main's `decisions.jsonl` with decisions not yet committed in the review checkouts (this checkout and the clip-review worktree; `--checkout DIR` overrides) and commits new ones on branch `review-publish`, without touching any working tree. Merge that branch; nothing is pushed.
+  2. It makes `build-next` as a hardlinked copy of `build/` and runs `build_media.py --merge --only-kept --exclude-discarded` over every `scripts/harvest/*.jsonl`: only new kept clips are encoded, discarded and duplicate clips leave the feed, and their folders are removed from `build-next`.
+  3. It writes `.review-publish/summary.json` and `summary.txt`. The summary leads with the session (`Review session since <time>: N decisions (K keep, D drop, S stars, M notes) -> +x / -y clips`), then the feed totals, files and size against Cloudflare's limits (20,000 files, 25 MiB per file) and missing media (must be 0). Stars (picked tells) and notes are listed for visibility; they don't change the build yet.
+- **deploy:**
+  1. Preflight: `build/` and `build-next` are unchanged since prepare, no media is missing, and the build is within limits.
+  2. `build/` becomes `build-prev`. Older backups are renamed `build-prev-<time>`, and 2 backups are kept.
+  3. `build-next` is hardlinked in as `build/`.
+  4. `CLOUDFLARE_API_TOKEN="$(cat ~/.config/cloudflare/token)" npm --prefix worker run deploy`, then `npm run check:prod`.
+  5. The marker is committed on `review-publish`.
+  6. On any failure after the backup it rolls back by itself: `build-prev` is restored and deployed again, and the status and inbox note say whether that worked.
+- **Hardlinks:** the build tools write by renaming a temporary file over the old one (`build_media.py`, `dedupe.py`, `stage.ts`), so a build never writes through to the files it shares with `build/` or a backup.
+
 ## Tools
 
 `yt-dlp`, `ffmpeg` and Python 3.11+. YouTube also needs a JS runtime for yt-dlp: install `deno` (`brew install deno` on the Mac; on Linux, the deno.land install script into `~/.deno`). Without it, YouTube metadata still works, but downloads fail or miss formats, and most real clips come from YouTube.
