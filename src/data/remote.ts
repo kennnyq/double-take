@@ -4,6 +4,7 @@
  * `node --test`.
  */
 import type { Clip, Verdict } from './clips';
+import { countsFor } from './counts.ts';
 
 /** One clip as `/feed` returns it: media fields are signed, absolute URLs. */
 export interface RemoteClip {
@@ -165,7 +166,8 @@ export function toCaption(title: string | null | undefined, author: string | nul
  * of the app keys on, so remote and placeholder clips share one id scheme.
  */
 export function toClip(r: RemoteClip, index: number): Clip {
-  const likes = Math.max(0, Math.round(r.source?.likes ?? 0));
+  // The source's likes when it has them; plausible stand-ins (stable per clip) when it doesn't.
+  const { likes, comments, shares } = countsFor(r.id, r.source?.likes);
   return {
     id: `clip-${index}`,
     sourceId: r.id,
@@ -176,9 +178,8 @@ export function toClip(r: RemoteClip, index: number): Clip {
     caption: toCaption(r.source?.title, r.source?.author),
     audio: 'Original audio',
     likes,
-    // The feed only knows likes; derive stable stand-ins for the other counts.
-    comments: Math.round(likes * 0.012),
-    shares: Math.round(likes * 0.03),
+    comments,
+    shares,
     aspect: r.width / r.height,
     tellsUrl: r.tells ?? undefined,
     tellsVariants: tellsVariants(r),

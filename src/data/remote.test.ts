@@ -82,7 +82,10 @@ test('toClip copes with missing source metadata', () => {
   const c = toClip({ ...CLIP, tells: null, source: undefined }, 0);
   assert.equal(c.author, 'unknown');
   assert.equal(c.caption, '');
-  assert.equal(c.likes, 0);
+  // No likes from the source: stable, plausible stand-ins instead of zeros.
+  assert.ok(c.likes > 0 && c.comments >= 0 && c.shares > 0);
+  const again = toClip({ ...CLIP, tells: null, source: undefined }, 5);
+  assert.deepEqual([c.likes, c.comments, c.shares], [again.likes, again.comments, again.shares]);
   assert.equal(c.tellsUrl, undefined);
   assert.equal(c.tellsVariants, undefined);
   assert.equal(toClip({ ...CLIP, tile: undefined }, 0).tile, undefined);
