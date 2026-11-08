@@ -10,8 +10,6 @@ import { loadPlayableClips } from './playable';
 // Registers Dev settings → Game; Settings is always in the bundle.
 import './devSection';
 import { useGameHistory } from './store';
-import { generalSkill, toScore } from '@/skills/skill';
-import { useSkillState } from '@/skills/store';
 
 /**
  * Whether the round can be offered. Production builds wait for enough clips of
@@ -101,34 +99,3 @@ const useTint = themed((c) => ({
   dim: { color: c.textDim },
 }));
 
-/** Settings → Play: the player's skill scores. */
-export function SkillsRow({ wide }: { wide: boolean }) {
-  const { skills, answers } = useSkillState();
-  const c = usePalette();
-  const tint = useTint();
-  const general = toScore(generalSkill(skills)).score;
-  return (
-    <Pressable
-      onPress={() => {
-        if (wide) closeSettings();
-        router.push('/game/skills');
-      }}
-      style={({ pressed, hovered }: { pressed: boolean; hovered?: boolean }) => [styles.row, styles.divider, (pressed || hovered) && styles.rowPressed]}
-      accessibilityRole="button"
-      accessibilityLabel={answers ? `Your skills. General score ${general}` : 'Your skills'}
-    >
-      <View style={[styles.icon, tint.iconQuiet]}>
-        <Ionicons name="stats-chart-outline" size={17} color={c.text} />
-      </View>
-      <View style={styles.text}>
-        <Text style={[styles.title, tint.text]}>Your skills</Text>
-      </View>
-      {answers > 0 && (
-        <View style={[styles.chip, tint.chip]}>
-          <Text style={[styles.chipText, tint.text]}>{general}</Text>
-        </View>
-      )}
-      <Ionicons name="chevron-forward" size={18} color={c.textDim} />
-    </Pressable>
-  );
-}

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { PlayRow, SkillsRow } from '@/game/PlayRow';
+import { PlayRow } from '@/game/PlayRow';
 import { themed, usePalette } from '@/ui/theme';
 import { feedModeOptions } from './feedModeOptions';
 import { gestureOptions } from './gesture';
@@ -88,7 +88,6 @@ export function SettingsContent({ wide, style }: { wide: boolean; style?: StyleP
       <Text style={styles.sectionTitle}>Play</Text>
       <View style={[styles.group, styles.playGroup, tint.group]}>
         <PlayRow wide={wide} />
-        <SkillsRow wide={wide} />
       </View>
 
       <Text style={styles.sectionTitle}>Feed mode</Text>

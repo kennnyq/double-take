@@ -1,15 +1,17 @@
-import { CircleUserRound, CloudUpload, House, LogIn, LogOut, Send, Settings, type LucideIcon } from 'lucide-react';
+import { ChartColumn, CircleUserRound, CloudUpload, House, LogIn, LogOut, Send, Settings, type LucideIcon } from 'lucide-react';
 import { openSignIn, signOutToChoice } from '@/auth/gate';
 import { useAuth, useMe } from '@/auth/store';
 import { Logo } from './Logo';
 
-export type DesktopTab = 'home' | 'messages' | 'create' | 'profile';
+export type DesktopTab = 'home' | 'messages' | 'create' | 'profile' | 'skills';
 
 export const NAV: { id: DesktopTab; label: string; icon: LucideIcon }[] = [
   { id: 'home', label: 'Home', icon: House },
   { id: 'messages', label: 'Messages', icon: Send },
   { id: 'create', label: 'Upload', icon: CloudUpload },
   { id: 'profile', label: 'Profile', icon: CircleUserRound },
+  // Its own route (`src/app/skills.tsx`): the rail stays, the main area changes.
+  { id: 'skills', label: 'Skills', icon: ChartColumn },
 ];
 
 /**

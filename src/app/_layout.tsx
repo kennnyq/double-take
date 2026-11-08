@@ -22,6 +22,8 @@ export default function RootLayout() {
       <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: '#000' } }}>
         {/* The phone's Settings tab: no slide or swipe-back, so it behaves like the other tabs. */}
         <Stack.Screen name="settings" options={{ animation: 'none', gestureEnabled: false }} />
+        {/* The Skills tab: the same, for the player's skill scores. */}
+        <Stack.Screen name="skills" options={{ animation: 'none', gestureEnabled: false }} />
       </Stack>
     </>
   );

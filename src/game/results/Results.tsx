@@ -148,6 +148,7 @@ export function Results({ done, designs, actions = true }: Props) {
             <SkillBars
               skills={done.skills.after}
               before={done.skills.before}
+              general={done.skills.overallAfter ? { now: done.skills.overallAfter, before: done.skills.overallBefore } : undefined}
               categories={SKILL_CATEGORIES.filter((c) => done.skills!.touched.includes(c) || scorable.includes(c))}
               touched={done.skills.touched}
               delay={Math.max(0, sched.total - 600)}
@@ -186,7 +187,7 @@ export function Results({ done, designs, actions = true }: Props) {
             >
               <Text style={[styles.primaryText, tint.primaryText]}>Play again</Text>
             </Pressable>
-            <Pressable onPress={() => router.push('/game/skills')} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">
+            <Pressable onPress={() => router.push('/skills')} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">
               <Text style={[styles.secondaryText, tint.dim]}>Your skills</Text>
             </Pressable>
             <Pressable onPress={backToFeed} style={({ pressed }) => [styles.secondary, pressed && styles.pressed]} accessibilityRole="button">

@@ -30,6 +30,10 @@ export default function SettingsTab() {
 
   const onTab = (tab: TabId) => {
     if (tab === 'settings') return;
+    if (tab === 'skills') {
+      router.replace('/skills');
+      return;
+    }
     requestTab(tab);
     if (router.canGoBack()) router.back();
     else router.replace('/');

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated } from 'react-native';
-import { useIsFocused } from 'expo-router';
+import { router, useIsFocused } from 'expo-router';
 import { Sparkles, type LucideIcon } from 'lucide-react';
 import { CommentsSheet } from '@/comments/CommentsSheet';
 import type { Clip } from '@/data/clips';
@@ -99,8 +99,8 @@ export function DesktopApp({
       <div className="desk">
         <Rail
           tab={tab}
-          // Create goes through the app's nav (a guest is asked to sign in first).
-          onTab={(t) => (t === 'create' ? openCreate() : setTab(t))}
+          // Create goes through the app's nav (a guest is asked to sign in first); Skills is a route of its own.
+          onTab={(t) => (t === 'create' ? openCreate() : t === 'skills' ? router.push('/skills') : setTab(t))}
           onLogo={onLogo ?? (() => setTab('home'))}
           settingsOpen={settingsOpen}
           onSettings={openSettings}

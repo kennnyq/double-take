@@ -1,7 +1,8 @@
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, View, useWindowDimensions, type LayoutChangeEvent } from 'react-native';
 import { router } from 'expo-router';
-import { Rail, requestDesktopTab } from '@/desktop/Rail';
+import { Rail, requestDesktopTab, type DesktopTab } from '@/desktop/Rail';
+import type { TabId } from '@/ui/TabBar';
 import { openSettings } from '@/settings/store';
 import { FrameContext, isDesktop, useGameScreen } from './frame';
 import { PhoneFrame } from './PhoneFrame';
@@ -16,13 +17,13 @@ export { leaveForTab } from './PhoneFrame';
  * rail as the feed; picking a tab there goes back to the app on that tab.
  * Narrow browsers get the phone's frame.
  */
-export function GameFrame({ children }: { children: ReactNode }) {
+export function GameFrame({ children, tab }: { children: ReactNode; tab?: TabId }) {
   const win = useWindowDimensions();
-  if (!isDesktop(win.width, win.height)) return <PhoneFrame>{children}</PhoneFrame>;
-  return <DesktopFrame>{children}</DesktopFrame>;
+  if (!isDesktop(win.width, win.height)) return <PhoneFrame tab={tab}>{children}</PhoneFrame>;
+  return <DesktopFrame railTab={tab === 'skills' ? 'skills' : null}>{children}</DesktopFrame>;
 }
 
-function DesktopFrame({ children }: { children: ReactNode }) {
+function DesktopFrame({ children, railTab }: { children: ReactNode; railTab: DesktopTab | null }) {
   useGameScreen();
   const win = useWindowDimensions();
   const [size, setSize] = useState({ width: win.width - 72, height: win.height });
@@ -34,8 +35,11 @@ function DesktopFrame({ children }: { children: ReactNode }) {
   return (
     <div className="desk">
       <Rail
-        tab={null}
+        tab={railTab}
         onTab={(t) => {
+          if (t === railTab) return;
+          // Skills is a route of its own; the other tabs are the app's, shown as it comes back.
+          if (t === 'skills') return router.replace('/skills');
           requestDesktopTab(t);
           back();
         }}

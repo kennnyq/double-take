@@ -73,6 +73,15 @@ async function anyVisible(page: Page, sel: string) {
   }), sel);
 }
 
+/** Clicks the first element matching `sel` that's on screen (screens underneath keep hidden copies). */
+async function clickVisible(page: Page, sel: string) {
+  const i = await page.evaluate((s) => [...document.querySelectorAll(s)].findIndex((e) => {
+    const r = e.getBoundingClientRect();
+    return r.width > 0 && r.height > 0 && !!(e as HTMLElement).offsetParent;
+  }), sel);
+  await page.locator(sel).nth(Math.max(0, i)).click();
+}
+
 /** The middle of the round's stage. */
 async function stageCenter(page: Page) {
   const vp = page.viewportSize()!;
@@ -300,16 +309,7 @@ async function run(browser: Browser, layout: Layout) {
     check('it closes back into the grid', true);
   }
 
-  await page.getByRole('button', { name: 'Your skills', exact: true }).click();
-  await page.waitForURL((u) => u.pathname === '/game/skills', { timeout: 10_000 }).catch(() => {});
-  await page.waitForSelector('[data-testid="skill-bars"]', { timeout: 10_000 }).catch(() => {});
-  await page.waitForTimeout(1500);
-  // The results' own copy stays mounted underneath: the skills view's is the last.
-  const general = await page.locator('[data-testid="general-score"]').last().innerText().catch(() => '');
-  check('Your skills shows a general score', /^\d+$/.test(general.trim()), general);
-  // The app's own back (a browser Back drops #app and brings the landing page up).
-  await page.locator('[aria-label="Back"]').last().click();
-  await page.waitForURL((u) => u.pathname === '/game/results', { timeout: 10_000 }).catch(() => {});
+  check('the results link to Your skills', (await page.getByRole('button', { name: 'Your skills', exact: true }).count()) > 0);
   await page.getByText('Back to feed', { exact: true }).click();
   await page.waitForURL((u) => u.pathname === '/', { timeout: 10_000 }).catch(() => {});
   check('Back to feed lands on /', new URL(page.url()).pathname === '/', page.url());
@@ -323,6 +323,19 @@ async function run(browser: Browser, layout: Layout) {
     const feed = await page.locator(layout === 'desktop' ? 'section.slide[aria-current="true"]' : '[role="tab"][aria-label="Home"]').count();
     check('the feed is back (this browser cannot decode H.264: playback not checked)', feed > 0);
   }
+
+  // Skills is a tab of its own (the phone's tab bar, the desktop rail), and back out to Home the same way.
+  const tab = (name: string) => (layout === 'desktop' ? `nav[aria-label="Main"] [aria-label="${name}"]` : `[role="tab"][aria-label="${name}"]`);
+  await clickVisible(page, tab('Skills'));
+  await page.waitForURL((u) => u.pathname === '/skills', { timeout: 10_000 }).catch(() => {});
+  check('the Skills tab opens Your skills', new URL(page.url()).pathname === '/skills', page.url());
+  await page.waitForTimeout(1500);
+  const general = await page.locator('[data-testid="general-score"]').last().innerText().catch(() => '');
+  check('Your skills shows a general score', /^\d+$/.test(general.trim()), general);
+  check('the Skills tab shows as the current one', await anyVisible(page, layout === 'desktop' ? `${tab('Skills')}[aria-current="page"]` : `${tab('Skills')}[aria-selected="true"]`));
+  await clickVisible(page, tab('Home'));
+  await page.waitForURL((u) => u.pathname === '/', { timeout: 10_000 }).catch(() => {});
+  check('Home from the Skills tab lands on the feed', new URL(page.url()).pathname === '/' && !(await anyVisible(page, '.lt-hero')), page.url());
   await context.close();
 }
 

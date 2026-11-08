@@ -6,7 +6,7 @@ import * as Haptics from 'expo-haptics';
 import { ownLayer } from '@/feed/layer';
 import { useFadeProgress } from '@/feed/motion';
 
-export type TabId = 'home' | 'create' | 'you' | 'settings';
+export type TabId = 'home' | 'create' | 'you' | 'skills' | 'settings';
 
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -14,6 +14,8 @@ export const TABS: { id: TabId; label: string; icon: IconName; iconActive: IconN
   { id: 'home', label: 'Home', icon: 'home-outline', iconActive: 'home' },
   { id: 'create', label: 'Upload', icon: 'cloud-upload-outline', iconActive: 'cloud-upload' },
   { id: 'you', label: 'You', icon: 'person-circle-outline', iconActive: 'person-circle' },
+  // Its own route (`src/app/skills.tsx`), like Settings.
+  { id: 'skills', label: 'Skills', icon: 'stats-chart-outline', iconActive: 'stats-chart' },
   // Its own route (`src/app/settings.tsx`); the others are views of the Home screen.
   { id: 'settings', label: 'Settings', icon: 'settings-outline', iconActive: 'settings' },
 ];

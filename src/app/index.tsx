@@ -88,6 +88,7 @@ function Screen({ startAt, onUpload, uploadOpen }: { startAt?: number; onUpload:
   const showTab = useCallback((t: TabId) => {
     if (t === 'create') onUpload();
     else if (t === 'settings') router.push('/settings');
+    else if (t === 'skills') router.push('/skills');
     else setTab(t);
   }, [onUpload]);
   const settingsAsked = useSettingsOpen();
